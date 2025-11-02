@@ -1,0 +1,379 @@
+/* Base reset and typography */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #fff;
+  background: #000;
+}
+
+/* START SCREEN */
+#startScreen {
+  position: absolute;
+  inset: 0;
+  background: #0a0a0a;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  z-index: 20;
+}
+
+#gameTitle {
+  font-size: 48px;
+  font-weight: 800;
+  color: #4ade80;
+  text-shadow: 0 0 15px #4ade80;
+}
+
+#startGraphicCanvas {
+  width: 80%;
+  max-width: 420px;
+  height: 200px;
+  background: #000;
+  border-radius: 8px;
+  border: 2px solid #4ade80;
+}
+
+.menuRow {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.menuButton {
+  padding: 12px 28px;
+  font-size: 18px;
+  font-weight: 800;
+  background: #4ade80;
+  color: #000;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.menuButton:hover {
+  background: #fff;
+  box-shadow: 0 0 15px #fff;
+}
+.menuSecondary {
+  background: #1f2937;
+  color: #fff;
+  border: 1px solid #374151;
+}
+
+/* GAME */
+#gameContainer {
+  position: absolute;
+  inset: 0;
+  display: none;
+  z-index: 10;
+}
+
+#gameCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  z-index: 1;
+}
+
+/* HUD */
+#uiPanel, #leftControls, #rightControls {
+  position: absolute;
+  z-index: 3;
+  opacity: 0.92;
+}
+
+#uiPanel {
+  top: 12px;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(0,0,0,0.5);
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.25);
+}
+
+.ui-stat-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.ui-text-label {
+  font-size: 12px;
+  color: #bbb;
+}
+
+.ui-text-value {
+  font-size: 16px;
+  min-width: 36px;
+  text-align: right;
+}
+
+.ui-bar-container {
+  width: 100px;
+  height: 14px;
+  background: rgba(0,0,0,0.35);
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.2);
+}
+
+.ui-bar-fill {
+  height: 100%;
+  width: 100%;
+  border-radius: 4px;
+  transition: width 0.12s ease-out;
+}
+
+#healthBar {
+  background: #28a745;
+}
+
+#ammoBar {
+  background: #ffc107;
+}
+
+#creditsBadge {
+  margin-left: 6px;
+  padding: 4px 8px;
+  border-radius: 9999px;
+  border: 1px solid #374151;
+  background: #111827;
+  font-weight: 800;
+  font-size: 12px;
+}
+
+/* Pause hint */
+#pauseHint {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 3;
+  background: rgba(0,0,0,0.5);
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 10px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+/* Controls */
+#leftControls {
+  bottom: 20px;
+  left: 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+#rightControls {
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-direction: row;
+}
+
+.joystickBase {
+  position: relative;
+  width: 84px;
+  height: 84px;
+  background: rgba(0,0,0,0.3);
+  border-radius: 50%;
+  border: 2px solid rgba(0,0,0,0.5);
+}
+
+.joystickStick {
+  position: absolute;
+  width: 42px;
+  height: 42px;
+  background: rgba(255,255,255,0.5);
+  border-radius: 50%;
+  top: 21px;
+  left: 21px;
+  transform: translate(0,0);
+}
+
+#joystickShootBase {
+  background: rgba(255,0,0,0.2);
+  border-color: rgba(255,100,100,0.4);
+}
+
+#joystickShootStick {
+  background: rgba(255,0,0,0.5);
+}
+
+#boostButton {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: none;
+  background: radial-gradient(circle, #41ff41, #0c0);
+  color: #012;
+  font-weight: 900;
+  font-size: 10px;
+}
+
+/* Message box */
+#messageBox {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0,0,0,0.88);
+  border: 2px solid #fff;
+  border-radius: 12px;
+  padding: 24px;
+  text-align: center;
+  font-size: 22px;
+  display: none;
+  z-index: 100;
+  min-width: 280px;
+}
+
+#messageTitle {
+  font-size: 28px;
+  font-weight: 900;
+  color: #4ade80;
+  margin-bottom: 8px;
+}
+
+#messageText {
+  font-size: 16px;
+  margin-bottom: 16px;
+  color: #ddd;
+}
+
+#messageButton {
+  padding: 10px 20px;
+  font-size: 16px;
+  font-weight: 800;
+  background: #4ade80;
+  color: #000;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* Shop modal */
+#shopModal {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+#shopCard {
+  background: rgba(15,15,15,0.95);
+  border: 1px solid #2f2f2f;
+  border-radius: 14px;
+  width: min(820px, 92vw);
+  max-height: 86vh;
+  overflow: auto;
+  padding: 16px;
+}
+
+#shopHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+#shopTitle {
+  font-weight: 900;
+  font-size: 22px;
+}
+
+#closeShop {
+  background: #111827;
+  color: #fff;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.shopCredits {
+  font-weight: 900;
+  background: #111827;
+  border: 1px solid #374151;
+  border-radius: 9999px;
+  padding: 6px 10px;
+}
+
+.shopGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.item {
+  border: 1px solid #2a2a2a;
+  border-radius: 10px;
+  padding: 12px;
+  background: #0b0b0b;
+}
+
+.item h4 {
+  margin-bottom: 6px;
+}
+
+.item p {
+  font-size: 12px;
+  color: #bbb;
+  min-height: 32px;
+}
+
+.tags {
+  font-size: 11px;
+  color: #9ca3af;
+  margin: 6px 0;
+}
+
+.buyRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.btnBuy {
+  background: #4ade80;
+  color: #000;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.btnBuy[disabled] {
+  background: #384a3f;
+  color: #9daea3;
+  cursor: not-allowed;
+}

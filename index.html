@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>VOID RIFT</title>
+  <!-- Link external styles -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- START SCREEN -->
+  <div id="startScreen">
+    <div id="gameTitle">VOID RIFT</div>
+    <canvas id="startGraphicCanvas"></canvas>
+    <div class="menuRow">
+      <button id="startButton" class="menuButton">Start Game</button>
+      <button id="openShopFromStart" class="menuButton menuSecondary">Upgrades / Shop</button>
+      <button id="settingsButton" class="menuButton menuSecondary">Settings</button>
+    </div>
+  </div>
+
+  <!-- GAME CONTAINER -->
+  <div id="gameContainer">
+    <canvas id="gameCanvas"></canvas>
+    
+    <!-- HUD -->
+    <div id="uiPanel">
+      <div class="ui-stat-row"><span class="ui-text-label">Score:</span><span id="scoreValue" class="ui-text-value">0</span></div>
+      <div class="ui-stat-row"><span class="ui-text-label">Level:</span><span id="levelValue" class="ui-text-value">1</span></div>
+      <div class="ui-stat-row"><span class="ui-text-label">HP:</span>
+        <div class="ui-bar-container"><div id="healthBar" class="ui-bar-fill"></div></div>
+      </div>
+      <div class="ui-stat-row"><span class="ui-text-label">Ammo:</span>
+        <div class="ui-bar-container"><div id="ammoBar" class="ui-bar-fill"></div></div>
+      </div>
+      <div id="creditsBadge">₵ <span id="creditsText">0</span></div>
+    </div>
+    <div id="pauseHint">P = Pause / Shop</div>
+    
+    <!-- MOBILE CONTROLS -->
+    <div id="leftControls">
+      <div id="joystickMoveBase" class="joystickBase"><div id="joystickMoveStick" class="joystickStick"></div></div>
+    </div>
+    <div id="rightControls">
+      <!-- Place boost button on the right side next to shoot joystick -->
+      <button id="boostButton" class="actionButton">BOOST</button>
+      <div id="joystickShootBase" class="joystickBase"><div id="joystickShootStick" class="joystickStick"></div></div>
+    </div>
+    
+    <!-- MESSAGE BOX FOR LEVELS/GAME OVER -->
+    <div id="messageBox">
+      <div id="messageTitle">LEVEL 1</div>
+      <div id="messageText">Kill 10 enemies to advance!</div>
+      <button id="messageButton">Start</button>
+    </div>
+  </div>
+
+  <!-- SHOP MODAL -->
+  <div id="shopModal">
+    <div id="shopCard">
+      <div id="shopHeader">
+        <div id="shopTitle">Upgrades &amp; Mods</div>
+        <div>
+          <span class="shopCredits">₵ <span id="shopCredits">0</span></span>
+          <button id="closeShop">Close</button>
+        </div>
+      </div>
+      <div class="shopGrid" id="shopGrid"></div>
+    </div>
+  </div>
+
+  <!-- Include external script -->
+  <script type="module" src="script.js"></script>
+</body>
+</html>
