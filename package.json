@@ -1,0 +1,9 @@
+{
+  "name": "void-rift",
+  "version": "0.1.0",
+  "description": "VOID RIFT — HTML5 canvas shooter prototype",
+  "scripts": {
+    "start": "npx live-server --port=5173 --open=./index.html"
+  },
+  "devDependencies": {}
+}
