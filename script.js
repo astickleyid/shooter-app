@@ -783,7 +783,7 @@
 
   /* ====== ENTITY CLASSES ====== */
   class Bullet {
-    constructor(x, y, vel, damage, color = '#fde047', speed = BASE.BULLET_SPEED, size = BASE.BULLET_SIZE, pierce = 0) {
+    constructor(x, y, vel, damage, color = '#fde047', speed = BASE.BULLET_SPEED, size = BASE.BULLET_SIZE, pierce = 0, isEnemy = false) {
       this.x = x;
       this.y = y;
       this.size = size;
@@ -794,12 +794,52 @@
       this.color = color;
       this.speed = speed;
       this.pierce = pierce;
+      this.isEnemy = isEnemy;
     }
     draw(ctx) {
-      ctx.fillStyle = this.color;
-      ctx.beginPath();
-      ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-      ctx.fill();
+      if (this.isEnemy) {
+        // Enemy bullets: glowing red plasma orbs
+        ctx.shadowColor = '#dc2626';
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = '#dc2626';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size * 1.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        
+        // Inner core
+        ctx.fillStyle = '#fca5a5';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size * 0.6, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        // Player bullets: bright energy bolts with trail
+        ctx.shadowColor = this.color;
+        ctx.shadowBlur = 6;
+        ctx.fillStyle = this.color;
+        
+        // Elongated bullet shape
+        const angle = Math.atan2(this.vel.y, this.vel.x);
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(angle);
+        
+        // Draw elongated diamond
+        ctx.beginPath();
+        ctx.moveTo(this.size * 2, 0);
+        ctx.lineTo(0, -this.size);
+        ctx.lineTo(-this.size, 0);
+        ctx.lineTo(0, this.size);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Bright core
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(-this.size * 0.5, -this.size * 0.4, this.size, this.size * 0.8);
+        
+        ctx.restore();
+        ctx.shadowBlur = 0;
+      }
     }
     update(dt) {
       const step = dt / 16.67;
@@ -825,59 +865,125 @@
       this.size = BASE.ENEMY_SIZE * (kind === 'heavy' ? 1.45 : kind === 'swarmer' ? 0.9 : 1);
       this.speed = BASE.ENEMY_SPEED * (kind === 'heavy' ? 0.85 : kind === 'swarmer' ? 1.45 : 1.05);
       this.health = kind === 'heavy' ? 3 : 1;
+      this.animPhase = Math.random() * Math.PI * 2;
     }
     draw(ctx) {
       ctx.save();
       ctx.translate(this.x, this.y);
       ctx.rotate(this.rot);
+      
+      const pulse = Math.sin(performance.now() / 180 + this.animPhase) * 0.15 + 1;
+      
       if (this.kind === 'chaser') {
-        ctx.fillStyle = '#ef4444';
-        ctx.strokeStyle = '#fecaca';
+        // Alien organic creature - purple/magenta insectoid
+        ctx.fillStyle = '#a21caf';
+        ctx.strokeStyle = '#e879f9';
         ctx.lineWidth = 2;
+        
+        // Main body - organic oval
         ctx.beginPath();
-        ctx.moveTo(this.size, 0);
-        ctx.lineTo(-this.size * 0.6, -this.size * 0.6);
-        ctx.lineTo(-this.size * 0.3, 0);
-        ctx.lineTo(-this.size * 0.6, this.size * 0.6);
-        ctx.closePath();
+        ctx.ellipse(0, 0, this.size * 1.2 * pulse, this.size * 0.8 * pulse, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
+        
+        // Mandibles/claws
+        ctx.strokeStyle = '#d946ef';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(this.size * 0.8, -this.size * 0.5);
+        ctx.lineTo(this.size * 1.4, -this.size * 0.8);
+        ctx.moveTo(this.size * 0.8, this.size * 0.5);
+        ctx.lineTo(this.size * 1.4, this.size * 0.8);
+        ctx.stroke();
+        
+        // Eyes
+        ctx.fillStyle = '#fef08a';
+        ctx.beginPath();
+        ctx.arc(this.size * 0.3, -this.size * 0.3, this.size * 0.2, 0, Math.PI * 2);
+        ctx.arc(this.size * 0.3, this.size * 0.3, this.size * 0.2, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Pupils
+        ctx.fillStyle = '#dc2626';
+        ctx.beginPath();
+        ctx.arc(this.size * 0.35, -this.size * 0.3, this.size * 0.1, 0, Math.PI * 2);
+        ctx.arc(this.size * 0.35, this.size * 0.3, this.size * 0.1, 0, Math.PI * 2);
+        ctx.fill();
+        
       } else if (this.kind === 'heavy') {
-        ctx.fillStyle = '#b91c1c';
-        ctx.strokeStyle = '#fda4af';
-        ctx.lineWidth = 2.5;
+        // Heavy tank - green crystalline structure
+        ctx.fillStyle = '#15803d';
+        ctx.strokeStyle = '#86efac';
+        ctx.lineWidth = 3;
+        
+        // Central crystal body
         ctx.beginPath();
-        ctx.moveTo(this.size * 1.1, 0);
-        ctx.lineTo(-this.size * 0.8, -this.size * 0.9);
-        ctx.lineTo(-this.size * 0.5, 0);
-        ctx.lineTo(-this.size * 0.8, this.size * 0.9);
+        ctx.moveTo(this.size * 1.2, 0);
+        ctx.lineTo(this.size * 0.4, -this.size);
+        ctx.lineTo(-this.size * 0.8, -this.size * 0.7);
+        ctx.lineTo(-this.size * 1.1, 0);
+        ctx.lineTo(-this.size * 0.8, this.size * 0.7);
+        ctx.lineTo(this.size * 0.4, this.size);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
-        ctx.strokeStyle = 'rgba(255,255,255,0.25)';
-        ctx.beginPath();
-        ctx.moveTo(-this.size * 0.4, -this.size * 0.6);
-        ctx.lineTo(this.size * 0.4, -this.size * 0.2);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(-this.size * 0.4, this.size * 0.6);
-        ctx.lineTo(this.size * 0.4, this.size * 0.2);
-        ctx.stroke();
-      } else {
-        const pulse = 0.8 + Math.sin(performance.now() / 120) / 5;
-        ctx.fillStyle = '#f97316';
-        ctx.strokeStyle = '#ffd7aa';
+        
+        // Inner crystal facets
+        ctx.strokeStyle = '#4ade80';
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.ellipse(0, 0, this.size * pulse, this.size * 0.7 * pulse, 0, 0, Math.PI * 2);
+        ctx.moveTo(this.size * 0.4, -this.size * 0.6);
+        ctx.lineTo(-this.size * 0.4, -this.size * 0.4);
+        ctx.lineTo(-this.size * 0.4, this.size * 0.4);
+        ctx.lineTo(this.size * 0.4, this.size * 0.6);
+        ctx.stroke();
+        
+        // Glowing core
+        ctx.fillStyle = '#bbf7d0';
+        ctx.shadowColor = '#22c55e';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size * 0.4 * pulse, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        
+      } else {
+        // Swarmer - orange/yellow bio-energy blob
+        ctx.fillStyle = '#ea580c';
+        ctx.strokeStyle = '#fb923c';
+        ctx.lineWidth = 2;
+        
+        // Amoeba-like body
+        ctx.beginPath();
+        for (let i = 0; i < 8; i++) {
+          const angle = (i / 8) * Math.PI * 2;
+          const wobble = Math.sin(performance.now() / 100 + i + this.animPhase) * 0.2 + 0.9;
+          const r = this.size * wobble * pulse;
+          const x = Math.cos(angle) * r;
+          const y = Math.sin(angle) * r * 0.8;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
         ctx.fill();
         ctx.stroke();
-        ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+        
+        // Nucleus spots
+        ctx.fillStyle = '#fef08a';
+        ctx.beginPath();
+        ctx.arc(-this.size * 0.2, -this.size * 0.15, this.size * 0.2, 0, Math.PI * 2);
+        ctx.arc(this.size * 0.1, this.size * 0.2, this.size * 0.15, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Pulsing tendrils
+        ctx.strokeStyle = '#fdba74';
+        ctx.lineWidth = 2;
         for (let i = 0; i < 4; i++) {
-          const a = (i * Math.PI) / 2;
+          const a = (i * Math.PI) / 2 + this.rot;
+          const extend = Math.sin(performance.now() / 150 + i) * 0.3 + 0.7;
           ctx.beginPath();
           ctx.moveTo(Math.cos(a) * this.size * 0.6, Math.sin(a) * this.size * 0.6);
-          ctx.lineTo(Math.cos(a) * this.size * 1.1, Math.sin(a) * this.size * 1.1);
+          ctx.lineTo(Math.cos(a) * this.size * (1 + extend), Math.sin(a) * this.size * (1 + extend));
           ctx.stroke();
         }
       }
