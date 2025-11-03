@@ -251,15 +251,12 @@ html, body {
 }
 
 #centerControls {
-  position: absolute;
   bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: 8px;
-  z-index: 3;
-  opacity: 0.95;
 }
 
 #rightControls {
