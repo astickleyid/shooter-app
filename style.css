@@ -1,0 +1,631 @@
+/* Base reset and typography */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #fff;
+  background: #000;
+}
+
+/* START SCREEN */
+#startScreen {
+  position: absolute;
+  inset: 0;
+  background: #0a0a0a;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 18px;
+  z-index: 20;
+}
+
+#gameTitle {
+  font-size: 48px;
+  font-weight: 800;
+  color: #4ade80;
+  text-shadow: 0 0 15px #4ade80;
+}
+
+#startGraphicCanvas {
+  width: 80%;
+  max-width: 420px;
+  height: 200px;
+  background: #000;
+  border-radius: 8px;
+  border: 2px solid #4ade80;
+}
+
+.menuRow {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.menuButton {
+  padding: 12px 28px;
+  font-size: 18px;
+  font-weight: 800;
+  background: #4ade80;
+  color: #000;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.menuButton:hover {
+  background: #fff;
+  box-shadow: 0 0 15px #fff;
+}
+.menuSecondary {
+  background: #1f2937;
+  color: #fff;
+  border: 1px solid #374151;
+}
+
+/* GAME */
+#gameContainer {
+  position: absolute;
+  inset: 0;
+  display: none;
+  z-index: 10;
+}
+
+#gameCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  z-index: 1;
+}
+
+/* HUD */
+#uiPanel, #leftControls, #rightControls {
+  position: absolute;
+  z-index: 3;
+  opacity: 0.92;
+}
+
+#uiPanel {
+  top: 12px;
+  left: 12px;
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 10px;
+  background: rgba(0,0,0,0.5);
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.25);
+}
+
+.ui-stat-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.ui-text-label {
+  font-size: 12px;
+  color: #bbb;
+}
+
+.ui-text-value {
+  font-size: 16px;
+  min-width: 36px;
+  text-align: right;
+}
+
+.ui-bar-container {
+  width: 100px;
+  height: 14px;
+  background: rgba(0,0,0,0.35);
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.2);
+}
+
+.ui-bar-fill {
+  height: 100%;
+  width: 100%;
+  border-radius: 4px;
+  transition: width 0.12s ease-out;
+}
+
+#xpBar {
+  background: #38bdf8;
+}
+
+.ui-bar-container.xp {
+  width: 140px;
+}
+
+.ui-bar-container.ult {
+  width: 140px;
+  border: 1px solid rgba(250, 204, 21, 0.45);
+}
+
+#ultBar {
+  background: linear-gradient(90deg, #f97316 0%, #facc15 55%, #f97316 100%);
+}
+
+#ultText {
+  color: #fde68a;
+}
+
+.loadoutRow {
+  gap: 6px;
+}
+
+#healthBar {
+  background: #28a745;
+}
+
+#ammoBar {
+  background: #ffc107;
+}
+
+#creditsBadge {
+  margin-left: 6px;
+  padding: 4px 8px;
+  border-radius: 9999px;
+  border: 1px solid #374151;
+  background: #111827;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.creditLabel {
+  letter-spacing: 0.08em;
+  color: #f8fafc;
+}
+
+/* Pause hint */
+#pauseHint {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 3;
+  background: rgba(0,0,0,0.5);
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 10px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+/* Controls */
+#leftControls {
+  bottom: 20px;
+  left: 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+#rightControls {
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.joystickBase {
+  position: relative;
+  width: 84px;
+  height: 84px;
+  background: rgba(0,0,0,0.3);
+  border-radius: 50%;
+  border: 2px solid rgba(0,0,0,0.5);
+}
+
+.joystickStick {
+  position: absolute;
+  width: 42px;
+  height: 42px;
+  background: rgba(255,255,255,0.5);
+  border-radius: 50%;
+  top: 21px;
+  left: 21px;
+  transform: translate(0,0);
+}
+
+#joystickShootBase {
+  background: rgba(255,0,0,0.2);
+  border-color: rgba(255,100,100,0.4);
+}
+
+#joystickShootStick {
+  background: rgba(255,0,0,0.5);
+}
+
+#boostButton {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: none;
+  background: radial-gradient(circle, #41ff41, #0c0);
+  color: #012;
+  font-weight: 900;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.actionButton {
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: rgba(30, 41, 59, 0.92);
+  color: #e2e8f0;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+  text-transform: uppercase;
+}
+
+.actionButton:hover,
+.actionButton:active {
+  background: rgba(59,130,246,0.85);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.actionButton.ultimate {
+  background: linear-gradient(135deg, rgba(236,72,153,0.85), rgba(245,158,11,0.85));
+  border: 1px solid rgba(245,158,11,0.55);
+  color: #fff;
+}
+
+.actionButton.ultimate:hover,
+.actionButton.ultimate:active {
+  background: linear-gradient(135deg, rgba(249,115,22,0.95), rgba(234,179,8,0.95));
+}
+
+/* Message box */
+#messageBox {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0,0,0,0.88);
+  border: 2px solid #fff;
+  border-radius: 12px;
+  padding: 24px;
+  text-align: center;
+  font-size: 22px;
+  display: none;
+  z-index: 100;
+  min-width: 280px;
+}
+
+#messageTitle {
+  font-size: 28px;
+  font-weight: 900;
+  color: #4ade80;
+  margin-bottom: 8px;
+}
+
+#messageText {
+  font-size: 16px;
+  margin-bottom: 16px;
+  color: #ddd;
+}
+
+#messageButton {
+  padding: 10px 20px;
+  font-size: 16px;
+  font-weight: 800;
+  background: #4ade80;
+  color: #000;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* Shop modal */
+#shopModal {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+#shopCard {
+  background: rgba(15,15,15,0.95);
+  border: 1px solid #2f2f2f;
+  border-radius: 14px;
+  width: min(820px, 92vw);
+  max-height: 86vh;
+  overflow: auto;
+  padding: 16px;
+}
+
+#shopHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+#shopTitle {
+  font-weight: 900;
+  font-size: 22px;
+}
+
+#closeShop {
+  background: #111827;
+  color: #fff;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.secondaryBtn {
+  background: #1f2a44;
+  color: #bfdbfe;
+  border: 1px solid #1d4ed8;
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  margin-right: 8px;
+}
+
+#openHangarFromShop.secondaryBtn:hover,
+.secondaryBtn:hover {
+  background: #1d4ed8;
+  color: #fff;
+}
+
+.shopHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.shopCredits {
+  font-weight: 900;
+  background: #111827;
+  border: 1px solid #374151;
+  border-radius: 9999px;
+  padding: 6px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  letter-spacing: 0.05em;
+}
+
+.shopGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.item {
+  border: 1px solid #2a2a2a;
+  border-radius: 10px;
+  padding: 12px;
+  background: #0b0b0b;
+}
+
+.item h4 {
+  margin-bottom: 6px;
+}
+
+/* HANGAR */
+#hangarModal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 30;
+  padding: 20px;
+}
+
+#hangarCard {
+  background: #020617;
+  border: 1px solid #1d4ed8;
+  border-radius: 16px;
+  width: min(960px, 100%);
+  max-height: calc(100vh - 60px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 40px rgba(15,23,42,0.6);
+}
+
+#hangarHeader {
+  padding: 18px 20px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+#hangarTitle {
+  font-weight: 900;
+  font-size: 24px;
+  letter-spacing: 0.06em;
+}
+
+#closeHangar {
+  background: #111827;
+  color: #fff;
+  border: 1px solid #1d4ed8;
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+#hangarGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  padding: 12px 20px 24px;
+  overflow-y: auto;
+}
+
+.hangarSectionHeader {
+  grid-column: 1 / -1;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  font-size: 14px;
+  text-transform: uppercase;
+  color: #94a3b8;
+  margin-top: 18px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid rgba(59,130,246,0.25);
+  padding-bottom: 4px;
+}
+
+.hangarShip {
+  background: linear-gradient(145deg, rgba(15,23,42,0.95), rgba(30,41,59,0.92));
+  border: 1px solid rgba(59,130,246,0.35);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.hangarShip:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 28px rgba(37,99,235,0.25);
+  border-color: rgba(148,163,184,0.8);
+}
+
+.hangarShip.selected {
+  border-color: #fbbf24;
+  box-shadow: 0 0 0 2px rgba(251,191,36,0.35);
+}
+
+.shipPreview {
+  width: 160px;
+  height: 120px;
+  display: block;
+  border-radius: 12px;
+  background: radial-gradient(circle at center, rgba(30,64,175,0.4), rgba(15,23,42,0.95));
+  border: 1px solid rgba(59,130,246,0.4);
+  align-self: center;
+}
+
+.shipMeta h3 {
+  font-size: 18px;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.shipMeta p {
+  font-size: 13px;
+  line-height: 1.4;
+  opacity: 0.75;
+}
+
+.shipStats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.shipStats span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.shipStats strong {
+  color: #bfdbfe;
+}
+
+.hangarShip button {
+  align-self: flex-start;
+  background: #1d4ed8;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+.hangarShip button:disabled {
+  background: #1e293b;
+  color: #94a3b8;
+  cursor: default;
+}
+
+.armoryCard {
+  background: linear-gradient(155deg, rgba(17,24,39,0.95), rgba(30,41,59,0.88));
+}
+
+.weaponPreview {
+  height: 110px;
+  border-color: rgba(59,130,246,0.45);
+}
+
+.item p {
+  font-size: 12px;
+  color: #bbb;
+  min-height: 32px;
+}
+
+.tags {
+  font-size: 11px;
+  color: #9ca3af;
+  margin: 6px 0;
+}
+
+.buyRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.btnBuy {
+  background: #4ade80;
+  color: #000;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.btnBuy[disabled] {
+  background: #384a3f;
+  color: #9daea3;
+  cursor: not-allowed;
+}
