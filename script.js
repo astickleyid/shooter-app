@@ -862,8 +862,10 @@
       this.y = y;
       this.kind = kind;
       this.rot = 0;
-      this.size = BASE.ENEMY_SIZE * (kind === 'heavy' ? 1.45 : kind === 'swarmer' ? 0.9 : 1);
-      this.speed = BASE.ENEMY_SPEED * (kind === 'heavy' ? 0.85 : kind === 'swarmer' ? 1.45 : 1.05);
+      const sizeMap = { heavy: 1.45, swarmer: 0.9, drone: 0.75 };
+      this.size = BASE.ENEMY_SIZE * (sizeMap[kind] || 1);
+      const speedMap = { heavy: 0.85, swarmer: 1.45, drone: 1.2 };
+      this.speed = BASE.ENEMY_SPEED * (speedMap[kind] || 1.05);
       this.health = kind === 'heavy' ? 3 : 1;
       this.animPhase = Math.random() * Math.PI * 2;
     }
@@ -874,7 +876,21 @@
       
       const pulse = Math.sin(performance.now() / 180 + this.animPhase) * 0.15 + 1;
       
-      if (this.kind === 'chaser') {
+      if (this.kind === 'drone') {
+        // Basic red triangle drone
+        ctx.fillStyle = '#ef4444';
+        ctx.strokeStyle = '#fecaca';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(this.size, 0);
+        ctx.lineTo(-this.size * 0.6, -this.size * 0.6);
+        ctx.lineTo(-this.size * 0.3, 0);
+        ctx.lineTo(-this.size * 0.6, this.size * 0.6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        
+      } else if (this.kind === 'chaser') {
         // Alien organic creature - purple/magenta insectoid
         ctx.fillStyle = '#a21caf';
         ctx.strokeStyle = '#e879f9';
@@ -1132,7 +1148,8 @@
     spawn() {
       if (!player) return;
       const roll = Math.random();
-      const kind = roll < 0.15 ? 'heavy' : roll > 0.75 ? 'swarmer' : 'chaser';
+      // Add basic drones (50%), reduce complex enemies for performance
+      const kind = roll < 0.1 ? 'heavy' : roll < 0.3 ? 'swarmer' : roll < 0.5 ? 'chaser' : 'drone';
       const dir = Math.atan2(player.y - this.y, player.x - this.x);
       const dist = 70;
       const jitter = rand(-40, 40);
@@ -2073,7 +2090,7 @@
     if (!tookDamageThisLevel) addXP(110 + level * 18);
     level += 1;
     enemiesKilled = 0;
-    enemiesToKill = 8 + level * 6;
+    enemiesToKill = Math.floor(6 + level * 4.5);
     enemies = [];
     bullets = [];
     coins = [];
@@ -2151,7 +2168,7 @@
     level = lvl;
     if (resetScore) score = 0;
     enemiesKilled = 0;
-    enemiesToKill = 8 + level * 6;
+    enemiesToKill = Math.floor(6 + level * 4.5);
     const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
     dom.canvas.width = Math.floor(window.innerWidth * dpr);
     dom.canvas.height = Math.floor(window.innerHeight * dpr);
@@ -2330,6 +2347,20 @@
     }
     dom.openShopFromStart?.addEventListener('click', openShop);
     dom.settingsButton?.addEventListener('click', openHangar);
+    
+    // Pause button for mobile
+    const pauseBtn = document.getElementById('pauseButton');
+    if (pauseBtn) {
+      pauseBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        togglePause();
+      });
+      pauseBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        togglePause();
+      }, { passive: false });
+    }
+    
     dom.closeShopBtn?.addEventListener('click', () => {
       closeShop();
       if (!gameRunning && dom.gameContainer?.style.display === 'block') requestAnimationFrame(() => {});
