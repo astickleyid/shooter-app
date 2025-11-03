@@ -2252,7 +2252,6 @@
     openShop,
     openHangar
   };
-})();
 
   /* ====== INPUT ====== */
   const triggerSecondary = () => {
@@ -2500,3 +2499,4 @@
       }
     });
   };
+})();
