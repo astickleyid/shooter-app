@@ -18,13 +18,15 @@
     BULLET_SIZE: 4,
     BULLET_SPEED: 8.2,
     ENEMY_SIZE: 12,
-    ENEMY_SPEED: 1.25,
-    ENEMY_DAMAGE: 10,
+    ENEMY_SPEED: 1.35,
+    ENEMY_DAMAGE: 12,
     COIN_SIZE: 8,
     COIN_LIFETIME: 8000,
     SPAWNER_SIZE: 80,
-    SPAWNER_RATE_MS: 2000,
-    OBST_ASTEROIDS: 6
+    SPAWNER_RATE_MS: 1500,
+    OBST_ASTEROIDS: 6,
+    INITIAL_SPAWN_DELAY_MIN: 4000,
+    INITIAL_SPAWN_DELAY_MAX: 7000
   };
 
   const SHIP_TEMPLATES = [
@@ -271,10 +273,7 @@
     dom.joystickMoveStick = document.getElementById('joystickMoveStick');
     dom.joystickShootBase = document.getElementById('joystickShootBase');
     dom.joystickShootStick = document.getElementById('joystickShootStick');
-    dom.boostButton = document.getElementById('boostButton');
-    dom.secondaryButton = document.getElementById('secondaryButton');
-    dom.defenseButton = document.getElementById('defenseButton');
-    dom.ultimateButton = document.getElementById('ultimateButton');
+    dom.actionButton = document.getElementById('actionButton');
     dom.shopModal = document.getElementById('shopModal');
     dom.shopGrid = document.getElementById('shopGrid');
     dom.shopCreditsText = document.getElementById('shopCredits');
@@ -313,9 +312,13 @@
   let pilotXP = 0;
   let tookDamageThisLevel = false;
   let gameOverHandled = false;
+  let countdownActive = false;
+  let countdownValue = 3;
+  let countdownEnd = 0;
   const camera = { x: 0, y: 0 };
 
   let currentShip = null;
+  let actionMode = 0; // 0=boost, 1=bomb, 2=shield, 3=ult
 
   const input = {
     moveX: 0,
@@ -876,6 +879,10 @@
       
       const pulse = Math.sin(performance.now() / 180 + this.animPhase) * 0.15 + 1;
       
+      // Enemy indicator - subtle glow effect
+      ctx.shadowColor = '#dc2626';
+      ctx.shadowBlur = 12;
+      
       if (this.kind === 'drone') {
         // Basic red triangle drone
         ctx.fillStyle = '#ef4444';
@@ -912,14 +919,17 @@
         ctx.lineTo(this.size * 1.4, this.size * 0.8);
         ctx.stroke();
         
-        // Eyes
-        ctx.fillStyle = '#fef08a';
+        // Eyes - glowing red for enemy indicator
+        ctx.shadowColor = '#ef4444';
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = '#ef4444';
         ctx.beginPath();
         ctx.arc(this.size * 0.3, -this.size * 0.3, this.size * 0.2, 0, Math.PI * 2);
         ctx.arc(this.size * 0.3, this.size * 0.3, this.size * 0.2, 0, Math.PI * 2);
         ctx.fill();
         
         // Pupils
+        ctx.shadowBlur = 0;
         ctx.fillStyle = '#dc2626';
         ctx.beginPath();
         ctx.arc(this.size * 0.35, -this.size * 0.3, this.size * 0.1, 0, Math.PI * 2);
@@ -927,7 +937,7 @@
         ctx.fill();
         
       } else if (this.kind === 'heavy') {
-        // Heavy tank - green crystalline structure
+        // Heavy tank - green crystalline structure with red core
         ctx.fillStyle = '#15803d';
         ctx.strokeStyle = '#86efac';
         ctx.lineWidth = 3;
@@ -954,14 +964,13 @@
         ctx.lineTo(this.size * 0.4, this.size * 0.6);
         ctx.stroke();
         
-        // Glowing core
-        ctx.fillStyle = '#bbf7d0';
-        ctx.shadowColor = '#22c55e';
-        ctx.shadowBlur = 10;
+        // Glowing red core for enemy indicator
+        ctx.fillStyle = '#ef4444';
+        ctx.shadowColor = '#dc2626';
+        ctx.shadowBlur = 12;
         ctx.beginPath();
-        ctx.arc(0, 0, this.size * 0.4 * pulse, 0, Math.PI * 2);
+        ctx.arc(0, 0, this.size * 0.35 * pulse, 0, Math.PI * 2);
         ctx.fill();
-        ctx.shadowBlur = 0;
         
       } else {
         // Swarmer - orange/yellow bio-energy blob
@@ -984,14 +993,17 @@
         ctx.fill();
         ctx.stroke();
         
-        // Nucleus spots
-        ctx.fillStyle = '#fef08a';
+        // Red nucleus spots for enemy indicator
+        ctx.fillStyle = '#ef4444';
+        ctx.shadowColor = '#dc2626';
+        ctx.shadowBlur = 8;
         ctx.beginPath();
         ctx.arc(-this.size * 0.2, -this.size * 0.15, this.size * 0.2, 0, Math.PI * 2);
         ctx.arc(this.size * 0.1, this.size * 0.2, this.size * 0.15, 0, Math.PI * 2);
         ctx.fill();
         
         // Pulsing tendrils
+        ctx.shadowBlur = 0;
         ctx.strokeStyle = '#fdba74';
         ctx.lineWidth = 2;
         for (let i = 0; i < 4; i++) {
@@ -1003,6 +1015,7 @@
           ctx.stroke();
         }
       }
+      ctx.shadowBlur = 0;
       ctx.restore();
     }
     update(dt) {
@@ -1118,9 +1131,10 @@
   }
 
   class Spawner {
-    constructor() {
+    constructor(isInitial = false) {
       this.resetPosition();
-      this.last = performance.now();
+      const now = performance.now();
+      this.last = isInitial ? now + rand(BASE.INITIAL_SPAWN_DELAY_MIN, BASE.INITIAL_SPAWN_DELAY_MAX) : now;
       this.rate = spawnRate();
     }
     draw(ctx) {
@@ -1149,7 +1163,7 @@
       if (!player) return;
       const roll = Math.random();
       // Add basic drones (50%), reduce complex enemies for performance
-      const kind = roll < 0.1 ? 'heavy' : roll < 0.3 ? 'swarmer' : roll < 0.5 ? 'chaser' : 'drone';
+      const kind = roll < 0.15 ? 'heavy' : roll < 0.35 ? 'swarmer' : roll < 0.55 ? 'chaser' : 'drone';
       const dir = Math.atan2(player.y - this.y, player.x - this.x);
       const dist = 70;
       const jitter = rand(-40, 40);
@@ -1177,9 +1191,9 @@
     return Math.max(500, base);
   };
 
-  const createSpawners = (count) => {
+  const createSpawners = (count, isInitial = false) => {
     spawners = [];
-    for (let i = 0; i < count; i++) spawners.push(new Spawner());
+    for (let i = 0; i < count; i++) spawners.push(new Spawner(isInitial));
   };
 
   class PlayerEntity {
@@ -2097,14 +2111,29 @@
     supplies = [];
     spawners = [];
     particles = [];
+    
+    // Start countdown
+    countdownActive = true;
+    countdownValue = 3;
+    countdownEnd = performance.now() + 3000;
+    paused = true;
+    
     if (player) {
       player.reconfigureLoadout(false);
       player.x = window.innerWidth / 2 + camera.x;
       player.y = window.innerHeight / 2 + camera.y;
     }
-    spawnObstacles();
-    createSpawners(Math.min(1 + Math.floor(level / 2), 4));
-    recenterStars();
+    
+    // Set up level after countdown
+    queueTimedEffect(3000, () => {
+      countdownActive = false;
+      paused = false;
+      spawnObstacles();
+      createSpawners(Math.min(1 + Math.floor(level / 2), 4), true);
+      recenterStars();
+      lastTime = performance.now();
+    });
+    
     tookDamageThisLevel = false;
   };
 
@@ -2141,6 +2170,29 @@
     drawParticles(ctx, 16.67);
     player.draw(ctx);
     ctx.restore();
+    
+    // Draw countdown
+    if (countdownActive) {
+      const remaining = Math.ceil((countdownEnd - performance.now()) / 1000);
+      if (remaining > 0) {
+        countdownValue = remaining;
+        ctx.save();
+        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.font = 'bold 80px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#4ade80';
+        ctx.shadowColor = '#4ade80';
+        ctx.shadowBlur = 20;
+        ctx.fillText(remaining, canvas.width / 2, canvas.height / 2 - 40);
+        ctx.shadowBlur = 0;
+        ctx.font = 'bold 24px Arial';
+        ctx.fillStyle = '#fff';
+        ctx.fillText(`LEVEL ${level}`, canvas.width / 2, canvas.height / 2 + 30);
+        ctx.restore();
+      }
+    }
   };
 
   /* ====== MAIN LOOP ====== */
@@ -2179,7 +2231,7 @@
     camera.x = player.x - dom.canvas.width / 2;
     camera.y = player.y - dom.canvas.height / 2;
     spawnObstacles();
-    createSpawners(Math.min(1 + Math.floor(level / 2), 4));
+    createSpawners(Math.min(1 + Math.floor(level / 2), 4), resetScore);
     if (!starsFar) {
       starsFar = makeStars(120);
       starsMid = makeStars(80);
@@ -2191,6 +2243,7 @@
     lastAmmoRegen = lastTime;
     gameRunning = true;
     paused = false;
+    updateActionButtonVisual();
     loop(lastTime);
   };
 
@@ -2271,6 +2324,41 @@
   };
 
   /* ====== INPUT ====== */
+  const updateActionButtonVisual = () => {
+    if (!dom.actionButton) return;
+    const modes = ['boost-mode', 'bomb-mode', 'shield-mode', 'ult-mode'];
+    const icons = ['⚡', '💣', '🛡️', '⭐'];
+    modes.forEach(m => dom.actionButton.classList.remove(m));
+    dom.actionButton.classList.add(modes[actionMode]);
+    dom.actionButton.textContent = icons[actionMode];
+  };
+  
+  const triggerAction = () => {
+    switch(actionMode) {
+      case 0: // Boost
+        input.isBoosting = true;
+        setTimeout(() => (input.isBoosting = false), 300);
+        break;
+      case 1: // Bomb
+        input.altFireHeld = true;
+        setTimeout(() => (input.altFireHeld = false), 150);
+        break;
+      case 2: // Shield
+        input.defenseHeld = true;
+        setTimeout(() => (input.defenseHeld = false), 150);
+        break;
+      case 3: // Ultimate
+        input.ultimateQueued = true;
+        setTimeout(() => (input.ultimateQueued = false), 200);
+        break;
+    }
+  };
+  
+  const cycleActionMode = () => {
+    actionMode = (actionMode + 1) % 4;
+    updateActionButtonVisual();
+  };
+
   const triggerSecondary = () => {
     input.altFireHeld = true;
     setTimeout(() => (input.altFireHeld = false), 150);
@@ -2373,20 +2461,32 @@
     dom.hangarModal?.addEventListener('click', (e) => {
       if (e.target === dom.hangarModal) closeHangar();
     });
-    dom.secondaryButton?.addEventListener('mousedown', triggerSecondary);
-    dom.secondaryButton?.addEventListener('touchstart', (e) => {
+    
+    // Multi-action button - tap to use, long press to cycle
+    let actionLongPressTimer = null;
+    dom.actionButton?.addEventListener('mousedown', (e) => {
       e.preventDefault();
-      triggerSecondary();
+      actionLongPressTimer = setTimeout(cycleActionMode, 400);
+    });
+    dom.actionButton?.addEventListener('mouseup', (e) => {
+      e.preventDefault();
+      if (actionLongPressTimer) {
+        clearTimeout(actionLongPressTimer);
+        triggerAction();
+        actionLongPressTimer = null;
+      }
+    });
+    dom.actionButton?.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      actionLongPressTimer = setTimeout(cycleActionMode, 400);
     }, { passive: false });
-    dom.defenseButton?.addEventListener('mousedown', triggerDefense);
-    dom.defenseButton?.addEventListener('touchstart', (e) => {
+    dom.actionButton?.addEventListener('touchend', (e) => {
       e.preventDefault();
-      triggerDefense();
-    }, { passive: false });
-    dom.ultimateButton?.addEventListener('mousedown', triggerUltimate);
-    dom.ultimateButton?.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      triggerUltimate();
+      if (actionLongPressTimer) {
+        clearTimeout(actionLongPressTimer);
+        triggerAction();
+        actionLongPressTimer = null;
+      }
     }, { passive: false });
 
     document.addEventListener('keydown', (e) => {

@@ -100,47 +100,47 @@ html, body {
 }
 
 #uiPanel {
-  top: 8px;
-  left: 8px;
-  right: 8px;
+  top: 4px;
+  left: 4px;
+  right: 4px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 6px;
-  background: rgba(0,0,0,0.6);
-  padding: 6px 8px;
-  border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.2);
-  max-width: calc(100vw - 16px);
+  gap: 4px;
+  background: rgba(0,0,0,0.5);
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.15);
+  max-width: calc(100vw - 8px);
 }
 
 .ui-stat-row {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   font-weight: 700;
-  font-size: 12px;
+  font-size: 10px;
 }
 
 .ui-text-label {
-  font-size: 10px;
+  font-size: 8px;
   color: #bbb;
 }
 
 .ui-text-value {
-  font-size: 14px;
-  min-width: 30px;
+  font-size: 11px;
+  min-width: 24px;
   text-align: right;
 }
 
 .ui-bar-container {
-  width: 70px;
-  height: 10px;
+  width: 50px;
+  height: 8px;
   background: rgba(0,0,0,0.4);
-  border-radius: 5px;
+  border-radius: 4px;
   overflow: hidden;
-  border: 1px solid rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.12);
 }
 
 .ui-bar-fill {
@@ -155,11 +155,11 @@ html, body {
 }
 
 .ui-bar-container.xp {
-  width: 90px;
+  width: 60px;
 }
 
 .ui-bar-container.ult {
-  width: 90px;
+  width: 60px;
   border: 1px solid rgba(250, 204, 21, 0.45);
 }
 
@@ -184,16 +184,16 @@ html, body {
 }
 
 #creditsBadge {
-  margin-left: 4px;
-  padding: 3px 6px;
+  margin-left: 2px;
+  padding: 2px 5px;
   border-radius: 9999px;
   border: 1px solid #374151;
   background: #111827;
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 2px;
   font-weight: 800;
-  font-size: 11px;
+  font-size: 9px;
 }
 
 .creditLabel {
@@ -227,17 +227,17 @@ html, body {
 /* Pause button for mobile */
 #pauseButton {
   background: rgba(0,0,0,0.7);
-  border: 2px solid rgba(255,255,255,0.3);
-  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 6px;
   color: #fff;
-  font-size: 18px;
-  padding: 6px 12px;
+  font-size: 14px;
+  padding: 4px 8px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 40px;
-  height: 32px;
+  min-width: 32px;
+  height: 24px;
   margin-left: auto;
 }
 
@@ -331,6 +331,36 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.actionButton.multiAction {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  font-size: 24px;
+  background: linear-gradient(135deg, rgba(34,197,94,0.9), rgba(59,130,246,0.9));
+  border: 2px solid rgba(148,163,184,0.6);
+  position: relative;
+}
+
+.actionButton.multiAction.boost-mode {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  box-shadow: 0 0 20px rgba(34,197,94,0.6);
+}
+
+.actionButton.multiAction.bomb-mode {
+  background: linear-gradient(135deg, #f97316, #ea580c);
+  box-shadow: 0 0 20px rgba(249,115,22,0.6);
+}
+
+.actionButton.multiAction.shield-mode {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  box-shadow: 0 0 20px rgba(59,130,246,0.6);
+}
+
+.actionButton.multiAction.ult-mode {
+  background: linear-gradient(135deg, #a855f7, #7c3aed);
+  box-shadow: 0 0 20px rgba(168,85,247,0.6);
 }
 
 .actionButton:hover,
