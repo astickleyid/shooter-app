@@ -52,18 +52,90 @@
     <div id="pauseHint">P = Pause / Shop</div>
     
     <!-- MOBILE CONTROLS -->
-    <div id="leftControls">
-      <div id="joystickMoveBase" class="joystickBase"><div id="joystickMoveStick" class="joystickStick"></div></div>
+    <div id="mobileControls">
+      <!-- Floating joystick zones -->
+      <div id="leftTouchZone" class="touchZone">
+        <div id="joystickMoveBase" class="joystickBase"><div id="joystickMoveStick" class="joystickStick"></div></div>
+      </div>
+      <div id="rightTouchZone" class="touchZone">
+        <div id="joystickShootBase" class="joystickBase"><div id="joystickShootStick" class="joystickStick"></div></div>
+      </div>
+      
+      <!-- Simplified action buttons -->
+      <div id="actionButtons">
+        <button id="primaryFireButton" class="actionButton primary-fire" title="Primary Fire">🎯</button>
+        <button id="secondaryButton" class="actionButton secondary" title="Secondary Weapon">💣</button>
+        <button id="defenseButton" class="actionButton defense" title="Defense System">🛡️</button>
+        <button id="ultimateButton" class="actionButton ultimate" title="Ultimate Ability">⭐</button>
+      </div>
+      
+      <!-- Settings button -->
+      <button id="controlSettingsButton" class="settingsButton">⚙️</button>
     </div>
-    <div id="centerControls">
-      <button id="actionButton" class="actionButton multiAction" title="Cycles: Boost → Bomb → Shield → Ult">⚡</button>
-    </div>
-    <div id="rightControls">
-      <div id="joystickShootBase" class="joystickBase"><div id="joystickShootStick" class="joystickStick"></div></div>
-      <button id="ultimateButton" class="actionButton ultimate">ULT</button>
-      <button id="defenseButton" class="actionButton">SHIELD</button>
-      <button id="secondaryButton" class="actionButton">BOMB</button>
-      <button id="boostButton" class="actionButton">BOOST</button>
+    
+    <!-- Control Settings Modal -->
+    <div id="controlSettingsModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Control Settings</h2>
+          <button id="closeControlSettings" class="closeBtn">✕</button>
+        </div>
+        <div class="settings-section">
+          <h3>Layout</h3>
+          <label>
+            <span>Control Opacity</span>
+            <input type="range" id="controlOpacity" min="30" max="100" value="90">
+            <span id="opacityValue">90%</span>
+          </label>
+          <label>
+            <span>Button Size</span>
+            <input type="range" id="buttonSize" min="70" max="130" value="100">
+            <span id="sizeValue">100%</span>
+          </label>
+          <label>
+            <span>Joystick Size</span>
+            <input type="range" id="joystickSize" min="80" max="140" value="100">
+            <span id="joystickSizeValue">100%</span>
+          </label>
+        </div>
+        <div class="settings-section">
+          <h3>Sensitivity</h3>
+          <label>
+            <span>Movement Sensitivity</span>
+            <input type="range" id="moveSensitivity" min="50" max="150" value="100">
+            <span id="moveSensValue">100%</span>
+          </label>
+          <label>
+            <span>Aim Sensitivity</span>
+            <input type="range" id="aimSensitivity" min="50" max="150" value="100">
+            <span id="aimSensValue">100%</span>
+          </label>
+          <label>
+            <span>Deadzone</span>
+            <input type="range" id="deadzone" min="5" max="25" value="12">
+            <span id="deadzoneValue">12%</span>
+          </label>
+        </div>
+        <div class="settings-section">
+          <h3>Advanced</h3>
+          <label class="checkbox-label">
+            <input type="checkbox" id="floatingJoysticks" checked>
+            <span>Floating Joysticks (appear where you touch)</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="hapticFeedback" checked>
+            <span>Haptic Feedback</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="gyroscopeAim">
+            <span>Gyroscope Aiming (Experimental)</span>
+          </label>
+        </div>
+        <div class="modal-footer">
+          <button id="resetControls" class="secondaryBtn">Reset to Default</button>
+          <button id="saveControls" class="primaryBtn">Save & Close</button>
+        </div>
+      </div>
     </div>
     
     <!-- MESSAGE BOX FOR LEVELS/GAME OVER -->

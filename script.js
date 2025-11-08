@@ -288,7 +288,15 @@
     dom.joystickMoveStick = document.getElementById('joystickMoveStick');
     dom.joystickShootBase = document.getElementById('joystickShootBase');
     dom.joystickShootStick = document.getElementById('joystickShootStick');
-    dom.actionButton = document.getElementById('actionButton');
+    dom.leftTouchZone = document.getElementById('leftTouchZone');
+    dom.rightTouchZone = document.getElementById('rightTouchZone');
+    dom.primaryFireButton = document.getElementById('primaryFireButton');
+    dom.secondaryButton = document.getElementById('secondaryButton');
+    dom.defenseButton = document.getElementById('defenseButton');
+    dom.ultimateButton = document.getElementById('ultimateButton');
+    dom.controlSettingsButton = document.getElementById('controlSettingsButton');
+    dom.controlSettingsModal = document.getElementById('controlSettingsModal');
+    dom.closeControlSettings = document.getElementById('closeControlSettings');
     dom.shopModal = document.getElementById('shopModal');
     dom.shopGrid = document.getElementById('shopGrid');
     dom.shopCreditsText = document.getElementById('shopCredits');
@@ -333,7 +341,6 @@
   const camera = { x: 0, y: 0 };
 
   let currentShip = null;
-  let actionMode = 0; // 0=boost, 1=bomb, 2=shield, 3=ult
 
   const input = {
     moveX: 0,
@@ -2258,7 +2265,6 @@
     lastAmmoRegen = lastTime;
     gameRunning = true;
     paused = false;
-    updateActionButtonVisual();
     loop(lastTime);
   };
 
@@ -2316,6 +2322,7 @@
     pilotXP = Save.data.pilotXp;
     initShipSelection();
     syncCredits();
+    loadControlSettings(); // Load and apply control settings
     setupInput();
     resizeCanvas();
     drawStartGraphic();
@@ -2338,41 +2345,113 @@
     openHangar
   };
 
-  /* ====== INPUT ====== */
-  const updateActionButtonVisual = () => {
-    if (!dom.actionButton) return;
-    const modes = ['boost-mode', 'bomb-mode', 'shield-mode', 'ult-mode'];
-    const icons = ['⚡', '💣', '🛡️', '⭐'];
-    modes.forEach(m => dom.actionButton.classList.remove(m));
-    dom.actionButton.classList.add(modes[actionMode]);
-    dom.actionButton.textContent = icons[actionMode];
-  };
+  /* ====== CONTROL SETTINGS ====== */
+  const CONTROL_SETTINGS_KEY = 'void_rift_controls_v1';
   
-  const triggerAction = () => {
-    switch(actionMode) {
-      case 0: // Boost
-        input.isBoosting = true;
-        setTimeout(() => (input.isBoosting = false), 300);
-        break;
-      case 1: // Bomb
-        input.altFireHeld = true;
-        setTimeout(() => (input.altFireHeld = false), 150);
-        break;
-      case 2: // Shield
-        input.defenseHeld = true;
-        setTimeout(() => (input.defenseHeld = false), 150);
-        break;
-      case 3: // Ultimate
-        input.ultimateQueued = true;
-        setTimeout(() => (input.ultimateQueued = false), 200);
-        break;
+  const defaultControlSettings = () => ({
+    opacity: 90,
+    buttonSize: 100,
+    joystickSize: 100,
+    moveSensitivity: 100,
+    aimSensitivity: 100,
+    deadzone: 12,
+    floatingJoysticks: true,
+    hapticFeedback: true,
+    gyroscopeAim: false
+  });
+
+  let controlSettings = defaultControlSettings();
+
+  const loadControlSettings = () => {
+    try {
+      const raw = localStorage.getItem(CONTROL_SETTINGS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        controlSettings = { ...defaultControlSettings(), ...parsed };
+      }
+    } catch (err) {
+      console.warn('Failed to load control settings', err);
+    }
+    applyControlSettings();
+  };
+
+  const saveControlSettings = () => {
+    try {
+      localStorage.setItem(CONTROL_SETTINGS_KEY, JSON.stringify(controlSettings));
+    } catch (err) {
+      console.warn('Failed to save control settings', err);
     }
   };
-  
-  const cycleActionMode = () => {
-    actionMode = (actionMode + 1) % 4;
-    updateActionButtonVisual();
+
+  const applyControlSettings = () => {
+    const mobileControls = document.getElementById('mobileControls');
+    if (!mobileControls) return;
+
+    // Apply opacity
+    mobileControls.style.opacity = controlSettings.opacity / 100;
+
+    // Apply button sizing
+    const buttons = document.querySelectorAll('.actionButton');
+    buttons.forEach(btn => {
+      const baseSize = btn.classList.contains('ultimate') ? 62 : 56;
+      const newSize = (baseSize * controlSettings.buttonSize) / 100;
+      btn.style.width = `${newSize}px`;
+      btn.style.height = `${newSize}px`;
+    });
+
+    // Apply joystick sizing
+    const bases = [dom.joystickMoveBase, dom.joystickShootBase];
+    bases.forEach(base => {
+      if (base) {
+        const newSize = (110 * controlSettings.joystickSize) / 100;
+        base.style.width = `${newSize}px`;
+        base.style.height = `${newSize}px`;
+        const stick = base.querySelector('.joystickStick');
+        if (stick) {
+          stick.style.width = `${newSize * 0.5}px`;
+          stick.style.height = `${newSize * 0.5}px`;
+        }
+      }
+    });
   };
+
+  const openControlSettings = () => {
+    if (!dom.controlSettingsModal) return;
+    
+    // Populate current values
+    document.getElementById('controlOpacity').value = controlSettings.opacity;
+    document.getElementById('opacityValue').textContent = `${controlSettings.opacity}%`;
+    document.getElementById('buttonSize').value = controlSettings.buttonSize;
+    document.getElementById('sizeValue').textContent = `${controlSettings.buttonSize}%`;
+    document.getElementById('joystickSize').value = controlSettings.joystickSize;
+    document.getElementById('joystickSizeValue').textContent = `${controlSettings.joystickSize}%`;
+    document.getElementById('moveSensitivity').value = controlSettings.moveSensitivity;
+    document.getElementById('moveSensValue').textContent = `${controlSettings.moveSensitivity}%`;
+    document.getElementById('aimSensitivity').value = controlSettings.aimSensitivity;
+    document.getElementById('aimSensValue').textContent = `${controlSettings.aimSensitivity}%`;
+    document.getElementById('deadzone').value = controlSettings.deadzone;
+    document.getElementById('deadzoneValue').textContent = `${controlSettings.deadzone}%`;
+    document.getElementById('floatingJoysticks').checked = controlSettings.floatingJoysticks;
+    document.getElementById('hapticFeedback').checked = controlSettings.hapticFeedback;
+    document.getElementById('gyroscopeAim').checked = controlSettings.gyroscopeAim;
+    
+    dom.controlSettingsModal.classList.add('active');
+  };
+
+  const closeControlSettings = () => {
+    if (dom.controlSettingsModal) {
+      dom.controlSettingsModal.classList.remove('active');
+    }
+  };
+
+  const resetControlSettings = () => {
+    controlSettings = defaultControlSettings();
+    saveControlSettings();
+    applyControlSettings();
+    openControlSettings(); // Reopen to show reset values
+  };
+
+  /* ====== INPUT ====== */
 
   const triggerSecondary = () => {
     input.altFireHeld = true;
@@ -2477,38 +2556,108 @@
       if (e.target === dom.hangarModal) closeHangar();
     });
     
-    // Multi-action button - tap to use, long press to cycle
-    let actionLongPressTimer = null;
-    dom.actionButton?.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      actionLongPressTimer = setTimeout(cycleActionMode, 400);
+    // Control Settings Modal handlers
+    dom.controlSettingsButton?.addEventListener('click', openControlSettings);
+    dom.closeControlSettings?.addEventListener('click', closeControlSettings);
+    
+    document.getElementById('resetControls')?.addEventListener('click', resetControlSettings);
+    document.getElementById('saveControls')?.addEventListener('click', () => {
+      // Save all current values
+      controlSettings.opacity = parseInt(document.getElementById('controlOpacity').value);
+      controlSettings.buttonSize = parseInt(document.getElementById('buttonSize').value);
+      controlSettings.joystickSize = parseInt(document.getElementById('joystickSize').value);
+      controlSettings.moveSensitivity = parseInt(document.getElementById('moveSensitivity').value);
+      controlSettings.aimSensitivity = parseInt(document.getElementById('aimSensitivity').value);
+      controlSettings.deadzone = parseInt(document.getElementById('deadzone').value);
+      controlSettings.floatingJoysticks = document.getElementById('floatingJoysticks').checked;
+      controlSettings.hapticFeedback = document.getElementById('hapticFeedback').checked;
+      controlSettings.gyroscopeAim = document.getElementById('gyroscopeAim').checked;
+      
+      saveControlSettings();
+      applyControlSettings();
+      closeControlSettings();
     });
-    dom.actionButton?.addEventListener('mouseup', (e) => {
-      e.preventDefault();
-      if (actionLongPressTimer) {
-        clearTimeout(actionLongPressTimer);
-        triggerAction();
-        actionLongPressTimer = null;
+    
+    // Live preview of sliders
+    const setupSlider = (id, valueId) => {
+      const slider = document.getElementById(id);
+      const valueDisplay = document.getElementById(valueId);
+      if (slider && valueDisplay) {
+        slider.addEventListener('input', () => {
+          valueDisplay.textContent = `${slider.value}%`;
+        });
       }
+    };
+    
+    setupSlider('controlOpacity', 'opacityValue');
+    setupSlider('buttonSize', 'sizeValue');
+    setupSlider('joystickSize', 'joystickSizeValue');
+    setupSlider('moveSensitivity', 'moveSensValue');
+    setupSlider('aimSensitivity', 'aimSensValue');
+    setupSlider('deadzone', 'deadzoneValue');
+    
+    // Action button handlers
+    const setupButton = (button, action) => {
+      if (!button) return;
+      const handler = (e) => {
+        e.preventDefault();
+        action();
+        if (controlSettings.hapticFeedback && navigator.vibrate) {
+          navigator.vibrate(15);
+        }
+      };
+      button.addEventListener('touchstart', handler, { passive: false });
+      button.addEventListener('mousedown', handler);
+    };
+    
+    setupButton(dom.secondaryButton, () => {
+      input.altFireHeld = true;
+      setTimeout(() => (input.altFireHeld = false), 150);
     });
-    dom.actionButton?.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      actionLongPressTimer = setTimeout(cycleActionMode, 400);
-    }, { passive: false });
-    dom.actionButton?.addEventListener('touchend', (e) => {
-      e.preventDefault();
-      if (actionLongPressTimer) {
-        clearTimeout(actionLongPressTimer);
-        triggerAction();
-        actionLongPressTimer = null;
-      }
-    }, { passive: false });
+    
+    setupButton(dom.defenseButton, () => {
+      input.defenseHeld = true;
+      setTimeout(() => (input.defenseHeld = false), 150);
+    });
+    
+    setupButton(dom.ultimateButton, () => {
+      input.ultimateQueued = true;
+      setTimeout(() => (input.ultimateQueued = false), 200);
+    });
+    
+    setupButton(dom.primaryFireButton, () => {
+      input.isBoosting = true;
+      setTimeout(() => (input.isBoosting = false), 300);
+    });
+    
+    dom.closeShopBtn?.addEventListener('click', () => {
+      closeShop();
+      if (!gameRunning && dom.gameContainer?.style.display === 'block') requestAnimationFrame(() => {});
+    });
+    dom.openHangarFromShop?.addEventListener('click', () => {
+      closeShop();
+      openHangar();
+    });
+    dom.hangarClose?.addEventListener('click', closeHangar);
+    dom.hangarModal?.addEventListener('click', (e) => {
+      if (e.target === dom.hangarModal) closeHangar();
+    });
+    dom.controlSettingsModal?.addEventListener('click', (e) => {
+      if (e.target === dom.controlSettingsModal) closeControlSettings();
+    });
 
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && dom.hangarModal?.style.display === 'flex') {
-        e.preventDefault();
-        closeHangar();
-        return;
+      if (e.key === 'Escape') {
+        if (dom.hangarModal?.classList.contains('active') || dom.hangarModal?.style.display === 'flex') {
+          e.preventDefault();
+          closeHangar();
+          return;
+        }
+        if (dom.controlSettingsModal?.classList.contains('active')) {
+          e.preventDefault();
+          closeControlSettings();
+          return;
+        }
       }
       if (e.key === 'p' || e.key === 'P') togglePause();
       if (e.key === 'r' || e.key === 'R') input.ultimateQueued = true;
@@ -2546,15 +2695,7 @@
       dom.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     }
 
-    // ENHANCED JOYSTICK CONTROLS - 2024
-    const JOYSTICK_CONFIG = {
-      deadZone: 0.12,
-      smoothing: 0.25,
-      hapticFeedback: true,
-      returnSpeed: 0.3,
-      adaptiveDeadzone: true
-    };
-    
+    // FLOATING JOYSTICK CONTROLS - Enhanced 2024
     let moveId = null;
     let moveStart = { x: 0, y: 0 };
     let shootId = null;
@@ -2564,12 +2705,25 @@
     let moveHapticTriggered = false;
     let shootHapticTriggered = false;
     
-    const updateMoveJoystick = (t) => {
+    const getDeadzone = () => controlSettings.deadzone / 100;
+    const getMoveSens = () => controlSettings.moveSensitivity / 100;
+    const getAimSens = () => controlSettings.aimSensitivity / 100;
+    
+    const updateMoveJoystick = (t, isFloating = false) => {
+      if (!dom.joystickMoveBase) return;
       const max = dom.joystickMoveBase.clientWidth / 2;
       const dx = t.clientX - moveStart.x;
       const dy = t.clientY - moveStart.y;
       const dist = Math.hypot(dx, dy);
       let sx, sy, rawX, rawY;
+      
+      // Position joystick if floating
+      if (isFloating && controlSettings.floatingJoysticks) {
+        dom.joystickMoveBase.style.left = `${t.clientX}px`;
+        dom.joystickMoveBase.style.top = `${t.clientY}px`;
+        dom.joystickMoveBase.style.transform = 'translate(-50%, -50%)';
+        dom.joystickMoveBase.style.opacity = '1';
+      }
       
       if (dist > max) {
         sx = (dx / dist) * max;
@@ -2583,12 +2737,9 @@
         rawY = dy / max;
       }
       
-      // Adaptive deadzone
+      // Apply deadzone
       const rawMag = Math.hypot(rawX, rawY);
-      let deadZone = JOYSTICK_CONFIG.deadZone;
-      if (JOYSTICK_CONFIG.adaptiveDeadzone && rawMag > 0.6) {
-        deadZone *= 0.7;
-      }
+      const deadZone = getDeadzone();
       
       if (rawMag < deadZone) {
         rawX = 0;
@@ -2599,9 +2750,15 @@
         rawY = (rawY / rawMag) * adjusted;
       }
       
+      // Apply sensitivity
+      const sens = getMoveSens();
+      rawX *= sens;
+      rawY *= sens;
+      
       // Smooth interpolation
-      smoothMoveX += (rawX - smoothMoveX) * JOYSTICK_CONFIG.smoothing;
-      smoothMoveY += (rawY - smoothMoveY) * JOYSTICK_CONFIG.smoothing;
+      const smoothing = 0.25;
+      smoothMoveX += (rawX - smoothMoveX) * smoothing;
+      smoothMoveY += (rawY - smoothMoveY) * smoothing;
       
       input.moveX = smoothMoveX;
       input.moveY = smoothMoveY;
@@ -2611,7 +2768,7 @@
       dom.joystickMoveStick.style.transform = `translate(${sx}px, ${sy}px) scale(${scale})`;
       
       // Haptic feedback
-      if (JOYSTICK_CONFIG.hapticFeedback && dist > max * 0.95 && !moveHapticTriggered) {
+      if (controlSettings.hapticFeedback && dist > max * 0.95 && !moveHapticTriggered) {
         if (navigator.vibrate) navigator.vibrate(10);
         moveHapticTriggered = true;
       } else if (dist < max * 0.9) {
@@ -2620,10 +2777,16 @@
     };
     
     const resetMoveJoystick = () => {
-      dom.joystickMoveStick.style.transform = 'translate(0,0) scale(1)';
+      if (!dom.joystickMoveStick) return;
+      dom.joystickMoveStick.style.transform = 'translate(-50%, -50%) scale(1)';
+      
+      if (controlSettings.floatingJoysticks && dom.joystickMoveBase) {
+        dom.joystickMoveBase.style.opacity = '0';
+      }
+      
       const returnInterval = setInterval(() => {
-        smoothMoveX *= (1 - JOYSTICK_CONFIG.returnSpeed);
-        smoothMoveY *= (1 - JOYSTICK_CONFIG.returnSpeed);
+        smoothMoveX *= 0.7;
+        smoothMoveY *= 0.7;
         input.moveX = smoothMoveX;
         input.moveY = smoothMoveY;
         if (Math.abs(smoothMoveX) < 0.01 && Math.abs(smoothMoveY) < 0.01) {
@@ -2636,12 +2799,23 @@
       }, 16);
       moveHapticTriggered = false;
     };
-    const updateShootJoystick = (t) => {
+    
+    const updateShootJoystick = (t, isFloating = false) => {
+      if (!dom.joystickShootBase) return;
       const max = dom.joystickShootBase.clientWidth / 2;
       const dx = t.clientX - shootStart.x;
       const dy = t.clientY - shootStart.y;
       const dist = Math.hypot(dx, dy);
       let sx, sy, rawX, rawY;
+      
+      // Position joystick if floating
+      if (isFloating && controlSettings.floatingJoysticks) {
+        dom.joystickShootBase.style.right = 'auto';
+        dom.joystickShootBase.style.left = `${t.clientX}px`;
+        dom.joystickShootBase.style.top = `${t.clientY}px`;
+        dom.joystickShootBase.style.transform = 'translate(-50%, -50%)';
+        dom.joystickShootBase.style.opacity = '1';
+      }
       
       input.isAiming = true;
       input.fireHeld = true;
@@ -2660,7 +2834,7 @@
       
       // Smaller deadzone for aiming precision
       const rawMag = Math.hypot(rawX, rawY);
-      const aimDeadzone = JOYSTICK_CONFIG.deadZone * 0.8;
+      const aimDeadzone = getDeadzone() * 0.8;
       
       if (rawMag < aimDeadzone) {
         rawX = 0;
@@ -2673,8 +2847,13 @@
         rawY = (rawY / rawMag) * adjusted;
       }
       
+      // Apply aim sensitivity
+      const sens = getAimSens();
+      rawX *= sens;
+      rawY *= sens;
+      
       // Less smoothing for responsive aiming
-      const aimSmoothing = JOYSTICK_CONFIG.smoothing * 0.6;
+      const aimSmoothing = 0.15;
       smoothAimX += (rawX - smoothAimX) * aimSmoothing;
       smoothAimY += (rawY - smoothAimY) * aimSmoothing;
       
@@ -2686,17 +2865,23 @@
       dom.joystickShootStick.style.transform = `translate(${sx}px, ${sy}px) scale(${scale})`;
       
       // Haptic feedback
-      if (JOYSTICK_CONFIG.hapticFeedback && rawMag > aimDeadzone && !shootHapticTriggered) {
+      if (controlSettings.hapticFeedback && rawMag > aimDeadzone && !shootHapticTriggered) {
         if (navigator.vibrate) navigator.vibrate(5);
         shootHapticTriggered = true;
       }
     };
     
     const resetShootJoystick = () => {
-      dom.joystickShootStick.style.transform = 'translate(0,0) scale(1)';
+      if (!dom.joystickShootStick) return;
+      dom.joystickShootStick.style.transform = 'translate(-50%, -50%) scale(1)';
+      
+      if (controlSettings.floatingJoysticks && dom.joystickShootBase) {
+        dom.joystickShootBase.style.opacity = '0';
+      }
+      
       const returnInterval = setInterval(() => {
-        smoothAimX *= (1 - JOYSTICK_CONFIG.returnSpeed * 1.5);
-        smoothAimY *= (1 - JOYSTICK_CONFIG.returnSpeed * 1.5);
+        smoothAimX *= 0.55;
+        smoothAimY *= 0.55;
         input.aimX = smoothAimX;
         input.aimY = smoothAimY;
         if (Math.abs(smoothAimX) < 0.01 && Math.abs(smoothAimY) < 0.01) {
@@ -2711,24 +2896,26 @@
       }, 16);
       shootHapticTriggered = false;
     };
-    dom.joystickMoveBase?.addEventListener('touchstart', (e) => {
+    
+    // Touch zone handlers for floating joysticks
+    dom.leftTouchZone?.addEventListener('touchstart', (e) => {
       e.preventDefault();
       if (moveId !== null) return;
       const touch = e.changedTouches[0];
       moveId = touch.identifier;
-      const rect = dom.joystickMoveBase.getBoundingClientRect();
-      moveStart = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-      updateMoveJoystick(touch);
+      moveStart = { x: touch.clientX, y: touch.clientY };
+      updateMoveJoystick(touch, true);
     }, { passive: false });
-    dom.joystickShootBase?.addEventListener('touchstart', (e) => {
+    
+    dom.rightTouchZone?.addEventListener('touchstart', (e) => {
       e.preventDefault();
       if (shootId !== null) return;
       const touch = e.changedTouches[0];
       shootId = touch.identifier;
-      const rect = dom.joystickShootBase.getBoundingClientRect();
-      shootStart = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-      updateShootJoystick(touch);
+      shootStart = { x: touch.clientX, y: touch.clientY };
+      updateShootJoystick(touch, true);
     }, { passive: false });
+    
     document.addEventListener('touchmove', (e) => {
       for (const touch of e.changedTouches) {
         if (touch.identifier === moveId) {
@@ -2740,6 +2927,7 @@
         }
       }
     }, { passive: false });
+    
     document.addEventListener('touchend', (e) => {
       for (const touch of e.changedTouches) {
         if (touch.identifier === moveId) {
