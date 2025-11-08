@@ -1386,6 +1386,8 @@
         }
       }
       
+      const now = performance.now();
+      
       // Automatic defense activation when enemies get close
       const defenseRange = this.size + 100;
       let enemyNearby = false;
