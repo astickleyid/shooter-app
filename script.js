@@ -2630,19 +2630,6 @@
       setTimeout(() => (input.isBoosting = false), 300);
     });
     
-    // Pause button for mobile
-    const pauseBtn = document.getElementById('pauseButton');
-    if (pauseBtn) {
-      pauseBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        togglePause();
-      });
-      pauseBtn.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        togglePause();
-      }, { passive: false });
-    }
-    
     dom.closeShopBtn?.addEventListener('click', () => {
       closeShop();
       if (!gameRunning && dom.gameContainer?.style.display === 'block') requestAnimationFrame(() => {});
