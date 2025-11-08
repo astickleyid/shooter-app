@@ -290,10 +290,7 @@
     dom.joystickShootStick = document.getElementById('joystickShootStick');
     dom.leftTouchZone = document.getElementById('leftTouchZone');
     dom.rightTouchZone = document.getElementById('rightTouchZone');
-    dom.primaryFireButton = document.getElementById('primaryFireButton');
-    dom.secondaryButton = document.getElementById('secondaryButton');
-    dom.defenseButton = document.getElementById('defenseButton');
-    dom.ultimateButton = document.getElementById('ultimateButton');
+    dom.abilityButton = document.getElementById('abilityButton');
     dom.controlSettingsButton = document.getElementById('controlSettingsButton');
     dom.controlSettingsModal = document.getElementById('controlSettingsModal');
     dom.closeControlSettings = document.getElementById('closeControlSettings');
@@ -1388,19 +1385,30 @@
           }
         }
       }
+      
+      // Automatic defense activation when enemies get close
+      const defenseRange = this.size + 100;
+      let enemyNearby = false;
+      for (const enemy of enemies) {
+        const dx = enemy.x - this.x;
+        const dy = enemy.y - this.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < defenseRange) {
+          enemyNearby = true;
+          break;
+        }
+      }
+      
+      // Auto-activate defense if ready and enemies are close
+      if (enemyNearby && !this.isDefenseActive(now) && now >= this.defenseReadyAt) {
+        this.activateDefense(now);
+      }
 
-      const now = performance.now();
       if (input.altFireHeld && !this.secondaryLatch) {
         if (this.trySecondary(now)) input.altFireHeld = false;
         this.secondaryLatch = true;
       } else if (!input.altFireHeld) {
         this.secondaryLatch = false;
-      }
-      if (input.defenseHeld && !this.defenseLatch) {
-        if (this.activateDefense(now)) input.defenseHeld = false;
-        this.defenseLatch = true;
-      } else if (!input.defenseHeld) {
-        this.defenseLatch = false;
       }
       if (input.ultimateQueued) {
         this.fireUltimate(now);
@@ -2357,7 +2365,8 @@
     deadzone: 12,
     floatingJoysticks: true,
     hapticFeedback: true,
-    gyroscopeAim: false
+    gyroscopeAim: false,
+    activeAbility: 'boost' // boost, secondary, or ultimate
   });
 
   let controlSettings = defaultControlSettings();
@@ -2390,14 +2399,17 @@
     // Apply opacity
     mobileControls.style.opacity = controlSettings.opacity / 100;
 
-    // Apply button sizing
-    const buttons = document.querySelectorAll('.actionButton');
-    buttons.forEach(btn => {
-      const baseSize = btn.classList.contains('ultimate') ? 62 : 56;
+    // Apply button sizing - single ability button
+    const button = dom.abilityButton;
+    if (button) {
+      const baseSize = 72;
       const newSize = (baseSize * controlSettings.buttonSize) / 100;
-      btn.style.width = `${newSize}px`;
-      btn.style.height = `${newSize}px`;
-    });
+      button.style.width = `${newSize}px`;
+      button.style.height = `${newSize}px`;
+      
+      // Update button appearance based on active ability
+      updateAbilityButtonAppearance();
+    }
 
     // Apply joystick sizing
     const bases = [dom.joystickMoveBase, dom.joystickShootBase];
@@ -2413,6 +2425,41 @@
         }
       }
     });
+    
+    // Keep shooter joystick always visible
+    if (dom.joystickShootBase) {
+      dom.joystickShootBase.style.opacity = '1';
+    }
+  };
+  
+  const updateAbilityButtonAppearance = () => {
+    const button = dom.abilityButton;
+    if (!button) return;
+    
+    // Remove all ability classes
+    button.classList.remove('boost-active', 'secondary-active', 'ultimate-active');
+    
+    // Set icon and class based on active ability
+    switch (controlSettings.activeAbility) {
+      case 'boost':
+        button.textContent = '🚀';
+        button.classList.add('boost-active');
+        button.title = 'Boost';
+        break;
+      case 'secondary':
+        button.textContent = '💣';
+        button.classList.add('secondary-active');
+        button.title = 'Secondary Weapon';
+        break;
+      case 'ultimate':
+        button.textContent = '⭐';
+        button.classList.add('ultimate-active');
+        button.title = 'Ultimate Ability';
+        break;
+      default:
+        button.textContent = '⚡';
+        button.title = 'Active Ability';
+    }
   };
 
   const openControlSettings = () => {
@@ -2434,6 +2481,7 @@
     document.getElementById('floatingJoysticks').checked = controlSettings.floatingJoysticks;
     document.getElementById('hapticFeedback').checked = controlSettings.hapticFeedback;
     document.getElementById('gyroscopeAim').checked = controlSettings.gyroscopeAim;
+    document.getElementById('activeAbility').value = controlSettings.activeAbility || 'boost';
     
     dom.controlSettingsModal.classList.add('active');
   };
@@ -2572,6 +2620,7 @@
       controlSettings.floatingJoysticks = document.getElementById('floatingJoysticks').checked;
       controlSettings.hapticFeedback = document.getElementById('hapticFeedback').checked;
       controlSettings.gyroscopeAim = document.getElementById('gyroscopeAim').checked;
+      controlSettings.activeAbility = document.getElementById('activeAbility').value;
       
       saveControlSettings();
       applyControlSettings();
@@ -2596,7 +2645,7 @@
     setupSlider('aimSensitivity', 'aimSensValue');
     setupSlider('deadzone', 'deadzoneValue');
     
-    // Action button handlers
+    // Single ability button handler
     const setupButton = (button, action) => {
       if (!button) return;
       const handler = (e) => {
@@ -2610,24 +2659,21 @@
       button.addEventListener('mousedown', handler);
     };
     
-    setupButton(dom.secondaryButton, () => {
-      input.altFireHeld = true;
-      setTimeout(() => (input.altFireHeld = false), 150);
-    });
-    
-    setupButton(dom.defenseButton, () => {
-      input.defenseHeld = true;
-      setTimeout(() => (input.defenseHeld = false), 150);
-    });
-    
-    setupButton(dom.ultimateButton, () => {
-      input.ultimateQueued = true;
-      setTimeout(() => (input.ultimateQueued = false), 200);
-    });
-    
-    setupButton(dom.primaryFireButton, () => {
-      input.isBoosting = true;
-      setTimeout(() => (input.isBoosting = false), 300);
+    setupButton(dom.abilityButton, () => {
+      switch (controlSettings.activeAbility) {
+        case 'boost':
+          input.isBoosting = true;
+          setTimeout(() => (input.isBoosting = false), 300);
+          break;
+        case 'secondary':
+          input.altFireHeld = true;
+          setTimeout(() => (input.altFireHeld = false), 150);
+          break;
+        case 'ultimate':
+          input.ultimateQueued = true;
+          setTimeout(() => (input.ultimateQueued = false), 200);
+          break;
+      }
     });
     
     dom.closeShopBtn?.addEventListener('click', () => {
@@ -2808,12 +2854,15 @@
       const dist = Math.hypot(dx, dy);
       let sx, sy, rawX, rawY;
       
-      // Position joystick if floating
+      // Position joystick if floating, but keep it visible when not floating
       if (isFloating && controlSettings.floatingJoysticks) {
         dom.joystickShootBase.style.right = 'auto';
         dom.joystickShootBase.style.left = `${t.clientX}px`;
         dom.joystickShootBase.style.top = `${t.clientY}px`;
         dom.joystickShootBase.style.transform = 'translate(-50%, -50%)';
+        dom.joystickShootBase.style.opacity = '1';
+      } else {
+        // Always keep shooter joystick visible
         dom.joystickShootBase.style.opacity = '1';
       }
       
@@ -2875,8 +2924,9 @@
       if (!dom.joystickShootStick) return;
       dom.joystickShootStick.style.transform = 'translate(-50%, -50%) scale(1)';
       
-      if (controlSettings.floatingJoysticks && dom.joystickShootBase) {
-        dom.joystickShootBase.style.opacity = '0';
+      // Keep shooter joystick always visible (don't hide it)
+      if (dom.joystickShootBase && !controlSettings.floatingJoysticks) {
+        dom.joystickShootBase.style.opacity = '1';
       }
       
       const returnInterval = setInterval(() => {

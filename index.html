@@ -61,12 +61,9 @@
         <div id="joystickShootBase" class="joystickBase"><div id="joystickShootStick" class="joystickStick"></div></div>
       </div>
       
-      <!-- Simplified action buttons -->
+      <!-- Single swappable ability button -->
       <div id="actionButtons">
-        <button id="primaryFireButton" class="actionButton primary-fire" title="Primary Fire">🎯</button>
-        <button id="secondaryButton" class="actionButton secondary" title="Secondary Weapon">💣</button>
-        <button id="defenseButton" class="actionButton defense" title="Defense System">🛡️</button>
-        <button id="ultimateButton" class="actionButton ultimate" title="Ultimate Ability">⭐</button>
+        <button id="abilityButton" class="actionButton ability-button" title="Active Ability">⚡</button>
       </div>
       
       <!-- Settings button -->
@@ -114,6 +111,17 @@
             <span>Deadzone</span>
             <input type="range" id="deadzone" min="5" max="25" value="12">
             <span id="deadzoneValue">12%</span>
+          </label>
+        </div>
+        <div class="settings-section">
+          <h3>Ability Selection</h3>
+          <label>
+            <span>Active Ability</span>
+            <select id="activeAbility">
+              <option value="boost">Boost</option>
+              <option value="secondary">Secondary Weapon</option>
+              <option value="ultimate">Ultimate</option>
+            </select>
           </label>
         </div>
         <div class="settings-section">
