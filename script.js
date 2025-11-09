@@ -2382,6 +2382,7 @@
       drawGame();
       updateHUD();
       lastTime = timestamp; // Update lastTime during countdown to prevent huge dt when resuming
+      consumeTimedEffects(timestamp); // Process timed effects to allow countdown to complete
       animationFrame = requestAnimationFrame(loop);
       return;
     }
