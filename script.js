@@ -2382,6 +2382,8 @@
     }
     
     if (paused) {
+      // Keep the animation frame going even when paused
+      animationFrame = requestAnimationFrame(loop);
       return;
     }
     
@@ -2509,13 +2511,13 @@
   const CONTROL_SETTINGS_KEY = 'void_rift_controls_v1';
   
   const defaultControlSettings = () => ({
-    opacity: 90,
+    opacity: 50, // Default to 50% opacity
     buttonSize: 100,
     joystickSize: 100,
     moveSensitivity: 100,
     aimSensitivity: 100,
     deadzone: 12,
-    floatingJoysticks: true,
+    floatingJoysticks: false, // Default to non-floating so both are always visible
     hapticFeedback: true,
     gyroscopeAim: false,
     activeAbility: 'boost' // boost, secondary, or ultimate
@@ -2548,13 +2550,13 @@
     const mobileControls = document.getElementById('mobileControls');
     if (!mobileControls) return;
 
-    // Apply opacity
-    mobileControls.style.opacity = controlSettings.opacity / 100;
-
-    // Apply button sizing - single ability button
-    // Ability button no longer exists - now using tap-to-switch equipment
-    // const button = dom.abilityButton;
-    // if (button) { ... }
+    // Apply opacity to both joysticks independently
+    if (dom.joystickMoveBase) {
+      dom.joystickMoveBase.style.opacity = controlSettings.opacity / 100;
+    }
+    if (dom.joystickShootBase) {
+      dom.joystickShootBase.style.opacity = controlSettings.opacity / 100;
+    }
 
     // Apply joystick sizing
     const bases = [dom.joystickMoveBase, dom.joystickShootBase];
@@ -2570,11 +2572,6 @@
         }
       }
     });
-    
-    // Keep shooter joystick always visible
-    if (dom.joystickShootBase) {
-      dom.joystickShootBase.style.opacity = '1';
-    }
   };
   
   // updateAbilityButtonAppearance removed - no longer needed with tap-to-switch system
@@ -2897,19 +2894,6 @@
     dom.openShopFromStart?.addEventListener('click', openShop);
     dom.settingsButton?.addEventListener('click', openHangar);
     
-    // Pause button for mobile
-    const pauseBtn = document.getElementById('pauseButton');
-    if (pauseBtn) {
-      pauseBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        togglePause();
-      });
-      pauseBtn.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        togglePause();
-      }, { passive: false });
-    }
-    
     dom.closeShopBtn?.addEventListener('click', () => {
       closeShop();
       if (!gameRunning && dom.gameContainer?.style.display === 'block') requestAnimationFrame(() => {});
@@ -2998,19 +2982,26 @@
     const handleGameTap = (clientX, clientY) => {
       if (!gameRunning || paused || countdownActive) return;
       
-      // Ignore taps on joystick zones and UI elements
-      const canvas = dom.canvas;
-      if (!canvas) return;
-      const rect = canvas.getBoundingClientRect();
+      // Get viewport dimensions
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
       
-      // Check if tap is in left or right touch zones (ignore those)
-      const isLeftZone = clientX < rect.width * 0.45;
-      const isRightZone = clientX > rect.width * 0.55;
+      // Check if tap is in left or right joystick zones (ignore those)
+      const isLeftZone = clientX < viewportWidth * 0.35;
+      const isRightZone = clientX > viewportWidth * 0.65;
       if (isLeftZone || isRightZone) return;
       
       // Check if tap is on UI elements (top portion)
       const isTopUI = clientY < 60;
       if (isTopUI) return;
+      
+      // Check if tap is on equipment indicator (right side)
+      const isRightUI = clientX > viewportWidth - 80 && clientY > viewportHeight * 0.3 && clientY < viewportHeight * 0.7;
+      if (isRightUI) return;
+      
+      // Check if tap is on unified menu button (top right)
+      const isMenuButton = clientX > viewportWidth - 70 && clientY < 110;
+      if (isMenuButton) return;
       
       const now = performance.now();
       if (now - lastTapTime > TAP_TIMEOUT) {
@@ -3211,8 +3202,12 @@
       if (!dom.joystickMoveStick) return;
       dom.joystickMoveStick.style.transform = 'translate(-50%, -50%) scale(1)';
       
+      // Only hide if floating joysticks are enabled
       if (controlSettings.floatingJoysticks && dom.joystickMoveBase) {
         dom.joystickMoveBase.style.opacity = '0';
+      } else if (dom.joystickMoveBase) {
+        // Restore to user's opacity setting
+        dom.joystickMoveBase.style.opacity = controlSettings.opacity / 100;
       }
       
       const returnInterval = setInterval(() => {
@@ -3309,9 +3304,12 @@
       if (!dom.joystickShootStick) return;
       dom.joystickShootStick.style.transform = 'translate(-50%, -50%) scale(1)';
       
-      // Keep shooter joystick always visible (don't hide it)
-      if (dom.joystickShootBase && !controlSettings.floatingJoysticks) {
-        dom.joystickShootBase.style.opacity = '1';
+      // Only hide if floating joysticks are enabled
+      if (controlSettings.floatingJoysticks && dom.joystickShootBase) {
+        dom.joystickShootBase.style.opacity = '0';
+      } else if (dom.joystickShootBase) {
+        // Restore to user's opacity setting
+        dom.joystickShootBase.style.opacity = controlSettings.opacity / 100;
       }
       
       const returnInterval = setInterval(() => {
