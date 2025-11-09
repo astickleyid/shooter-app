@@ -2552,16 +2552,9 @@
     mobileControls.style.opacity = controlSettings.opacity / 100;
 
     // Apply button sizing - single ability button
-    const button = dom.abilityButton;
-    if (button) {
-      const baseSize = 72;
-      const newSize = (baseSize * controlSettings.buttonSize) / 100;
-      button.style.width = `${newSize}px`;
-      button.style.height = `${newSize}px`;
-      
-      // Update button appearance based on active ability
-      updateAbilityButtonAppearance();
-    }
+    // Ability button no longer exists - now using tap-to-switch equipment
+    // const button = dom.abilityButton;
+    // if (button) { ... }
 
     // Apply joystick sizing
     const bases = [dom.joystickMoveBase, dom.joystickShootBase];
@@ -2584,44 +2577,16 @@
     }
   };
   
-  const updateAbilityButtonAppearance = () => {
-    const button = dom.abilityButton;
-    if (!button) return;
-    
-    // Remove all ability classes
-    button.classList.remove('boost-active', 'secondary-active', 'ultimate-active');
-    
-    // Set icon and class based on active ability
-    switch (controlSettings.activeAbility) {
-      case 'boost':
-        button.textContent = '🚀';
-        button.classList.add('boost-active');
-        button.title = 'Boost';
-        break;
-      case 'secondary':
-        button.textContent = '💣';
-        button.classList.add('secondary-active');
-        button.title = 'Secondary Weapon';
-        break;
-      case 'ultimate':
-        button.textContent = '⭐';
-        button.classList.add('ultimate-active');
-        button.title = 'Ultimate Ability';
-        break;
-      default:
-        button.textContent = '⚡';
-        button.title = 'Active Ability';
-    }
-  };
+  // updateAbilityButtonAppearance removed - no longer needed with tap-to-switch system
 
-  const openControlSettings = () => {
+  /* ====== UNIFIED MENU ====== */
+  
+  const openUnifiedMenu = () => {
     if (!dom.controlSettingsModal) return;
     
-    // Populate current values
+    // Populate control settings
     document.getElementById('controlOpacity').value = controlSettings.opacity;
     document.getElementById('opacityValue').textContent = `${controlSettings.opacity}%`;
-    document.getElementById('buttonSize').value = controlSettings.buttonSize;
-    document.getElementById('sizeValue').textContent = `${controlSettings.buttonSize}%`;
     document.getElementById('joystickSize').value = controlSettings.joystickSize;
     document.getElementById('joystickSizeValue').textContent = `${controlSettings.joystickSize}%`;
     document.getElementById('moveSensitivity').value = controlSettings.moveSensitivity;
@@ -2632,23 +2597,225 @@
     document.getElementById('deadzoneValue').textContent = `${controlSettings.deadzone}%`;
     document.getElementById('floatingJoysticks').checked = controlSettings.floatingJoysticks;
     document.getElementById('hapticFeedback').checked = controlSettings.hapticFeedback;
-    document.getElementById('gyroscopeAim').checked = controlSettings.gyroscopeAim;
-    document.getElementById('activeAbility').value = controlSettings.activeAbility || 'boost';
     
+    // Populate equipment class settings
+    loadEquipmentClassSettings();
+    
+    // Populate upgrades and weapons tabs
+    renderUnifiedMenuTabs();
+    
+    // Show modal
     dom.controlSettingsModal.classList.add('active');
-  };
-
-  const closeControlSettings = () => {
-    if (dom.controlSettingsModal) {
-      dom.controlSettingsModal.classList.remove('active');
+    dom.controlSettingsModal.style.display = 'flex';
+    
+    // Pause game if running
+    if (gameRunning && !paused) {
+      paused = true;
+      cancelAnimationFrame(animationFrame);
     }
   };
+
+  const closeUnifiedMenu = () => {
+    if (dom.controlSettingsModal) {
+      dom.controlSettingsModal.classList.remove('active');
+      dom.controlSettingsModal.style.display = 'none';
+    }
+    
+    // Resume game if it was running
+    if (gameRunning && paused) {
+      paused = false;
+      lastTime = performance.now();
+      animationFrame = requestAnimationFrame(loop);
+    }
+  };
+
+  // Alias for backward compatibility
+  const openControlSettings = () => openUnifiedMenu();
+  const closeControlSettings = () => closeUnifiedMenu();
 
   const resetControlSettings = () => {
     controlSettings = defaultControlSettings();
     saveControlSettings();
     applyControlSettings();
-    openControlSettings(); // Reopen to show reset values
+    openUnifiedMenu(); // Reopen to show reset values
+  };
+
+  const switchMenuTab = (tabName) => {
+    // Update tab buttons
+    document.querySelectorAll('.menu-tab').forEach(tab => {
+      if (tab.dataset.tab === tabName) {
+        tab.classList.add('active');
+      } else {
+        tab.classList.remove('active');
+      }
+    });
+    
+    // Update tab content
+    document.querySelectorAll('.tab-content').forEach(content => {
+      content.classList.remove('active');
+    });
+    
+    const tabMap = {
+      'equipment': 'equipmentTab',
+      'upgrades': 'upgradesTab',
+      'weapons': 'weaponsTab',
+      'controls': 'controlsTab'
+    };
+    
+    const contentId = tabMap[tabName];
+    if (contentId) {
+      const content = document.getElementById(contentId);
+      if (content) content.classList.add('active');
+    }
+  };
+
+  const renderUnifiedMenuTabs = () => {
+    // Render upgrades tab (use existing shop rendering)
+    const upgradesContent = document.getElementById('upgradesContent');
+    if (upgradesContent) {
+      upgradesContent.innerHTML = '';
+      const tempGrid = document.createElement('div');
+      tempGrid.className = 'shopGrid';
+      
+      ['Offense', 'Defense', 'Utility'].forEach((cat) => {
+        const head = document.createElement('div');
+        head.style.gridColumn = '1/-1';
+        head.style.margin = '6px 0';
+        head.innerHTML = `<div style="opacity:.8;border-bottom:1px solid #1f2937;padding:6px 2px;font-weight:900;color:#9ca3af">${cat}</div>`;
+        tempGrid.appendChild(head);
+        
+        for (const upgrade of UPGRADES.filter((x) => x.cat === cat)) {
+          const lvl = Save.getUpgradeLevel(upgrade.id);
+          const cost = lvl >= upgrade.max ? 'MAX' : costOf(upgrade);
+          const card = document.createElement('div');
+          card.className = 'item';
+          card.innerHTML = `
+            <h4>${upgrade.name} <span class="lvl">(Lv ${lvl}/${upgrade.max})</span></h4>
+            <div class="tags">${cat}</div>
+            <p>${upgrade.desc}</p>
+            <div class="buyRow">
+              <div>${cost === 'MAX' ? '—' : `Cost: CR ${cost}`}</div>
+              <button class="btnBuy" ${cost === 'MAX' ? 'disabled' : ''}>${cost === 'MAX' ? 'Maxed' : 'Buy'}</button>
+            </div>
+          `;
+          const btn = card.querySelector('.btnBuy');
+          if (btn && cost !== 'MAX') {
+            btn.addEventListener('click', () => {
+              const price = costOf(upgrade);
+              if (Save.spendCredits(price)) {
+                Save.levelUp(upgrade.id);
+                if (player) player.reconfigureLoadout(true);
+                renderUnifiedMenuTabs();
+                syncCredits();
+              }
+            });
+          }
+          tempGrid.appendChild(card);
+        }
+      });
+      
+      upgradesContent.appendChild(tempGrid);
+    }
+    
+    // Render weapons tab (simplified hangar view)
+    const weaponsContent = document.getElementById('weaponsContent');
+    if (weaponsContent) {
+      weaponsContent.innerHTML = '<div style="padding: 16px; color: #94a3b8;">Visit Ship Hangar from the start screen for full weapon and ship customization.</div>';
+    }
+  };
+
+  const loadEquipmentClassSettings = () => {
+    const equipClass = Save.data.armory.equipmentClass || defaultArmory().equipmentClass;
+    
+    ['equipSlot1', 'equipSlot2', 'equipSlot3', 'equipSlot4'].forEach((id, index) => {
+      const select = document.getElementById(id);
+      const slotKey = `slot${index + 1}`;
+      const slotData = equipClass[slotKey];
+      
+      if (select && slotData) {
+        const value = `${slotData.type}:${slotData.id}`;
+        select.value = value;
+      }
+    });
+  };
+
+  const saveEquipmentClass = () => {
+    const equipClass = {};
+    
+    ['equipSlot1', 'equipSlot2', 'equipSlot3', 'equipSlot4'].forEach((id, index) => {
+      const select = document.getElementById(id);
+      if (select) {
+        const [type, itemId] = select.value.split(':');
+        equipClass[`slot${index + 1}`] = { type, id: itemId };
+      }
+    });
+    
+    Save.data.armory.equipmentClass = equipClass;
+    Save.save();
+    
+    // Update equipment indicator
+    updateEquipmentIndicator();
+  };
+
+  const switchEquipmentSlot = (slotIndex) => {
+    if (slotIndex < 0 || slotIndex > 3) return;
+    
+    currentEquipmentSlot = slotIndex;
+    updateEquipmentIndicator();
+    
+    const equipClass = Save.data.armory.equipmentClass || defaultArmory().equipmentClass;
+    const slotData = equipClass[`slot${slotIndex + 1}`];
+    
+    if (slotData) {
+      // Log the switch
+      const slotNames = ['Primary', 'Slot 2', 'Slot 3', 'Slot 4'];
+      addLogEntry(`Switched to ${slotNames[slotIndex]}`, '#60a5fa');
+      
+      // Activate the equipment
+      activateEquipmentSlot(slotData);
+      
+      // Haptic feedback
+      if (controlSettings.hapticFeedback && navigator.vibrate) {
+        navigator.vibrate(20);
+      }
+    }
+  };
+
+  const activateEquipmentSlot = (slotData) => {
+    if (!slotData || !player) return;
+    
+    const { type, id } = slotData;
+    
+    switch (type) {
+      case 'primary':
+        // Primary is always active, no need to do anything
+        addLogEntry(`Primary weapon active`, '#fde047');
+        break;
+        
+      case 'boost':
+        input.isBoosting = true;
+        setTimeout(() => (input.isBoosting = false), 300);
+        addLogEntry(`BOOST activated!`, '#4ade80');
+        break;
+        
+      case 'secondary':
+        input.altFireHeld = true;
+        setTimeout(() => (input.altFireHeld = false), 150);
+        addLogEntry(`${id.toUpperCase()} launched!`, '#f97316');
+        break;
+        
+      case 'defense':
+        input.defenseHeld = true;
+        setTimeout(() => (input.defenseHeld = false), 150);
+        addLogEntry(`${id.toUpperCase()} shield deployed!`, '#38bdf8');
+        break;
+        
+      case 'ultimate':
+        input.ultimateQueued = true;
+        setTimeout(() => (input.ultimateQueued = false), 200);
+        addLogEntry(`ULTIMATE: ${id.toUpperCase()}!`, '#a855f7');
+        break;
+    }
   };
 
   /* ====== INPUT ====== */
@@ -2756,27 +2923,25 @@
       if (e.target === dom.hangarModal) closeHangar();
     });
     
-    // Control Settings Modal handlers
-    dom.controlSettingsButton?.addEventListener('click', openControlSettings);
-    dom.closeControlSettings?.addEventListener('click', closeControlSettings);
+    // Control Settings Modal handlers (now unified menu)
+    dom.controlSettingsButton?.addEventListener('click', openUnifiedMenu);
+    dom.closeControlSettings?.addEventListener('click', closeUnifiedMenu);
     
     document.getElementById('resetControls')?.addEventListener('click', resetControlSettings);
     document.getElementById('saveControls')?.addEventListener('click', () => {
       // Save all current values
       controlSettings.opacity = parseInt(document.getElementById('controlOpacity').value);
-      controlSettings.buttonSize = parseInt(document.getElementById('buttonSize').value);
       controlSettings.joystickSize = parseInt(document.getElementById('joystickSize').value);
       controlSettings.moveSensitivity = parseInt(document.getElementById('moveSensitivity').value);
       controlSettings.aimSensitivity = parseInt(document.getElementById('aimSensitivity').value);
       controlSettings.deadzone = parseInt(document.getElementById('deadzone').value);
       controlSettings.floatingJoysticks = document.getElementById('floatingJoysticks').checked;
       controlSettings.hapticFeedback = document.getElementById('hapticFeedback').checked;
-      controlSettings.gyroscopeAim = document.getElementById('gyroscopeAim').checked;
-      controlSettings.activeAbility = document.getElementById('activeAbility').value;
       
       saveControlSettings();
       applyControlSettings();
-      closeControlSettings();
+      saveEquipmentClass(); // Also save equipment configuration
+      closeUnifiedMenu();
     });
     
     // Live preview of sliders
@@ -2791,41 +2956,109 @@
     };
     
     setupSlider('controlOpacity', 'opacityValue');
-    setupSlider('buttonSize', 'sizeValue');
     setupSlider('joystickSize', 'joystickSizeValue');
     setupSlider('moveSensitivity', 'moveSensValue');
     setupSlider('aimSensitivity', 'aimSensValue');
     setupSlider('deadzone', 'deadzoneValue');
     
-    // Single ability button handler
-    const setupButton = (button, action) => {
-      if (!button) return;
+    // Unified menu button (replaces old settings and ability buttons)
+    const unifiedMenuBtn = document.getElementById('unifiedMenuButton');
+    if (unifiedMenuBtn) {
       const handler = (e) => {
         e.preventDefault();
-        action();
-        if (controlSettings.hapticFeedback && navigator.vibrate) {
-          navigator.vibrate(15);
-        }
+        e.stopPropagation();
+        openUnifiedMenu();
       };
-      button.addEventListener('touchstart', handler, { passive: false });
-      button.addEventListener('mousedown', handler);
+      unifiedMenuBtn.addEventListener('click', handler);
+      unifiedMenuBtn.addEventListener('touchstart', handler, { passive: false });
+    }
+    
+    // Tab navigation for unified menu
+    document.querySelectorAll('.menu-tab').forEach(tab => {
+      tab.addEventListener('click', (e) => {
+        const tabName = tab.dataset.tab;
+        switchMenuTab(tabName);
+      });
+    });
+    
+    // Equipment slot configuration
+    ['equipSlot1', 'equipSlot2', 'equipSlot3', 'equipSlot4'].forEach((id, index) => {
+      const select = document.getElementById(id);
+      if (select) {
+        select.addEventListener('change', () => {
+          saveEquipmentClass();
+        });
+      }
+    });
+    
+    // Tap-to-switch equipment logic
+    // Detect taps on the main game canvas (not on joysticks or UI)
+    let tapTimeout = null;
+    
+    const handleGameTap = (clientX, clientY) => {
+      if (!gameRunning || paused || countdownActive) return;
+      
+      // Ignore taps on joystick zones and UI elements
+      const canvas = dom.canvas;
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      
+      // Check if tap is in left or right touch zones (ignore those)
+      const isLeftZone = clientX < rect.width * 0.45;
+      const isRightZone = clientX > rect.width * 0.55;
+      if (isLeftZone || isRightZone) return;
+      
+      // Check if tap is on UI elements (top portion)
+      const isTopUI = clientY < 60;
+      if (isTopUI) return;
+      
+      const now = performance.now();
+      if (now - lastTapTime > TAP_TIMEOUT) {
+        tapCount = 0;
+      }
+      
+      tapCount++;
+      lastTapTime = now;
+      
+      clearTimeout(tapTimeout);
+      tapTimeout = setTimeout(() => {
+        if (tapCount >= 2 && tapCount <= 4) {
+          // Switch to the equipment slot based on tap count
+          const newSlot = tapCount - 1; // 2 taps = slot 1 (index 1), 3 taps = slot 2 (index 2), etc.
+          switchEquipmentSlot(newSlot);
+        }
+        tapCount = 0;
+      }, TAP_TIMEOUT);
     };
     
-    setupButton(dom.abilityButton, () => {
-      switch (controlSettings.activeAbility) {
-        case 'boost':
-          input.isBoosting = true;
-          setTimeout(() => (input.isBoosting = false), 300);
-          break;
-        case 'secondary':
-          input.altFireHeld = true;
-          setTimeout(() => (input.altFireHeld = false), 150);
-          break;
-        case 'ultimate':
-          input.ultimateQueued = true;
-          setTimeout(() => (input.ultimateQueued = false), 200);
-          break;
+    if (dom.canvas) {
+      dom.canvas.addEventListener('click', (e) => {
+        handleGameTap(e.clientX, e.clientY);
+      });
+    }
+    
+    // Also handle touch taps
+    let touchStartPos = null;
+    document.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        const touch = e.touches[0];
+        touchStartPos = { x: touch.clientX, y: touch.clientY };
       }
+    });
+    
+    document.addEventListener('touchend', (e) => {
+      if (touchStartPos && e.changedTouches.length === 1) {
+        const touch = e.changedTouches[0];
+        const dx = touch.clientX - touchStartPos.x;
+        const dy = touch.clientY - touchStartPos.y;
+        const dist = Math.hypot(dx, dy);
+        
+        // Only count as tap if finger didn't move much
+        if (dist < 20) {
+          handleGameTap(touch.clientX, touch.clientY);
+        }
+      }
+      touchStartPos = null;
     });
     
     dom.closeShopBtn?.addEventListener('click', () => {
