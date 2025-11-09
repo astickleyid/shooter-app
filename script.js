@@ -290,10 +290,7 @@
     dom.joystickShootStick = document.getElementById('joystickShootStick');
     dom.leftTouchZone = document.getElementById('leftTouchZone');
     dom.rightTouchZone = document.getElementById('rightTouchZone');
-    dom.primaryFireButton = document.getElementById('primaryFireButton');
-    dom.secondaryButton = document.getElementById('secondaryButton');
-    dom.defenseButton = document.getElementById('defenseButton');
-    dom.ultimateButton = document.getElementById('ultimateButton');
+    dom.abilityButton = document.getElementById('abilityButton');
     dom.controlSettingsButton = document.getElementById('controlSettingsButton');
     dom.controlSettingsModal = document.getElementById('controlSettingsModal');
     dom.closeControlSettings = document.getElementById('closeControlSettings');
@@ -338,6 +335,7 @@
   let countdownActive = false;
   let countdownValue = 3;
   let countdownEnd = 0;
+  let countdownCompletedLevel = 0;
   const camera = { x: 0, y: 0 };
 
   let currentShip = null;
@@ -1388,19 +1386,32 @@
           }
         }
       }
-
+      
       const now = performance.now();
+      
+      // Automatic defense activation when enemies get close
+      const defenseRange = this.size + 100;
+      let enemyNearby = false;
+      for (const enemy of enemies) {
+        const dx = enemy.x - this.x;
+        const dy = enemy.y - this.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < defenseRange) {
+          enemyNearby = true;
+          break;
+        }
+      }
+      
+      // Auto-activate defense if ready and enemies are close
+      if (enemyNearby && !this.isDefenseActive(now) && now >= this.defenseReadyAt) {
+        this.activateDefense(now);
+      }
+
       if (input.altFireHeld && !this.secondaryLatch) {
         if (this.trySecondary(now)) input.altFireHeld = false;
         this.secondaryLatch = true;
       } else if (!input.altFireHeld) {
         this.secondaryLatch = false;
-      }
-      if (input.defenseHeld && !this.defenseLatch) {
-        if (this.activateDefense(now)) input.defenseHeld = false;
-        this.defenseLatch = true;
-      } else if (!input.defenseHeld) {
-        this.defenseLatch = false;
       }
       if (input.ultimateQueued) {
         this.fireUltimate(now);
@@ -2124,6 +2135,8 @@
     Save.addCredits(Math.floor(20 + level * 5 + enemiesKilled * 1.5));
     addXP(90 + level * 12);
     if (!tookDamageThisLevel) addXP(110 + level * 18);
+    
+    const completedLevel = level; // Store current level before incrementing
     level += 1;
     enemiesKilled = 0;
     enemiesToKill = Math.floor(6 + level * 4.5);
@@ -2137,8 +2150,8 @@
     // Start countdown
     countdownActive = true;
     countdownValue = 3;
-    countdownEnd = performance.now() + 3000;
-    paused = true;
+    countdownEnd = performance.now() + 4000; // 1 second for "LEVEL COMPLETE" + 3 seconds countdown
+    countdownCompletedLevel = completedLevel;
     
     if (player) {
       player.reconfigureLoadout(false);
@@ -2147,9 +2160,8 @@
     }
     
     // Set up level after countdown
-    queueTimedEffect(3000, () => {
+    queueTimedEffect(4000, () => {
       countdownActive = false;
-      paused = false;
       spawnObstacles();
       createSpawners(Math.min(1 + Math.floor(level / 2), 4), true);
       recenterStars();
@@ -2195,25 +2207,53 @@
     
     // Draw countdown
     if (countdownActive) {
-      const remaining = Math.ceil((countdownEnd - performance.now()) / 1000);
-      if (remaining > 0) {
-        countdownValue = remaining;
-        ctx.save();
-        ctx.fillStyle = 'rgba(0,0,0,0.7)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.font = 'bold 80px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
+      const timeRemaining = countdownEnd - performance.now();
+      const totalDuration = 4000;
+      
+      ctx.save();
+      ctx.fillStyle = 'rgba(0,0,0,0.85)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      
+      // First 1 second: Show "LEVEL COMPLETE"
+      if (timeRemaining > 3000) {
+        ctx.font = 'bold 48px Arial';
         ctx.fillStyle = '#4ade80';
         ctx.shadowColor = '#4ade80';
-        ctx.shadowBlur = 20;
-        ctx.fillText(remaining, canvas.width / 2, canvas.height / 2 - 40);
+        ctx.shadowBlur = 25;
+        ctx.fillText('LEVEL COMPLETE', canvas.width / 2, canvas.height / 2 - 60);
         ctx.shadowBlur = 0;
-        ctx.font = 'bold 24px Arial';
+        
+        ctx.font = 'bold 32px Arial';
         ctx.fillStyle = '#fff';
-        ctx.fillText(`LEVEL ${level}`, canvas.width / 2, canvas.height / 2 + 30);
-        ctx.restore();
+        ctx.fillText(`Level ${countdownCompletedLevel}`, canvas.width / 2, canvas.height / 2);
+        
+        ctx.font = '20px Arial';
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText('Get Ready...', canvas.width / 2, canvas.height / 2 + 50);
+      } 
+      // Next 3 seconds: Show countdown and next level
+      else if (timeRemaining > 0) {
+        const countdown = Math.ceil(timeRemaining / 1000);
+        
+        ctx.font = 'bold 36px Arial';
+        ctx.fillStyle = '#60a5fa';
+        ctx.fillText(`LEVEL ${level}`, canvas.width / 2, canvas.height / 2 - 80);
+        
+        ctx.font = 'bold 120px Arial';
+        ctx.fillStyle = '#4ade80';
+        ctx.shadowColor = '#4ade80';
+        ctx.shadowBlur = 30;
+        ctx.fillText(countdown, canvas.width / 2, canvas.height / 2 + 20);
+        ctx.shadowBlur = 0;
+        
+        ctx.font = '18px Arial';
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText('Starting in...', canvas.width / 2, canvas.height / 2 - 40);
       }
+      
+      ctx.restore();
     }
   };
 
@@ -2221,10 +2261,23 @@
   let animationFrame = null;
 
   const loop = (timestamp) => {
-    if (!gameRunning || paused) {
-      if (!gameRunning && !gameOverHandled) handleGameOver();
+    if (!gameRunning) {
+      if (!gameOverHandled) handleGameOver();
       return;
     }
+    
+    // Always draw during countdown, but don't update game logic
+    if (countdownActive) {
+      drawGame();
+      updateHUD();
+      animationFrame = requestAnimationFrame(loop);
+      return;
+    }
+    
+    if (paused) {
+      return;
+    }
+    
     let dt = timestamp - lastTime;
     lastTime = timestamp;
     dt = Math.min(dt, 50);
@@ -2357,7 +2410,8 @@
     deadzone: 12,
     floatingJoysticks: true,
     hapticFeedback: true,
-    gyroscopeAim: false
+    gyroscopeAim: false,
+    activeAbility: 'boost' // boost, secondary, or ultimate
   });
 
   let controlSettings = defaultControlSettings();
@@ -2390,14 +2444,17 @@
     // Apply opacity
     mobileControls.style.opacity = controlSettings.opacity / 100;
 
-    // Apply button sizing
-    const buttons = document.querySelectorAll('.actionButton');
-    buttons.forEach(btn => {
-      const baseSize = btn.classList.contains('ultimate') ? 62 : 56;
+    // Apply button sizing - single ability button
+    const button = dom.abilityButton;
+    if (button) {
+      const baseSize = 72;
       const newSize = (baseSize * controlSettings.buttonSize) / 100;
-      btn.style.width = `${newSize}px`;
-      btn.style.height = `${newSize}px`;
-    });
+      button.style.width = `${newSize}px`;
+      button.style.height = `${newSize}px`;
+      
+      // Update button appearance based on active ability
+      updateAbilityButtonAppearance();
+    }
 
     // Apply joystick sizing
     const bases = [dom.joystickMoveBase, dom.joystickShootBase];
@@ -2413,6 +2470,41 @@
         }
       }
     });
+    
+    // Keep shooter joystick always visible
+    if (dom.joystickShootBase) {
+      dom.joystickShootBase.style.opacity = '1';
+    }
+  };
+  
+  const updateAbilityButtonAppearance = () => {
+    const button = dom.abilityButton;
+    if (!button) return;
+    
+    // Remove all ability classes
+    button.classList.remove('boost-active', 'secondary-active', 'ultimate-active');
+    
+    // Set icon and class based on active ability
+    switch (controlSettings.activeAbility) {
+      case 'boost':
+        button.textContent = '🚀';
+        button.classList.add('boost-active');
+        button.title = 'Boost';
+        break;
+      case 'secondary':
+        button.textContent = '💣';
+        button.classList.add('secondary-active');
+        button.title = 'Secondary Weapon';
+        break;
+      case 'ultimate':
+        button.textContent = '⭐';
+        button.classList.add('ultimate-active');
+        button.title = 'Ultimate Ability';
+        break;
+      default:
+        button.textContent = '⚡';
+        button.title = 'Active Ability';
+    }
   };
 
   const openControlSettings = () => {
@@ -2434,6 +2526,7 @@
     document.getElementById('floatingJoysticks').checked = controlSettings.floatingJoysticks;
     document.getElementById('hapticFeedback').checked = controlSettings.hapticFeedback;
     document.getElementById('gyroscopeAim').checked = controlSettings.gyroscopeAim;
+    document.getElementById('activeAbility').value = controlSettings.activeAbility || 'boost';
     
     dom.controlSettingsModal.classList.add('active');
   };
@@ -2572,6 +2665,7 @@
       controlSettings.floatingJoysticks = document.getElementById('floatingJoysticks').checked;
       controlSettings.hapticFeedback = document.getElementById('hapticFeedback').checked;
       controlSettings.gyroscopeAim = document.getElementById('gyroscopeAim').checked;
+      controlSettings.activeAbility = document.getElementById('activeAbility').value;
       
       saveControlSettings();
       applyControlSettings();
@@ -2596,7 +2690,7 @@
     setupSlider('aimSensitivity', 'aimSensValue');
     setupSlider('deadzone', 'deadzoneValue');
     
-    // Action button handlers
+    // Single ability button handler
     const setupButton = (button, action) => {
       if (!button) return;
       const handler = (e) => {
@@ -2610,24 +2704,21 @@
       button.addEventListener('mousedown', handler);
     };
     
-    setupButton(dom.secondaryButton, () => {
-      input.altFireHeld = true;
-      setTimeout(() => (input.altFireHeld = false), 150);
-    });
-    
-    setupButton(dom.defenseButton, () => {
-      input.defenseHeld = true;
-      setTimeout(() => (input.defenseHeld = false), 150);
-    });
-    
-    setupButton(dom.ultimateButton, () => {
-      input.ultimateQueued = true;
-      setTimeout(() => (input.ultimateQueued = false), 200);
-    });
-    
-    setupButton(dom.primaryFireButton, () => {
-      input.isBoosting = true;
-      setTimeout(() => (input.isBoosting = false), 300);
+    setupButton(dom.abilityButton, () => {
+      switch (controlSettings.activeAbility) {
+        case 'boost':
+          input.isBoosting = true;
+          setTimeout(() => (input.isBoosting = false), 300);
+          break;
+        case 'secondary':
+          input.altFireHeld = true;
+          setTimeout(() => (input.altFireHeld = false), 150);
+          break;
+        case 'ultimate':
+          input.ultimateQueued = true;
+          setTimeout(() => (input.ultimateQueued = false), 200);
+          break;
+      }
     });
     
     dom.closeShopBtn?.addEventListener('click', () => {
@@ -2808,12 +2899,15 @@
       const dist = Math.hypot(dx, dy);
       let sx, sy, rawX, rawY;
       
-      // Position joystick if floating
+      // Position joystick if floating, but keep it visible when not floating
       if (isFloating && controlSettings.floatingJoysticks) {
         dom.joystickShootBase.style.right = 'auto';
         dom.joystickShootBase.style.left = `${t.clientX}px`;
         dom.joystickShootBase.style.top = `${t.clientY}px`;
         dom.joystickShootBase.style.transform = 'translate(-50%, -50%)';
+        dom.joystickShootBase.style.opacity = '1';
+      } else {
+        // Always keep shooter joystick visible
         dom.joystickShootBase.style.opacity = '1';
       }
       
@@ -2875,8 +2969,9 @@
       if (!dom.joystickShootStick) return;
       dom.joystickShootStick.style.transform = 'translate(-50%, -50%) scale(1)';
       
-      if (controlSettings.floatingJoysticks && dom.joystickShootBase) {
-        dom.joystickShootBase.style.opacity = '0';
+      // Keep shooter joystick always visible (don't hide it)
+      if (dom.joystickShootBase && !controlSettings.floatingJoysticks) {
+        dom.joystickShootBase.style.opacity = '1';
       }
       
       const returnInterval = setInterval(() => {
