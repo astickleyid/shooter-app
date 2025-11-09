@@ -215,6 +215,89 @@ html, body {
   display: none;
 }
 
+/* Action Log */
+#actionLog {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+  max-width: 90vw;
+}
+
+.log-entry {
+  background: rgba(0,0,0,0.75);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  animation: logFadeIn 0.3s ease, logFadeOut 0.5s ease 3.5s forwards;
+  backdrop-filter: blur(4px);
+}
+
+@keyframes logFadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes logFadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* Equipment Slot Indicator */
+#equipmentIndicator {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.equip-slot {
+  background: rgba(0,0,0,0.6);
+  border: 2px solid rgba(148,163,184,0.3);
+  border-radius: 8px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 50px;
+  transition: all 0.2s ease;
+  opacity: 0.5;
+}
+
+.equip-slot.active {
+  border-color: #4ade80;
+  background: rgba(34,197,94,0.25);
+  opacity: 1;
+  box-shadow: 0 0 12px rgba(34,197,94,0.4);
+}
+
+.equip-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.equip-label {
+  font-size: 8px;
+  font-weight: 700;
+  color: #fff;
+  text-align: center;
+}
+
 @media (min-width: 768px) {
   #pauseHint {
     display: block;
@@ -370,7 +453,36 @@ html, body {
   box-shadow: 0 0 20px rgba(34,197,94,0.5);
 }
 
-/* Settings button */
+/* Unified menu button (replaces both action buttons and settings) */
+#unifiedMenuButton {
+  position: absolute;
+  top: 50px;
+  right: 15px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid rgba(96,165,250,0.5);
+  background: rgba(15,23,42,0.9);
+  color: #60a5fa;
+  font-size: 24px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  transition: all 0.2s ease;
+  backdrop-filter: blur(4px);
+}
+
+#unifiedMenuButton:active {
+  transform: scale(0.92);
+  background: rgba(59,130,246,0.8);
+  color: #fff;
+  box-shadow: 0 0 16px rgba(59,130,246,0.6);
+}
+
+/* Settings button (legacy) - hide if unified menu is present */
 .settingsButton {
   position: absolute;
   top: 50px;
@@ -421,6 +533,95 @@ html, body {
   max-height: 85vh;
   overflow-y: auto;
   box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+}
+
+.modal-content.unified-menu {
+  width: min(700px, 95vw);
+  max-height: 90vh;
+}
+
+/* Menu Tabs */
+.menu-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 12px 16px 0;
+  border-bottom: 2px solid rgba(59,130,246,0.2);
+  overflow-x: auto;
+}
+
+.menu-tab {
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: #94a3b8;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.menu-tab:hover {
+  color: #e2e8f0;
+  background: rgba(59,130,246,0.1);
+}
+
+.menu-tab.active {
+  color: #60a5fa;
+  border-bottom-color: #3b82f6;
+  background: rgba(59,130,246,0.15);
+}
+
+/* Tab Content */
+.tab-content {
+  display: none;
+  animation: tabFadeIn 0.3s ease;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+@keyframes tabFadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Equipment Slot Configuration */
+.equipment-slot-config {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.equipment-slot-config label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.equipment-slot-config label span:first-child {
+  font-size: 13px;
+  font-weight: 700;
+  color: #cbd5e1;
+}
+
+.equipment-select {
+  background: rgba(30,41,59,0.9);
+  color: #e2e8f0;
+  border: 1px solid rgba(59,130,246,0.4);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 14px;
+  cursor: pointer;
+  width: 100%;
+}
+
+.equipment-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59,130,246,0.2);
 }
 
 .modal-header {
@@ -615,25 +816,42 @@ html, body {
     right: 15px;
   }
   
-  /* Position ability button better in landscape */
-  #actionButtons {
-    right: 10px;
-    bottom: 130px;
-  }
-  
-  .actionButton {
-    width: 60px;
-    height: 60px;
-    font-size: 26px;
-  }
-  
-  /* Settings button adjustment */
-  .settingsButton {
+  /* Unified menu button adjustment */
+  #unifiedMenuButton, .settingsButton {
     top: 30px;
     right: 10px;
-    width: 36px;
-    height: 36px;
-    font-size: 18px;
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
+  }
+  
+  /* Equipment indicator compact */
+  #equipmentIndicator {
+    right: 4px;
+    gap: 4px;
+  }
+  
+  .equip-slot {
+    padding: 4px 6px;
+    min-width: 40px;
+  }
+  
+  .equip-icon {
+    font-size: 16px;
+  }
+  
+  .equip-label {
+    font-size: 7px;
+  }
+  
+  /* Action log positioning */
+  #actionLog {
+    bottom: 4px;
+  }
+  
+  .log-entry {
+    font-size: 10px;
+    padding: 4px 10px;
   }
   
   /* Pause button */
@@ -654,7 +872,7 @@ html, body {
     right: 60px;
   }
   
-  #actionButtons {
+  #equipmentIndicator {
     right: 180px;
   }
 }
