@@ -335,6 +335,7 @@
   let countdownActive = false;
   let countdownValue = 3;
   let countdownEnd = 0;
+  let countdownCompletedLevel = 0;
   const camera = { x: 0, y: 0 };
 
   let currentShip = null;
@@ -2134,6 +2135,8 @@
     Save.addCredits(Math.floor(20 + level * 5 + enemiesKilled * 1.5));
     addXP(90 + level * 12);
     if (!tookDamageThisLevel) addXP(110 + level * 18);
+    
+    const completedLevel = level; // Store current level before incrementing
     level += 1;
     enemiesKilled = 0;
     enemiesToKill = Math.floor(6 + level * 4.5);
@@ -2147,8 +2150,8 @@
     // Start countdown
     countdownActive = true;
     countdownValue = 3;
-    countdownEnd = performance.now() + 3000;
-    paused = true;
+    countdownEnd = performance.now() + 4000; // 1 second for "LEVEL COMPLETE" + 3 seconds countdown
+    countdownCompletedLevel = completedLevel;
     
     if (player) {
       player.reconfigureLoadout(false);
@@ -2157,9 +2160,8 @@
     }
     
     // Set up level after countdown
-    queueTimedEffect(3000, () => {
+    queueTimedEffect(4000, () => {
       countdownActive = false;
-      paused = false;
       spawnObstacles();
       createSpawners(Math.min(1 + Math.floor(level / 2), 4), true);
       recenterStars();
@@ -2205,25 +2207,53 @@
     
     // Draw countdown
     if (countdownActive) {
-      const remaining = Math.ceil((countdownEnd - performance.now()) / 1000);
-      if (remaining > 0) {
-        countdownValue = remaining;
-        ctx.save();
-        ctx.fillStyle = 'rgba(0,0,0,0.7)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.font = 'bold 80px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
+      const timeRemaining = countdownEnd - performance.now();
+      const totalDuration = 4000;
+      
+      ctx.save();
+      ctx.fillStyle = 'rgba(0,0,0,0.85)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      
+      // First 1 second: Show "LEVEL COMPLETE"
+      if (timeRemaining > 3000) {
+        ctx.font = 'bold 48px Arial';
         ctx.fillStyle = '#4ade80';
         ctx.shadowColor = '#4ade80';
-        ctx.shadowBlur = 20;
-        ctx.fillText(remaining, canvas.width / 2, canvas.height / 2 - 40);
+        ctx.shadowBlur = 25;
+        ctx.fillText('LEVEL COMPLETE', canvas.width / 2, canvas.height / 2 - 60);
         ctx.shadowBlur = 0;
-        ctx.font = 'bold 24px Arial';
+        
+        ctx.font = 'bold 32px Arial';
         ctx.fillStyle = '#fff';
-        ctx.fillText(`LEVEL ${level}`, canvas.width / 2, canvas.height / 2 + 30);
-        ctx.restore();
+        ctx.fillText(`Level ${countdownCompletedLevel}`, canvas.width / 2, canvas.height / 2);
+        
+        ctx.font = '20px Arial';
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText('Get Ready...', canvas.width / 2, canvas.height / 2 + 50);
+      } 
+      // Next 3 seconds: Show countdown and next level
+      else if (timeRemaining > 0) {
+        const countdown = Math.ceil(timeRemaining / 1000);
+        
+        ctx.font = 'bold 36px Arial';
+        ctx.fillStyle = '#60a5fa';
+        ctx.fillText(`LEVEL ${level}`, canvas.width / 2, canvas.height / 2 - 80);
+        
+        ctx.font = 'bold 120px Arial';
+        ctx.fillStyle = '#4ade80';
+        ctx.shadowColor = '#4ade80';
+        ctx.shadowBlur = 30;
+        ctx.fillText(countdown, canvas.width / 2, canvas.height / 2 + 20);
+        ctx.shadowBlur = 0;
+        
+        ctx.font = '18px Arial';
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText('Starting in...', canvas.width / 2, canvas.height / 2 - 40);
       }
+      
+      ctx.restore();
     }
   };
 
@@ -2231,10 +2261,23 @@
   let animationFrame = null;
 
   const loop = (timestamp) => {
-    if (!gameRunning || paused) {
-      if (!gameRunning && !gameOverHandled) handleGameOver();
+    if (!gameRunning) {
+      if (!gameOverHandled) handleGameOver();
       return;
     }
+    
+    // Always draw during countdown, but don't update game logic
+    if (countdownActive) {
+      drawGame();
+      updateHUD();
+      animationFrame = requestAnimationFrame(loop);
+      return;
+    }
+    
+    if (paused) {
+      return;
+    }
+    
     let dt = timestamp - lastTime;
     lastTime = timestamp;
     dt = Math.min(dt, 50);
