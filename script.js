@@ -2323,22 +2323,26 @@
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       
+      // Use window dimensions for proper centering across all screen sizes
+      const centerX = window.innerWidth / 2;
+      const centerY = window.innerHeight / 2;
+      
       // First 1 second: Show "LEVEL COMPLETE"
       if (timeRemaining > 3000) {
         ctx.font = 'bold 48px Arial';
         ctx.fillStyle = '#4ade80';
         ctx.shadowColor = '#4ade80';
         ctx.shadowBlur = 25;
-        ctx.fillText('LEVEL COMPLETE', canvas.width / 2, canvas.height / 2 - 60);
+        ctx.fillText('LEVEL COMPLETE', centerX, centerY - 60);
         ctx.shadowBlur = 0;
         
         ctx.font = 'bold 32px Arial';
         ctx.fillStyle = '#fff';
-        ctx.fillText(`Level ${countdownCompletedLevel}`, canvas.width / 2, canvas.height / 2);
+        ctx.fillText(`Level ${countdownCompletedLevel}`, centerX, centerY);
         
         ctx.font = '20px Arial';
         ctx.fillStyle = '#94a3b8';
-        ctx.fillText('Get Ready...', canvas.width / 2, canvas.height / 2 + 50);
+        ctx.fillText('Get Ready...', centerX, centerY + 50);
       } 
       // Next 3 seconds: Show countdown and next level
       else if (timeRemaining > 0) {
@@ -2346,18 +2350,18 @@
         
         ctx.font = 'bold 36px Arial';
         ctx.fillStyle = '#60a5fa';
-        ctx.fillText(`LEVEL ${level}`, canvas.width / 2, canvas.height / 2 - 80);
+        ctx.fillText(`LEVEL ${level}`, centerX, centerY - 80);
         
         ctx.font = 'bold 120px Arial';
         ctx.fillStyle = '#4ade80';
         ctx.shadowColor = '#4ade80';
         ctx.shadowBlur = 30;
-        ctx.fillText(countdown, canvas.width / 2, canvas.height / 2 + 20);
+        ctx.fillText(countdown, centerX, centerY + 20);
         ctx.shadowBlur = 0;
         
         ctx.font = '18px Arial';
         ctx.fillStyle = '#94a3b8';
-        ctx.fillText('Starting in...', canvas.width / 2, canvas.height / 2 - 40);
+        ctx.fillText('Starting in...', centerX, centerY - 40);
       }
       
       ctx.restore();
@@ -2377,12 +2381,15 @@
     if (countdownActive) {
       drawGame();
       updateHUD();
+      lastTime = timestamp; // Update lastTime during countdown to prevent huge dt when resuming
+      consumeTimedEffects(timestamp); // Process timed effects to allow countdown to complete
       animationFrame = requestAnimationFrame(loop);
       return;
     }
     
     if (paused) {
       // Keep the animation frame going even when paused
+      lastTime = timestamp; // Update lastTime during pause to prevent huge dt when resuming
       animationFrame = requestAnimationFrame(loop);
       return;
     }

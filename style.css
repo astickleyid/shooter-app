@@ -825,8 +825,9 @@ html, body {
     right: 60px;
   }
   
+  /* Equipment indicator stays glued to right edge in all orientations */
   #equipmentIndicator {
-    right: 180px;
+    right: 8px;
   }
 }
 
