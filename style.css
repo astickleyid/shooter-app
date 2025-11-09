@@ -46,6 +46,45 @@ html, body {
   border: 2px solid #4ade80;
 }
 
+.difficultySelector {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #94a3b8;
+  margin-top: 10px;
+}
+
+.difficultySelector label {
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.difficultyDropdown {
+  background: #1f2937;
+  color: #fff;
+  border: 2px solid #374151;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.difficultyDropdown:hover {
+  border-color: #4ade80;
+  background: #2a3a4a;
+}
+
+.difficultyDropdown:focus {
+  border-color: #4ade80;
+  box-shadow: 0 0 8px rgba(74, 222, 128, 0.3);
+}
+
 .menuRow {
   display: flex;
   gap: 10px;
