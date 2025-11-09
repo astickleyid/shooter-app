@@ -338,6 +338,28 @@
   let countdownCompletedLevel = 0;
   const camera = { x: 0, y: 0 };
 
+  // Equipment tap system
+  let lastTapTime = 0;
+  let tapCount = 0;
+  let currentEquipmentSlot = 0; // 0=primary, 1=slot2, 2=slot3, 3=slot4
+  const TAP_TIMEOUT = 500; // ms between taps
+
+  // Action logging system
+  const actionLog = [];
+  const MAX_LOG_ENTRIES = 5;
+  const LOG_ENTRY_LIFETIME = 4000; // ms
+
+  const addLogEntry = (message, color = '#fff') => {
+    actionLog.push({
+      message,
+      color,
+      timestamp: performance.now()
+    });
+    if (actionLog.length > MAX_LOG_ENTRIES) {
+      actionLog.shift();
+    }
+  };
+
   let currentShip = null;
 
   const input = {
@@ -386,6 +408,13 @@
       secondary: 'nova',
       defense: 'aegis',
       ultimate: 'voidstorm'
+    },
+    // Equipment class system: 4 configurable slots
+    equipmentClass: {
+      slot1: { type: 'primary', id: 'pulse' }, // Required: primary weapon
+      slot2: { type: 'defense', id: 'aegis' }, // Flexible
+      slot3: { type: 'secondary', id: 'nova' }, // Flexible
+      slot4: { type: 'boost', id: 'boost' } // Flexible (boost is special type)
     }
   });
 
@@ -420,6 +449,10 @@
       this.data.pilotXp = Math.max(0, this.data.pilotXp || 0);
       if (!this.data.selectedShip) this.data.selectedShip = 'vanguard';
       if (!this.data.armory || typeof this.data.armory !== 'object') this.data.armory = defaultArmory();
+      // Ensure equipment class exists
+      if (!this.data.armory.equipmentClass) {
+        this.data.armory.equipmentClass = defaultArmory().equipmentClass;
+      }
       for (const key of ['primary', 'secondary', 'defense', 'ultimate']) {
         if (!Array.isArray(this.data.armory.unlocked[key])) this.data.armory.unlocked[key] = [];
         if (!this.data.armory.loadout[key]) this.data.armory.loadout[key] = defaultArmory().loadout[key];
@@ -1658,6 +1691,11 @@
     addParticles('pop', enemy.x, enemy.y, 0, 14);
     shakeScreen(3.4, 110);
     if (player) player.addUltimateCharge(15 + level * 2);
+    
+    // Check if all enemies eliminated
+    if (enemiesKilled >= enemiesToKill) {
+      addLogEntry('All enemies eliminated!', '#4ade80');
+    }
   };
 
   const applyRadialDamage = (cx, cy, radius, damage, opts = {}) => {
@@ -1748,6 +1786,75 @@
       dom.xpBar.style.width = `${pct}%`;
       dom.xpText.textContent = `${pct}%`;
     }
+    
+    // Update action log
+    renderActionLog();
+    
+    // Update equipment indicator
+    updateEquipmentIndicator();
+  };
+
+  const renderActionLog = () => {
+    const logContainer = document.getElementById('actionLog');
+    if (!logContainer) return;
+    
+    const now = performance.now();
+    // Remove expired entries
+    for (let i = actionLog.length - 1; i >= 0; i--) {
+      if (now - actionLog[i].timestamp > LOG_ENTRY_LIFETIME) {
+        actionLog.splice(i, 1);
+      }
+    }
+    
+    // Render log entries
+    logContainer.innerHTML = '';
+    actionLog.forEach(entry => {
+      const div = document.createElement('div');
+      div.className = 'log-entry';
+      div.style.color = entry.color;
+      div.textContent = entry.message;
+      logContainer.appendChild(div);
+    });
+  };
+
+  const updateEquipmentIndicator = () => {
+    const slots = document.querySelectorAll('.equip-slot');
+    slots.forEach((slot, index) => {
+      if (index === currentEquipmentSlot) {
+        slot.classList.add('active');
+      } else {
+        slot.classList.remove('active');
+      }
+    });
+    
+    // Update slot labels and icons based on equipment class
+    const equipClass = Save.data.armory.equipmentClass || defaultArmory().equipmentClass;
+    Object.keys(equipClass).forEach((slotKey, index) => {
+      const slotData = equipClass[slotKey];
+      const slotElement = document.querySelector(`.equip-slot[data-slot="${index}"]`);
+      if (slotElement && slotData) {
+        const iconSpan = slotElement.querySelector('.equip-icon');
+        const labelSpan = slotElement.querySelector('.equip-label');
+        
+        // Set icon based on type
+        const iconMap = {
+          'primary': '🔫',
+          'secondary': '💣',
+          'defense': '🛡️',
+          'boost': '🚀',
+          'ultimate': '⭐'
+        };
+        
+        if (iconSpan) iconSpan.textContent = iconMap[slotData.type] || '⚡';
+        if (labelSpan) {
+          if (index === 0) {
+            labelSpan.textContent = 'Primary';
+          } else {
+            labelSpan.textContent = `${index + 1} taps`;
+          }
+        }
+      }
+    });
   };
 
   const drawStartGraphic = () => {

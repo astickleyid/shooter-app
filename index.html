@@ -51,6 +51,29 @@
     </div>
     <div id="pauseHint">P = Pause / Shop</div>
     
+    <!-- ACTION LOG -->
+    <div id="actionLog"></div>
+    
+    <!-- EQUIPMENT SLOT INDICATOR -->
+    <div id="equipmentIndicator">
+      <div class="equip-slot active" data-slot="0">
+        <span class="equip-icon">🔫</span>
+        <span class="equip-label">Primary</span>
+      </div>
+      <div class="equip-slot" data-slot="1">
+        <span class="equip-icon">🛡️</span>
+        <span class="equip-label">Slot 2</span>
+      </div>
+      <div class="equip-slot" data-slot="2">
+        <span class="equip-icon">💣</span>
+        <span class="equip-label">Slot 3</span>
+      </div>
+      <div class="equip-slot" data-slot="3">
+        <span class="equip-icon">🚀</span>
+        <span class="equip-label">Slot 4</span>
+      </div>
+    </div>
+    
     <!-- MOBILE CONTROLS -->
     <div id="mobileControls">
       <!-- Floating joystick zones -->
@@ -61,84 +84,143 @@
         <div id="joystickShootBase" class="joystickBase"><div id="joystickShootStick" class="joystickStick"></div></div>
       </div>
       
-      <!-- Single swappable ability button -->
-      <div id="actionButtons">
-        <button id="abilityButton" class="actionButton ability-button" title="Active Ability">⚡</button>
-      </div>
+      <!-- Removed ability button - now using tap-to-switch -->
       
-      <!-- Settings button -->
-      <button id="controlSettingsButton" class="settingsButton">⚙️</button>
+      <!-- Unified menu button (pause + settings merged) -->
+      <button id="unifiedMenuButton" class="settingsButton">☰</button>
     </div>
     
-    <!-- Control Settings Modal -->
+    <!-- Unified Menu Modal (combines pause, settings, weapons, equipment) -->
     <div id="controlSettingsModal" class="modal">
-      <div class="modal-content">
+      <div class="modal-content unified-menu">
         <div class="modal-header">
-          <h2>Control Settings</h2>
+          <h2>Game Menu</h2>
           <button id="closeControlSettings" class="closeBtn">✕</button>
         </div>
-        <div class="settings-section">
-          <h3>Layout</h3>
-          <label>
-            <span>Control Opacity</span>
-            <input type="range" id="controlOpacity" min="30" max="100" value="90">
-            <span id="opacityValue">90%</span>
-          </label>
-          <label>
-            <span>Button Size</span>
-            <input type="range" id="buttonSize" min="70" max="130" value="100">
-            <span id="sizeValue">100%</span>
-          </label>
-          <label>
-            <span>Joystick Size</span>
-            <input type="range" id="joystickSize" min="80" max="140" value="100">
-            <span id="joystickSizeValue">100%</span>
-          </label>
+        
+        <!-- Tab Navigation -->
+        <div class="menu-tabs">
+          <button class="menu-tab active" data-tab="equipment">Equipment</button>
+          <button class="menu-tab" data-tab="upgrades">Upgrades</button>
+          <button class="menu-tab" data-tab="weapons">Weapons</button>
+          <button class="menu-tab" data-tab="controls">Controls</button>
         </div>
-        <div class="settings-section">
-          <h3>Sensitivity</h3>
-          <label>
-            <span>Movement Sensitivity</span>
-            <input type="range" id="moveSensitivity" min="50" max="150" value="100">
-            <span id="moveSensValue">100%</span>
-          </label>
-          <label>
-            <span>Aim Sensitivity</span>
-            <input type="range" id="aimSensitivity" min="50" max="150" value="100">
-            <span id="aimSensValue">100%</span>
-          </label>
-          <label>
-            <span>Deadzone</span>
-            <input type="range" id="deadzone" min="5" max="25" value="12">
-            <span id="deadzoneValue">12%</span>
-          </label>
+        
+        <!-- Equipment Class Tab -->
+        <div class="tab-content active" id="equipmentTab">
+          <div class="settings-section">
+            <h3>Configure Equipment Loadout</h3>
+            <p style="color: #94a3b8; font-size: 13px; margin-bottom: 16px;">
+              Slot 1 must be a primary weapon. Use 2 taps to switch to slot 2, 3 taps for slot 3, etc.
+            </p>
+            
+            <div class="equipment-slot-config">
+              <label>
+                <span>Slot 1 (Primary) - Always Active</span>
+                <select id="equipSlot1" class="equipment-select">
+                  <option value="primary:pulse">Pulse Blaster</option>
+                  <option value="primary:scatter">Scatter Coil</option>
+                  <option value="primary:rail">Rail Lance</option>
+                  <option value="primary:ionburst">Ion Burst</option>
+                </select>
+              </label>
+              
+              <label>
+                <span>Slot 2 - 2 Taps to Activate</span>
+                <select id="equipSlot2" class="equipment-select">
+                  <option value="defense:aegis">Aegis Shield</option>
+                  <option value="defense:reflector">Reflector Veil</option>
+                  <option value="secondary:nova">Nova Bomb</option>
+                  <option value="secondary:cluster">Cluster Barrage</option>
+                  <option value="boost">Boost</option>
+                </select>
+              </label>
+              
+              <label>
+                <span>Slot 3 - 3 Taps to Activate</span>
+                <select id="equipSlot3" class="equipment-select">
+                  <option value="secondary:nova">Nova Bomb</option>
+                  <option value="secondary:cluster">Cluster Barrage</option>
+                  <option value="defense:aegis">Aegis Shield</option>
+                  <option value="defense:reflector">Reflector Veil</option>
+                  <option value="boost">Boost</option>
+                </select>
+              </label>
+              
+              <label>
+                <span>Slot 4 - 4 Taps to Activate</span>
+                <select id="equipSlot4" class="equipment-select">
+                  <option value="boost">Boost</option>
+                  <option value="ultimate:voidstorm">Voidstorm</option>
+                  <option value="ultimate:solarbeam">Solar Beam</option>
+                  <option value="defense:aegis">Aegis Shield</option>
+                  <option value="secondary:nova">Nova Bomb</option>
+                </select>
+              </label>
+            </div>
+            
+            <p style="color: #60a5fa; font-size: 12px; margin-top: 12px;">
+              💡 Tap anywhere on screen (not joysticks) to cycle equipment: 2 taps = slot 2, 3 taps = slot 3, etc.
+            </p>
+          </div>
         </div>
-        <div class="settings-section">
-          <h3>Ability Selection</h3>
-          <label>
-            <span>Active Ability</span>
-            <select id="activeAbility">
-              <option value="boost">Boost</option>
-              <option value="secondary">Secondary Weapon</option>
-              <option value="ultimate">Ultimate</option>
-            </select>
-          </label>
+        
+        <!-- Upgrades Tab -->
+        <div class="tab-content" id="upgradesTab">
+          <div id="upgradesContent"></div>
         </div>
-        <div class="settings-section">
-          <h3>Advanced</h3>
-          <label class="checkbox-label">
-            <input type="checkbox" id="floatingJoysticks" checked>
-            <span>Floating Joysticks (appear where you touch)</span>
-          </label>
-          <label class="checkbox-label">
-            <input type="checkbox" id="hapticFeedback" checked>
-            <span>Haptic Feedback</span>
-          </label>
-          <label class="checkbox-label">
-            <input type="checkbox" id="gyroscopeAim">
-            <span>Gyroscope Aiming (Experimental)</span>
-          </label>
+        
+        <!-- Weapons Tab -->
+        <div class="tab-content" id="weaponsTab">
+          <div id="weaponsContent"></div>
         </div>
+        
+        <!-- Controls Tab -->
+        <div class="tab-content" id="controlsTab">
+          <div class="settings-section">
+            <h3>Layout</h3>
+            <label>
+              <span>Control Opacity</span>
+              <input type="range" id="controlOpacity" min="30" max="100" value="90">
+              <span id="opacityValue">90%</span>
+            </label>
+            <label>
+              <span>Joystick Size</span>
+              <input type="range" id="joystickSize" min="80" max="140" value="100">
+              <span id="joystickSizeValue">100%</span>
+            </label>
+          </div>
+          <div class="settings-section">
+            <h3>Sensitivity</h3>
+            <label>
+              <span>Movement Sensitivity</span>
+              <input type="range" id="moveSensitivity" min="50" max="150" value="100">
+              <span id="moveSensValue">100%</span>
+            </label>
+            <label>
+              <span>Aim Sensitivity</span>
+              <input type="range" id="aimSensitivity" min="50" max="150" value="100">
+              <span id="aimSensValue">100%</span>
+            </label>
+            <label>
+              <span>Deadzone</span>
+              <input type="range" id="deadzone" min="5" max="25" value="12">
+              <span id="deadzoneValue">12%</span>
+            </label>
+          </div>
+          <div class="settings-section">
+            <h3>Advanced</h3>
+            <label class="checkbox-label">
+              <input type="checkbox" id="floatingJoysticks" checked>
+              <span>Floating Joysticks (appear where you touch)</span>
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="hapticFeedback" checked>
+              <span>Haptic Feedback</span>
+            </label>
+          </div>
+        </div>
+        
         <div class="modal-footer">
           <button id="resetControls" class="secondaryBtn">Reset to Default</button>
           <button id="saveControls" class="primaryBtn">Save & Close</button>
