@@ -201,50 +201,35 @@ html, body {
   color: #f8fafc;
 }
 
-/* Pause hint - hide on mobile */
-#pauseHint {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 3;
-  background: rgba(0,0,0,0.6);
-  border: 1px solid rgba(255,255,255,0.2);
-  border-radius: 8px;
-  padding: 4px 8px;
-  font-size: 10px;
-  display: none;
-}
-
-/* Action Log */
+/* Action Log - Minimal Console Style */
 #actionLog {
   position: absolute;
-  bottom: 8px;
-  left: 50%;
-  transform: translateX(-50%);
+  bottom: 12px;
+  left: 12px;
   z-index: 4;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 4px;
+  gap: 2px;
   pointer-events: none;
-  max-width: 90vw;
+  max-width: 280px;
+  font-family: 'Courier New', monospace;
 }
 
 .log-entry {
-  background: rgba(0,0,0,0.75);
-  border: 1px solid rgba(255,255,255,0.2);
-  border-radius: 6px;
-  padding: 6px 12px;
-  font-size: 11px;
-  font-weight: 700;
+  background: rgba(0,0,0,0.85);
+  border-left: 3px solid currentColor;
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: 600;
   white-space: nowrap;
-  animation: logFadeIn 0.3s ease, logFadeOut 0.5s ease 3.5s forwards;
-  backdrop-filter: blur(4px);
+  animation: logSlideIn 0.2s ease, logFadeOut 0.4s ease 3.6s forwards;
+  text-shadow: 0 0 4px currentColor;
+  letter-spacing: 0.02em;
 }
 
-@keyframes logFadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+@keyframes logSlideIn {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 @keyframes logFadeOut {
@@ -298,31 +283,6 @@ html, body {
   text-align: center;
 }
 
-@media (min-width: 768px) {
-  #pauseHint {
-    display: block;
-  }
-  #pauseButton {
-    display: none;
-  }
-}
-
-/* Pause button for mobile */
-#pauseButton {
-  background: rgba(0,0,0,0.7);
-  border: 1px solid rgba(255,255,255,0.25);
-  border-radius: 6px;
-  color: #fff;
-  font-size: 14px;
-  padding: 4px 8px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 32px;
-  height: 24px;
-  margin-left: auto;
-}
 
 /* Mobile Controls - Enhanced Minimal Design */
 #mobileControls {
@@ -355,7 +315,7 @@ html, body {
   right: 0;
 }
 
-/* Joystick styling - Always visible for shooter */
+/* Joystick styling - Both visible at 50% opacity by default */
 .joystickBase {
   position: absolute;
   width: 110px;
@@ -367,16 +327,15 @@ html, body {
   pointer-events: none;
   transition: opacity 0.2s ease;
   bottom: 80px;
+  opacity: 0.5; /* Default 50% opacity for both joysticks */
 }
 
 #leftTouchZone .joystickBase {
   left: 30px;
-  opacity: 0; /* Move joystick stays hidden until touched */
 }
 
 #rightTouchZone .joystickBase {
   right: 30px;
-  opacity: 1; /* Shooter joystick is always visible */
 }
 
 .joystickStick {
@@ -847,18 +806,12 @@ html, body {
   /* Action log positioning */
   #actionLog {
     bottom: 4px;
+    left: 4px;
   }
   
   .log-entry {
-    font-size: 10px;
-    padding: 4px 10px;
-  }
-  
-  /* Pause button */
-  #pauseButton {
-    height: 20px;
-    min-width: 28px;
-    font-size: 12px;
+    font-size: 9px;
+    padding: 3px 7px;
   }
 }
 
