@@ -261,7 +261,12 @@
   </div>
 
   <!-- Include external scripts -->
+  <!-- Load game modules in dependency order -->
+  <script src="src/obstacles.js"></script>
+  <script src="src/projectile.js"></script>
+  <script src="src/collectibles.js"></script>
   <script src="src/enemy.js"></script>
+  <script src="src/player.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

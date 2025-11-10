@@ -383,6 +383,9 @@
     }
   };
 
+  // Expose Save for modules
+  window.Save = Save;
+
   let currentShip = null;
 
   const input = {
@@ -399,6 +402,46 @@
     defenseHeld: false,
     ultimateQueued: false
   };
+
+  // Expose needed game state for modules
+  window.input = input;
+  window.currentShip = null; // Will be updated during gameplay
+  window.Save = null; // Will be set later
+  window.player = null; // Will be set during gameplay
+  window.enemies = enemies;
+  window.bullets = bullets;
+  window.lastShotTime = 0;
+  window.lastAmmoRegen = 0;
+  window.tookDamageThisLevel = false;
+  window.gameRunning = false;
+  window.obstacles = obstacles;
+  window.level = 1;
+
+  // Setter accessors for variables that change
+  Object.defineProperty(window, 'currentShip', {
+    get() { return currentShip; },
+    set(val) { currentShip = val; }
+  });
+  Object.defineProperty(window, 'player', {
+    get() { return player; },
+    set(val) { player = val; }
+  });
+  Object.defineProperty(window, 'lastShotTime', {
+    get() { return lastShotTime; },
+    set(val) { lastShotTime = val; }
+  });
+  Object.defineProperty(window, 'lastAmmoRegen', {
+    get() { return lastAmmoRegen; },
+    set(val) { lastAmmoRegen = val; }
+  });
+  Object.defineProperty(window, 'tookDamageThisLevel', {
+    get() { return tookDamageThisLevel; },
+    set(val) { tookDamageThisLevel = val; }
+  });
+  Object.defineProperty(window, 'gameRunning', {
+    get() { return gameRunning; },
+    set(val) { gameRunning = val; }
+  });
 
   const keyboard = {
     w: false,
@@ -533,6 +576,9 @@
     }
   };
 
+  // Expose Save for modules
+  window.Save = Save;
+
   const costOf = (upgrade) => {
     const lvl = Save.getUpgradeLevel(upgrade.id);
     return Math.floor(upgrade.base + upgrade.step * (lvl * 1.5 + lvl * lvl * 0.35));
@@ -564,6 +610,16 @@
   const currentSecondarySystem = () => ARMORY_MAP.secondary[Save.data.armory.loadout.secondary] || ARMORY.secondary[0];
   const currentDefenseSystem = () => ARMORY_MAP.defense[Save.data.armory.loadout.defense] || ARMORY.defense[0];
   const currentUltimateSystem = () => ARMORY_MAP.ultimate[Save.data.armory.loadout.ultimate] || ARMORY.ultimate[0];
+
+  // Expose functions and data for player module
+  window.clamp = clamp;
+  window.SHIP_TEMPLATES = SHIP_TEMPLATES;
+  window.getShipTemplate = getShipTemplate;
+  window.shipStat = shipStat;
+  window.currentPrimaryWeapon = currentPrimaryWeapon;
+  window.currentSecondarySystem = currentSecondarySystem;
+  window.currentDefenseSystem = currentDefenseSystem;
+  window.currentUltimateSystem = currentUltimateSystem;
 
   const resetRuntimeState = () => {
     enemies = [];
@@ -618,6 +674,12 @@
   const queueTimedEffect = (delayMs, fn) => {
     timedEffects.push({ t: performance.now() + delayMs, fn });
   };
+
+  // Expose queueTimedEffect for player module
+  window.queueTimedEffect = queueTimedEffect;
+
+  // Expose queueTimedEffect for player module
+  window.queueTimedEffect = queueTimedEffect;
 
   const consumeTimedEffects = (now) => {
     for (let i = timedEffects.length - 1; i >= 0; i--) {
@@ -771,690 +833,13 @@
   // Expose randomAround for enemy module
   window.randomAround = randomAround;
 
-  class Asteroid {
-    constructor(x, y, r, variant = 'rock') {
-      this.x = x;
-      this.y = y;
-      this.r = r;
-      this.variant = variant;
-      this.rot = rand(0, Math.PI * 2);
-      this.vx = rand(-0.45, 0.45);
-      this.vy = rand(-0.45, 0.45);
-      this.vr = rand(-0.012, 0.012);
-      this.hp = Math.max(3, Math.round(r / 10));
-      this.points = [];
-      const seg = 8 + Math.floor(Math.random() * 4);
-      for (let i = 0; i < seg; i++) {
-        const a = (i / seg) * Math.PI * 2;
-        const rr = r * rand(0.7, 1.15);
-        this.points.push({ a, rr });
-      }
-    }
-    draw(ctx) {
-      ctx.save();
-      ctx.translate(this.x, this.y);
-      ctx.rotate(this.rot);
-      let fill = '#1f2937';
-      let stroke = '#9ca3af';
-      if (this.variant === 'ember') {
-        fill = '#3b0d0d';
-        stroke = '#f87171';
-      } else if (this.variant === 'iron') {
-        fill = '#111827';
-        stroke = '#94a3b8';
-      }
-      ctx.strokeStyle = stroke;
-      ctx.fillStyle = fill;
-      ctx.lineWidth = 2.2;
-      ctx.beginPath();
-      for (let i = 0; i < this.points.length; i++) {
-        const { a, rr } = this.points[i];
-        const px = Math.cos(a) * rr;
-        const py = Math.sin(a) * rr;
-        if (i === 0) ctx.moveTo(px, py);
-        else ctx.lineTo(px, py);
-      }
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-      const grd = ctx.createLinearGradient(-this.r, -this.r, this.r, this.r);
-      grd.addColorStop(0, 'rgba(255,255,255,0.1)');
-      grd.addColorStop(1, 'rgba(255,255,255,0)');
-      ctx.strokeStyle = grd;
-      ctx.lineWidth = 1;
-      ctx.stroke();
-      ctx.restore();
-    }
-    update(dt) {
-      const step = dt / 16.67;
-      this.x += this.vx * step;
-      this.y += this.vy * step;
-      this.rot += this.vr * step;
-      if (!player) return;
-      const limit = viewRadius(1.8);
-      const dx = this.x - player.x;
-      const dy = this.y - player.y;
-      if (dx * dx + dy * dy > limit * limit) this.resetPosition();
-    }
-    resetPosition() {
-      if (!player) return;
-      const outer = viewRadius(1.4);
-      const inner = viewRadius(0.45);
-      const pos = randomAround(player.x, player.y, inner, outer);
-      this.x = pos.x;
-      this.y = pos.y;
-      this.vx = rand(-0.45, 0.45);
-      this.vy = rand(-0.45, 0.45);
-      this.hp = Math.max(3, Math.round(this.r / 10));
-    }
-  }
+  // Asteroid class and spawnObstacles function moved to src/obstacles.js
 
-  const spawnObstacles = () => {
-    obstacles = [];
-    if (!player) return;
-    const count = BASE.OBST_ASTEROIDS + Math.floor(level / 2);
-    const inner = viewRadius(0.35);
-    const outer = viewRadius(1.2);
-    for (let i = 0; i < count; i++) {
-      const r = rand(18, 42);
-      const pos = randomAround(player.x, player.y, inner, outer);
-      const roll = Math.random();
-      let variant = 'rock';
-      if (roll < 0.25) variant = 'iron';
-      else if (roll > 0.75) variant = 'ember';
-      obstacles.push(new Asteroid(pos.x, pos.y, r, variant));
-    }
-  };
+  // Bullet class moved to src/projectile.js
 
-  /* ====== ENTITY CLASSES ====== */
-  class Bullet {
-    constructor(x, y, vel, damage, color = '#fde047', speed = BASE.BULLET_SPEED, size = BASE.BULLET_SIZE, pierce = 0, isEnemy = false) {
-      this.x = x;
-      this.y = y;
-      this.size = size;
-      this.vel = vel;
-      this.damage = damage;
-      this.life = 0;
-      this.maxLife = 2200;
-      this.color = color;
-      this.speed = speed;
-      this.pierce = pierce;
-      this.isEnemy = isEnemy;
-    }
-    draw(ctx) {
-      if (this.isEnemy) {
-        // Enemy bullets: glowing red plasma orbs
-        ctx.shadowColor = '#dc2626';
-        ctx.shadowBlur = 8;
-        ctx.fillStyle = '#dc2626';
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size * 1.2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-        
-        // Inner core
-        ctx.fillStyle = '#fca5a5';
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size * 0.6, 0, Math.PI * 2);
-        ctx.fill();
-      } else {
-        // Player bullets: bright energy bolts with trail
-        ctx.shadowColor = this.color;
-        ctx.shadowBlur = 6;
-        ctx.fillStyle = this.color;
-        
-        // Elongated bullet shape
-        const angle = Math.atan2(this.vel.y, this.vel.x);
-        ctx.save();
-        ctx.translate(this.x, this.y);
-        ctx.rotate(angle);
-        
-        // Draw elongated diamond
-        ctx.beginPath();
-        ctx.moveTo(this.size * 2, 0);
-        ctx.lineTo(0, -this.size);
-        ctx.lineTo(-this.size, 0);
-        ctx.lineTo(0, this.size);
-        ctx.closePath();
-        ctx.fill();
-        
-        // Bright core
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(-this.size * 0.5, -this.size * 0.4, this.size, this.size * 0.8);
-        
-        ctx.restore();
-        ctx.shadowBlur = 0;
-      }
-    }
-    update(dt) {
-      const step = dt / 16.67;
-      this.x += this.vel.x * this.speed * step;
-      this.y += this.vel.y * this.speed * step;
-      this.life += dt;
-    }
-    expired(maxDistance) {
-      if (this.life > this.maxLife) return true;
-      if (!player) return false;
-      const dx = this.x - player.x;
-      const dy = this.y - player.y;
-      return dx * dx + dy * dy > maxDistance * maxDistance;
-    }
-  }
+  // Coin and SupplyCrate classes moved to src/collectibles.js
 
-  // Enemy class moved to src/enemy.js
-
-  class Coin {
-    constructor(x, y) {
-      this.x = x;
-      this.y = y;
-      this.r = BASE.COIN_SIZE;
-      this.created = performance.now();
-      this.life = BASE.COIN_LIFETIME;
-    }
-    draw(ctx) {
-      const age = performance.now() - this.created;
-      const rem = (this.life - age) / this.life;
-      if (rem < 0.3 && ((age / 100) | 0) % 2 === 0) return;
-      ctx.globalAlpha = Math.max(0, rem);
-      const wobble = Math.sin((performance.now() + this.created) / 220) * 0.2;
-      const rx = this.r * (1 + wobble * 0.08);
-      const ry = this.r * (1 - wobble * 0.2);
-      const grd = ctx.createRadialGradient(this.x - rx * 0.3, this.y - ry * 0.3, 2, this.x, this.y, rx);
-      grd.addColorStop(0, '#fff7b2');
-      grd.addColorStop(0.4, '#facc15');
-      grd.addColorStop(1, '#b45309');
-      ctx.fillStyle = grd;
-      ctx.strokeStyle = '#fde68a';
-      ctx.lineWidth = 1.6;
-      ctx.beginPath();
-      ctx.ellipse(this.x, this.y, rx, ry, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-      ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.ellipse(this.x, this.y, rx * 0.55, ry * 0.55, 0, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.fillStyle = 'rgba(255,255,255,0.65)';
-      ctx.beginPath();
-      ctx.ellipse(this.x - rx * 0.2, this.y - ry * 0.4, rx * 0.18, ry * 0.18, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.globalAlpha = 1;
-    }
-  }
-
-  class SupplyCrate {
-    constructor(x, y, kind = 'ammo') {
-      this.x = x;
-      this.y = y;
-      this.kind = kind;
-      this.size = 12;
-      this.created = performance.now();
-      this.life = 12000;
-      this.spin = rand(0, Math.PI * 2);
-    }
-    draw(ctx) {
-      const age = performance.now() - this.created;
-      const pulse = 0.65 + Math.sin(age / 160) * 0.2;
-      ctx.save();
-      ctx.translate(this.x, this.y);
-      ctx.rotate(this.spin + age / 500);
-      const color = this.kind === 'ammo' ? '#bef264' : this.kind === 'secondary' ? '#38bdf8' : '#c084fc';
-      ctx.fillStyle = color;
-      ctx.globalAlpha = 0.85;
-      const w = this.size * 2 * pulse;
-      const h = this.size * 1.2;
-      const r = 6;
-      const x = -this.size * pulse;
-      const y = -this.size * 0.6;
-      ctx.beginPath();
-      ctx.moveTo(x + r, y);
-      ctx.lineTo(x + w - r, y);
-      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-      ctx.lineTo(x + w, y + h - r);
-      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-      ctx.lineTo(x + r, y + h);
-      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-      ctx.lineTo(x, y + r);
-      ctx.quadraticCurveTo(x, y, x + r, y);
-      ctx.closePath();
-      ctx.fill();
-      ctx.globalAlpha = 1;
-      ctx.strokeStyle = 'rgba(17,24,39,0.6)';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      ctx.restore();
-    }
-  }
-
-  // Spawner class and related functions moved to src/enemy.js
-
-  class PlayerEntity {
-    constructor(x, y) {
-      this.x = x;
-      this.y = y;
-      this.size = BASE.PLAYER_SIZE;
-      this.engineOffset = 1.1;
-      this.lookAngle = 0;
-      this.vel = { x: 0, y: 0 };
-      this.lastRegenT = performance.now();
-      this.invEnd = 0;
-      this.flash = false;
-      this.secondaryReadyAt = performance.now();
-      this.secondaryCooldownMs = 0;
-      this.secondaryAmmo = 0;
-      this.secondaryCapacity = 0;
-      this.defenseReadyAt = performance.now();
-      this.defenseActiveUntil = 0;
-      this.ultimateCharge = 0;
-      this.ultimateChargeMax = 100;
-      this.lastUltimateAt = 0;
-      this.ammoPerShot = 1;
-      this.secondaryLatch = false;
-      this.defenseLatch = false;
-      this.reconfigureLoadout(false);
-    }
-
-    reconfigureLoadout(preserveVitals = true) {
-      this.primary = currentPrimaryWeapon();
-      this.secondary = currentSecondarySystem();
-      this.defense = currentDefenseSystem();
-      this.ultimate = currentUltimateSystem();
-      currentShip = getShipTemplate(Save.data.selectedShip);
-      const template = currentShip || SHIP_TEMPLATES[0];
-      this.shipColors = template.colors || {};
-      const prevHealthRatio = preserveVitals && this.hpMax ? this.health / this.hpMax : 1;
-      const prevAmmoRatio = preserveVitals && this.ammoMax ? this.ammo / this.ammoMax : 1;
-      const prevSecondaryRatio = preserveVitals && this.secondaryCapacity ? this.secondaryAmmo / this.secondaryCapacity : 1;
-      const prevUltimateRatio = preserveVitals && this.ultimateChargeMax ? this.ultimateCharge / this.ultimateChargeMax : 0;
-      this.size = BASE.PLAYER_SIZE * (template.scale || 1);
-      this.engineOffset = template.engineOffset || 1.1;
-      const weaponStats = (this.primary && this.primary.stats) || {};
-      this.ammoPerShot = Math.max(1, Math.round(weaponStats.ammoPerShot || 1));
-      this.ammoMax = Math.max(1, Math.round(BASE.PLAYER_AMMO * shipStat('ammo', 1) * (weaponStats.ammo || 1)));
-      const stats = this.#dynamicStats();
-      this.hpMax = stats.hpMax;
-      if (preserveVitals) {
-        this.health = clamp(this.hpMax * prevHealthRatio, 1, this.hpMax);
-        this.ammo = clamp(Math.round(this.ammoMax * prevAmmoRatio), 0, this.ammoMax);
-      } else {
-        this.health = this.hpMax;
-        this.ammo = this.ammoMax;
-      }
-      const secondaryStats = (this.secondary && this.secondary.stats) || {};
-      const defenseStats = (this.defense && this.defense.stats) || {};
-      const ultimateStats = (this.ultimate && this.ultimate.stats) || {};
-      this.secondaryCapacity = Math.max(0, Math.round(secondaryStats.ammo || 0));
-      this.secondaryCooldownMs = secondaryStats.cooldown || 9000;
-      this.secondaryAmmo = preserveVitals ? clamp(Math.round(this.secondaryCapacity * prevSecondaryRatio), 0, this.secondaryCapacity) : this.secondaryCapacity;
-      this.defenseStats = defenseStats;
-      if (!preserveVitals) {
-        this.defenseReadyAt = performance.now();
-        this.defenseActiveUntil = 0;
-      }
-      this.ultimateChargeMax = Math.max(1, ultimateStats.charge || 100);
-      this.ultimateCharge = clamp(this.ultimateChargeMax * prevUltimateRatio, 0, this.ultimateChargeMax);
-    }
-
-    #dynamicStats() {
-      const L = (id) => Save.getUpgradeLevel(id);
-      const weaponStats = (this.primary && this.primary.stats) || {};
-      const fireBase = clamp(140 - L('firerate') * 18, 55, 999) * shipStat('fireRate', 1);
-      const hpBase = (BASE.PLAYER_HEALTH + L('shield') * 22) * shipStat('hp', 1);
-      const pickupBase = (26 + L('magnet') * 14) * shipStat('pickup', 1);
-      const ammoRegenBase = clamp((BASE.AMMO_REGEN_MS - L('ammo') * 120) * shipStat('ammoRegen', 1), 280, 2200);
-      const baseSpeed = BASE.PLAYER_SPEED * shipStat('speed', 1);
-      const boostSpeed = (BASE.PLAYER_BOOST_SPEED + L('boost') * 0.9) * shipStat('boost', shipStat('speed', 1));
-      return {
-        fireCD: clamp(fireBase * (weaponStats.cd || 1), 35, 999),
-        dmg: (1 + L('damage') * 0.6) * shipStat('damage', 1) * (weaponStats.damage || 1),
-        multishot: 1 + L('multi') + (weaponStats.shots || 0),
-        hpMax: hpBase,
-        hpRegen5: L('regen') * 3,
-        repulse: L('field') > 0 ? 2 + L('field') * 0.8 : 0,
-        pickupR: pickupBase,
-        ammoRegen: ammoRegenBase,
-        boost: boostSpeed,
-        speed: baseSpeed,
-        weapon: weaponStats
-      };
-    }
-
-    get thrusterColor() {
-      return this.shipColors?.thruster || '#ff9a3c';
-    }
-
-    draw(ctx) {
-      ctx.save();
-      ctx.translate(this.x, this.y);
-      ctx.rotate(this.lookAngle);
-      const thrusterDist = this.size * (this.engineOffset || 1.1);
-      if (chance(0.3)) addParticles('thruster', this.x - Math.cos(this.lookAngle) * thrusterDist, this.y - Math.sin(this.lookAngle) * thrusterDist, 0, 1, this.thrusterColor);
-      drawShip(ctx, currentShip?.id || Save.data.selectedShip, this.size);
-      const glow = Math.max(0, (this.invEnd - performance.now()) / BASE.INVULN_MS);
-      if (glow > 0 || this.flash) {
-        ctx.globalAlpha = glow > 0 ? 0.8 : 0.35;
-        ctx.strokeStyle = glow > 0 ? '#93c5fd' : '#e5e7eb';
-        ctx.lineWidth = glow > 0 ? 4 : 2;
-        ctx.beginPath();
-        ctx.arc(0, 0, this.size * 1.2, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.globalAlpha = 1;
-        this.flash = false;
-      }
-      ctx.restore();
-    }
-
-    update(dt) {
-      const stats = this.#dynamicStats();
-      const spd = input.isBoosting ? stats.boost : stats.speed;
-      const moveMag = Math.hypot(input.moveX, input.moveY);
-      let moving = false;
-      if (moveMag > 0.01) {
-        const nx = input.moveX / moveMag;
-        const ny = input.moveY / moveMag;
-        const step = spd * (dt / 16.67);
-        this.x += nx * step;
-        this.y += ny * step;
-        this.vel.x = nx;
-        this.vel.y = ny;
-        moving = true;
-      } else {
-        this.vel.x = 0;
-        this.vel.y = 0;
-      }
-      const hasAim = input.isAiming && (Math.abs(input.aimX) > 0.01 || Math.abs(input.aimY) > 0.01);
-      if (hasAim) {
-        this.lookAngle = Math.atan2(input.aimY, input.aimX);
-        if (input.fireHeld && this.ammo >= this.ammoPerShot && performance.now() - lastShotTime > stats.fireCD) {
-          this.shoot(stats);
-          lastShotTime = performance.now();
-        }
-      } else if (moving) {
-        this.lookAngle = Math.atan2(this.vel.y, this.vel.x);
-      }
-
-      if (this.ammo < this.ammoMax && performance.now() - lastAmmoRegen > stats.ammoRegen) {
-        this.ammo = Math.min(this.ammoMax, this.ammo + 1);
-        lastAmmoRegen = performance.now();
-      }
-
-      if (performance.now() - this.lastRegenT > 5000) {
-        const heal = stats.hpRegen5;
-        if (heal > 0) this.health = clamp(this.health + heal, 0, this.hpMax);
-        this.lastRegenT = performance.now();
-      }
-
-      const knock = stats.repulse;
-      if (knock > 0) {
-        for (const enemy of enemies) {
-          const dx = enemy.x - this.x;
-          const dy = enemy.y - this.y;
-          const dist = Math.hypot(dx, dy);
-          if (dist < this.size + 18 + stats.pickupR * 0.4) {
-            const nx = dx / (dist || 1);
-            const ny = dy / (dist || 1);
-            enemy.x += nx * knock;
-            enemy.y += ny * knock;
-          }
-        }
-      }
-      
-      const now = performance.now();
-      
-      // Automatic defense activation when enemies get close
-      const defenseRange = this.size + 100;
-      let enemyNearby = false;
-      for (const enemy of enemies) {
-        const dx = enemy.x - this.x;
-        const dy = enemy.y - this.y;
-        const dist = Math.hypot(dx, dy);
-        if (dist < defenseRange) {
-          enemyNearby = true;
-          break;
-        }
-      }
-      
-      // Auto-activate defense if ready and enemies are close
-      if (enemyNearby && !this.isDefenseActive(now) && now >= this.defenseReadyAt) {
-        this.activateDefense(now);
-      }
-
-      if (input.altFireHeld && !this.secondaryLatch) {
-        if (this.trySecondary(now)) input.altFireHeld = false;
-        this.secondaryLatch = true;
-      } else if (!input.altFireHeld) {
-        this.secondaryLatch = false;
-      }
-      if (input.ultimateQueued) {
-        this.fireUltimate(now);
-        input.ultimateQueued = false;
-      }
-      if (now > this.defenseActiveUntil) this.defenseActiveUntil = 0;
-    }
-
-    shoot(stats) {
-      const weaponStats = (this.primary && this.primary.stats) || {};
-      if (this.ammo < this.ammoPerShot) return;
-      this.ammo = Math.max(0, this.ammo - this.ammoPerShot);
-      const shots = Math.max(1, Math.round(stats.multishot));
-      const spread = weaponStats.spread || 0;
-      const jitter = weaponStats.pelletJitter || 0;
-      const color = this.primary?.color || currentShip?.colors?.accent || '#fde047';
-      for (let i = 0; i < shots; i++) {
-        const ratio = shots > 1 ? i / (shots - 1) - 0.5 : 0;
-        let offset = spread ? spread * ratio : 0;
-        if (jitter) offset += rand(-jitter, jitter);
-        const angle = this.lookAngle + offset;
-        const vel = { x: Math.cos(angle), y: Math.sin(angle) };
-        const sx = this.x + Math.cos(angle) * this.size * 0.9;
-        const sy = this.y + Math.sin(angle) * this.size * 0.9;
-        const speed = BASE.BULLET_SPEED * (weaponStats.bulletSpeed || 1);
-        const size = BASE.BULLET_SIZE * (weaponStats.bulletSize || 1);
-        const pierce = weaponStats.pierce || 0;
-        bullets.push(new Bullet(sx, sy, vel, stats.dmg, color, speed, size, pierce));
-      }
-      addParticles('muzzle', this.x, this.y, this.lookAngle, 6);
-    }
-
-    trySecondary(now) {
-      if (!this.secondary || this.secondaryCapacity <= 0) return false;
-      if (this.secondaryAmmo <= 0) return false;
-      if (now < this.secondaryReadyAt) return false;
-      const stats = this.secondary.stats || {};
-      this.secondaryAmmo--;
-      this.secondaryReadyAt = now + (this.secondaryCooldownMs || 9000);
-      const originX = this.x + Math.cos(this.lookAngle) * (this.size * 1.4);
-      const originY = this.y + Math.sin(this.lookAngle) * (this.size * 1.4);
-      addParticles('nova', originX, originY, 0, 24);
-      shakeScreen(7, 220);
-      if (this.secondary.id === 'cluster') {
-        const clusters = stats.clusters || 5;
-        for (let i = 0; i < clusters; i++) {
-          queueTimedEffect(i * 90, () => {
-            const ang = rand(0, Math.PI * 2);
-            const dist = rand(24, stats.radius || 130);
-            const cx = originX + Math.cos(ang) * dist;
-            const cy = originY + Math.sin(ang) * dist;
-            addParticles('nova', cx, cy, 0, 18);
-            applyRadialDamage(cx, cy, (stats.radius || 130) * 0.55, stats.damage || 45, { knockback: 3.5, chargeMult: 0.5 });
-          });
-        }
-      } else {
-        applyRadialDamage(originX, originY, stats.radius || 150, stats.damage || 70, { knockback: 4.2, pull: 0.2, chargeMult: 0.6 });
-      }
-      return true;
-    }
-
-    activateDefense(now) {
-      if (!this.defense) return false;
-      const stats = this.defense.stats || {};
-      if (now < this.defenseReadyAt) return false;
-      this.defenseReadyAt = now + (stats.cooldown || 12000);
-      this.defenseActiveUntil = now + (stats.duration || 3000);
-      addParticles('shield', this.x, this.y, 0, 24);
-      shakeScreen(4, 140);
-      return true;
-    }
-
-    isDefenseActive(now = performance.now()) {
-      return now < this.defenseActiveUntil;
-    }
-
-    fireUltimate(now) {
-      if (!this.ultimate) return false;
-      if (this.ultimateCharge < this.ultimateChargeMax) return false;
-      if (now - this.lastUltimateAt < 600) return false;
-      const stats = this.ultimate.stats || {};
-      this.ultimateCharge = 0;
-      this.lastUltimateAt = now;
-      addParticles('ultimate', this.x, this.y, 0, 48);
-      shakeScreen(12, 320);
-      if (this.ultimate.id === 'solarbeam') {
-        const length = stats.beamLength || 520;
-        const width = stats.width || 90;
-        applyBeamDamage(this.x, this.y, this.lookAngle, length, width, stats.damage || 220);
-      } else {
-        applyRadialDamage(this.x, this.y, stats.radius || 220, stats.damage || 160, { pull: stats.pull || 0.6, knockback: 8, chargeMult: 0 });
-      }
-      return true;
-    }
-
-    addUltimateCharge(amount) {
-      if (!amount || amount <= 0) return;
-      this.ultimateCharge = clamp(this.ultimateCharge + amount, 0, this.ultimateChargeMax);
-    }
-
-    collectSupply(kind) {
-      const now = performance.now();
-      if (kind === 'ammo') {
-        const gain = Math.max(1, Math.round(this.ammoMax * 0.45));
-        this.ammo = clamp(this.ammo + gain, 0, this.ammoMax);
-        lastAmmoRegen = now;
-      } else if (kind === 'secondary') {
-        if (this.secondaryCapacity > 0) this.secondaryAmmo = clamp(this.secondaryAmmo + 1, 0, this.secondaryCapacity);
-      } else if (kind === 'defense') {
-        this.defenseReadyAt = Math.min(this.defenseReadyAt, now + 400);
-        this.defenseActiveUntil = Math.max(this.defenseActiveUntil, now + 600);
-      }
-      addParticles('shield', this.x, this.y, 0, 18);
-      this.addUltimateCharge(12);
-    }
-
-    takeDamage(amount) {
-      const now = performance.now();
-      if (now < this.invEnd) return;
-      if (this.isDefenseActive(now)) {
-        const absorb = this.defenseStats.absorb || 0;
-        const mitigated = amount * absorb;
-        amount = Math.max(0, amount - mitigated);
-        if ((this.defenseStats.reflect || 0) > 0 && mitigated > 0) {
-          applyRadialDamage(this.x, this.y, this.size * 4, mitigated * (this.defenseStats.reflect || 0.25), { knockback: 2, chargeMult: 0.2 });
-        }
-      }
-      if (amount <= 0) return;
-      tookDamageThisLevel = true;
-      this.health -= amount;
-      this.flash = true;
-      this.invEnd = now + BASE.INVULN_MS;
-      shakeScreen(4, 120);
-      if (this.health <= 0) {
-        this.health = 0;
-        gameRunning = false;
-      }
-    }
-  }
-
-  const drawShip = (ctx, shipId, size) => {
-    const template = getShipTemplate(shipId) || SHIP_TEMPLATES[0];
-    const colors = template.colors || {};
-    const primary = colors.primary || '#0ea5e9';
-    const trim = colors.trim || '#ffffff';
-    const accent = colors.accent || trim;
-    const canopy = colors.canopy || '#7dd3fc';
-    const shape = template.shape || 'spear';
-    ctx.fillStyle = primary;
-    ctx.strokeStyle = trim;
-    ctx.lineWidth = Math.max(2, size * 0.14);
-    ctx.beginPath();
-    if (shape === 'needle') {
-      ctx.moveTo(size * 1.28, 0);
-      ctx.lineTo(-size * 0.45, -size * 0.42);
-      ctx.lineTo(-size * 0.95, -size * 0.08);
-      ctx.lineTo(-size * 0.95, size * 0.08);
-      ctx.lineTo(-size * 0.45, size * 0.42);
-    } else if (shape === 'bastion') {
-      ctx.moveTo(size * 1.05, 0);
-      ctx.lineTo(size * 0.42, -size * 1.05);
-      ctx.lineTo(-size * 0.58, -size * 0.9);
-      ctx.lineTo(-size * 1.05, -size * 0.28);
-      ctx.lineTo(-size * 1.05, size * 0.28);
-      ctx.lineTo(-size * 0.58, size * 0.9);
-    } else if (shape === 'razor') {
-      ctx.moveTo(size * 1.25, 0);
-      ctx.lineTo(size * 0.42, -size * 0.72);
-      ctx.lineTo(-size * 0.82, -size * 0.38);
-      ctx.lineTo(-size * 0.28, 0);
-      ctx.lineTo(-size * 0.82, size * 0.38);
-      ctx.lineTo(size * 0.42, size * 0.72);
-    } else {
-      ctx.moveTo(size * 1.15, 0);
-      ctx.lineTo(-size * 0.94, -size * 0.82);
-      ctx.lineTo(-size * 0.22, 0);
-      ctx.lineTo(-size * 0.94, size * 0.82);
-    }
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.strokeStyle = accent;
-    if (shape === 'needle') {
-      ctx.lineWidth = size * 0.12;
-      ctx.beginPath();
-      ctx.moveTo(-size * 0.2, -size * 0.55);
-      ctx.quadraticCurveTo(size * 0.45, -size * 0.2, size * 0.95, -size * 0.05);
-      ctx.moveTo(-size * 0.2, size * 0.55);
-      ctx.quadraticCurveTo(size * 0.45, size * 0.2, size * 0.95, size * 0.05);
-      ctx.stroke();
-    } else if (shape === 'bastion') {
-      ctx.lineWidth = size * 0.16;
-      ctx.beginPath();
-      ctx.moveTo(-size * 0.75, -size * 0.6);
-      ctx.lineTo(size * 0.25, -size * 0.22);
-      ctx.moveTo(-size * 0.75, size * 0.6);
-      ctx.lineTo(size * 0.25, size * 0.22);
-      ctx.stroke();
-    } else if (shape === 'razor') {
-      ctx.lineWidth = size * 0.12;
-      ctx.beginPath();
-      ctx.moveTo(-size * 0.55, -size * 0.28);
-      ctx.lineTo(size * 0.78, -size * 0.15);
-      ctx.moveTo(-size * 0.55, size * 0.28);
-      ctx.lineTo(size * 0.78, size * 0.15);
-      ctx.stroke();
-    } else {
-      ctx.lineWidth = size * 0.14;
-      ctx.beginPath();
-      ctx.moveTo(-size * 0.45, -size * 0.64);
-      ctx.lineTo(size * 0.38, -size * 0.22);
-      ctx.moveTo(-size * 0.45, size * 0.64);
-      ctx.lineTo(size * 0.38, size * 0.22);
-      ctx.stroke();
-    }
-
-    const canopyX = shape === 'bastion' ? size * 0.15 : size * 0.3;
-    const canopyW = size * (shape === 'bastion' ? 0.42 : 0.36);
-    const canopyH = size * 0.28;
-    ctx.fillStyle = canopy;
-    ctx.beginPath();
-    ctx.ellipse(canopyX, 0, canopyW, canopyH, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.45)';
-    ctx.lineWidth = size * 0.05;
-    ctx.beginPath();
-    ctx.ellipse(canopyX - size * 0.08, -size * 0.08, canopyW * 0.35, canopyH * 0.35, 0, 0, Math.PI * 2);
-    ctx.stroke();
-  };
+  // PlayerEntity class and drawShip function moved to src/player.js
 
   const dropCoin = (x, y) => coins.push(new Coin(x, y));
   const dropSupply = (x, y) => supplies.push(new SupplyCrate(x, y, SUPPLY_TYPES[Math.floor(Math.random() * SUPPLY_TYPES.length)] || 'ammo'));
