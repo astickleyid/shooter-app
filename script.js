@@ -2948,7 +2948,6 @@
         if (DIFFICULTY_PRESETS[newDifficulty]) {
           Save.data.difficulty = newDifficulty;
           Save.save();
-          currentDifficulty = newDifficulty;
         }
       });
     }
