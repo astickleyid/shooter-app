@@ -383,9 +383,6 @@
     }
   };
 
-  // Expose Save for modules
-  window.Save = Save;
-
   let currentShip = null;
 
   const input = {
@@ -406,7 +403,6 @@
   // Expose needed game state for modules
   window.input = input;
   window.currentShip = null; // Will be updated during gameplay
-  window.Save = null; // Will be set later
   window.player = null; // Will be set during gameplay
   window.enemies = enemies;
   window.bullets = bullets;
