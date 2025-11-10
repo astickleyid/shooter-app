@@ -2369,7 +2369,6 @@
     // Draw countdown
     if (countdownActive) {
       const timeRemaining = countdownEnd - performance.now();
-      const totalDuration = 3000;  // Updated to 3 seconds
       
       ctx.save();
       ctx.fillStyle = 'rgba(0,0,0,0.85)';
