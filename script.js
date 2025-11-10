@@ -2308,7 +2308,7 @@
     spawners = [];
     particles = [];
     
-    // Start countdown - reduced to 3 seconds total (from 4)
+    // Start countdown - previously 1 second for "LEVEL COMPLETE" + 3 second countdown (4 seconds total), now a single 3 second countdown
     countdownActive = true;
     countdownValue = 3;
     countdownEnd = performance.now() + 3000; // 3 seconds total countdown
