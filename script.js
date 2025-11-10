@@ -4,6 +4,10 @@
   const rand = (min, max) => min + Math.random() * (max - min);
   const chance = (p) => Math.random() < p;
 
+  // Expose utilities for enemy module
+  window.rand = rand;
+  window.chance = chance;
+
   /* ====== CONFIG ====== */
   const SAVE_KEY = 'void_rift_v11';
 
@@ -28,6 +32,9 @@
     INITIAL_SPAWN_DELAY_MIN: 4000,
     INITIAL_SPAWN_DELAY_MAX: 7000
   };
+
+  // Expose BASE config for enemy module
+  window.BASE = BASE;
 
   const SHIP_TEMPLATES = [
     {
@@ -337,6 +344,22 @@
   let countdownEnd = 0;
   let countdownCompletedLevel = 0;
   const camera = { x: 0, y: 0 };
+
+  // Expose game state for enemy module
+  window.gameState = {
+    get player() { return player; },
+    get enemies() { return enemies; },
+    set enemies(val) { enemies = val; },
+    get spawners() { return spawners; },
+    set spawners(val) { spawners = val; },
+    get obstacles() { return obstacles; },
+    get level() { return level; },
+    get score() { return score; },
+    set score(val) { score = val; },
+    get enemiesKilled() { return enemiesKilled; },
+    set enemiesKilled(val) { enemiesKilled = val; },
+    get enemiesToKill() { return enemiesToKill; }
+  };
 
   // Equipment tap system
   let lastTapTime = 0;
@@ -677,6 +700,9 @@
   /* ====== ENVIRONMENT ====== */
   const viewRadius = (mult = 1) => Math.max(window.innerWidth, window.innerHeight) * 0.7 * mult;
 
+  // Expose viewRadius for enemy module
+  window.viewRadius = viewRadius;
+
   const makeStars = (n) => {
     const arr = [];
     const margin = viewRadius(1.6);
@@ -741,6 +767,9 @@
       y: cy + Math.sin(angle) * dist
     };
   };
+
+  // Expose randomAround for enemy module
+  window.randomAround = randomAround;
 
   class Asteroid {
     constructor(x, y, r, variant = 'rock') {
@@ -912,192 +941,7 @@
     }
   }
 
-  class Enemy {
-    constructor(x, y, kind = 'chaser') {
-      this.x = x;
-      this.y = y;
-      this.kind = kind;
-      this.rot = 0;
-      const sizeMap = { heavy: 1.45, swarmer: 0.9, drone: 0.75 };
-      this.size = BASE.ENEMY_SIZE * (sizeMap[kind] || 1);
-      const speedMap = { heavy: 0.85, swarmer: 1.45, drone: 1.2 };
-      this.speed = BASE.ENEMY_SPEED * (speedMap[kind] || 1.05);
-      this.health = kind === 'heavy' ? 3 : 1;
-      this.animPhase = Math.random() * Math.PI * 2;
-    }
-    draw(ctx) {
-      ctx.save();
-      ctx.translate(this.x, this.y);
-      ctx.rotate(this.rot);
-      
-      const pulse = Math.sin(performance.now() / 180 + this.animPhase) * 0.15 + 1;
-      
-      // Enemy indicator - subtle glow effect
-      ctx.shadowColor = '#dc2626';
-      ctx.shadowBlur = 12;
-      
-      if (this.kind === 'drone') {
-        // Basic red triangle drone
-        ctx.fillStyle = '#ef4444';
-        ctx.strokeStyle = '#fecaca';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(this.size, 0);
-        ctx.lineTo(-this.size * 0.6, -this.size * 0.6);
-        ctx.lineTo(-this.size * 0.3, 0);
-        ctx.lineTo(-this.size * 0.6, this.size * 0.6);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-        
-      } else if (this.kind === 'chaser') {
-        // Alien organic creature - purple/magenta insectoid
-        ctx.fillStyle = '#a21caf';
-        ctx.strokeStyle = '#e879f9';
-        ctx.lineWidth = 2;
-        
-        // Main body - organic oval
-        ctx.beginPath();
-        ctx.ellipse(0, 0, this.size * 1.2 * pulse, this.size * 0.8 * pulse, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-        
-        // Mandibles/claws
-        ctx.strokeStyle = '#d946ef';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(this.size * 0.8, -this.size * 0.5);
-        ctx.lineTo(this.size * 1.4, -this.size * 0.8);
-        ctx.moveTo(this.size * 0.8, this.size * 0.5);
-        ctx.lineTo(this.size * 1.4, this.size * 0.8);
-        ctx.stroke();
-        
-        // Eyes - glowing red for enemy indicator
-        ctx.shadowColor = '#ef4444';
-        ctx.shadowBlur = 8;
-        ctx.fillStyle = '#ef4444';
-        ctx.beginPath();
-        ctx.arc(this.size * 0.3, -this.size * 0.3, this.size * 0.2, 0, Math.PI * 2);
-        ctx.arc(this.size * 0.3, this.size * 0.3, this.size * 0.2, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Pupils
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = '#dc2626';
-        ctx.beginPath();
-        ctx.arc(this.size * 0.35, -this.size * 0.3, this.size * 0.1, 0, Math.PI * 2);
-        ctx.arc(this.size * 0.35, this.size * 0.3, this.size * 0.1, 0, Math.PI * 2);
-        ctx.fill();
-        
-      } else if (this.kind === 'heavy') {
-        // Heavy tank - green crystalline structure with red core
-        ctx.fillStyle = '#15803d';
-        ctx.strokeStyle = '#86efac';
-        ctx.lineWidth = 3;
-        
-        // Central crystal body
-        ctx.beginPath();
-        ctx.moveTo(this.size * 1.2, 0);
-        ctx.lineTo(this.size * 0.4, -this.size);
-        ctx.lineTo(-this.size * 0.8, -this.size * 0.7);
-        ctx.lineTo(-this.size * 1.1, 0);
-        ctx.lineTo(-this.size * 0.8, this.size * 0.7);
-        ctx.lineTo(this.size * 0.4, this.size);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-        
-        // Inner crystal facets
-        ctx.strokeStyle = '#4ade80';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(this.size * 0.4, -this.size * 0.6);
-        ctx.lineTo(-this.size * 0.4, -this.size * 0.4);
-        ctx.lineTo(-this.size * 0.4, this.size * 0.4);
-        ctx.lineTo(this.size * 0.4, this.size * 0.6);
-        ctx.stroke();
-        
-        // Glowing red core for enemy indicator
-        ctx.fillStyle = '#ef4444';
-        ctx.shadowColor = '#dc2626';
-        ctx.shadowBlur = 12;
-        ctx.beginPath();
-        ctx.arc(0, 0, this.size * 0.35 * pulse, 0, Math.PI * 2);
-        ctx.fill();
-        
-      } else {
-        // Swarmer - orange/yellow bio-energy blob
-        ctx.fillStyle = '#ea580c';
-        ctx.strokeStyle = '#fb923c';
-        ctx.lineWidth = 2;
-        
-        // Amoeba-like body
-        ctx.beginPath();
-        for (let i = 0; i < 8; i++) {
-          const angle = (i / 8) * Math.PI * 2;
-          const wobble = Math.sin(performance.now() / 100 + i + this.animPhase) * 0.2 + 0.9;
-          const r = this.size * wobble * pulse;
-          const x = Math.cos(angle) * r;
-          const y = Math.sin(angle) * r * 0.8;
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        }
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-        
-        // Red nucleus spots for enemy indicator
-        ctx.fillStyle = '#ef4444';
-        ctx.shadowColor = '#dc2626';
-        ctx.shadowBlur = 8;
-        ctx.beginPath();
-        ctx.arc(-this.size * 0.2, -this.size * 0.15, this.size * 0.2, 0, Math.PI * 2);
-        ctx.arc(this.size * 0.1, this.size * 0.2, this.size * 0.15, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Pulsing tendrils
-        ctx.shadowBlur = 0;
-        ctx.strokeStyle = '#fdba74';
-        ctx.lineWidth = 2;
-        for (let i = 0; i < 4; i++) {
-          const a = (i * Math.PI) / 2 + this.rot;
-          const extend = Math.sin(performance.now() / 150 + i) * 0.3 + 0.7;
-          ctx.beginPath();
-          ctx.moveTo(Math.cos(a) * this.size * 0.6, Math.sin(a) * this.size * 0.6);
-          ctx.lineTo(Math.cos(a) * this.size * (1 + extend), Math.sin(a) * this.size * (1 + extend));
-          ctx.stroke();
-        }
-      }
-      ctx.shadowBlur = 0;
-      ctx.restore();
-    }
-    update(dt) {
-      const dx = player.x - this.x;
-      const dy = player.y - this.y;
-      const dist = Math.hypot(dx, dy) || 1;
-      let ax = 0;
-      let ay = 0;
-      for (const o of obstacles) {
-        const ox = o.x;
-        const oy = o.y;
-        const r = o.r + this.size + 16;
-        const ddx = this.x - ox;
-        const ddy = this.y - oy;
-        const d = Math.hypot(ddx, ddy);
-        if (d < r) {
-          const f = (r - d) / r;
-          ax += (ddx / (d || 1)) * f * 2.4;
-          ay += (ddy / (d || 1)) * f * 2.4;
-        }
-      }
-      const nx = dx / dist + ax;
-      const ny = dy / dist + ay;
-      const nm = Math.hypot(nx, ny) || 1;
-      this.x += (nx / nm) * this.speed * (dt / 16.67);
-      this.y += (ny / nm) * this.speed * (dt / 16.67);
-      this.rot = Math.atan2(ny, nx);
-    }
-  }
+  // Enemy class moved to src/enemy.js
 
   class Coin {
     constructor(x, y) {
@@ -1183,71 +1027,7 @@
     }
   }
 
-  class Spawner {
-    constructor(isInitial = false) {
-      this.resetPosition();
-      const now = performance.now();
-      this.last = isInitial ? now + rand(BASE.INITIAL_SPAWN_DELAY_MIN, BASE.INITIAL_SPAWN_DELAY_MAX) : now;
-      this.rate = spawnRate();
-    }
-    draw(ctx) {
-      ctx.save();
-      ctx.translate(this.x, this.y);
-      const pulse = 0.6 + Math.sin(performance.now() / 180) * 0.3;
-      ctx.strokeStyle = 'rgba(147,197,253,0.8)';
-      ctx.fillStyle = 'rgba(37,99,235,0.15)';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(0, 0, 16 + pulse * 6, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-      ctx.restore();
-    }
-    update(now) {
-      if (!player) return;
-      if (Math.hypot(this.x - player.x, this.y - player.y) > viewRadius(1.8)) this.resetPosition();
-      if (now - this.last > this.rate) {
-        this.spawn();
-        this.last = now;
-        this.rate = spawnRate();
-      }
-    }
-    spawn() {
-      if (!player) return;
-      const roll = Math.random();
-      // Add basic drones (50%), reduce complex enemies for performance
-      const kind = roll < 0.15 ? 'heavy' : roll < 0.35 ? 'swarmer' : roll < 0.55 ? 'chaser' : 'drone';
-      const dir = Math.atan2(player.y - this.y, player.x - this.x);
-      const dist = 70;
-      const jitter = rand(-40, 40);
-      const x = this.x + Math.cos(dir) * dist + Math.cos(dir + Math.PI / 2) * jitter;
-      const y = this.y + Math.sin(dir) * dist + Math.sin(dir + Math.PI / 2) * jitter;
-      enemies.push(new Enemy(x, y, kind));
-      if (Math.random() < 0.4) this.resetPosition();
-    }
-    resetPosition() {
-      if (!player) {
-        this.x = rand(0, window.innerWidth);
-        this.y = rand(0, window.innerHeight);
-        return;
-      }
-      const inner = viewRadius(0.8);
-      const outer = viewRadius(1.6);
-      const pos = randomAround(player.x, player.y, inner, outer);
-      this.x = pos.x;
-      this.y = pos.y;
-    }
-  }
-
-  const spawnRate = () => {
-    const base = BASE.SPAWNER_RATE_MS - level * 90 + Math.random() * 300;
-    return Math.max(500, base);
-  };
-
-  const createSpawners = (count, isInitial = false) => {
-    spawners = [];
-    for (let i = 0; i < count; i++) spawners.push(new Spawner(isInitial));
-  };
+  // Spawner class and related functions moved to src/enemy.js
 
   class PlayerEntity {
     constructor(x, y) {
@@ -1679,82 +1459,15 @@
   const dropCoin = (x, y) => coins.push(new Coin(x, y));
   const dropSupply = (x, y) => supplies.push(new SupplyCrate(x, y, SUPPLY_TYPES[Math.floor(Math.random() * SUPPLY_TYPES.length)] || 'ammo'));
 
-  const handleEnemyDeath = (index, xpBonus = 0) => {
-    const enemy = enemies[index];
-    if (!enemy) return;
-    dropCoin(enemy.x, enemy.y);
-    if (chance(0.22)) dropSupply(enemy.x, enemy.y);
-    enemies.splice(index, 1);
-    enemiesKilled++;
-    score += 15;
-    addXP(30 + level * 4 + xpBonus);
-    addParticles('pop', enemy.x, enemy.y, 0, 14);
-    shakeScreen(3.4, 110);
-    if (player) player.addUltimateCharge(15 + level * 2);
-    
-    // Check if all enemies eliminated
-    if (enemiesKilled >= enemiesToKill) {
-      addLogEntry('All enemies eliminated!', '#4ade80');
-    }
-  };
+  // Expose game functions for enemy module
+  window.dropCoin = dropCoin;
+  window.dropSupply = dropSupply;
+  window.addXP = addXP;
+  window.addParticles = addParticles;
+  window.shakeScreen = shakeScreen;
+  window.addLogEntry = addLogEntry;
 
-  const applyRadialDamage = (cx, cy, radius, damage, opts = {}) => {
-    const { pull = 0, knockback = 0, chargeMult = 0.4 } = opts;
-    let total = 0;
-    for (let i = enemies.length - 1; i >= 0; i--) {
-      const enemy = enemies[i];
-      const dx = enemy.x - cx;
-      const dy = enemy.y - cy;
-      const dist = Math.hypot(dx, dy);
-      if (dist > radius) continue;
-      const prev = enemy.health;
-      enemy.health -= damage;
-      const dealt = Math.min(prev, damage);
-      total += dealt;
-      if (pull) {
-        enemy.x -= (dx / (dist || 1)) * pull * 12;
-        enemy.y -= (dy / (dist || 1)) * pull * 12;
-      }
-      if (knockback) {
-        enemy.x += (dx / (dist || 1)) * knockback;
-        enemy.y += (dy / (dist || 1)) * knockback;
-      }
-      addParticles('sparks', enemy.x, enemy.y, 0, 10);
-      if (enemy.health <= 0) handleEnemyDeath(i, dealt * 0.6);
-    }
-    if (total > 0) {
-      addXP(Math.round(total * 0.4));
-      if (player) player.addUltimateCharge(total * chargeMult);
-    }
-  };
-
-  const applyBeamDamage = (x, y, angle, length, width, damage) => {
-    const dirX = Math.cos(angle);
-    const dirY = Math.sin(angle);
-    const perpX = -dirY;
-    const perpY = dirX;
-    const halfW = width / 2;
-    let total = 0;
-    for (let i = enemies.length - 1; i >= 0; i--) {
-      const enemy = enemies[i];
-      const relX = enemy.x - x;
-      const relY = enemy.y - y;
-      const forward = relX * dirX + relY * dirY;
-      if (forward < -20 || forward > length) continue;
-      const lateral = Math.abs(relX * perpX + relY * perpY);
-      if (lateral > halfW) continue;
-      const prev = enemy.health;
-      enemy.health -= damage;
-      const dealt = Math.min(prev, damage);
-      total += dealt;
-      addParticles('sparks', enemy.x, enemy.y, 0, 16);
-      if (enemy.health <= 0) handleEnemyDeath(i, dealt * 0.5);
-    }
-    if (total > 0) {
-      addXP(Math.round(total * 0.45));
-      if (player) player.addUltimateCharge(total * 0.35);
-    }
-  };
+  // Enemy death and damage functions moved to src/enemy.js
 
   /* ====== UI / HUD ====== */
   const updateHUD = () => {
