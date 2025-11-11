@@ -7,6 +7,39 @@
   /* ====== CONFIG ====== */
   const SAVE_KEY = 'void_rift_v11';
 
+  const DIFFICULTY_PRESETS = {
+    easy: {
+      name: 'Easy',
+      desc: 'Relaxed pace for learning the game',
+      enemySpawnRate: 0.75,      // Slower spawns
+      enemyHealth: 0.8,           // Less enemy health
+      enemySpeed: 0.9,            // Slower enemies
+      enemyDamage: 0.8,           // Less damage
+      enemiesToKill: 0.75,        // Fewer enemies per level
+      spawnerCount: 0.75          // Fewer spawners
+    },
+    normal: {
+      name: 'Normal',
+      desc: 'Balanced challenge for most players',
+      enemySpawnRate: 1.0,        // Standard spawn rate
+      enemyHealth: 1.0,           // Standard health
+      enemySpeed: 1.0,            // Standard speed
+      enemyDamage: 1.0,           // Standard damage
+      enemiesToKill: 1.0,         // Standard enemy count
+      spawnerCount: 1.0           // Standard spawners
+    },
+    hard: {
+      name: 'Hard',
+      desc: 'Intense action for experienced pilots',
+      enemySpawnRate: 1.4,        // Much faster spawns
+      enemyHealth: 1.3,           // More enemy health
+      enemySpeed: 1.15,           // Faster enemies
+      enemyDamage: 1.25,          // More damage
+      enemiesToKill: 1.35,        // More enemies per level
+      spawnerCount: 1.25          // More spawners
+    }
+  };
+
   const BASE = {
     PLAYER_SIZE: 16,
     PLAYER_SPEED: 2.7,
@@ -23,10 +56,10 @@
     COIN_SIZE: 8,
     COIN_LIFETIME: 8000,
     SPAWNER_SIZE: 80,
-    SPAWNER_RATE_MS: 1500,
+    SPAWNER_RATE_MS: 1200,       // Reduced from 1500 for faster gameplay
     OBST_ASTEROIDS: 6,
-    INITIAL_SPAWN_DELAY_MIN: 4000,
-    INITIAL_SPAWN_DELAY_MAX: 7000
+    INITIAL_SPAWN_DELAY_MIN: 3000, // Reduced from 4000
+    INITIAL_SPAWN_DELAY_MAX: 5000  // Reduced from 7000
   };
 
   const SHIP_TEMPLATES = [
@@ -264,6 +297,7 @@
     dom.startButton = document.getElementById('startButton');
     dom.openShopFromStart = document.getElementById('openShopFromStart');
     dom.settingsButton = document.getElementById('settingsButton');
+    dom.difficultySelect = document.getElementById('difficultySelect');
     dom.startGraphicCanvas = document.getElementById('startGraphicCanvas');
     dom.gameContainer = document.getElementById('gameContainer');
     dom.canvas = document.getElementById('gameCanvas');
@@ -319,7 +353,7 @@
   let timedEffects = [];
   let score = 0;
   let level = 1;
-  let enemiesToKill = 10;
+  let enemiesToKill = 15;  // Increased from 10 for better pacing
   let enemiesKilled = 0;
   let lastTime = 0;
   let gameRunning = false;
@@ -337,6 +371,9 @@
   let countdownEnd = 0;
   let countdownCompletedLevel = 0;
   const camera = { x: 0, y: 0 };
+  
+  // Difficulty system
+  let currentDifficulty = 'normal';
 
   // Equipment tap system
   let lastTapTime = 0;
@@ -361,6 +398,9 @@
   };
 
   let currentShip = null;
+
+  // Helper function to get current difficulty settings
+  const getDifficulty = () => DIFFICULTY_PRESETS[currentDifficulty] || DIFFICULTY_PRESETS.normal;
 
   const input = {
     moveX: 0,
@@ -427,7 +467,8 @@
       pilotLevel: 1,
       pilotXp: 0,
       selectedShip: 'vanguard',
-      armory: defaultArmory()
+      armory: defaultArmory(),
+      difficulty: 'normal'  // Add difficulty preference
     },
     load() {
       try {
@@ -448,6 +489,9 @@
       this.data.pilotLevel = Math.max(1, this.data.pilotLevel || 1);
       this.data.pilotXp = Math.max(0, this.data.pilotXp || 0);
       if (!this.data.selectedShip) this.data.selectedShip = 'vanguard';
+      if (!this.data.difficulty || !DIFFICULTY_PRESETS[this.data.difficulty]) {
+        this.data.difficulty = 'normal';
+      }
       if (!this.data.armory || typeof this.data.armory !== 'object') this.data.armory = defaultArmory();
       // Ensure equipment class exists
       if (!this.data.armory.equipmentClass) {
@@ -554,7 +598,7 @@
     starsFar = starsMid = starsNear = null;
     score = 0;
     level = 1;
-    enemiesToKill = 10;
+    enemiesToKill = 15;  // Increased from 10 for better pacing
     enemiesKilled = 0;
     lastTime = 0;
     gameRunning = false;
@@ -918,11 +962,13 @@
       this.y = y;
       this.kind = kind;
       this.rot = 0;
+      const diff = getDifficulty();
       const sizeMap = { heavy: 1.45, swarmer: 0.9, drone: 0.75 };
       this.size = BASE.ENEMY_SIZE * (sizeMap[kind] || 1);
       const speedMap = { heavy: 0.85, swarmer: 1.45, drone: 1.2 };
-      this.speed = BASE.ENEMY_SPEED * (speedMap[kind] || 1.05);
-      this.health = kind === 'heavy' ? 3 : 1;
+      this.speed = BASE.ENEMY_SPEED * (speedMap[kind] || 1.05) * diff.enemySpeed;
+      const baseHealth = kind === 'heavy' ? 3 : 1;
+      this.health = Math.ceil(baseHealth * diff.enemyHealth);
       this.animPhase = Math.random() * Math.PI * 2;
     }
     draw(ctx) {
@@ -1240,13 +1286,18 @@
   }
 
   const spawnRate = () => {
-    const base = BASE.SPAWNER_RATE_MS - level * 90 + Math.random() * 300;
-    return Math.max(500, base);
+    const diff = getDifficulty();
+    // Increased scaling: base reduced by 120ms per level (from 90ms)
+    const base = BASE.SPAWNER_RATE_MS - level * 120 + Math.random() * 300;
+    const withDifficulty = base / diff.enemySpawnRate;
+    return Math.max(400, withDifficulty);  // Reduced minimum from 500 to 400
   };
 
   const createSpawners = (count, isInitial = false) => {
     spawners = [];
-    for (let i = 0; i < count; i++) spawners.push(new Spawner(isInitial));
+    const diff = getDifficulty();
+    const adjustedCount = Math.max(1, Math.round(count * diff.spawnerCount));
+    for (let i = 0; i < adjustedCount; i++) spawners.push(new Spawner(isInitial));
   };
 
   class PlayerEntity {
@@ -2217,7 +2268,8 @@
       const dy = player.y - enemy.y;
       if (Math.hypot(dx, dy) < player.size + enemy.size) {
         enemies.splice(i, 1);
-        player.takeDamage(BASE.ENEMY_DAMAGE);
+        const enemyDamage = Math.ceil(BASE.ENEMY_DAMAGE * getDifficulty().enemyDamage);
+        player.takeDamage(enemyDamage);
       }
     }
 
@@ -2246,7 +2298,9 @@
     const completedLevel = level; // Store current level before incrementing
     level += 1;
     enemiesKilled = 0;
-    enemiesToKill = Math.floor(6 + level * 4.5);
+    // Improved scaling: base 10 + 5.5 per level (more enemies per level)
+    const diff = getDifficulty();
+    enemiesToKill = Math.floor((10 + level * 5.5) * diff.enemiesToKill);
     enemies = [];
     bullets = [];
     coins = [];
@@ -2254,10 +2308,10 @@
     spawners = [];
     particles = [];
     
-    // Start countdown
+    // Start countdown - previously 1 second for "LEVEL COMPLETE" + 3 second countdown (4 seconds total), now a single 3 second countdown
     countdownActive = true;
     countdownValue = 3;
-    countdownEnd = performance.now() + 4000; // 1 second for "LEVEL COMPLETE" + 3 seconds countdown
+    countdownEnd = performance.now() + 3000; // 3 seconds total countdown
     countdownCompletedLevel = completedLevel;
     
     if (player) {
@@ -2267,10 +2321,10 @@
     }
     
     // Set up level after countdown
-    queueTimedEffect(4000, () => {
+    queueTimedEffect(3000, () => {
       countdownActive = false;
       spawnObstacles();
-      createSpawners(Math.min(1 + Math.floor(level / 2), 4), true);
+      createSpawners(Math.min(1 + Math.floor(level / 2), 5), true);  // Increased max spawners to 5
       recenterStars();
       lastTime = performance.now();
     });
@@ -2315,7 +2369,6 @@
     // Draw countdown
     if (countdownActive) {
       const timeRemaining = countdownEnd - performance.now();
-      const totalDuration = 4000;
       
       ctx.save();
       ctx.fillStyle = 'rgba(0,0,0,0.85)';
@@ -2327,8 +2380,8 @@
       const centerX = window.innerWidth / 2;
       const centerY = window.innerHeight / 2;
       
-      // First 1 second: Show "LEVEL COMPLETE"
-      if (timeRemaining > 3000) {
+      // First 0.5 seconds: Show "LEVEL COMPLETE"
+      if (timeRemaining > 2500) {
         ctx.font = 'bold 48px Arial';
         ctx.fillStyle = '#4ade80';
         ctx.shadowColor = '#4ade80';
@@ -2344,7 +2397,7 @@
         ctx.fillStyle = '#94a3b8';
         ctx.fillText('Get Ready...', centerX, centerY + 50);
       } 
-      // Next 3 seconds: Show countdown and next level
+      // Remaining time: Show countdown and next level
       else if (timeRemaining > 0) {
         const countdown = Math.ceil(timeRemaining / 1000);
         
@@ -2411,7 +2464,9 @@
     level = lvl;
     if (resetScore) score = 0;
     enemiesKilled = 0;
-    enemiesToKill = Math.floor(6 + level * 4.5);
+    // Use the improved scaling with difficulty
+    const diff = getDifficulty();
+    enemiesToKill = Math.floor((10 + level * 5.5) * diff.enemiesToKill);
     const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
     dom.canvas.width = Math.floor(window.innerWidth * dpr);
     dom.canvas.height = Math.floor(window.innerHeight * dpr);
@@ -2422,7 +2477,7 @@
     camera.x = player.x - dom.canvas.width / 2;
     camera.y = player.y - dom.canvas.height / 2;
     spawnObstacles();
-    createSpawners(Math.min(1 + Math.floor(level / 2), 4), resetScore);
+    createSpawners(Math.min(1 + Math.floor(level / 2), 5), resetScore);  // Increased max spawners to 5
     if (!starsFar) {
       starsFar = makeStars(120);
       starsMid = makeStars(80);
@@ -2439,6 +2494,7 @@
 
   const startGame = () => {
     resetRuntimeState();
+    currentDifficulty = Save.data.difficulty || 'normal';  // Load saved difficulty
     initShipSelection();
     dom.startScreen.style.display = 'none';
     dom.gameContainer.style.display = 'block';
@@ -2881,6 +2937,20 @@
   };
 
   const setupInput = () => {
+    // Difficulty selector handler
+    if (dom.difficultySelect) {
+      // Set initial value from saved data
+      dom.difficultySelect.value = Save.data.difficulty || 'normal';
+      
+      dom.difficultySelect.addEventListener('change', (e) => {
+        const newDifficulty = e.target.value;
+        if (DIFFICULTY_PRESETS[newDifficulty]) {
+          Save.data.difficulty = newDifficulty;
+          Save.save();
+        }
+      });
+    }
+    
     if (dom.startButton) {
       dom.startButton.addEventListener('click', startGame);
       dom.startButton.addEventListener('touchstart', (e) => {
