@@ -674,9 +674,6 @@
   // Expose queueTimedEffect for player module
   window.queueTimedEffect = queueTimedEffect;
 
-  // Expose queueTimedEffect for player module
-  window.queueTimedEffect = queueTimedEffect;
-
   const consumeTimedEffects = (now) => {
     for (let i = timedEffects.length - 1; i >= 0; i--) {
       if (now >= timedEffects[i].t) {
