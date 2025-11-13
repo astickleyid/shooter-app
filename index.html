@@ -12,14 +12,6 @@
   <div id="startScreen">
     <div id="gameTitle">VOID RIFT</div>
     <canvas id="startGraphicCanvas"></canvas>
-    <div class="difficultySelector">
-      <label for="difficultySelect">Difficulty:</label>
-      <select id="difficultySelect" class="difficultyDropdown">
-        <option value="easy">Easy - Relaxed Pace</option>
-        <option value="normal" selected>Normal - Balanced</option>
-        <option value="hard">Hard - Intense Action</option>
-      </select>
-    </div>
     <div class="menuRow">
       <button id="startButton" class="menuButton">Start Game</button>
       <button id="openShopFromStart" class="menuButton menuSecondary">Upgrades / Shop</button>
@@ -268,7 +260,13 @@
     </div>
   </div>
 
-  <!-- Include external script -->
+  <!-- Include external scripts -->
+  <!-- Load game modules in dependency order -->
+  <script src="src/obstacles.js"></script>
+  <script src="src/projectile.js"></script>
+  <script src="src/collectibles.js"></script>
+  <script src="src/enemy.js"></script>
+  <script src="src/player.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
