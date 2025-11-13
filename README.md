@@ -16,8 +16,21 @@ VOID RIFT is a browser-based twin-stick shooter built entirely with vanilla HTML
 
 ## Deploying
 
-- GitHub Pages: push the repo to a branch called `gh-pages` or enable Pages via the GitHub UI and point it to the root. No build step is required.
-- Any static host will work: upload `index.html`, `script.js`, and `style.css`.
+### GitHub Pages (Automated)
+
+This repository includes a GitHub Actions workflow that automatically deploys to GitHub Pages:
+
+1. **Enable GitHub Pages in your repository settings:**
+   - Go to **Settings** → **Pages**
+   - Under **Source**, select **GitHub Actions**
+2. **Push to the `main` branch** to trigger automatic deployment
+3. **Access your game** at `https://<username>.github.io/<repository-name>/`
+
+The workflow runs automatically on every push to `main` and can also be triggered manually from the Actions tab.
+
+### Other Static Hosts
+
+Any static host will work: upload `index.html`, `script.js`, and `style.css` to services like Netlify, Vercel, or Cloudflare Pages.
 
 ## Controls
 
