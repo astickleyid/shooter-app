@@ -6,10 +6,8 @@
   <title>VOID RIFT</title>
   <!-- Link external styles -->
   <link rel="stylesheet" href="style.css" />
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <!-- PocketBase SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/pocketbase@0.21.1/dist/pocketbase.umd.js"></script>
 </head>
 <body>
   <!-- START SCREEN -->
@@ -335,7 +333,7 @@
         </div>
         <div class="auth-form">
           <input type="email" id="authEmail" placeholder="Email address" class="auth-input" />
-          <input type="password" id="authPassword" placeholder="Password (min 6 characters)" class="auth-input" />
+          <input type="password" id="authPassword" placeholder="Password (min 8 characters)" class="auth-input" />
           <div class="auth-buttons">
             <button id="signInSubmit" class="primaryBtn">Sign In</button>
             <button id="signUpSubmit" class="secondaryBtn">Create Account</button>

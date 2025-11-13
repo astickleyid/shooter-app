@@ -65,34 +65,30 @@ VOID RIFT is a browser-based twin-stick shooter built entirely with vanilla HTML
 Progress (credits, upgrades, best score) is saved in `localStorage` under the key `void_rift_v11`. Clearing browser storage resets progress.
 
 **With Account Sign-In (New in v2.0):**
-- Data is automatically synced to Firebase Cloud Firestore
+- Data is automatically synced to PocketBase (self-hosted backend)
 - Access your progress from any device
 - Compete on the global leaderboard
 - Automatic backup of all game data
+- No cloud accounts required—run your own server!
 
 **Without Account (Guest Mode):**
 - Progress saved locally in browser storage only
 - No cloud sync or leaderboard access
 - Works completely offline
 
-## Firebase Setup (Optional for Cloud Features)
+## PocketBase Setup (Optional for Cloud Features)
 
-To enable cloud features, you'll need to set up Firebase:
+To enable cloud features, you'll need to set up PocketBase (a self-hosted backend):
 
-1. Create a Firebase project at [console.firebase.google.com](https://console.firebase.google.com)
-2. Enable Authentication (Email/Password)
-3. Enable Cloud Firestore
-4. Update the Firebase config in `script.js` with your project credentials:
-   ```javascript
-   const FIREBASE_CONFIG = {
-     apiKey: "your-api-key",
-     authDomain: "your-project.firebaseapp.com",
-     projectId: "your-project-id",
-     // ... other config
-   };
-   ```
+1. Download PocketBase from [github.com/pocketbase/pocketbase/releases](https://github.com/pocketbase/pocketbase/releases/latest)
+2. Run the executable: `./pocketbase serve`
+3. Access admin UI at [http://127.0.0.1:8090/_/](http://127.0.0.1:8090/_/)
+4. Create collections for `users` (with auth enabled) and `leaderboard`
+5. Set appropriate API rules for each collection
 
-The game works perfectly without Firebase - all cloud features gracefully degrade to offline mode.
+For detailed setup instructions, see [POCKETBASE_SETUP.md](./POCKETBASE_SETUP.md)
+
+**The game works perfectly without PocketBase** - all cloud features gracefully degrade to offline mode. PocketBase is completely free, self-hosted, and requires no cloud accounts!
 
 ## Contributing / Next Steps
 

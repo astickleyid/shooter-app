@@ -1,63 +1,67 @@
 (() => {
-  /* ====== FIREBASE CONFIGURATION ====== */
-  const FIREBASE_CONFIG = {
-    apiKey: "AIzaSyDemoKey-ReplaceWithYourActualKey",
-    authDomain: "void-rift-demo.firebaseapp.com",
-    projectId: "void-rift-demo",
-    storageBucket: "void-rift-demo.appspot.com",
-    messagingSenderId: "123456789",
-    appId: "1:123456789:web:abcdef123456"
+  /* ====== POCKETBASE CONFIGURATION ====== */
+  // PocketBase server URL - default to localhost for local development
+  // Change this to your deployed PocketBase server URL if hosting remotely
+  const POCKETBASE_CONFIG = {
+    url: "http://127.0.0.1:8090"
   };
   
   const GAME_VERSION = "2.0";
   
-  // Initialize Firebase
-  let firebaseApp = null;
-  let firebaseAuth = null;
-  let firebaseDb = null;
+  // Initialize PocketBase
+  let pb = null;
   let currentUser = null;
   let isOnline = false;
+  let leaderboardUnsubscribe = null;
   
-  const initFirebase = () => {
+  const initPocketBase = () => {
     try {
-      if (typeof firebase !== 'undefined') {
-        firebaseApp = firebase.initializeApp(FIREBASE_CONFIG);
-        firebaseAuth = firebase.auth();
-        firebaseDb = firebase.firestore();
+      if (typeof PocketBase !== 'undefined') {
+        pb = new PocketBase(POCKETBASE_CONFIG.url);
         
-        // Set up auth state listener
-        firebaseAuth.onAuthStateChanged(handleAuthStateChange);
+        // Check if user is already authenticated
+        if (pb.authStore.isValid) {
+          currentUser = pb.authStore.model;
+          updateUserUI();
+          syncUserData();
+          updateLeaderboardRank();
+        }
+        
+        // Listen for auth changes
+        pb.authStore.onChange(() => {
+          currentUser = pb.authStore.model;
+          handleAuthStateChange(currentUser);
+        });
         
         // Check connectivity
         checkSystemStatus();
         
-        console.log('Firebase initialized successfully');
+        console.log('PocketBase initialized successfully');
       } else {
-        console.warn('Firebase SDK not loaded, running in offline mode');
+        console.warn('PocketBase SDK not loaded, running in offline mode');
         updateSystemStatus(false);
       }
     } catch (error) {
-      console.error('Firebase initialization error:', error);
+      console.error('PocketBase initialization error:', error);
       updateSystemStatus(false);
     }
   };
   
-  const checkSystemStatus = () => {
-    if (!firebaseDb) {
+  const checkSystemStatus = async () => {
+    if (!pb) {
       updateSystemStatus(false);
       return;
     }
     
-    // Try to write a test document to check connectivity
-    firebaseDb.collection('_health').doc('check').set({ timestamp: Date.now() })
-      .then(() => {
-        updateSystemStatus(true);
-        loadLeaderboard();
-      })
-      .catch((error) => {
-        console.warn('Firebase connectivity check failed:', error);
-        updateSystemStatus(false);
-      });
+    try {
+      // Try to fetch a simple record to check connectivity
+      await pb.health.check();
+      updateSystemStatus(true);
+      loadLeaderboard();
+    } catch (error) {
+      console.warn('PocketBase connectivity check failed:', error);
+      updateSystemStatus(false);
+    }
   };
   
   const updateSystemStatus = (online) => {
@@ -101,7 +105,7 @@
       signedInView.style.display = 'block';
       signedOutView.style.display = 'none';
       if (userName) {
-        const displayName = currentUser.displayName || currentUser.email.split('@')[0];
+        const displayName = currentUser.name || currentUser.email.split('@')[0];
         userName.textContent = displayName;
       }
     } else if (signedInView && signedOutView) {
@@ -111,24 +115,27 @@
   };
   
   const syncUserData = async () => {
-    if (!currentUser || !firebaseDb) return;
+    if (!currentUser || !pb) return;
     
     try {
-      const userDoc = await firebaseDb.collection('users').doc(currentUser.uid).get();
+      // Try to get existing user data
+      let userData = null;
+      try {
+        userData = await pb.collection('users').getOne(currentUser.id);
+      } catch (e) {
+        // Record doesn't exist, will create it below
+      }
       
-      if (userDoc.exists) {
-        // Merge cloud data with local data (cloud takes precedence)
-        const cloudData = userDoc.data();
-        
-        // Merge with local save
+      if (userData) {
+        // Merge cloud data with local data (take the maximum of each)
         Save.data = {
           ...Save.data,
-          credits: Math.max(Save.data.credits, cloudData.credits || 0),
-          bestScore: Math.max(Save.data.bestScore, cloudData.bestScore || 0),
-          highestLevel: Math.max(Save.data.highestLevel, cloudData.highestLevel || 1),
-          pilotLevel: Math.max(Save.data.pilotLevel, cloudData.pilotLevel || 1),
+          credits: Math.max(Save.data.credits, userData.credits || 0),
+          bestScore: Math.max(Save.data.bestScore, userData.bestScore || 0),
+          highestLevel: Math.max(Save.data.highestLevel, userData.highestLevel || 1),
+          pilotLevel: Math.max(Save.data.pilotLevel, userData.pilotLevel || 1),
           // Keep the better upgrades
-          upgrades: { ...Save.data.upgrades, ...cloudData.upgrades },
+          upgrades: { ...Save.data.upgrades, ...userData.upgrades },
         };
         
         Save.save();
@@ -144,20 +151,30 @@
   };
   
   const uploadUserData = async () => {
-    if (!currentUser || !firebaseDb) return;
+    if (!currentUser || !pb) return;
     
     try {
-      await firebaseDb.collection('users').doc(currentUser.uid).set({
+      const userData = {
         email: currentUser.email,
-        displayName: currentUser.displayName || currentUser.email.split('@')[0],
+        displayName: currentUser.name || currentUser.email.split('@')[0],
         credits: Save.data.credits,
         bestScore: Save.data.bestScore,
         highestLevel: Save.data.highestLevel,
         pilotLevel: Save.data.pilotLevel,
         pilotXp: Save.data.pilotXp,
-        upgrades: Save.data.upgrades,
-        lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-      });
+        upgrades: Save.data.upgrades
+      };
+      
+      // Try to update existing record, or create if it doesn't exist
+      try {
+        await pb.collection('users').update(currentUser.id, userData);
+      } catch (e) {
+        // If record doesn't exist, create it with the user's ID
+        await pb.collection('users').create({
+          id: currentUser.id,
+          ...userData
+        });
+      }
       
       console.log('User data uploaded to cloud');
     } catch (error) {
@@ -166,22 +183,36 @@
   };
   
   const updateLeaderboard = async (score) => {
-    if (!currentUser || !firebaseDb || !score) return;
+    if (!currentUser || !pb || !score) return;
     
     try {
-      const leaderboardRef = firebaseDb.collection('leaderboard').doc(currentUser.uid);
-      const doc = await leaderboardRef.get();
+      // Check if user already has a leaderboard entry
+      let existingEntry = null;
+      try {
+        existingEntry = await pb.collection('leaderboard').getOne(currentUser.id);
+      } catch (e) {
+        // No existing entry
+      }
       
-      // Only update if new score is higher
-      if (!doc.exists || score > (doc.data().score || 0)) {
-        await leaderboardRef.set({
-          userId: currentUser.uid,
-          displayName: currentUser.displayName || currentUser.email.split('@')[0],
-          email: currentUser.email,
-          score: score,
-          level: level,
-          timestamp: firebase.firestore.FieldValue.serverTimestamp()
-        });
+      const leaderboardData = {
+        userId: currentUser.id,
+        displayName: currentUser.name || currentUser.email.split('@')[0],
+        email: currentUser.email,
+        score: score,
+        level: level
+      };
+      
+      // Only update if new score is higher or entry doesn't exist
+      if (!existingEntry || score > (existingEntry.score || 0)) {
+        try {
+          await pb.collection('leaderboard').update(currentUser.id, leaderboardData);
+        } catch (e) {
+          // Create if doesn't exist
+          await pb.collection('leaderboard').create({
+            id: currentUser.id,
+            ...leaderboardData
+          });
+        }
         
         console.log('Leaderboard updated with new high score');
         loadLeaderboard();
@@ -192,7 +223,7 @@
   };
   
   const loadLeaderboard = async () => {
-    if (!firebaseDb) {
+    if (!pb) {
       showOfflineLeaderboard();
       return;
     }
@@ -203,43 +234,64 @@
     try {
       leaderboardList.innerHTML = '<div class="leaderboard-loading">Loading leaderboard...</div>';
       
-      const snapshot = await firebaseDb.collection('leaderboard')
-        .orderBy('score', 'desc')
-        .limit(10)
-        .get();
+      // Unsubscribe from previous subscription if exists
+      if (leaderboardUnsubscribe) {
+        leaderboardUnsubscribe();
+        leaderboardUnsubscribe = null;
+      }
       
-      if (snapshot.empty) {
+      // Get top 10 scores
+      const records = await pb.collection('leaderboard').getList(1, 10, {
+        sort: '-score',
+      });
+      
+      if (records.items.length === 0) {
         leaderboardList.innerHTML = '<div class="leaderboard-loading">No scores yet. Be the first!</div>';
         return;
       }
       
-      leaderboardList.innerHTML = '';
-      let rank = 1;
+      // Render leaderboard
+      renderLeaderboard(records.items);
       
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        const entry = document.createElement('div');
-        entry.className = 'leaderboard-entry';
-        
-        if (currentUser && doc.id === currentUser.uid) {
-          entry.classList.add('current-user');
-        }
-        
-        const rankClass = rank === 1 ? 'top-1' : rank === 2 ? 'top-2' : rank === 3 ? 'top-3' : '';
-        
-        entry.innerHTML = `
-          <div class="leaderboard-rank ${rankClass}">#${rank}</div>
-          <div class="leaderboard-player">${data.displayName || 'Anonymous'}</div>
-          <div class="leaderboard-score">${(data.score || 0).toLocaleString()}</div>
-        `;
-        
-        leaderboardList.appendChild(entry);
-        rank++;
+      // Subscribe to real-time updates
+      leaderboardUnsubscribe = await pb.collection('leaderboard').subscribe('*', (e) => {
+        console.log('Leaderboard update:', e.action);
+        // Reload leaderboard on any change
+        loadLeaderboard();
       });
+      
     } catch (error) {
       console.error('Error loading leaderboard:', error);
       leaderboardList.innerHTML = '<div class="leaderboard-loading">Failed to load leaderboard</div>';
     }
+  };
+  
+  const renderLeaderboard = (items) => {
+    const leaderboardList = document.getElementById('leaderboardList');
+    if (!leaderboardList) return;
+    
+    leaderboardList.innerHTML = '';
+    let rank = 1;
+    
+    items.forEach((data) => {
+      const entry = document.createElement('div');
+      entry.className = 'leaderboard-entry';
+      
+      if (currentUser && data.userId === currentUser.id) {
+        entry.classList.add('current-user');
+      }
+      
+      const rankClass = rank === 1 ? 'top-1' : rank === 2 ? 'top-2' : rank === 3 ? 'top-3' : '';
+      
+      entry.innerHTML = `
+        <div class="leaderboard-rank ${rankClass}">#${rank}</div>
+        <div class="leaderboard-player">${data.displayName || 'Anonymous'}</div>
+        <div class="leaderboard-score">${(data.score || 0).toLocaleString()}</div>
+      `;
+      
+      leaderboardList.appendChild(entry);
+      rank++;
+    });
   };
   
   const showOfflineLeaderboard = () => {
@@ -255,27 +307,34 @@
   };
   
   const updateLeaderboardRank = async () => {
-    if (!currentUser || !firebaseDb) return;
+    if (!currentUser || !pb) return;
     
     const userRank = document.getElementById('userRank');
     if (!userRank) return;
     
     try {
-      const userDoc = await firebaseDb.collection('leaderboard').doc(currentUser.uid).get();
-      
-      if (!userDoc.exists) {
+      // Get user's leaderboard entry
+      let userEntry = null;
+      try {
+        userEntry = await pb.collection('leaderboard').getOne(currentUser.id);
+      } catch (e) {
         userRank.textContent = 'Rank: Unranked';
         return;
       }
       
-      const userScore = userDoc.data().score;
+      if (!userEntry) {
+        userRank.textContent = 'Rank: Unranked';
+        return;
+      }
+      
+      const userScore = userEntry.score;
       
       // Count how many scores are higher
-      const snapshot = await firebaseDb.collection('leaderboard')
-        .where('score', '>', userScore)
-        .get();
+      const result = await pb.collection('leaderboard').getList(1, 1, {
+        filter: `score > ${userScore}`
+      });
       
-      const rank = snapshot.size + 1;
+      const rank = result.totalItems + 1;
       userRank.textContent = `Rank: #${rank}`;
     } catch (error) {
       console.error('Error getting user rank:', error);
@@ -2822,7 +2881,7 @@
     Save.addCredits(Math.floor(score / 25));
     
     // Upload to leaderboard if user is signed in
-    if (currentUser && firebaseDb && score > 0) {
+    if (currentUser && pb && score > 0) {
       updateLeaderboard(score);
       uploadUserData(); // Sync all user data to cloud
     }
@@ -2844,8 +2903,8 @@
     drawStartGraphic();
     updateHUD();
     
-    // Initialize Firebase and auth
-    initFirebase();
+    // Initialize PocketBase and auth
+    initPocketBase();
     
     // Set up auth UI handlers
     setupAuthHandlers();
@@ -2876,9 +2935,16 @@
     
     if (signOutButton) {
       signOutButton.addEventListener('click', async () => {
-        if (firebaseAuth && currentUser) {
+        if (pb && currentUser) {
           try {
-            await firebaseAuth.signOut();
+            // Unsubscribe from leaderboard updates
+            if (leaderboardUnsubscribe) {
+              leaderboardUnsubscribe();
+              leaderboardUnsubscribe = null;
+            }
+            pb.authStore.clear();
+            currentUser = null;
+            updateUserUI();
             console.log('User signed out successfully');
           } catch (error) {
             console.error('Sign out error:', error);
@@ -2933,7 +2999,7 @@
   };
   
   const handleSignIn = async () => {
-    if (!firebaseAuth) {
+    if (!pb) {
       showAuthError('Authentication service unavailable');
       return;
     }
@@ -2953,8 +3019,12 @@
     
     try {
       showAuthError('');
-      await firebaseAuth.signInWithEmailAndPassword(email, password);
+      await pb.collection('users').authWithPassword(email, password);
+      currentUser = pb.authStore.model;
       showAuthSuccess('Successfully signed in!');
+      updateUserUI();
+      syncUserData();
+      updateLeaderboardRank();
       setTimeout(() => {
         const authModal = document.getElementById('authModal');
         if (authModal) authModal.classList.remove('active');
@@ -2962,19 +3032,17 @@
     } catch (error) {
       console.error('Sign in error:', error);
       let message = 'Sign in failed';
-      if (error.code === 'auth/user-not-found') {
+      if (error.status === 400) {
+        message = 'Invalid email or password';
+      } else if (error.status === 404) {
         message = 'No account found with this email';
-      } else if (error.code === 'auth/wrong-password') {
-        message = 'Incorrect password';
-      } else if (error.code === 'auth/invalid-email') {
-        message = 'Invalid email address';
       }
       showAuthError(message);
     }
   };
   
   const handleSignUp = async () => {
-    if (!firebaseAuth) {
+    if (!pb) {
       showAuthError('Authentication service unavailable');
       return;
     }
@@ -2992,23 +3060,29 @@
       return;
     }
     
-    if (password.length < 6) {
-      showAuthError('Password must be at least 6 characters');
+    if (password.length < 8) {
+      showAuthError('Password must be at least 8 characters');
       return;
     }
     
     try {
       showAuthError('');
-      const userCredential = await firebaseAuth.createUserWithEmailAndPassword(email, password);
       
-      // Set display name to email prefix
-      if (userCredential.user) {
-        await userCredential.user.updateProfile({
-          displayName: email.split('@')[0]
-        });
-      }
+      // Create the user account
+      const userData = await pb.collection('users').create({
+        email: email,
+        password: password,
+        passwordConfirm: password,
+        name: email.split('@')[0]
+      });
+      
+      // Automatically sign in after creating account
+      await pb.collection('users').authWithPassword(email, password);
+      currentUser = pb.authStore.model;
       
       showAuthSuccess('Account created successfully!');
+      updateUserUI();
+      syncUserData();
       setTimeout(() => {
         const authModal = document.getElementById('authModal');
         if (authModal) authModal.classList.remove('active');
@@ -3016,12 +3090,14 @@
     } catch (error) {
       console.error('Sign up error:', error);
       let message = 'Account creation failed';
-      if (error.code === 'auth/email-already-in-use') {
-        message = 'Email already in use. Try signing in instead.';
-      } else if (error.code === 'auth/invalid-email') {
-        message = 'Invalid email address';
-      } else if (error.code === 'auth/weak-password') {
-        message = 'Password is too weak';
+      if (error.status === 400) {
+        if (error.data?.data?.email) {
+          message = 'Email already in use. Try signing in instead.';
+        } else if (error.data?.data?.password) {
+          message = 'Password is too weak';
+        } else {
+          message = 'Invalid email or password';
+        }
       }
       showAuthError(message);
     }
