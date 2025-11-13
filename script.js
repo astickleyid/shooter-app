@@ -2150,6 +2150,15 @@
       touchStartPos = null;
     });
     
+    // Click-outside-to-close for controlSettingsModal
+    document.addEventListener('mousedown', (e) => {
+      if (dom.controlSettingsModal?.classList.contains('active')) {
+        // If click is outside the modal content, close it
+        if (!dom.controlSettingsModal.contains(e.target)) {
+          closeControlSettings();
+        }
+      }
+    });
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         if (dom.hangarModal?.classList.contains('active') || dom.hangarModal?.style.display === 'flex') {
