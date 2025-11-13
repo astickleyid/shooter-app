@@ -2150,22 +2150,15 @@
       touchStartPos = null;
     });
     
-    dom.closeShopBtn?.addEventListener('click', () => {
-      closeShop();
-      if (!gameRunning && dom.gameContainer?.style.display === 'block') requestAnimationFrame(() => {});
+    // Click-outside-to-close for controlSettingsModal
+    document.addEventListener('mousedown', (e) => {
+      if (dom.controlSettingsModal?.classList.contains('active')) {
+        // If click is outside the modal content, close it
+        if (!dom.controlSettingsModal.contains(e.target)) {
+          closeControlSettings();
+        }
+      }
     });
-    dom.openHangarFromShop?.addEventListener('click', () => {
-      closeShop();
-      openHangar();
-    });
-    dom.hangarClose?.addEventListener('click', closeHangar);
-    dom.hangarModal?.addEventListener('click', (e) => {
-      if (e.target === dom.hangarModal) closeHangar();
-    });
-    dom.controlSettingsModal?.addEventListener('click', (e) => {
-      if (e.target === dom.controlSettingsModal) closeControlSettings();
-    });
-
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         if (dom.hangarModal?.classList.contains('active') || dom.hangarModal?.style.display === 'flex') {
@@ -2344,9 +2337,6 @@
         dom.joystickShootBase.style.opacity = '1';
       }
       
-      input.isAiming = true;
-      input.fireHeld = true;
-      
       if (dist > max) {
         sx = (dx / dist) * max;
         sy = (dy / dist) * max;
@@ -2372,6 +2362,8 @@
         const adjusted = (rawMag - aimDeadzone) / (1 - aimDeadzone);
         rawX = (rawX / rawMag) * adjusted;
         rawY = (rawY / rawMag) * adjusted;
+        input.isAiming = true;
+        input.fireHeld = true;
       }
       
       // Apply aim sensitivity
