@@ -1,4 +1,288 @@
 (() => {
+  /* ====== FIREBASE CONFIGURATION ====== */
+  const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyDemoKey-ReplaceWithYourActualKey",
+    authDomain: "void-rift-demo.firebaseapp.com",
+    projectId: "void-rift-demo",
+    storageBucket: "void-rift-demo.appspot.com",
+    messagingSenderId: "123456789",
+    appId: "1:123456789:web:abcdef123456"
+  };
+  
+  const GAME_VERSION = "2.0";
+  
+  // Initialize Firebase
+  let firebaseApp = null;
+  let firebaseAuth = null;
+  let firebaseDb = null;
+  let currentUser = null;
+  let isOnline = false;
+  
+  const initFirebase = () => {
+    try {
+      if (typeof firebase !== 'undefined') {
+        firebaseApp = firebase.initializeApp(FIREBASE_CONFIG);
+        firebaseAuth = firebase.auth();
+        firebaseDb = firebase.firestore();
+        
+        // Set up auth state listener
+        firebaseAuth.onAuthStateChanged(handleAuthStateChange);
+        
+        // Check connectivity
+        checkSystemStatus();
+        
+        console.log('Firebase initialized successfully');
+      } else {
+        console.warn('Firebase SDK not loaded, running in offline mode');
+        updateSystemStatus(false);
+      }
+    } catch (error) {
+      console.error('Firebase initialization error:', error);
+      updateSystemStatus(false);
+    }
+  };
+  
+  const checkSystemStatus = () => {
+    if (!firebaseDb) {
+      updateSystemStatus(false);
+      return;
+    }
+    
+    // Try to write a test document to check connectivity
+    firebaseDb.collection('_health').doc('check').set({ timestamp: Date.now() })
+      .then(() => {
+        updateSystemStatus(true);
+        loadLeaderboard();
+      })
+      .catch((error) => {
+        console.warn('Firebase connectivity check failed:', error);
+        updateSystemStatus(false);
+      });
+  };
+  
+  const updateSystemStatus = (online) => {
+    isOnline = online;
+    const statusElem = document.getElementById('systemStatus');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    
+    if (statusElem && statusDot && statusText) {
+      if (online) {
+        statusElem.classList.add('online');
+        statusElem.classList.remove('offline');
+        statusText.textContent = 'ALL SYSTEMS ONLINE';
+      } else {
+        statusElem.classList.add('offline');
+        statusElem.classList.remove('online');
+        statusText.textContent = 'OFFLINE MODE';
+      }
+    }
+  };
+  
+  const handleAuthStateChange = (user) => {
+    currentUser = user;
+    updateUserUI();
+    
+    if (user) {
+      console.log('User signed in:', user.email);
+      syncUserData();
+      updateLeaderboardRank();
+    } else {
+      console.log('User signed out');
+    }
+  };
+  
+  const updateUserUI = () => {
+    const signedInView = document.getElementById('signedInView');
+    const signedOutView = document.getElementById('signedOutView');
+    const userName = document.getElementById('userName');
+    
+    if (currentUser && signedInView && signedOutView) {
+      signedInView.style.display = 'block';
+      signedOutView.style.display = 'none';
+      if (userName) {
+        const displayName = currentUser.displayName || currentUser.email.split('@')[0];
+        userName.textContent = displayName;
+      }
+    } else if (signedInView && signedOutView) {
+      signedInView.style.display = 'none';
+      signedOutView.style.display = 'block';
+    }
+  };
+  
+  const syncUserData = async () => {
+    if (!currentUser || !firebaseDb) return;
+    
+    try {
+      const userDoc = await firebaseDb.collection('users').doc(currentUser.uid).get();
+      
+      if (userDoc.exists) {
+        // Merge cloud data with local data (cloud takes precedence)
+        const cloudData = userDoc.data();
+        
+        // Merge with local save
+        Save.data = {
+          ...Save.data,
+          credits: Math.max(Save.data.credits, cloudData.credits || 0),
+          bestScore: Math.max(Save.data.bestScore, cloudData.bestScore || 0),
+          highestLevel: Math.max(Save.data.highestLevel, cloudData.highestLevel || 1),
+          pilotLevel: Math.max(Save.data.pilotLevel, cloudData.pilotLevel || 1),
+          // Keep the better upgrades
+          upgrades: { ...Save.data.upgrades, ...cloudData.upgrades },
+        };
+        
+        Save.save();
+        syncCredits();
+        console.log('User data synced from cloud');
+      } else {
+        // First time user, upload local data
+        await uploadUserData();
+      }
+    } catch (error) {
+      console.error('Error syncing user data:', error);
+    }
+  };
+  
+  const uploadUserData = async () => {
+    if (!currentUser || !firebaseDb) return;
+    
+    try {
+      await firebaseDb.collection('users').doc(currentUser.uid).set({
+        email: currentUser.email,
+        displayName: currentUser.displayName || currentUser.email.split('@')[0],
+        credits: Save.data.credits,
+        bestScore: Save.data.bestScore,
+        highestLevel: Save.data.highestLevel,
+        pilotLevel: Save.data.pilotLevel,
+        pilotXp: Save.data.pilotXp,
+        upgrades: Save.data.upgrades,
+        lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      
+      console.log('User data uploaded to cloud');
+    } catch (error) {
+      console.error('Error uploading user data:', error);
+    }
+  };
+  
+  const updateLeaderboard = async (score) => {
+    if (!currentUser || !firebaseDb || !score) return;
+    
+    try {
+      const leaderboardRef = firebaseDb.collection('leaderboard').doc(currentUser.uid);
+      const doc = await leaderboardRef.get();
+      
+      // Only update if new score is higher
+      if (!doc.exists || score > (doc.data().score || 0)) {
+        await leaderboardRef.set({
+          userId: currentUser.uid,
+          displayName: currentUser.displayName || currentUser.email.split('@')[0],
+          email: currentUser.email,
+          score: score,
+          level: level,
+          timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        console.log('Leaderboard updated with new high score');
+        loadLeaderboard();
+      }
+    } catch (error) {
+      console.error('Error updating leaderboard:', error);
+    }
+  };
+  
+  const loadLeaderboard = async () => {
+    if (!firebaseDb) {
+      showOfflineLeaderboard();
+      return;
+    }
+    
+    const leaderboardList = document.getElementById('leaderboardList');
+    if (!leaderboardList) return;
+    
+    try {
+      leaderboardList.innerHTML = '<div class="leaderboard-loading">Loading leaderboard...</div>';
+      
+      const snapshot = await firebaseDb.collection('leaderboard')
+        .orderBy('score', 'desc')
+        .limit(10)
+        .get();
+      
+      if (snapshot.empty) {
+        leaderboardList.innerHTML = '<div class="leaderboard-loading">No scores yet. Be the first!</div>';
+        return;
+      }
+      
+      leaderboardList.innerHTML = '';
+      let rank = 1;
+      
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        const entry = document.createElement('div');
+        entry.className = 'leaderboard-entry';
+        
+        if (currentUser && doc.id === currentUser.uid) {
+          entry.classList.add('current-user');
+        }
+        
+        const rankClass = rank === 1 ? 'top-1' : rank === 2 ? 'top-2' : rank === 3 ? 'top-3' : '';
+        
+        entry.innerHTML = `
+          <div class="leaderboard-rank ${rankClass}">#${rank}</div>
+          <div class="leaderboard-player">${data.displayName || 'Anonymous'}</div>
+          <div class="leaderboard-score">${(data.score || 0).toLocaleString()}</div>
+        `;
+        
+        leaderboardList.appendChild(entry);
+        rank++;
+      });
+    } catch (error) {
+      console.error('Error loading leaderboard:', error);
+      leaderboardList.innerHTML = '<div class="leaderboard-loading">Failed to load leaderboard</div>';
+    }
+  };
+  
+  const showOfflineLeaderboard = () => {
+    const leaderboardList = document.getElementById('leaderboardList');
+    if (!leaderboardList) return;
+    
+    leaderboardList.innerHTML = `
+      <div class="leaderboard-loading">
+        Leaderboard unavailable in offline mode.<br>
+        Sign in to compete globally!
+      </div>
+    `;
+  };
+  
+  const updateLeaderboardRank = async () => {
+    if (!currentUser || !firebaseDb) return;
+    
+    const userRank = document.getElementById('userRank');
+    if (!userRank) return;
+    
+    try {
+      const userDoc = await firebaseDb.collection('leaderboard').doc(currentUser.uid).get();
+      
+      if (!userDoc.exists) {
+        userRank.textContent = 'Rank: Unranked';
+        return;
+      }
+      
+      const userScore = userDoc.data().score;
+      
+      // Count how many scores are higher
+      const snapshot = await firebaseDb.collection('leaderboard')
+        .where('score', '>', userScore)
+        .get();
+      
+      const rank = snapshot.size + 1;
+      userRank.textContent = `Rank: #${rank}`;
+    } catch (error) {
+      console.error('Error getting user rank:', error);
+      userRank.textContent = 'Rank: --';
+    }
+  };
+  
   /* ====== UTILS ====== */
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
   const rand = (min, max) => min + Math.random() * (max - min);
@@ -2536,6 +2820,13 @@
     gameOverHandled = true;
     Save.setBest(score, level);
     Save.addCredits(Math.floor(score / 25));
+    
+    // Upload to leaderboard if user is signed in
+    if (currentUser && firebaseDb && score > 0) {
+      updateLeaderboard(score);
+      uploadUserData(); // Sync all user data to cloud
+    }
+    
     showMessage('GAME OVER', `Level ${level} — Score ${score.toLocaleString()}`, 'Restart', () => startGame());
   };
 
@@ -2552,6 +2843,212 @@
     resizeCanvas();
     drawStartGraphic();
     updateHUD();
+    
+    // Initialize Firebase and auth
+    initFirebase();
+    
+    // Set up auth UI handlers
+    setupAuthHandlers();
+    
+    // Load leaderboard
+    setTimeout(() => {
+      if (!isOnline) {
+        showOfflineLeaderboard();
+      }
+    }, 1000);
+  };
+  
+  const setupAuthHandlers = () => {
+    const signInButton = document.getElementById('signInButton');
+    const signOutButton = document.getElementById('signOutButton');
+    const closeAuth = document.getElementById('closeAuth');
+    const signInSubmit = document.getElementById('signInSubmit');
+    const signUpSubmit = document.getElementById('signUpSubmit');
+    const continueAsGuest = document.getElementById('continueAsGuest');
+    const refreshLeaderboard = document.getElementById('refreshLeaderboard');
+    const authModal = document.getElementById('authModal');
+    
+    if (signInButton) {
+      signInButton.addEventListener('click', () => {
+        if (authModal) authModal.classList.add('active');
+      });
+    }
+    
+    if (signOutButton) {
+      signOutButton.addEventListener('click', async () => {
+        if (firebaseAuth && currentUser) {
+          try {
+            await firebaseAuth.signOut();
+            console.log('User signed out successfully');
+          } catch (error) {
+            console.error('Sign out error:', error);
+          }
+        }
+      });
+    }
+    
+    if (closeAuth) {
+      closeAuth.addEventListener('click', () => {
+        if (authModal) authModal.classList.remove('active');
+      });
+    }
+    
+    if (continueAsGuest) {
+      continueAsGuest.addEventListener('click', () => {
+        if (authModal) authModal.classList.remove('active');
+      });
+    }
+    
+    if (signInSubmit) {
+      signInSubmit.addEventListener('click', async () => {
+        await handleSignIn();
+      });
+    }
+    
+    if (signUpSubmit) {
+      signUpSubmit.addEventListener('click', async () => {
+        await handleSignUp();
+      });
+    }
+    
+    if (refreshLeaderboard) {
+      refreshLeaderboard.addEventListener('click', () => {
+        loadLeaderboard();
+      });
+    }
+    
+    // Allow Enter key in auth form
+    const authEmail = document.getElementById('authEmail');
+    const authPassword = document.getElementById('authPassword');
+    
+    if (authEmail && authPassword) {
+      const handleEnter = (e) => {
+        if (e.key === 'Enter') {
+          handleSignIn();
+        }
+      };
+      authEmail.addEventListener('keypress', handleEnter);
+      authPassword.addEventListener('keypress', handleEnter);
+    }
+  };
+  
+  const handleSignIn = async () => {
+    if (!firebaseAuth) {
+      showAuthError('Authentication service unavailable');
+      return;
+    }
+    
+    const emailInput = document.getElementById('authEmail');
+    const passwordInput = document.getElementById('authPassword');
+    
+    if (!emailInput || !passwordInput) return;
+    
+    const email = emailInput.value.trim();
+    const password = passwordInput.value;
+    
+    if (!email || !password) {
+      showAuthError('Please enter email and password');
+      return;
+    }
+    
+    try {
+      showAuthError('');
+      await firebaseAuth.signInWithEmailAndPassword(email, password);
+      showAuthSuccess('Successfully signed in!');
+      setTimeout(() => {
+        const authModal = document.getElementById('authModal');
+        if (authModal) authModal.classList.remove('active');
+      }, 1500);
+    } catch (error) {
+      console.error('Sign in error:', error);
+      let message = 'Sign in failed';
+      if (error.code === 'auth/user-not-found') {
+        message = 'No account found with this email';
+      } else if (error.code === 'auth/wrong-password') {
+        message = 'Incorrect password';
+      } else if (error.code === 'auth/invalid-email') {
+        message = 'Invalid email address';
+      }
+      showAuthError(message);
+    }
+  };
+  
+  const handleSignUp = async () => {
+    if (!firebaseAuth) {
+      showAuthError('Authentication service unavailable');
+      return;
+    }
+    
+    const emailInput = document.getElementById('authEmail');
+    const passwordInput = document.getElementById('authPassword');
+    
+    if (!emailInput || !passwordInput) return;
+    
+    const email = emailInput.value.trim();
+    const password = passwordInput.value;
+    
+    if (!email || !password) {
+      showAuthError('Please enter email and password');
+      return;
+    }
+    
+    if (password.length < 6) {
+      showAuthError('Password must be at least 6 characters');
+      return;
+    }
+    
+    try {
+      showAuthError('');
+      const userCredential = await firebaseAuth.createUserWithEmailAndPassword(email, password);
+      
+      // Set display name to email prefix
+      if (userCredential.user) {
+        await userCredential.user.updateProfile({
+          displayName: email.split('@')[0]
+        });
+      }
+      
+      showAuthSuccess('Account created successfully!');
+      setTimeout(() => {
+        const authModal = document.getElementById('authModal');
+        if (authModal) authModal.classList.remove('active');
+      }, 1500);
+    } catch (error) {
+      console.error('Sign up error:', error);
+      let message = 'Account creation failed';
+      if (error.code === 'auth/email-already-in-use') {
+        message = 'Email already in use. Try signing in instead.';
+      } else if (error.code === 'auth/invalid-email') {
+        message = 'Invalid email address';
+      } else if (error.code === 'auth/weak-password') {
+        message = 'Password is too weak';
+      }
+      showAuthError(message);
+    }
+  };
+  
+  const showAuthError = (message) => {
+    const errorDiv = document.getElementById('authError');
+    const successDiv = document.getElementById('authSuccess');
+    if (errorDiv) {
+      errorDiv.textContent = message;
+      errorDiv.style.display = message ? 'block' : 'none';
+    }
+    if (successDiv) {
+      successDiv.style.display = 'none';
+    }
+  };
+  
+  const showAuthSuccess = (message) => {
+    const errorDiv = document.getElementById('authError');
+    const successDiv = document.getElementById('authSuccess');
+    if (successDiv) {
+      successDiv.textContent = message;
+      successDiv.style.display = message ? 'block' : 'none';
+    }
+    if (errorDiv) {
+      errorDiv.style.display = 'none';
+    }
   };
 
   if (document.readyState === 'loading') {
