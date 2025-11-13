@@ -6,11 +6,60 @@
   <title>VOID RIFT</title>
   <!-- Link external styles -->
   <link rel="stylesheet" href="style.css" />
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 </head>
 <body>
   <!-- START SCREEN -->
   <div id="startScreen">
     <div id="gameTitle">VOID RIFT</div>
+    
+    <!-- Version and System Status Indicator -->
+    <div id="versionIndicator">
+      <div class="version-badge">
+        <span class="version-label">VERSION</span>
+        <span class="version-number">2.0</span>
+      </div>
+      <div class="system-status" id="systemStatus">
+        <span class="status-dot" id="statusDot"></span>
+        <span class="status-text" id="statusText">CHECKING...</span>
+      </div>
+    </div>
+    
+    <!-- User Account Section -->
+    <div id="userAccountSection">
+      <div id="signedOutView">
+        <button id="signInButton" class="accountButton">
+          <span class="button-icon">👤</span>
+          Sign In / Create Account
+        </button>
+        <div class="account-subtitle">Optional: Save progress to the cloud</div>
+      </div>
+      <div id="signedInView" style="display: none;">
+        <div class="user-info">
+          <span class="user-icon">👤</span>
+          <div class="user-details">
+            <div class="user-name" id="userName">Player</div>
+            <div class="user-rank" id="userRank">Rank: #--</div>
+          </div>
+          <button id="signOutButton" class="sign-out-btn">Sign Out</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Leaderboard Section -->
+    <div id="leaderboardSection">
+      <div class="leaderboard-header">
+        <h3>🏆 All-Time Leaderboard</h3>
+        <button id="refreshLeaderboard" class="refresh-btn">⟳</button>
+      </div>
+      <div id="leaderboardList" class="leaderboard-list">
+        <div class="leaderboard-loading">Loading leaderboard...</div>
+      </div>
+    </div>
+    
     <canvas id="startGraphicCanvas"></canvas>
     <div class="difficultySelector">
       <label for="difficultySelect">Difficulty:</label>
@@ -265,6 +314,39 @@
         <button id="closeHangar">Close</button>
       </div>
       <div id="hangarGrid"></div>
+    </div>
+  </div>
+  
+  <!-- AUTH MODAL -->
+  <div id="authModal" class="modal">
+    <div class="modal-content auth-modal">
+      <div class="modal-header">
+        <h2>Account Sign In</h2>
+        <button id="closeAuth" class="closeBtn">✕</button>
+      </div>
+      <div class="auth-content">
+        <p class="auth-description">
+          Sign in to save your progress to the cloud, compete on the global leaderboard, and access your data from any device.
+        </p>
+        <div class="auth-benefits">
+          <div class="benefit-item">✓ Cloud save sync</div>
+          <div class="benefit-item">✓ Global leaderboard</div>
+          <div class="benefit-item">✓ Cross-device progress</div>
+        </div>
+        <div class="auth-form">
+          <input type="email" id="authEmail" placeholder="Email address" class="auth-input" />
+          <input type="password" id="authPassword" placeholder="Password (min 6 characters)" class="auth-input" />
+          <div class="auth-buttons">
+            <button id="signInSubmit" class="primaryBtn">Sign In</button>
+            <button id="signUpSubmit" class="secondaryBtn">Create Account</button>
+          </div>
+          <div id="authError" class="auth-error" style="display: none;"></div>
+          <div id="authSuccess" class="auth-success" style="display: none;"></div>
+        </div>
+        <div class="auth-footer">
+          <button id="continueAsGuest" class="guest-btn">Continue as Guest</button>
+        </div>
+      </div>
     </div>
   </div>
 

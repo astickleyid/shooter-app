@@ -2,6 +2,25 @@
 
 VOID RIFT is a browser-based twin-stick shooter built entirely with vanilla HTML, CSS, and JavaScript. The repo contains everything you need to play locally or deploy to a static host (e.g., GitHub Pages, Netlify).
 
+**Current Version: 2.0**
+
+## What's New in Version 2.0
+
+### 🔐 Optional Account Sign-In
+- Create an account or sign in to save your progress to the cloud
+- All data syncs automatically across devices
+- Continue as guest to play offline with local storage only
+
+### 🏆 Global Leaderboard
+- Compete with players worldwide on the all-time leaderboard
+- Real-time rank updates as you play
+- Top 10 scores displayed on the start screen
+
+### 📊 System Status Indicator
+- Live system status showing online/offline mode
+- Version badge displaying current game version
+- Visual indicators for cloud connectivity
+
 ## Quick Start
 
 - Option 1 – double-click `index.html` to open it in your browser.
@@ -44,6 +63,36 @@ VOID RIFT is a browser-based twin-stick shooter built entirely with vanilla HTML
 ## Browser Persistence
 
 Progress (credits, upgrades, best score) is saved in `localStorage` under the key `void_rift_v11`. Clearing browser storage resets progress.
+
+**With Account Sign-In (New in v2.0):**
+- Data is automatically synced to Firebase Cloud Firestore
+- Access your progress from any device
+- Compete on the global leaderboard
+- Automatic backup of all game data
+
+**Without Account (Guest Mode):**
+- Progress saved locally in browser storage only
+- No cloud sync or leaderboard access
+- Works completely offline
+
+## Firebase Setup (Optional for Cloud Features)
+
+To enable cloud features, you'll need to set up Firebase:
+
+1. Create a Firebase project at [console.firebase.google.com](https://console.firebase.google.com)
+2. Enable Authentication (Email/Password)
+3. Enable Cloud Firestore
+4. Update the Firebase config in `script.js` with your project credentials:
+   ```javascript
+   const FIREBASE_CONFIG = {
+     apiKey: "your-api-key",
+     authDomain: "your-project.firebaseapp.com",
+     projectId: "your-project-id",
+     // ... other config
+   };
+   ```
+
+The game works perfectly without Firebase - all cloud features gracefully degrade to offline mode.
 
 ## Contributing / Next Steps
 
