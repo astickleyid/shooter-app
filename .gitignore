@@ -1,0 +1,10 @@
+# Temporary files
+screenshots/
+.DS_Store
+
+# Editor directories and files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

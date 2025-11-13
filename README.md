@@ -17,7 +17,7 @@ VOID RIFT is a browser-based twin-stick shooter built entirely with vanilla HTML
 ## Deploying
 
 - GitHub Pages: push the repo to a branch called `gh-pages` or enable Pages via the GitHub UI and point it to the root. No build step is required.
-- Any static host will work: upload `index.html`, `script.js`, and `style.css`.
+- Any static host will work: upload `index.html`, `script.js`, `style.css`, and the entire `src/` directory with all module files.
 
 ## Controls
 
@@ -37,9 +37,17 @@ VOID RIFT is a browser-based twin-stick shooter built entirely with vanilla HTML
 
 ## Project Structure
 
+The game uses a modular architecture for better maintainability:
+
 - `index.html` – root HTML document and UI skeleton.
 - `style.css` – UI styling and layout.
-- `script.js` – game logic, rendering, UI interactions, and persistence.
+- `script.js` – main game orchestration, UI management, and persistence.
+- `src/` – modular game components:
+  - `player.js` – PlayerEntity class, ship rendering, controls, and abilities.
+  - `enemy.js` – Enemy class, spawner system, and AI pathfinding.
+  - `projectile.js` – Bullet management and projectile physics.
+  - `obstacles.js` – Obstacle generation and asteroid rendering.
+  - `collectibles.js` – Coin system, supply drops, and pickup mechanics.
 
 ## Browser Persistence
 
