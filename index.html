@@ -3,12 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shooter App</title>
-    
-    <!-- PocketBase SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/pocketbase@0.21.1/dist/pocketbase.umd.js"></script>
+    <title>VOID RIFT</title>
+    <script src="https://cdn.jsdelivr.net/npm/pocketbase@0.21.1/dist/pocketbase.umd.js"></script> <!-- Updated Firebase SDK to PocketBase -->
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <h1>Welcome to the Shooter App</h1>
+    <div id="start-screen">
+        <h1>VOID RIFT</h1>
+        <!-- UI Elements go here -->
+    </div>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+    </div>
+    <div id="hud-panel">
+        <!-- Complete HUD Panel -->
+    </div>
+    <script src="script.js"></script>
 </body>
 </html>
