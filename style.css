@@ -97,6 +97,7 @@ html, body {
   position: absolute;
   z-index: 3;
   opacity: 0.95;
+  pointer-events: none;
 }
 
 #uiPanel {
@@ -466,6 +467,11 @@ html, body {
   transform: scale(0.9);
   background: rgba(59,130,246,0.7);
   color: #fff;
+}
+
+/* Ensure buttons and interactive elements remain clickable */
+button, .modal, .menuButton {
+  pointer-events: auto;
 }
 
 /* Settings Modal */
