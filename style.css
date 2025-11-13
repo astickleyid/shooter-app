@@ -63,6 +63,7 @@ html, body {
   border-radius: 10px;
   cursor: pointer;
   transition: 0.2s;
+  pointer-events: auto;  /* Ensure buttons remain clickable */
 }
 .menuButton:hover {
   background: #fff;
@@ -97,6 +98,12 @@ html, body {
   position: absolute;
   z-index: 3;
   opacity: 0.95;
+  pointer-events: none;  /* Allow mouse events through to canvas */
+}
+
+/* Restore pointer events for interactive elements */
+button {
+  pointer-events: auto;
 }
 
 #uiPanel {
@@ -478,6 +485,7 @@ html, body {
   justify-content: center;
   z-index: 300;
   backdrop-filter: blur(4px);
+  pointer-events: auto;  /* Ensure modals capture events */
 }
 
 .modal.active {
