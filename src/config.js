@@ -68,7 +68,7 @@ const SHIP_TEMPLATES = [
   {
     id: 'phantom',
     name: 'Phantom-X',
-    desc: 'Prototype interceptor tuned for extreme velocity and evasive manoeuvres.',
+    desc: 'Prototype interceptor tuned for extreme velocity and evasive maneuvers.',
     shape: 'needle',
     scale: 0.92,
     engineOffset: 1.2,
