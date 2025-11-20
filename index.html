@@ -24,6 +24,63 @@
       <button id="startButton" class="menuButton">Start Game</button>
       <button id="openShopFromStart" class="menuButton menuSecondary">Upgrades / Shop</button>
       <button id="settingsButton" class="menuButton menuSecondary">Ship Hangar</button>
+      <button id="leaderboardButton" class="menuButton menuSecondary">Leaderboard</button>
+    </div>
+  </div>
+
+  <!-- AUTHENTICATION MODAL -->
+  <div id="authModal" class="modal">
+    <div class="modal-content auth-modal">
+      <div class="modal-header">
+        <h2>Player Login</h2>
+        <button id="closeAuth" class="closeBtn">✕</button>
+      </div>
+      <div class="auth-content">
+        <div class="auth-section">
+          <p style="color: #94a3b8; font-size: 14px; margin-bottom: 16px;">
+            Sign in to save your scores to the leaderboard
+          </p>
+          <label>
+            <span class="auth-label">Username</span>
+            <input type="text" id="authUsername" class="auth-input" placeholder="Enter username" autocomplete="username" />
+          </label>
+          <label>
+            <span class="auth-label">Password</span>
+            <input type="password" id="authPassword" class="auth-input" placeholder="Enter password" autocomplete="current-password" />
+          </label>
+          <div id="authError" class="auth-error"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="authRegister" class="secondaryBtn">Register</button>
+        <button id="authLogin" class="primaryBtn">Login</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LEADERBOARD MODAL -->
+  <div id="leaderboardModal" class="modal">
+    <div class="modal-content leaderboard-modal">
+      <div class="modal-header">
+        <h2>Leaderboard</h2>
+        <button id="closeLeaderboard" class="closeBtn">✕</button>
+      </div>
+      <div class="leaderboard-content">
+        <div class="leaderboard-user-info">
+          <span id="leaderboardUsername">Not logged in</span>
+          <button id="leaderboardLogout" class="secondaryBtn" style="display: none;">Logout</button>
+          <button id="leaderboardLogin" class="secondaryBtn">Login</button>
+        </div>
+        <div class="leaderboard-filter">
+          <button class="filter-btn active" data-difficulty="all">All</button>
+          <button class="filter-btn" data-difficulty="easy">Easy</button>
+          <button class="filter-btn" data-difficulty="normal">Normal</button>
+          <button class="filter-btn" data-difficulty="hard">Hard</button>
+        </div>
+        <div id="leaderboardList" class="leaderboard-list">
+          <!-- Leaderboard entries will be populated here -->
+        </div>
+      </div>
     </div>
   </div>
 
