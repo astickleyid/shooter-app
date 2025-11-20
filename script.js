@@ -6,6 +6,8 @@
 
   /* ====== CONFIG ====== */
   const SAVE_KEY = 'void_rift_v11';
+  const AUTH_KEY = 'void_rift_auth';
+  const LEADERBOARD_KEY = 'void_rift_leaderboard';
 
   const DIFFICULTY_PRESETS = {
     easy: {
@@ -336,6 +338,20 @@
     dom.hangarModal = document.getElementById('hangarModal');
     dom.hangarGrid = document.getElementById('hangarGrid');
     dom.hangarClose = document.getElementById('closeHangar');
+    dom.leaderboardButton = document.getElementById('leaderboardButton');
+    dom.authModal = document.getElementById('authModal');
+    dom.closeAuth = document.getElementById('closeAuth');
+    dom.authUsername = document.getElementById('authUsername');
+    dom.authPassword = document.getElementById('authPassword');
+    dom.authLogin = document.getElementById('authLogin');
+    dom.authRegister = document.getElementById('authRegister');
+    dom.authError = document.getElementById('authError');
+    dom.leaderboardModal = document.getElementById('leaderboardModal');
+    dom.closeLeaderboard = document.getElementById('closeLeaderboard');
+    dom.leaderboardUsername = document.getElementById('leaderboardUsername');
+    dom.leaderboardLogin = document.getElementById('leaderboardLogin');
+    dom.leaderboardLogout = document.getElementById('leaderboardLogout');
+    dom.leaderboardList = document.getElementById('leaderboardList');
   };
 
   /* ====== STATE ====== */
@@ -562,6 +578,173 @@
   const syncCredits = () => {
     if (dom.creditsText) dom.creditsText.textContent = Save.data.credits;
     if (dom.shopCreditsText) dom.shopCreditsText.textContent = Save.data.credits;
+  };
+
+  /* ====== AUTHENTICATION SYSTEM ====== */
+  const Auth = {
+    users: {},
+    currentUser: null,
+    
+    load() {
+      try {
+        const raw = localStorage.getItem(AUTH_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          this.users = parsed.users || {};
+          this.currentUser = parsed.currentUser || null;
+        }
+      } catch (err) {
+        console.warn('Failed to load auth data', err);
+      }
+    },
+    
+    save() {
+      try {
+        localStorage.setItem(AUTH_KEY, JSON.stringify({
+          users: this.users,
+          currentUser: this.currentUser
+        }));
+      } catch (err) {
+        console.warn('Failed to save auth data', err);
+      }
+    },
+    
+    register(username, password) {
+      if (!username || username.trim().length === 0) {
+        return { success: false, error: 'Username is required' };
+      }
+      if (!password || password.length < 4) {
+        return { success: false, error: 'Password must be at least 4 characters' };
+      }
+      
+      const cleanUsername = username.trim().toLowerCase();
+      
+      if (this.users[cleanUsername]) {
+        return { success: false, error: 'Username already exists' };
+      }
+      
+      this.users[cleanUsername] = {
+        username: username.trim(),
+        password: password, // In a real app, this would be hashed
+        createdAt: Date.now()
+      };
+      
+      this.currentUser = cleanUsername;
+      this.save();
+      
+      return { success: true };
+    },
+    
+    login(username, password) {
+      if (!username || !password) {
+        return { success: false, error: 'Username and password are required' };
+      }
+      
+      const cleanUsername = username.trim().toLowerCase();
+      const user = this.users[cleanUsername];
+      
+      if (!user) {
+        return { success: false, error: 'Invalid username or password' };
+      }
+      
+      if (user.password !== password) {
+        return { success: false, error: 'Invalid username or password' };
+      }
+      
+      this.currentUser = cleanUsername;
+      this.save();
+      
+      return { success: true };
+    },
+    
+    logout() {
+      this.currentUser = null;
+      this.save();
+    },
+    
+    isLoggedIn() {
+      return this.currentUser !== null;
+    },
+    
+    getCurrentUsername() {
+      if (!this.currentUser) return null;
+      const user = this.users[this.currentUser];
+      return user ? user.username : null;
+    }
+  };
+
+  /* ====== LEADERBOARD SYSTEM ====== */
+  const Leaderboard = {
+    entries: [],
+    
+    load() {
+      try {
+        const raw = localStorage.getItem(LEADERBOARD_KEY);
+        if (raw) {
+          this.entries = JSON.parse(raw);
+        }
+      } catch (err) {
+        console.warn('Failed to load leaderboard', err);
+        this.entries = [];
+      }
+    },
+    
+    save() {
+      try {
+        localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(this.entries));
+      } catch (err) {
+        console.warn('Failed to save leaderboard', err);
+      }
+    },
+    
+    addEntry(username, score, level, difficulty) {
+      const entry = {
+        username: username,
+        score: score,
+        level: level,
+        difficulty: difficulty,
+        timestamp: Date.now()
+      };
+      
+      this.entries.push(entry);
+      
+      // Sort by score descending
+      this.entries.sort((a, b) => b.score - a.score);
+      
+      // Keep only top 100 entries
+      if (this.entries.length > 100) {
+        this.entries = this.entries.slice(0, 100);
+      }
+      
+      this.save();
+      
+      // Return the rank
+      return this.entries.findIndex(e => 
+        e.username === username && 
+        e.score === score && 
+        e.timestamp === entry.timestamp
+      ) + 1;
+    },
+    
+    getEntries(difficulty = 'all', limit = 50) {
+      let filtered = this.entries;
+      
+      if (difficulty !== 'all') {
+        filtered = this.entries.filter(e => e.difficulty === difficulty);
+      }
+      
+      return filtered.slice(0, limit);
+    },
+    
+    getUserBest(username) {
+      const userEntries = this.entries.filter(e => 
+        e.username.toLowerCase() === username.toLowerCase()
+      );
+      
+      if (userEntries.length === 0) return null;
+      
+      return userEntries[0]; // Already sorted by score
+    }
   };
 
   const initShipSelection = () => {
@@ -2536,13 +2719,127 @@
     gameOverHandled = true;
     Save.setBest(score, level);
     Save.addCredits(Math.floor(score / 25));
-    showMessage('GAME OVER', `Level ${level} — Score ${score.toLocaleString()}`, 'Restart', () => startGame());
+    
+    // Submit to leaderboard if logged in
+    if (Auth.isLoggedIn()) {
+      const username = Auth.getCurrentUsername();
+      const rank = Leaderboard.addEntry(username, score, level, currentDifficulty);
+      showMessage('GAME OVER', `Level ${level} — Score ${score.toLocaleString()}\nLeaderboard Rank: #${rank}`, 'Restart', () => startGame());
+    } else {
+      showMessage('GAME OVER', `Level ${level} — Score ${score.toLocaleString()}\nLogin to save your score!`, 'Restart', () => startGame());
+    }
+  };
+
+  /* ====== AUTHENTICATION & LEADERBOARD UI ====== */
+  const openAuthModal = () => {
+    if (!dom.authModal) return;
+    dom.authModal.style.display = 'flex';
+    if (dom.authUsername) dom.authUsername.value = '';
+    if (dom.authPassword) dom.authPassword.value = '';
+    if (dom.authError) dom.authError.textContent = '';
+  };
+
+  const closeAuthModal = () => {
+    if (dom.authModal) dom.authModal.style.display = 'none';
+  };
+
+  const handleAuthLogin = () => {
+    const username = dom.authUsername?.value || '';
+    const password = dom.authPassword?.value || '';
+    
+    const result = Auth.login(username, password);
+    
+    if (result.success) {
+      closeAuthModal();
+      updateAuthUI();
+      renderLeaderboard('all');
+    } else {
+      if (dom.authError) dom.authError.textContent = result.error;
+    }
+  };
+
+  const handleAuthRegister = () => {
+    const username = dom.authUsername?.value || '';
+    const password = dom.authPassword?.value || '';
+    
+    const result = Auth.register(username, password);
+    
+    if (result.success) {
+      closeAuthModal();
+      updateAuthUI();
+      renderLeaderboard('all');
+    } else {
+      if (dom.authError) dom.authError.textContent = result.error;
+    }
+  };
+
+  const handleAuthLogout = () => {
+    Auth.logout();
+    updateAuthUI();
+    renderLeaderboard('all');
+  };
+
+  const updateAuthUI = () => {
+    const isLoggedIn = Auth.isLoggedIn();
+    const username = Auth.getCurrentUsername();
+    
+    if (dom.leaderboardUsername) {
+      dom.leaderboardUsername.textContent = isLoggedIn ? username : 'Not logged in';
+    }
+    
+    if (dom.leaderboardLogin) {
+      dom.leaderboardLogin.style.display = isLoggedIn ? 'none' : 'inline-block';
+    }
+    
+    if (dom.leaderboardLogout) {
+      dom.leaderboardLogout.style.display = isLoggedIn ? 'inline-block' : 'none';
+    }
+  };
+
+  const openLeaderboardModal = () => {
+    if (!dom.leaderboardModal) return;
+    dom.leaderboardModal.style.display = 'flex';
+    updateAuthUI();
+    renderLeaderboard('all');
+  };
+
+  const closeLeaderboardModal = () => {
+    if (dom.leaderboardModal) dom.leaderboardModal.style.display = 'none';
+  };
+
+  const renderLeaderboard = (difficulty = 'all') => {
+    if (!dom.leaderboardList) return;
+    
+    const entries = Leaderboard.getEntries(difficulty, 50);
+    const currentUsername = Auth.getCurrentUsername();
+    
+    if (entries.length === 0) {
+      dom.leaderboardList.innerHTML = '<div class="leaderboard-empty">No scores yet. Be the first!</div>';
+      return;
+    }
+    
+    dom.leaderboardList.innerHTML = entries.map((entry, index) => {
+      const rank = index + 1;
+      const isCurrentUser = currentUsername && entry.username.toLowerCase() === currentUsername.toLowerCase();
+      const rankClass = rank === 1 ? 'top-1' : rank === 2 ? 'top-2' : rank === 3 ? 'top-3' : '';
+      
+      return `
+        <div class="leaderboard-entry ${isCurrentUser ? 'current-user' : ''}">
+          <div class="leaderboard-rank ${rankClass}">${rank}</div>
+          <div class="leaderboard-player">${entry.username}</div>
+          <div class="leaderboard-score">${entry.score.toLocaleString()}</div>
+          <div class="leaderboard-level">Lvl ${entry.level}</div>
+        </div>
+      `;
+    }).join('');
   };
 
   /* ====== INITIALISATION ====== */
   const ready = () => {
     assignDomRefs();
     Save.load();
+    Auth.load();
+    Leaderboard.load();
     pilotLevel = Save.data.pilotLevel;
     pilotXP = Save.data.pilotXp;
     initShipSelection();
@@ -2970,6 +3267,45 @@
     }
     dom.openShopFromStart?.addEventListener('click', openShop);
     dom.settingsButton?.addEventListener('click', openHangar);
+    dom.leaderboardButton?.addEventListener('click', openLeaderboardModal);
+    
+    // Authentication modal handlers
+    dom.closeAuth?.addEventListener('click', closeAuthModal);
+    dom.authLogin?.addEventListener('click', handleAuthLogin);
+    dom.authRegister?.addEventListener('click', handleAuthRegister);
+    
+    // Allow Enter key to submit login form
+    dom.authPassword?.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        handleAuthLogin();
+      }
+    });
+    
+    dom.authModal?.addEventListener('click', (e) => {
+      if (e.target === dom.authModal) closeAuthModal();
+    });
+    
+    // Leaderboard modal handlers
+    dom.closeLeaderboard?.addEventListener('click', closeLeaderboardModal);
+    dom.leaderboardLogin?.addEventListener('click', openAuthModal);
+    dom.leaderboardLogout?.addEventListener('click', handleAuthLogout);
+    
+    dom.leaderboardModal?.addEventListener('click', (e) => {
+      if (e.target === dom.leaderboardModal) closeLeaderboardModal();
+    });
+    
+    // Leaderboard filter buttons
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        // Update active state
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        // Render filtered leaderboard
+        const difficulty = btn.dataset.difficulty;
+        renderLeaderboard(difficulty);
+      });
+    });
     
     dom.closeShopBtn?.addEventListener('click', () => {
       closeShop();
