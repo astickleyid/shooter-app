@@ -764,6 +764,25 @@ html, body {
   border: 1px solid rgba(148,163,184,0.3);
 }
 
+.fullscreenBtn {
+  width: 100%;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  color: #fff;
+  border: none;
+  margin-top: 8px;
+}
+
+.fullscreenBtn:hover {
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+  box-shadow: 0 4px 12px rgba(139,92,246,0.4);
+}
+
 /* Landscape optimizations for mobile */
 @media screen and (orientation: landscape) and (max-height: 600px) {
   /* Compact HUD for landscape */
