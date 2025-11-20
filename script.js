@@ -374,6 +374,15 @@
   
   // Difficulty system
   let currentDifficulty = 'normal';
+  
+  // FPS tracking
+  let fps = 0;
+  let fpsFrames = 0;
+  let fpsLastTime = 0;
+  let showFPS = false;
+  
+  // Fullscreen state
+  let isFullscreen = false;
 
   // Equipment tap system
   let lastTapTime = 0;
@@ -485,10 +494,28 @@
         }
       } catch (err) {
         console.warn('Failed to load save', err);
+        // Reset to defaults on corruption
+        this.data = {
+          credits: 0,
+          bestScore: 0,
+          highestLevel: 1,
+          upgrades: {},
+          pilotLevel: 1,
+          pilotXp: 0,
+          selectedShip: 'vanguard',
+          armory: defaultArmory(),
+          difficulty: 'normal'
+        };
       }
-      this.data.pilotLevel = Math.max(1, this.data.pilotLevel || 1);
-      this.data.pilotXp = Math.max(0, this.data.pilotXp || 0);
-      if (!this.data.selectedShip) this.data.selectedShip = 'vanguard';
+      // Validate and sanitize loaded data
+      this.data.credits = Math.max(0, Math.floor(this.data.credits || 0));
+      this.data.bestScore = Math.max(0, Math.floor(this.data.bestScore || 0));
+      this.data.highestLevel = Math.max(1, Math.floor(this.data.highestLevel || 1));
+      this.data.pilotLevel = Math.max(1, Math.floor(this.data.pilotLevel || 1));
+      this.data.pilotXp = Math.max(0, Math.floor(this.data.pilotXp || 0));
+      if (!this.data.selectedShip || !SHIP_TEMPLATES.find(s => s.id === this.data.selectedShip)) {
+        this.data.selectedShip = 'vanguard';
+      }
       if (!this.data.difficulty || !DIFFICULTY_PRESETS[this.data.difficulty]) {
         this.data.difficulty = 'normal';
       }
@@ -2366,6 +2393,19 @@
     player.draw(ctx);
     ctx.restore();
     
+    // Draw FPS counter if enabled
+    if (showFPS && fps > 0) {
+      ctx.save();
+      ctx.font = 'bold 16px monospace';
+      ctx.fillStyle = fps >= 55 ? '#4ade80' : fps >= 30 ? '#fbbf24' : '#ef4444';
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 3;
+      ctx.textAlign = 'right';
+      ctx.strokeText(`${fps} FPS`, canvas.width - 10, 30);
+      ctx.fillText(`${fps} FPS`, canvas.width - 10, 30);
+      ctx.restore();
+    }
+    
     // Draw countdown
     if (countdownActive) {
       const timeRemaining = countdownEnd - performance.now();
@@ -2425,6 +2465,14 @@
   let animationFrame = null;
 
   const loop = (timestamp) => {
+    // Calculate FPS
+    fpsFrames++;
+    if (timestamp - fpsLastTime >= 1000) {
+      fps = Math.round(fpsFrames * 1000 / (timestamp - fpsLastTime));
+      fpsFrames = 0;
+      fpsLastTime = timestamp;
+    }
+    
     if (!gameRunning) {
       if (!gameOverHandled) handleGameOver();
       return;
@@ -2517,6 +2565,38 @@
       animationFrame = requestAnimationFrame(loop);
     }
   };
+  
+  const toggleFullscreen = () => {
+    try {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().then(() => {
+          isFullscreen = true;
+          addLogEntry('Fullscreen enabled', '#4ade80');
+        }).catch((err) => {
+          console.warn('Fullscreen request failed:', err);
+          addLogEntry('Fullscreen not available', '#ef4444');
+        });
+      } else {
+        document.exitFullscreen().then(() => {
+          isFullscreen = false;
+          addLogEntry('Fullscreen disabled', '#94a3b8');
+        }).catch((err) => {
+          console.warn('Exit fullscreen failed:', err);
+        });
+      }
+    } catch (err) {
+      console.warn('Fullscreen API not supported:', err);
+    }
+  };
+  
+  const toggleFPS = () => {
+    showFPS = !showFPS;
+    if (showFPS) {
+      addLogEntry('FPS counter enabled', '#4ade80');
+    } else {
+      addLogEntry('FPS counter disabled', '#94a3b8');
+    }
+  };
 
   const resizeCanvas = () => {
     const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
@@ -2561,13 +2641,41 @@
   }
 
   window.addEventListener('resize', resizeCanvas);
+  
+  // Listen for fullscreen changes
+  document.addEventListener('fullscreenchange', () => {
+    isFullscreen = !!document.fullscreenElement;
+    resizeCanvas();
+  });
+  
+  // Handle visibility changes to pause game when tab is hidden
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && gameRunning && !paused) {
+      // Auto-pause when tab loses focus
+      paused = true;
+      cancelAnimationFrame(animationFrame);
+    }
+  });
 
   // expose for debugging if needed
   window.__VOID_RIFT__ = {
     startGame,
     togglePause,
     openShop,
-    openHangar
+    openHangar,
+    toggleFullscreen,
+    toggleFPS,
+    getGameState: () => ({
+      gameRunning,
+      paused,
+      level,
+      score,
+      enemiesKilled,
+      enemiesToKill,
+      fps,
+      isFullscreen,
+      difficulty: currentDifficulty
+    })
   };
 
   /* ====== CONTROL SETTINGS ====== */
@@ -2657,6 +2765,7 @@
     document.getElementById('deadzoneValue').textContent = `${controlSettings.deadzone}%`;
     document.getElementById('floatingJoysticks').checked = controlSettings.floatingJoysticks;
     document.getElementById('hapticFeedback').checked = controlSettings.hapticFeedback;
+    document.getElementById('showFPSToggle').checked = showFPS;
     
     // Populate equipment class settings
     loadEquipmentClassSettings();
@@ -3005,6 +3114,16 @@
       closeUnifiedMenu();
     });
     
+    // FPS toggle
+    document.getElementById('showFPSToggle')?.addEventListener('change', (e) => {
+      showFPS = e.target.checked;
+    });
+    
+    // Fullscreen toggle button
+    document.getElementById('fullscreenToggle')?.addEventListener('click', () => {
+      toggleFullscreen();
+    });
+    
     // Live preview of sliders
     const setupSlider = (id, valueId) => {
       const slider = document.getElementById(id);
@@ -3160,6 +3279,17 @@
       }
       if (e.key === 'p' || e.key === 'P') togglePause();
       if (e.key === 'r' || e.key === 'R') input.ultimateQueued = true;
+      if (e.key === 'g' || e.key === 'G') {
+        e.preventDefault();
+        toggleFPS();
+      }
+      if (e.key === 'f' || e.key === 'F') {
+        // Only allow 'f' for fullscreen if defense isn't using it in game
+        if (!gameRunning || paused || countdownActive) {
+          e.preventDefault();
+          toggleFullscreen();
+        }
+      }
       if (keyboard.hasOwnProperty(e.key)) keyboard[e.key] = true;
       updateFromKeyboard();
     });

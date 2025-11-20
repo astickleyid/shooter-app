@@ -24,6 +24,7 @@ VOID RIFT is a browser-based twin-stick shooter built entirely with vanilla HTML
 - **Keyboard:** `WASD` / arrow keys to move, mouse to aim/shoot, `Space` to boost, `P` to pause.
 - **Gamepad / Touch:** twin-stick controls and a dedicated boost button are enabled on mobile.
 - **Secondary / Defense / Ultimates:** `Shift` or `E` (or right-click) launches bombs, `F` deploys your defense system, `R` fires the charged ultimate. Mobile has dedicated buttons next to the shoot stick.
+- **Display Controls:** Press `G` to toggle FPS counter, `F` (when not in-game) to toggle fullscreen mode.
 
 ## Ship Customization
 
@@ -44,6 +45,14 @@ VOID RIFT is a browser-based twin-stick shooter built entirely with vanilla HTML
 ## Browser Persistence
 
 Progress (credits, upgrades, best score) is saved in `localStorage` under the key `void_rift_v11`. Clearing browser storage resets progress.
+
+## New Features
+
+Recent additions include:
+- **Fullscreen Mode**: Toggle with `F` key (outside of gameplay) or via the settings menu for an immersive experience
+- **FPS Counter**: Monitor performance with `G` key toggle or settings menu - displays in real-time with color coding (green = 55+ fps, yellow = 30-54 fps, red = <30 fps)
+- **Enhanced Robustness**: Improved error handling, save game validation, and automatic pause when tab loses focus
+- **Performance Monitoring**: Built-in frame rate tracking for smooth gameplay optimization
 
 ## Contributing / Next Steps
 
