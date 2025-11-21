@@ -2749,6 +2749,11 @@
       pauseModal.style.display = 'flex';
       const messageDiv = document.getElementById('pauseMenuMessage');
       if (messageDiv) messageDiv.textContent = '';
+      // Set focus to the first button for keyboard accessibility
+      setTimeout(() => {
+        const resumeBtn = document.getElementById('resumeGameBtn');
+        if (resumeBtn) resumeBtn.focus();
+      }, 0);
     }
   };
   
