@@ -3638,6 +3638,18 @@
       }
     });
     
+    // ESC key closes pause menu if open
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' || e.key === 'Esc') {
+        // Check if pause menu is open (assume class 'open' or style 'display: block')
+        if (dom.pauseMenuModal && (dom.pauseMenuModal.classList.contains('open') || dom.pauseMenuModal.style.display === 'block')) {
+          resumeGame();
+          e.preventDefault();
+          return;
+        }
+        // Other modal ESC handling can go here...
+      }
+    });
     // Authentication modal handlers
     dom.closeAuth?.addEventListener('click', closeAuthModal);
     dom.authLogin?.addEventListener('click', handleAuthLogin);
