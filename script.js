@@ -352,6 +352,13 @@
     dom.leaderboardLogin = document.getElementById('leaderboardLogin');
     dom.leaderboardLogout = document.getElementById('leaderboardLogout');
     dom.leaderboardList = document.getElementById('leaderboardList');
+    dom.pauseMenuModal = document.getElementById('pauseMenuModal');
+    dom.resumeGameBtn = document.getElementById('resumeGameBtn');
+    dom.restartGameBtn = document.getElementById('restartGameBtn');
+    dom.saveGameBtn = document.getElementById('saveGameBtn');
+    dom.loadGameBtn = document.getElementById('loadGameBtn');
+    dom.exitToMenuBtn = document.getElementById('exitToMenuBtn');
+    dom.pauseMenuMessage = document.getElementById('pauseMenuMessage');
   };
 
   /* ====== STATE ====== */
@@ -2691,6 +2698,16 @@
     animationFrame = requestAnimationFrame(loop);
   };
 
+  const setupCanvas = () => {
+    const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    dom.canvas.width = Math.floor(window.innerWidth * dpr);
+    dom.canvas.height = Math.floor(window.innerHeight * dpr);
+    dom.canvas.style.width = '100%';
+    dom.canvas.style.height = '100%';
+    dom.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return dpr;
+  };
+
   const startLevel = (lvl, resetScore) => {
     level = lvl;
     if (resetScore) score = 0;
@@ -2698,12 +2715,7 @@
     // Use the improved scaling with difficulty
     const diff = getDifficulty();
     enemiesToKill = Math.floor((10 + level * 5.5) * diff.enemiesToKill);
-    const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-    dom.canvas.width = Math.floor(window.innerWidth * dpr);
-    dom.canvas.height = Math.floor(window.innerHeight * dpr);
-    dom.canvas.style.width = '100%';
-    dom.canvas.style.height = '100%';
-    dom.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const dpr = setupCanvas();
     player = new PlayerEntity(dom.canvas.width / 2, dom.canvas.height / 2);
     camera.x = player.x - dom.canvas.width / 2;
     camera.y = player.y - dom.canvas.height / 2;
@@ -2733,6 +2745,31 @@
     startLevel(1, true);
   };
 
+  /* ====== PAUSE MENU & GAME STATE MANAGEMENT ====== */
+  const SAVE_SLOT_KEY = 'void_rift_game_slot_v1';
+  
+  // Guard flags to prevent race conditions
+  let isExiting = false;
+  let isRestarting = false;
+  let isLoading = false;
+  
+  const showPauseMenu = () => {
+    if (dom.pauseMenuModal) {
+      dom.pauseMenuModal.style.display = 'flex';
+      if (dom.pauseMenuMessage) dom.pauseMenuMessage.textContent = '';
+      // Set focus to the first button for keyboard accessibility
+      setTimeout(() => {
+        if (dom.resumeGameBtn) dom.resumeGameBtn.focus();
+      }, 0);
+    }
+  };
+  
+  const hidePauseMenu = () => {
+    if (dom.pauseMenuModal) {
+      dom.pauseMenuModal.style.display = 'none';
+    }
+  };
+  
   const togglePause = () => {
     if (!gameRunning) {
       openShop();
@@ -2741,11 +2778,282 @@
     paused = !paused;
     if (paused) {
       cancelAnimationFrame(animationFrame);
-      openShop();
+      showPauseMenu();
     } else {
-      closeShop();
+      hidePauseMenu();
       lastTime = performance.now();
       animationFrame = requestAnimationFrame(loop);
+    }
+  };
+  
+  const resumeGame = () => {
+    if (!gameRunning || !paused) return;
+    paused = false;
+    hidePauseMenu();
+    lastTime = performance.now();
+    animationFrame = requestAnimationFrame(loop);
+  };
+  
+  const exitToMainMenu = () => {
+    if (isExiting) return;
+    isExiting = true;
+    
+    // Confirm before exiting
+    if (dom.pauseMenuMessage) {
+      dom.pauseMenuMessage.textContent = 'Exiting to main menu...';
+      dom.pauseMenuMessage.className = 'pause-menu-message info';
+    }
+    
+    setTimeout(() => {
+      // Stop the game
+      gameRunning = false;
+      paused = false;
+      cancelAnimationFrame(animationFrame);
+      
+      // Hide pause menu
+      hidePauseMenu();
+      
+      // Hide game container and show start screen
+      dom.gameContainer.style.display = 'none';
+      dom.startScreen.style.display = 'flex';
+      
+      // Reset runtime state
+      resetRuntimeState();
+      
+      // Redraw start graphic
+      drawStartGraphic();
+      
+      isExiting = false;
+    }, 500);
+  };
+  
+  const restartGame = () => {
+    if (isRestarting) return;
+    isRestarting = true;
+    
+    if (dom.pauseMenuMessage) {
+      dom.pauseMenuMessage.textContent = 'Restarting game...';
+      dom.pauseMenuMessage.className = 'pause-menu-message info';
+    }
+    
+    setTimeout(() => {
+      // Hide pause menu
+      hidePauseMenu();
+      
+      // Restart from level 1
+      resetRuntimeState();
+      initShipSelection();
+      startLevel(1, true);
+      
+      isRestarting = false;
+    }, 500);
+  };
+  
+  const saveGameSlot = () => {
+    if (!gameRunning || !player) {
+      if (dom.pauseMenuMessage) {
+        dom.pauseMenuMessage.textContent = 'No active game to save!';
+        dom.pauseMenuMessage.className = 'pause-menu-message error';
+      }
+      return;
+    }
+    
+    try {
+      // NOTE: This save system only preserves core game state and player stats.
+      // Active entities (enemies, bullets, items) are not saved and will be
+      // regenerated when the game is loaded, effectively starting a "fresh" level.
+      const gameState = {
+        // Core game state
+        level: level,
+        score: score,
+        enemiesKilled: enemiesKilled,
+        enemiesToKill: enemiesToKill,
+        difficulty: currentDifficulty,
+        
+        // Player state
+        playerX: player.x,
+        playerY: player.y,
+        playerHealth: player.health,
+        playerAmmo: player.ammo,
+        playerShield: player.shield || 0,
+        playerSecondaryCharges: player.secondaryCharges || 0,
+        playerDefenseCooldown: player.defenseCooldown || 0,
+        playerUltCharge: player.ultCharge || 0,
+        
+        // Pilot progression
+        pilotLevel: pilotLevel,
+        pilotXP: pilotXP,
+        
+        // Ship and loadout
+        selectedShip: Save.data.selectedShip,
+        
+        // Timestamp
+        savedAt: Date.now(),
+        savedAtReadable: new Date().toLocaleString()
+      };
+      
+      localStorage.setItem(SAVE_SLOT_KEY, JSON.stringify(gameState));
+      
+      if (dom.pauseMenuMessage) {
+        dom.pauseMenuMessage.textContent = '✓ Game saved successfully!';
+        dom.pauseMenuMessage.className = 'pause-menu-message success';
+        
+        // Auto-clear success message after 3 seconds
+        setTimeout(() => {
+          if (dom.pauseMenuMessage && dom.pauseMenuMessage.textContent === '✓ Game saved successfully!') {
+            dom.pauseMenuMessage.textContent = '';
+            dom.pauseMenuMessage.className = 'pause-menu-message';
+          }
+        }, 3000);
+      }
+      
+      addLogEntry('Game saved', '#4ade80');
+    } catch (err) {
+      console.error('Failed to save game:', err);
+      if (dom.pauseMenuMessage) {
+        dom.pauseMenuMessage.textContent = '✗ Failed to save game!';
+        dom.pauseMenuMessage.className = 'pause-menu-message error';
+      }
+    }
+  };
+  
+  const loadGameSlot = () => {
+    if (isLoading) return;
+    isLoading = true;
+    
+    try {
+      const raw = localStorage.getItem(SAVE_SLOT_KEY);
+      if (!raw) {
+        if (dom.pauseMenuMessage) {
+          dom.pauseMenuMessage.textContent = 'No saved game found!';
+          dom.pauseMenuMessage.className = 'pause-menu-message error';
+        }
+        isLoading = false;
+        return;
+      }
+      
+      const gameState = JSON.parse(raw);
+
+      // Validate critical fields
+      if (
+        typeof gameState.level !== 'number' ||
+        gameState.level < 1 ||
+        gameState.level > 1000
+      ) {
+        throw new Error('Invalid level in save data');
+      }
+      if (
+        typeof gameState.playerX !== 'number' ||
+        typeof gameState.playerY !== 'number'
+      ) {
+        throw new Error('Invalid player position in save data');
+      }
+      if (
+        typeof gameState.score !== 'number' ||
+        gameState.score < 0
+      ) {
+        throw new Error('Invalid score in save data');
+      }
+      if (
+        typeof gameState.playerHealth !== 'number' ||
+        gameState.playerHealth < 0
+      ) {
+        throw new Error('Invalid player health in save data');
+      }
+      if (
+        typeof gameState.playerAmmo !== 'number' ||
+        gameState.playerAmmo < 0
+      ) {
+        throw new Error('Invalid player ammo in save data');
+      }
+      // Add more validation as needed for other fields
+      
+      if (dom.pauseMenuMessage) {
+        dom.pauseMenuMessage.textContent = `Loading game from ${gameState.savedAtReadable}...`;
+        dom.pauseMenuMessage.className = 'pause-menu-message info';
+      }
+      
+      setTimeout(() => {
+        // Hide pause menu
+        hidePauseMenu();
+        
+        // Reset and configure game state
+        resetRuntimeState();
+        
+        // Restore difficulty
+        currentDifficulty = gameState.difficulty || 'normal';
+        
+        // Restore ship selection
+        Save.data.selectedShip = gameState.selectedShip || 'vanguard';
+        Save.save();
+        initShipSelection();
+        
+        // Restore level and score
+        level = gameState.level || 1;
+        score = gameState.score || 0;
+        enemiesKilled = gameState.enemiesKilled || 0;
+        enemiesToKill = gameState.enemiesToKill || 15;
+        
+        // Restore pilot progression and persist it
+        pilotLevel = gameState.pilotLevel || 1;
+        pilotXP = gameState.pilotXP || 0;
+        Save.data.pilotLevel = pilotLevel;
+        Save.data.pilotXp = pilotXP;
+        Save.save();
+        
+        // Start the level
+        setupCanvas();
+        
+        // Create player at saved position
+        player = new PlayerEntity(
+          gameState.playerX || window.innerWidth / 2,
+          gameState.playerY || window.innerHeight / 2
+        );
+        
+        // Restore player state
+        player.health = gameState.playerHealth || player.maxHealth;
+        player.ammo = gameState.playerAmmo || player.maxAmmo;
+        if (gameState.playerShield) player.shield = gameState.playerShield;
+        if (gameState.playerSecondaryCharges) player.secondaryCharges = gameState.playerSecondaryCharges;
+        if (gameState.playerDefenseCooldown) player.defenseCooldown = gameState.playerDefenseCooldown;
+        if (gameState.playerUltCharge) player.ultCharge = gameState.playerUltCharge;
+        
+        // Set up camera and environment
+        camera.x = player.x - window.innerWidth / 2;
+        camera.y = player.y - window.innerHeight / 2;
+        spawnObstacles();
+        createSpawners(Math.min(1 + Math.floor(level / 2), 5), false);
+        
+        if (!starsFar) {
+          starsFar = makeStars(120);
+          starsMid = makeStars(80);
+          starsNear = makeStars(50);
+        } else {
+          recenterStars();
+        }
+        
+        lastTime = performance.now();
+        lastAmmoRegen = lastTime;
+        gameRunning = true;
+        paused = false;
+        
+        // Update HUD
+        updateHUD();
+        
+        // Start game loop
+        loop(lastTime);
+        
+        addLogEntry('Game loaded', '#4ade80');
+        
+        isLoading = false;
+      }, 500);
+    } catch (err) {
+      console.error('Failed to load game:', err);
+      if (dom.pauseMenuMessage) {
+        dom.pauseMenuMessage.textContent = '✗ Failed to load game!';
+        dom.pauseMenuMessage.className = 'pause-menu-message error';
+      }
+      isLoading = false;
     }
   };
   
@@ -3378,6 +3686,32 @@
     dom.settingsButton?.addEventListener('click', openHangar);
     dom.leaderboardButton?.addEventListener('click', openLeaderboardModal);
     
+    // Pause menu handlers
+    dom.resumeGameBtn?.addEventListener('click', resumeGame);
+    dom.restartGameBtn?.addEventListener('click', restartGame);
+    dom.saveGameBtn?.addEventListener('click', saveGameSlot);
+    dom.loadGameBtn?.addEventListener('click', loadGameSlot);
+    dom.exitToMenuBtn?.addEventListener('click', exitToMainMenu);
+    
+    // Close pause menu when clicking outside
+    dom.pauseMenuModal?.addEventListener('click', (e) => {
+      if (e.target === dom.pauseMenuModal) {
+        resumeGame();
+      }
+    });
+    
+    // ESC key closes pause menu if open
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' || e.key === 'Esc') {
+        // Check if pause menu is open (assume class 'open' or style 'display: block')
+        if (dom.pauseMenuModal && (dom.pauseMenuModal.classList.contains('open') || dom.pauseMenuModal.style.display === 'block')) {
+          resumeGame();
+          e.preventDefault();
+          return;
+        }
+        // Other modal ESC handling can go here...
+      }
+    });
     // Authentication modal handlers
     dom.closeAuth?.addEventListener('click', closeAuthModal);
     dom.authLogin?.addEventListener('click', handleAuthLogin);
