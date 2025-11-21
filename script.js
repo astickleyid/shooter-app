@@ -2961,6 +2961,7 @@
         
         // Restore ship selection
         Save.data.selectedShip = gameState.selectedShip || 'vanguard';
+        Save.save();
         initShipSelection();
         
         // Restore level and score
