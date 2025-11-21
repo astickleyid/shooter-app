@@ -2980,7 +2980,10 @@
         dom.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         
         // Create player at saved position
-        player = new PlayerEntity(gameState.playerX || dom.canvas.width / 2, gameState.playerY || dom.canvas.height / 2);
+        player = new PlayerEntity(
+          gameState.playerX || window.innerWidth / 2,
+          gameState.playerY || window.innerHeight / 2
+        );
         
         // Restore player state
         player.health = gameState.playerHealth || player.maxHealth;
