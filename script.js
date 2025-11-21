@@ -2908,6 +2908,40 @@
       }
       
       const gameState = JSON.parse(raw);
+
+      // Validate critical fields
+      if (
+        typeof gameState.level !== 'number' ||
+        gameState.level < 1 ||
+        gameState.level > 1000
+      ) {
+        throw new Error('Invalid level in save data');
+      }
+      if (
+        typeof gameState.playerX !== 'number' ||
+        typeof gameState.playerY !== 'number'
+      ) {
+        throw new Error('Invalid player position in save data');
+      }
+      if (
+        typeof gameState.score !== 'number' ||
+        gameState.score < 0
+      ) {
+        throw new Error('Invalid score in save data');
+      }
+      if (
+        typeof gameState.playerHealth !== 'number' ||
+        gameState.playerHealth < 0
+      ) {
+        throw new Error('Invalid player health in save data');
+      }
+      if (
+        typeof gameState.playerAmmo !== 'number' ||
+        gameState.playerAmmo < 0
+      ) {
+        throw new Error('Invalid player ammo in save data');
+      }
+      // Add more validation as needed for other fields
       
       const messageDiv = document.getElementById('pauseMenuMessage');
       if (messageDiv) {
