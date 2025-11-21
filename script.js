@@ -2749,18 +2749,15 @@
       pauseModal.style.display = 'flex';
       const messageDiv = document.getElementById('pauseMenuMessage');
       if (messageDiv) messageDiv.textContent = '';
-      // Set focus to the first button for keyboard accessibility
-      setTimeout(() => {
-        const resumeBtn = document.getElementById('resumeGameBtn');
-        if (resumeBtn) resumeBtn.focus();
-      }, 0);
+    if (dom.pauseMenuModal) {
+      dom.pauseMenuModal.style.display = 'flex';
+      if (dom.pauseMenuMessage) dom.pauseMenuMessage.textContent = '';
     }
   };
   
   const hidePauseMenu = () => {
-    const pauseModal = document.getElementById('pauseMenuModal');
-    if (pauseModal) {
-      pauseModal.style.display = 'none';
+    if (dom.pauseMenuModal) {
+      dom.pauseMenuModal.style.display = 'none';
     }
   };
   
