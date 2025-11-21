@@ -2787,10 +2787,9 @@
   
   const exitToMainMenu = () => {
     // Confirm before exiting
-    const messageDiv = document.getElementById('pauseMenuMessage');
-    if (messageDiv) {
-      messageDiv.textContent = 'Exiting to main menu...';
-      messageDiv.className = 'pause-menu-message info';
+    if (dom.pauseMenuMessage) {
+      dom.pauseMenuMessage.textContent = 'Exiting to main menu...';
+      dom.pauseMenuMessage.className = 'pause-menu-message info';
     }
     
     setTimeout(() => {
