@@ -2698,6 +2698,16 @@
     animationFrame = requestAnimationFrame(loop);
   };
 
+  const setupCanvas = () => {
+    const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    dom.canvas.width = Math.floor(window.innerWidth * dpr);
+    dom.canvas.height = Math.floor(window.innerHeight * dpr);
+    dom.canvas.style.width = '100%';
+    dom.canvas.style.height = '100%';
+    dom.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return dpr;
+  };
+
   const startLevel = (lvl, resetScore) => {
     level = lvl;
     if (resetScore) score = 0;
@@ -2705,12 +2715,7 @@
     // Use the improved scaling with difficulty
     const diff = getDifficulty();
     enemiesToKill = Math.floor((10 + level * 5.5) * diff.enemiesToKill);
-    const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-    dom.canvas.width = Math.floor(window.innerWidth * dpr);
-    dom.canvas.height = Math.floor(window.innerHeight * dpr);
-    dom.canvas.style.width = '100%';
-    dom.canvas.style.height = '100%';
-    dom.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const dpr = setupCanvas();
     player = new PlayerEntity(dom.canvas.width / 2, dom.canvas.height / 2);
     camera.x = player.x - dom.canvas.width / 2;
     camera.y = player.y - dom.canvas.height / 2;
@@ -2743,15 +2748,19 @@
   /* ====== PAUSE MENU & GAME STATE MANAGEMENT ====== */
   const SAVE_SLOT_KEY = 'void_rift_game_slot_v1';
   
+  // Guard flags to prevent race conditions
+  let isExiting = false;
+  let isRestarting = false;
+  let isLoading = false;
+  
   const showPauseMenu = () => {
-    const pauseModal = document.getElementById('pauseMenuModal');
-    if (pauseModal) {
-      pauseModal.style.display = 'flex';
-      const messageDiv = document.getElementById('pauseMenuMessage');
-      if (messageDiv) messageDiv.textContent = '';
     if (dom.pauseMenuModal) {
       dom.pauseMenuModal.style.display = 'flex';
       if (dom.pauseMenuMessage) dom.pauseMenuMessage.textContent = '';
+      // Set focus to the first button for keyboard accessibility
+      setTimeout(() => {
+        if (dom.resumeGameBtn) dom.resumeGameBtn.focus();
+      }, 0);
     }
   };
   
@@ -2778,7 +2787,7 @@
   };
   
   const resumeGame = () => {
-    if (!gameRunning) return;
+    if (!gameRunning || !paused) return;
     paused = false;
     hidePauseMenu();
     lastTime = performance.now();
@@ -2786,6 +2795,9 @@
   };
   
   const exitToMainMenu = () => {
+    if (isExiting) return;
+    isExiting = true;
+    
     // Confirm before exiting
     if (dom.pauseMenuMessage) {
       dom.pauseMenuMessage.textContent = 'Exiting to main menu...';
@@ -2810,14 +2822,18 @@
       
       // Redraw start graphic
       drawStartGraphic();
+      
+      isExiting = false;
     }, 500);
   };
   
   const restartGame = () => {
-    const messageDiv = document.getElementById('pauseMenuMessage');
-    if (messageDiv) {
-      messageDiv.textContent = 'Restarting game...';
-      messageDiv.className = 'pause-menu-message info';
+    if (isRestarting) return;
+    isRestarting = true;
+    
+    if (dom.pauseMenuMessage) {
+      dom.pauseMenuMessage.textContent = 'Restarting game...';
+      dom.pauseMenuMessage.className = 'pause-menu-message info';
     }
     
     setTimeout(() => {
@@ -2828,20 +2844,24 @@
       resetRuntimeState();
       initShipSelection();
       startLevel(1, true);
+      
+      isRestarting = false;
     }, 500);
   };
   
   const saveGameSlot = () => {
     if (!gameRunning || !player) {
-      const messageDiv = document.getElementById('pauseMenuMessage');
-      if (messageDiv) {
-        messageDiv.textContent = 'No active game to save!';
-        messageDiv.className = 'pause-menu-message error';
+      if (dom.pauseMenuMessage) {
+        dom.pauseMenuMessage.textContent = 'No active game to save!';
+        dom.pauseMenuMessage.className = 'pause-menu-message error';
       }
       return;
     }
     
     try {
+      // NOTE: This save system only preserves core game state and player stats.
+      // Active entities (enemies, bullets, items) are not saved and will be
+      // regenerated when the game is loaded, effectively starting a "fresh" level.
       const gameState = {
         // Core game state
         level: level,
@@ -2874,32 +2894,41 @@
       
       localStorage.setItem(SAVE_SLOT_KEY, JSON.stringify(gameState));
       
-      const messageDiv = document.getElementById('pauseMenuMessage');
-      if (messageDiv) {
-        messageDiv.textContent = '✓ Game saved successfully!';
-        messageDiv.className = 'pause-menu-message success';
+      if (dom.pauseMenuMessage) {
+        dom.pauseMenuMessage.textContent = '✓ Game saved successfully!';
+        dom.pauseMenuMessage.className = 'pause-menu-message success';
+        
+        // Auto-clear success message after 3 seconds
+        setTimeout(() => {
+          if (dom.pauseMenuMessage && dom.pauseMenuMessage.textContent === '✓ Game saved successfully!') {
+            dom.pauseMenuMessage.textContent = '';
+            dom.pauseMenuMessage.className = 'pause-menu-message';
+          }
+        }, 3000);
       }
       
       addLogEntry('Game saved', '#4ade80');
     } catch (err) {
       console.error('Failed to save game:', err);
-      const messageDiv = document.getElementById('pauseMenuMessage');
-      if (messageDiv) {
-        messageDiv.textContent = '✗ Failed to save game!';
-        messageDiv.className = 'pause-menu-message error';
+      if (dom.pauseMenuMessage) {
+        dom.pauseMenuMessage.textContent = '✗ Failed to save game!';
+        dom.pauseMenuMessage.className = 'pause-menu-message error';
       }
     }
   };
   
   const loadGameSlot = () => {
+    if (isLoading) return;
+    isLoading = true;
+    
     try {
       const raw = localStorage.getItem(SAVE_SLOT_KEY);
       if (!raw) {
-        const messageDiv = document.getElementById('pauseMenuMessage');
-        if (messageDiv) {
-          messageDiv.textContent = 'No saved game found!';
-          messageDiv.className = 'pause-menu-message error';
+        if (dom.pauseMenuMessage) {
+          dom.pauseMenuMessage.textContent = 'No saved game found!';
+          dom.pauseMenuMessage.className = 'pause-menu-message error';
         }
+        isLoading = false;
         return;
       }
       
@@ -2939,10 +2968,9 @@
       }
       // Add more validation as needed for other fields
       
-      const messageDiv = document.getElementById('pauseMenuMessage');
-      if (messageDiv) {
-        messageDiv.textContent = `Loading game from ${gameState.savedAtReadable}...`;
-        messageDiv.className = 'pause-menu-message info';
+      if (dom.pauseMenuMessage) {
+        dom.pauseMenuMessage.textContent = `Loading game from ${gameState.savedAtReadable}...`;
+        dom.pauseMenuMessage.className = 'pause-menu-message info';
       }
       
       setTimeout(() => {
@@ -2966,17 +2994,15 @@
         enemiesKilled = gameState.enemiesKilled || 0;
         enemiesToKill = gameState.enemiesToKill || 15;
         
-        // Restore pilot progression
+        // Restore pilot progression and persist it
         pilotLevel = gameState.pilotLevel || 1;
         pilotXP = gameState.pilotXP || 0;
+        Save.data.pilotLevel = pilotLevel;
+        Save.data.pilotXp = pilotXP;
+        Save.save();
         
         // Start the level
-        const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-        dom.canvas.width = Math.floor(window.innerWidth * dpr);
-        dom.canvas.height = Math.floor(window.innerHeight * dpr);
-        dom.canvas.style.width = '100%';
-        dom.canvas.style.height = '100%';
-        dom.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        setupCanvas();
         
         // Create player at saved position
         player = new PlayerEntity(
@@ -3018,14 +3044,16 @@
         loop(lastTime);
         
         addLogEntry('Game loaded', '#4ade80');
+        
+        isLoading = false;
       }, 500);
     } catch (err) {
       console.error('Failed to load game:', err);
-      const messageDiv = document.getElementById('pauseMenuMessage');
-      if (messageDiv) {
-        messageDiv.textContent = '✗ Failed to load game!';
-        messageDiv.className = 'pause-menu-message error';
+      if (dom.pauseMenuMessage) {
+        dom.pauseMenuMessage.textContent = '✗ Failed to load game!';
+        dom.pauseMenuMessage.className = 'pause-menu-message error';
       }
+      isLoading = false;
     }
   };
   
