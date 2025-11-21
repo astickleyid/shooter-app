@@ -2993,8 +2993,8 @@
         if (gameState.playerUltCharge) player.ultCharge = gameState.playerUltCharge;
         
         // Set up camera and environment
-        camera.x = player.x - dom.canvas.width / 2;
-        camera.y = player.y - dom.canvas.height / 2;
+        camera.x = player.x - window.innerWidth / 2;
+        camera.y = player.y - window.innerHeight / 2;
         spawnObstacles();
         createSpawners(Math.min(1 + Math.floor(level / 2), 5), false);
         
