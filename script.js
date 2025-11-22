@@ -394,9 +394,10 @@
   let countdownEnd = 0;
   let countdownCompletedLevel = 0;
   const camera = { x: 0, y: 0 };
-  
+
   // Difficulty system
   let currentDifficulty = 'normal';
+  let currentLeaderboardFilter = 'all';
   
   // FPS tracking
   let fps = 0;
@@ -3136,11 +3137,11 @@
     const password = dom.authPassword?.value || '';
     
     const result = Auth.login(username, password);
-    
+
     if (result.success) {
       closeAuthModal();
       updateAuthUI();
-      renderLeaderboard('all');
+      setLeaderboardFilter(currentLeaderboardFilter);
     } else {
       if (dom.authError) dom.authError.textContent = result.error;
     }
@@ -3151,11 +3152,11 @@
     const password = dom.authPassword?.value || '';
     
     const result = Auth.register(username, password);
-    
+
     if (result.success) {
       closeAuthModal();
       updateAuthUI();
-      renderLeaderboard('all');
+      setLeaderboardFilter(currentLeaderboardFilter);
     } else {
       if (dom.authError) dom.authError.textContent = result.error;
     }
@@ -3164,7 +3165,7 @@
   const handleAuthLogout = () => {
     Auth.logout();
     updateAuthUI();
-    renderLeaderboard('all');
+    setLeaderboardFilter('all');
   };
 
   const updateAuthUI = () => {
@@ -3184,20 +3185,9 @@
     }
   };
 
-  const openLeaderboardModal = () => {
-    if (!dom.leaderboardModal) return;
-    dom.leaderboardModal.style.display = 'flex';
-    updateAuthUI();
-    renderLeaderboard('all');
-  };
-
-  const closeLeaderboardModal = () => {
-    if (dom.leaderboardModal) dom.leaderboardModal.style.display = 'none';
-  };
-
   const renderLeaderboard = (difficulty = 'all') => {
     if (!dom.leaderboardList) return;
-    
+
     const entries = Leaderboard.getEntries(difficulty, 50);
     const currentUsername = Auth.getCurrentUsername();
     
@@ -3220,6 +3210,28 @@
         </div>
       `;
     }).join('');
+  };
+
+  const setLeaderboardFilter = (difficulty = 'all') => {
+    const validDifficulty = difficulty === 'all' || DIFFICULTY_PRESETS[difficulty];
+    currentLeaderboardFilter = validDifficulty ? difficulty : 'all';
+
+    document.querySelectorAll('.filter-btn').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.difficulty === currentLeaderboardFilter);
+    });
+
+    renderLeaderboard(currentLeaderboardFilter);
+  };
+
+  const openLeaderboardModal = () => {
+    if (!dom.leaderboardModal) return;
+    dom.leaderboardModal.style.display = 'flex';
+    updateAuthUI();
+    setLeaderboardFilter(currentLeaderboardFilter || currentDifficulty);
+  };
+
+  const closeLeaderboardModal = () => {
+    if (dom.leaderboardModal) dom.leaderboardModal.style.display = 'none';
   };
 
   /* ====== INITIALISATION ====== */
@@ -3736,17 +3748,11 @@
     dom.leaderboardModal?.addEventListener('click', (e) => {
       if (e.target === dom.leaderboardModal) closeLeaderboardModal();
     });
-    
+
     // Leaderboard filter buttons
     document.querySelectorAll('.filter-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        // Update active state
-        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        
-        // Render filtered leaderboard
-        const difficulty = btn.dataset.difficulty;
-        renderLeaderboard(difficulty);
+      btn.addEventListener('click', () => {
+        setLeaderboardFilter(btn.dataset.difficulty);
       });
     });
     
