@@ -60,9 +60,23 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed development guidelines.
 
 ## Project Structure
 
-- `index.html` – root HTML document and UI skeleton.
-- `style.css` – UI styling and layout.
-- `script.js` – game logic, rendering, UI interactions, and persistence.
+The project has been refactored into a modular architecture for better maintainability:
+
+```
+shooter-app/
+├── src/               # Modular source code
+│   ├── core/          # Configuration and constants
+│   ├── entities/      # Game entity classes
+│   ├── systems/       # Game systems (Save, Auth, Input, etc.)
+│   └── utils/         # Utility functions
+├── docs/              # Architecture documentation
+├── index.html         # Root HTML document
+├── style.css          # UI styling and layout
+├── script.js          # Main game logic
+└── package.json       # Project configuration
+```
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed documentation.
 
 ## Browser Persistence
 
@@ -77,10 +91,13 @@ Game features:
 - **Performance Monitoring**: Built-in frame rate tracking for smooth gameplay optimization
 
 Development improvements:
+- **Modular Architecture**: Refactored into maintainable, reusable modules
 - **Secure Authentication**: Password hashing using Web Crypto API (SHA-256)
-- **Code Quality Tools**: ESLint configuration for consistent code style
+- **Enhanced Validation**: Comprehensive input validation and data sanitization
+- **Code Quality**: ESLint passing with zero errors, comprehensive JSDoc comments
 - **Better Browser Support**: Enhanced meta tags for mobile and PWA compatibility
-- **Development Documentation**: Comprehensive contributing guidelines
+- **Development Documentation**: Architecture docs and contributing guidelines
+- **iOS Preparation**: Modular structure ready for mobile app integration
 
 ## Contributing / Next Steps
 
