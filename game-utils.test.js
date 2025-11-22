@@ -180,11 +180,15 @@ describe('Utility Functions', () => {
     });
 
     test('should generate different positions', () => {
-      const pos1 = randomAround(0, 0, 10, 20);
-      const pos2 = randomAround(0, 0, 10, 20);
-      // Very unlikely to be exactly the same
-      const same = (pos1.x === pos2.x && pos1.y === pos2.y);
-      expect(same).toBe(false);
+      const positions = [];
+      for (let i = 0; i < 5; i++) {
+        positions.push(randomAround(0, 0, 10, 20));
+      }
+      // Check that not all positions are identical
+      const allSame = positions.every(pos => 
+        pos.x === positions[0].x && pos.y === positions[0].y
+      );
+      expect(allSame).toBe(false);
     });
   });
 
