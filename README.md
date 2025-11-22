@@ -40,10 +40,31 @@ VOID RIFT is a browser-based twin-stick shooter built entirely with vanilla HTML
 - `index.html` – root HTML document and UI skeleton.
 - `style.css` – UI styling and layout.
 - `script.js` – game logic, rendering, UI interactions, and persistence.
+- `game-utils.js` – utility functions extracted for testing.
+- `*.test.js` – Jest test suites for game functionality.
 
 ## Browser Persistence
 
 Progress (credits, upgrades, best score) is saved in `localStorage` under the key `void_rift_v11`. Clearing browser storage resets progress.
+
+## Testing
+
+The project uses [Jest](https://jestjs.io/) for testing. To run tests:
+
+```bash
+npm install
+npm test
+```
+
+Test suites include:
+- **game-utils.test.js** – Tests for utility functions (clamp, rand, chance, distance, collision detection)
+- **game-config.test.js** – Tests for game configuration and balance
+- **save-system.test.js** – Tests for save/load functionality and data persistence
+
+To run tests with coverage:
+```bash
+npm test -- --coverage
+```
 
 ## Contributing / Next Steps
 
