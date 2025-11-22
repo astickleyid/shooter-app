@@ -1,0 +1,30 @@
+{
+  "name": "void-rift",
+  "version": "1.0.0",
+  "description": "VOID RIFT - A browser-based twin-stick shooter built with vanilla HTML, CSS, and JavaScript",
+  "main": "index.html",
+  "scripts": {
+    "start": "python3 -m http.server 5173",
+    "lint": "eslint script.js",
+    "lint:fix": "eslint script.js --fix"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/astickleyid/shooter-app.git"
+  },
+  "keywords": [
+    "game",
+    "shooter",
+    "browser-game",
+    "twin-stick-shooter",
+    "javascript"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "eslint": "^8.57.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

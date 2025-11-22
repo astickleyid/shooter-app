@@ -616,6 +616,18 @@
   };
 
   /* ====== AUTHENTICATION SYSTEM ====== */
+  /**
+   * Simple SHA-256 hash implementation using Web Crypto API
+   * @param {string} message - The message to hash
+   * @returns {Promise<string>} Hex string of the hash
+   */
+  const hashPassword = async (message) => {
+    const msgBuffer = new TextEncoder().encode(message);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  };
+
   const Auth = {
     users: {},
     currentUser: null,
@@ -644,7 +656,7 @@
       }
     },
     
-    register(username, password) {
+    async register(username, password) {
       if (!username || username.trim().length === 0) {
         return { success: false, error: 'Username is required' };
       }
@@ -658,9 +670,12 @@
         return { success: false, error: 'Username already exists' };
       }
       
+      // Hash the password before storing
+      const hashedPassword = await hashPassword(password);
+      
       this.users[cleanUsername] = {
         username: username.trim(),
-        password: password, // In a real app, this would be hashed
+        passwordHash: hashedPassword,
         createdAt: Date.now()
       };
       
@@ -670,7 +685,7 @@
       return { success: true };
     },
     
-    login(username, password) {
+    async login(username, password) {
       if (!username || !password) {
         return { success: false, error: 'Username and password are required' };
       }
@@ -682,7 +697,22 @@
         return { success: false, error: 'Invalid username or password' };
       }
       
-      if (user.password !== password) {
+      // Support legacy plaintext passwords and migrate them
+      if (user.password && !user.passwordHash) {
+        if (user.password === password) {
+          // Migrate to hashed password
+          user.passwordHash = await hashPassword(password);
+          delete user.password;
+          this.save();
+          this.currentUser = cleanUsername;
+          return { success: true };
+        }
+        return { success: false, error: 'Invalid username or password' };
+      }
+      
+      // Verify hashed password
+      const hashedPassword = await hashPassword(password);
+      if (user.passwordHash !== hashedPassword) {
         return { success: false, error: 'Invalid username or password' };
       }
       
@@ -3132,33 +3162,49 @@
     if (dom.authModal) dom.authModal.style.display = 'none';
   };
 
-  const handleAuthLogin = () => {
+  const handleAuthLogin = async () => {
     const username = dom.authUsername?.value || '';
     const password = dom.authPassword?.value || '';
     
-    const result = Auth.login(username, password);
+    // Show loading state
+    if (dom.authError) dom.authError.textContent = 'Logging in...';
+    
+    try {
+      const result = await Auth.login(username, password);
 
-    if (result.success) {
-      closeAuthModal();
-      updateAuthUI();
-      setLeaderboardFilter(currentLeaderboardFilter);
-    } else {
-      if (dom.authError) dom.authError.textContent = result.error;
+      if (result.success) {
+        closeAuthModal();
+        updateAuthUI();
+        setLeaderboardFilter(currentLeaderboardFilter);
+      } else {
+        if (dom.authError) dom.authError.textContent = result.error;
+      }
+    } catch (err) {
+      if (dom.authError) dom.authError.textContent = 'Login failed. Please try again.';
+      console.error('Login error:', err);
     }
   };
 
-  const handleAuthRegister = () => {
+  const handleAuthRegister = async () => {
     const username = dom.authUsername?.value || '';
     const password = dom.authPassword?.value || '';
     
-    const result = Auth.register(username, password);
+    // Show loading state
+    if (dom.authError) dom.authError.textContent = 'Registering...';
+    
+    try {
+      const result = await Auth.register(username, password);
 
-    if (result.success) {
-      closeAuthModal();
-      updateAuthUI();
-      setLeaderboardFilter(currentLeaderboardFilter);
-    } else {
-      if (dom.authError) dom.authError.textContent = result.error;
+      if (result.success) {
+        closeAuthModal();
+        updateAuthUI();
+        setLeaderboardFilter(currentLeaderboardFilter);
+      } else {
+        if (dom.authError) dom.authError.textContent = result.error;
+      }
+    } catch (err) {
+      if (dom.authError) dom.authError.textContent = 'Registration failed. Please try again.';
+      console.error('Registration error:', err);
     }
   };
 
