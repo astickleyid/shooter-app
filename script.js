@@ -390,7 +390,6 @@
   let tookDamageThisLevel = false;
   let gameOverHandled = false;
   let countdownActive = false;
-  let countdownValue = 3;
   let countdownEnd = 0;
   let countdownCompletedLevel = 0;
   const camera = { x: 0, y: 0 };
@@ -2558,7 +2557,6 @@
     
     // Start countdown - previously 1 second for "LEVEL COMPLETE" + 3 second countdown (4 seconds total), now a single 3 second countdown
     countdownActive = true;
-    countdownValue = 3;
     countdownEnd = performance.now() + 3000; // 3 seconds total countdown
     countdownCompletedLevel = completedLevel;
     
@@ -2746,7 +2744,7 @@
     // Use the improved scaling with difficulty
     const diff = getDifficulty();
     enemiesToKill = Math.floor((10 + level * 5.5) * diff.enemiesToKill);
-    const dpr = setupCanvas();
+    setupCanvas();
     player = new PlayerEntity(dom.canvas.width / 2, dom.canvas.height / 2);
     camera.x = player.x - dom.canvas.width / 2;
     camera.y = player.y - dom.canvas.height / 2;
@@ -3462,7 +3460,6 @@
   };
 
   // Alias for backward compatibility
-  const openControlSettings = () => openUnifiedMenu();
   const closeControlSettings = () => closeUnifiedMenu();
 
   const resetControlSettings = () => {
@@ -3655,16 +3652,6 @@
   const triggerSecondary = () => {
     input.altFireHeld = true;
     setTimeout(() => (input.altFireHeld = false), 150);
-  };
-
-  const triggerDefense = () => {
-    input.defenseHeld = true;
-    setTimeout(() => (input.defenseHeld = false), 150);
-  };
-
-  const triggerUltimate = () => {
-    input.ultimateQueued = true;
-    setTimeout(() => (input.ultimateQueued = false), 200);
   };
 
   const aimFromPointer = (clientX, clientY) => {
@@ -3877,14 +3864,14 @@
     
     // Tab navigation for unified menu
     document.querySelectorAll('.menu-tab').forEach(tab => {
-      tab.addEventListener('click', (e) => {
+      tab.addEventListener('click', () => {
         const tabName = tab.dataset.tab;
         switchMenuTab(tabName);
       });
     });
     
     // Equipment slot configuration
-    ['equipSlot1', 'equipSlot2', 'equipSlot3', 'equipSlot4'].forEach((id, index) => {
+    ['equipSlot1', 'equipSlot2', 'equipSlot3', 'equipSlot4'].forEach((id) => {
       const select = document.getElementById(id);
       if (select) {
         select.addEventListener('change', () => {
@@ -4012,11 +3999,11 @@
           toggleFullscreen();
         }
       }
-      if (keyboard.hasOwnProperty(e.key)) keyboard[e.key] = true;
+      if (Object.prototype.hasOwnProperty.call(keyboard, e.key)) keyboard[e.key] = true;
       updateFromKeyboard();
     });
     document.addEventListener('keyup', (e) => {
-      if (keyboard.hasOwnProperty(e.key)) keyboard[e.key] = false;
+      if (Object.prototype.hasOwnProperty.call(keyboard, e.key)) keyboard[e.key] = false;
       updateFromKeyboard();
     });
 
