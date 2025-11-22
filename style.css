@@ -1699,10 +1699,23 @@ html, body {
   font-size: 22px;
 }
 
+.leaderboard-player-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .leaderboard-player {
   font-size: 15px;
   font-weight: 700;
   color: #f1f5f9;
+}
+
+.leaderboard-status {
+  font-size: 12px;
+  color: #94a3b8;
+  font-style: italic;
+  opacity: 0.8;
 }
 
 .leaderboard-score {

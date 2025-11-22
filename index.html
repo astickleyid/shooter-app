@@ -48,6 +48,10 @@
             <span class="auth-label">Password</span>
             <input type="password" id="authPassword" class="auth-input" placeholder="Enter password" autocomplete="current-password" />
           </label>
+          <label id="authStatusLabel" style="display: none;">
+            <span class="auth-label">Status (Optional)</span>
+            <input type="text" id="authStatus" class="auth-input" placeholder="e.g., Ready to play!" maxlength="50" />
+          </label>
           <div id="authError" class="auth-error"></div>
         </div>
       </div>
@@ -68,6 +72,7 @@
       <div class="leaderboard-content">
         <div class="leaderboard-user-info">
           <span id="leaderboardUsername">Not logged in</span>
+          <button id="editProfileBtn" class="secondaryBtn" style="display: none;">Edit Profile</button>
           <button id="leaderboardLogout" class="secondaryBtn" style="display: none;">Logout</button>
           <button id="leaderboardLogin" class="secondaryBtn">Login</button>
         </div>
@@ -80,6 +85,36 @@
         <div id="leaderboardList" class="leaderboard-list">
           <!-- Leaderboard entries will be populated here -->
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDIT PROFILE MODAL -->
+  <div id="editProfileModal" class="modal">
+    <div class="modal-content auth-modal">
+      <div class="modal-header">
+        <h2>Edit Profile</h2>
+        <button id="closeEditProfile" class="closeBtn">✕</button>
+      </div>
+      <div class="auth-content">
+        <div class="auth-section">
+          <label>
+            <span class="auth-label">Username</span>
+            <input type="text" id="editProfileUsername" class="auth-input" disabled />
+          </label>
+          <label>
+            <span class="auth-label">Status Message (Optional)</span>
+            <input type="text" id="editProfileStatus" class="auth-input" placeholder="e.g., Ready to play!" maxlength="50" />
+          </label>
+          <p style="color: #94a3b8; font-size: 12px; margin-top: 8px;">
+            Your status will be displayed next to your name in the leaderboard.
+          </p>
+          <div id="editProfileError" class="auth-error"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="cancelEditProfile" class="secondaryBtn">Cancel</button>
+        <button id="saveProfile" class="primaryBtn">Save</button>
       </div>
     </div>
   </div>

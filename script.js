@@ -343,6 +343,8 @@
     dom.closeAuth = document.getElementById('closeAuth');
     dom.authUsername = document.getElementById('authUsername');
     dom.authPassword = document.getElementById('authPassword');
+    dom.authStatus = document.getElementById('authStatus');
+    dom.authStatusLabel = document.getElementById('authStatusLabel');
     dom.authLogin = document.getElementById('authLogin');
     dom.authRegister = document.getElementById('authRegister');
     dom.authError = document.getElementById('authError');
@@ -352,6 +354,14 @@
     dom.leaderboardLogin = document.getElementById('leaderboardLogin');
     dom.leaderboardLogout = document.getElementById('leaderboardLogout');
     dom.leaderboardList = document.getElementById('leaderboardList');
+    dom.editProfileBtn = document.getElementById('editProfileBtn');
+    dom.editProfileModal = document.getElementById('editProfileModal');
+    dom.closeEditProfile = document.getElementById('closeEditProfile');
+    dom.editProfileUsername = document.getElementById('editProfileUsername');
+    dom.editProfileStatus = document.getElementById('editProfileStatus');
+    dom.editProfileError = document.getElementById('editProfileError');
+    dom.saveProfile = document.getElementById('saveProfile');
+    dom.cancelEditProfile = document.getElementById('cancelEditProfile');
     dom.pauseMenuModal = document.getElementById('pauseMenuModal');
     dom.resumeGameBtn = document.getElementById('resumeGameBtn');
     dom.restartGameBtn = document.getElementById('restartGameBtn');
@@ -660,7 +670,8 @@
       this.users[cleanUsername] = {
         username: username.trim(),
         password: password, // In a real app, this would be hashed
-        createdAt: Date.now()
+        createdAt: Date.now(),
+        status: '' // Custom user status message
       };
       
       this.currentUser = cleanUsername;
@@ -704,6 +715,31 @@
       if (!this.currentUser) return null;
       const user = this.users[this.currentUser];
       return user ? user.username : null;
+    },
+    
+    getUserStatus(username) {
+      if (!username) return null;
+      const cleanUsername = username.trim().toLowerCase();
+      const user = this.users[cleanUsername];
+      return user ? user.status || '' : null;
+    },
+    
+    updateStatus(status) {
+      if (!this.currentUser) {
+        return { success: false, error: 'Not logged in' };
+      }
+      
+      const user = this.users[this.currentUser];
+      if (!user) {
+        return { success: false, error: 'User not found' };
+      }
+      
+      // Limit status length to 50 characters
+      const trimmedStatus = (status || '').trim().substring(0, 50);
+      user.status = trimmedStatus;
+      this.save();
+      
+      return { success: true };
     }
   };
 
@@ -3121,9 +3157,13 @@
   /* ====== AUTHENTICATION & LEADERBOARD UI ====== */
   const openAuthModal = () => {
     if (!dom.authModal) return;
+    // Close leaderboard if open
+    closeLeaderboardModal();
     dom.authModal.style.display = 'flex';
     if (dom.authUsername) dom.authUsername.value = '';
     if (dom.authPassword) dom.authPassword.value = '';
+    if (dom.authStatus) dom.authStatus.value = '';
+    if (dom.authStatusLabel) dom.authStatusLabel.style.display = 'none';
     if (dom.authError) dom.authError.textContent = '';
   };
 
@@ -3149,10 +3189,15 @@
   const handleAuthRegister = () => {
     const username = dom.authUsername?.value || '';
     const password = dom.authPassword?.value || '';
+    const status = dom.authStatus?.value || '';
     
     const result = Auth.register(username, password);
     
     if (result.success) {
+      // Set status if provided during registration
+      if (status.trim()) {
+        Auth.updateStatus(status);
+      }
       closeAuthModal();
       updateAuthUI();
       renderLeaderboard('all');
@@ -3182,6 +3227,10 @@
     if (dom.leaderboardLogout) {
       dom.leaderboardLogout.style.display = isLoggedIn ? 'inline-block' : 'none';
     }
+    
+    if (dom.editProfileBtn) {
+      dom.editProfileBtn.style.display = isLoggedIn ? 'inline-block' : 'none';
+    }
   };
 
   const openLeaderboardModal = () => {
@@ -3193,6 +3242,37 @@
 
   const closeLeaderboardModal = () => {
     if (dom.leaderboardModal) dom.leaderboardModal.style.display = 'none';
+  };
+
+  const openEditProfileModal = () => {
+    if (!dom.editProfileModal) return;
+    const username = Auth.getCurrentUsername();
+    if (!username) return;
+    
+    const status = Auth.getUserStatus(username);
+    
+    if (dom.editProfileUsername) dom.editProfileUsername.value = username;
+    if (dom.editProfileStatus) dom.editProfileStatus.value = status || '';
+    if (dom.editProfileError) dom.editProfileError.textContent = '';
+    
+    dom.editProfileModal.style.display = 'flex';
+  };
+
+  const closeEditProfileModal = () => {
+    if (dom.editProfileModal) dom.editProfileModal.style.display = 'none';
+  };
+
+  const handleSaveProfile = () => {
+    const status = dom.editProfileStatus?.value || '';
+    
+    const result = Auth.updateStatus(status);
+    
+    if (result.success) {
+      closeEditProfileModal();
+      renderLeaderboard('all');
+    } else {
+      if (dom.editProfileError) dom.editProfileError.textContent = result.error;
+    }
   };
 
   const renderLeaderboard = (difficulty = 'all') => {
@@ -3210,11 +3290,16 @@
       const rank = index + 1;
       const isCurrentUser = currentUsername && entry.username.toLowerCase() === currentUsername.toLowerCase();
       const rankClass = rank === 1 ? 'top-1' : rank === 2 ? 'top-2' : rank === 3 ? 'top-3' : '';
+      const status = Auth.getUserStatus(entry.username);
+      const statusDisplay = status ? `<div class="leaderboard-status">${status}</div>` : '';
       
       return `
         <div class="leaderboard-entry ${isCurrentUser ? 'current-user' : ''}">
           <div class="leaderboard-rank ${rankClass}">${rank}</div>
-          <div class="leaderboard-player">${entry.username}</div>
+          <div class="leaderboard-player-info">
+            <div class="leaderboard-player">${entry.username}</div>
+            ${statusDisplay}
+          </div>
           <div class="leaderboard-score">${entry.score.toLocaleString()}</div>
           <div class="leaderboard-level">Lvl ${entry.level}</div>
         </div>
@@ -3715,7 +3800,11 @@
     // Authentication modal handlers
     dom.closeAuth?.addEventListener('click', closeAuthModal);
     dom.authLogin?.addEventListener('click', handleAuthLogin);
-    dom.authRegister?.addEventListener('click', handleAuthRegister);
+    dom.authRegister?.addEventListener('click', () => {
+      // Show status field when registering
+      if (dom.authStatusLabel) dom.authStatusLabel.style.display = 'block';
+      handleAuthRegister();
+    });
     
     // Allow Enter key to submit login form
     dom.authPassword?.addEventListener('keypress', (e) => {
@@ -3735,6 +3824,16 @@
     
     dom.leaderboardModal?.addEventListener('click', (e) => {
       if (e.target === dom.leaderboardModal) closeLeaderboardModal();
+    });
+    
+    // Edit Profile modal handlers
+    dom.editProfileBtn?.addEventListener('click', openEditProfileModal);
+    dom.closeEditProfile?.addEventListener('click', closeEditProfileModal);
+    dom.cancelEditProfile?.addEventListener('click', closeEditProfileModal);
+    dom.saveProfile?.addEventListener('click', handleSaveProfile);
+    
+    dom.editProfileModal?.addEventListener('click', (e) => {
+      if (e.target === dom.editProfileModal) closeEditProfileModal();
     });
     
     // Leaderboard filter buttons
