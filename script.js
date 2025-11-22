@@ -3459,9 +3459,7 @@
     }
   };
 
-  // Alias for backward compatibility (kept for future use)
-  // eslint-disable-next-line no-unused-vars
-  const openControlSettings = () => openUnifiedMenu();
+  // Alias for backward compatibility
   const closeControlSettings = () => closeUnifiedMenu();
 
   const resetControlSettings = () => {

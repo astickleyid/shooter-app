@@ -22,7 +22,7 @@ export const validateUsername = (username) => {
   }
   
   if (trimmed.length > 20) {
-    return { valid: false, error: 'Username must be less than 20 characters' };
+    return { valid: false, error: 'Username must be at most 20 characters' };
   }
   
   // Allow alphanumeric, underscore, and dash

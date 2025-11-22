@@ -122,8 +122,10 @@ export class SaveSystem {
       if (!this.data.armory.loadout[key]) {
         this.data.armory.loadout[key] = defaultArmory().loadout[key];
       }
-      if (!this.data.armory.unlocked[key].includes(this.data.armory.loadout[key])) {
-        this.data.armory.unlocked[key].push(this.data.armory.loadout[key]);
+      // Ensure the current loadout item is in the unlocked list
+      const loadoutItem = this.data.armory.loadout[key];
+      if (loadoutItem && !this.data.armory.unlocked[key].includes(loadoutItem)) {
+        this.data.armory.unlocked[key].push(loadoutItem);
       }
     }
   }

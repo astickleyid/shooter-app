@@ -137,7 +137,7 @@ export class LeaderboardSystem {
       filtered = this.entries.filter(e => e.difficulty === difficulty);
     }
 
-    return filtered.slice(0, Math.max(1, Math.min(100, limit)));
+    return filtered.slice(0, Math.max(0, Math.min(100, limit)));
   }
 
   /**
