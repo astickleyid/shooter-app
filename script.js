@@ -6,6 +6,8 @@
 
   /* ====== CONFIG ====== */
   const SAVE_KEY = 'void_rift_v11';
+  const AUTH_KEY = 'void_rift_auth';
+  const LEADERBOARD_KEY = 'void_rift_leaderboard';
 
   const DIFFICULTY_PRESETS = {
     easy: {
@@ -336,6 +338,37 @@
     dom.hangarModal = document.getElementById('hangarModal');
     dom.hangarGrid = document.getElementById('hangarGrid');
     dom.hangarClose = document.getElementById('closeHangar');
+    dom.leaderboardButton = document.getElementById('leaderboardButton');
+    dom.authModal = document.getElementById('authModal');
+    dom.closeAuth = document.getElementById('closeAuth');
+    dom.authUsername = document.getElementById('authUsername');
+    dom.authPassword = document.getElementById('authPassword');
+    dom.authStatus = document.getElementById('authStatus');
+    dom.authStatusLabel = document.getElementById('authStatusLabel');
+    dom.authLogin = document.getElementById('authLogin');
+    dom.authRegister = document.getElementById('authRegister');
+    dom.authError = document.getElementById('authError');
+    dom.leaderboardModal = document.getElementById('leaderboardModal');
+    dom.closeLeaderboard = document.getElementById('closeLeaderboard');
+    dom.leaderboardUsername = document.getElementById('leaderboardUsername');
+    dom.leaderboardLogin = document.getElementById('leaderboardLogin');
+    dom.leaderboardLogout = document.getElementById('leaderboardLogout');
+    dom.leaderboardList = document.getElementById('leaderboardList');
+    dom.editProfileBtn = document.getElementById('editProfileBtn');
+    dom.editProfileModal = document.getElementById('editProfileModal');
+    dom.closeEditProfile = document.getElementById('closeEditProfile');
+    dom.editProfileUsername = document.getElementById('editProfileUsername');
+    dom.editProfileStatus = document.getElementById('editProfileStatus');
+    dom.editProfileError = document.getElementById('editProfileError');
+    dom.saveProfile = document.getElementById('saveProfile');
+    dom.cancelEditProfile = document.getElementById('cancelEditProfile');
+    dom.pauseMenuModal = document.getElementById('pauseMenuModal');
+    dom.resumeGameBtn = document.getElementById('resumeGameBtn');
+    dom.restartGameBtn = document.getElementById('restartGameBtn');
+    dom.saveGameBtn = document.getElementById('saveGameBtn');
+    dom.loadGameBtn = document.getElementById('loadGameBtn');
+    dom.exitToMenuBtn = document.getElementById('exitToMenuBtn');
+    dom.pauseMenuMessage = document.getElementById('pauseMenuMessage');
   };
 
   /* ====== STATE ====== */
@@ -589,6 +622,199 @@
   const syncCredits = () => {
     if (dom.creditsText) dom.creditsText.textContent = Save.data.credits;
     if (dom.shopCreditsText) dom.shopCreditsText.textContent = Save.data.credits;
+  };
+
+  /* ====== AUTHENTICATION SYSTEM ====== */
+  const Auth = {
+    users: {},
+    currentUser: null,
+    
+    load() {
+      try {
+        const raw = localStorage.getItem(AUTH_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          this.users = parsed.users || {};
+          this.currentUser = parsed.currentUser || null;
+        }
+      } catch (err) {
+        console.warn('Failed to load auth data', err);
+      }
+    },
+    
+    save() {
+      try {
+        localStorage.setItem(AUTH_KEY, JSON.stringify({
+          users: this.users,
+          currentUser: this.currentUser
+        }));
+      } catch (err) {
+        console.warn('Failed to save auth data', err);
+      }
+    },
+    
+    register(username, password) {
+      if (!username || username.trim().length === 0) {
+        return { success: false, error: 'Username is required' };
+      }
+      if (!password || password.length < 4) {
+        return { success: false, error: 'Password must be at least 4 characters' };
+      }
+      
+      const cleanUsername = username.trim().toLowerCase();
+      
+      if (this.users[cleanUsername]) {
+        return { success: false, error: 'Username already exists' };
+      }
+      
+      this.users[cleanUsername] = {
+        username: username.trim(),
+        password: password, // In a real app, this would be hashed
+        createdAt: Date.now(),
+        status: '' // Custom user status message
+      };
+      
+      this.currentUser = cleanUsername;
+      this.save();
+      
+      return { success: true };
+    },
+    
+    login(username, password) {
+      if (!username || !password) {
+        return { success: false, error: 'Username and password are required' };
+      }
+      
+      const cleanUsername = username.trim().toLowerCase();
+      const user = this.users[cleanUsername];
+      
+      if (!user) {
+        return { success: false, error: 'Invalid username or password' };
+      }
+      
+      if (user.password !== password) {
+        return { success: false, error: 'Invalid username or password' };
+      }
+      
+      this.currentUser = cleanUsername;
+      this.save();
+      
+      return { success: true };
+    },
+    
+    logout() {
+      this.currentUser = null;
+      this.save();
+    },
+    
+    isLoggedIn() {
+      return this.currentUser !== null;
+    },
+    
+    getCurrentUsername() {
+      if (!this.currentUser) return null;
+      const user = this.users[this.currentUser];
+      return user ? user.username : null;
+    },
+    
+    getUserStatus(username) {
+      if (!username) return null;
+      const cleanUsername = username.trim().toLowerCase();
+      const user = this.users[cleanUsername];
+      return user ? user.status || '' : null;
+    },
+    
+    updateStatus(status) {
+      if (!this.currentUser) {
+        return { success: false, error: 'Not logged in' };
+      }
+      
+      const user = this.users[this.currentUser];
+      if (!user) {
+        return { success: false, error: 'User not found' };
+      }
+      
+      // Limit status length to 50 characters
+      const trimmedStatus = (status || '').trim().substring(0, 50);
+      user.status = trimmedStatus;
+      this.save();
+      
+      return { success: true };
+    }
+  };
+
+  /* ====== LEADERBOARD SYSTEM ====== */
+  const Leaderboard = {
+    entries: [],
+    
+    load() {
+      try {
+        const raw = localStorage.getItem(LEADERBOARD_KEY);
+        if (raw) {
+          this.entries = JSON.parse(raw);
+        }
+      } catch (err) {
+        console.warn('Failed to load leaderboard', err);
+        this.entries = [];
+      }
+    },
+    
+    save() {
+      try {
+        localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(this.entries));
+      } catch (err) {
+        console.warn('Failed to save leaderboard', err);
+      }
+    },
+    
+    addEntry(username, score, level, difficulty) {
+      const entry = {
+        username: username,
+        score: score,
+        level: level,
+        difficulty: difficulty,
+        timestamp: Date.now()
+      };
+      
+      this.entries.push(entry);
+      
+      // Sort by score descending
+      this.entries.sort((a, b) => b.score - a.score);
+      
+      // Keep only top 100 entries
+      if (this.entries.length > 100) {
+        this.entries = this.entries.slice(0, 100);
+      }
+      
+      this.save();
+      
+      // Return the rank
+      return this.entries.findIndex(e => 
+        e.username === username && 
+        e.score === score && 
+        e.timestamp === entry.timestamp
+      ) + 1;
+    },
+    
+    getEntries(difficulty = 'all', limit = 50) {
+      let filtered = this.entries;
+      
+      if (difficulty !== 'all') {
+        filtered = this.entries.filter(e => e.difficulty === difficulty);
+      }
+      
+      return filtered.slice(0, limit);
+    },
+    
+    getUserBest(username) {
+      const userEntries = this.entries.filter(e => 
+        e.username.toLowerCase() === username.toLowerCase()
+      );
+      
+      if (userEntries.length === 0) return null;
+      
+      return userEntries[0]; // Already sorted by score
+    }
   };
 
   const initShipSelection = () => {
@@ -2508,6 +2734,16 @@
     animationFrame = requestAnimationFrame(loop);
   };
 
+  const setupCanvas = () => {
+    const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    dom.canvas.width = Math.floor(window.innerWidth * dpr);
+    dom.canvas.height = Math.floor(window.innerHeight * dpr);
+    dom.canvas.style.width = '100%';
+    dom.canvas.style.height = '100%';
+    dom.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return dpr;
+  };
+
   const startLevel = (lvl, resetScore) => {
     level = lvl;
     if (resetScore) score = 0;
@@ -2515,12 +2751,7 @@
     // Use the improved scaling with difficulty
     const diff = getDifficulty();
     enemiesToKill = Math.floor((10 + level * 5.5) * diff.enemiesToKill);
-    const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-    dom.canvas.width = Math.floor(window.innerWidth * dpr);
-    dom.canvas.height = Math.floor(window.innerHeight * dpr);
-    dom.canvas.style.width = '100%';
-    dom.canvas.style.height = '100%';
-    dom.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const dpr = setupCanvas();
     player = new PlayerEntity(dom.canvas.width / 2, dom.canvas.height / 2);
     camera.x = player.x - dom.canvas.width / 2;
     camera.y = player.y - dom.canvas.height / 2;
@@ -2550,6 +2781,31 @@
     startLevel(1, true);
   };
 
+  /* ====== PAUSE MENU & GAME STATE MANAGEMENT ====== */
+  const SAVE_SLOT_KEY = 'void_rift_game_slot_v1';
+  
+  // Guard flags to prevent race conditions
+  let isExiting = false;
+  let isRestarting = false;
+  let isLoading = false;
+  
+  const showPauseMenu = () => {
+    if (dom.pauseMenuModal) {
+      dom.pauseMenuModal.style.display = 'flex';
+      if (dom.pauseMenuMessage) dom.pauseMenuMessage.textContent = '';
+      // Set focus to the first button for keyboard accessibility
+      setTimeout(() => {
+        if (dom.resumeGameBtn) dom.resumeGameBtn.focus();
+      }, 0);
+    }
+  };
+  
+  const hidePauseMenu = () => {
+    if (dom.pauseMenuModal) {
+      dom.pauseMenuModal.style.display = 'none';
+    }
+  };
+  
   const togglePause = () => {
     if (!gameRunning) {
       openShop();
@@ -2558,11 +2814,282 @@
     paused = !paused;
     if (paused) {
       cancelAnimationFrame(animationFrame);
-      openShop();
+      showPauseMenu();
     } else {
-      closeShop();
+      hidePauseMenu();
       lastTime = performance.now();
       animationFrame = requestAnimationFrame(loop);
+    }
+  };
+  
+  const resumeGame = () => {
+    if (!gameRunning || !paused) return;
+    paused = false;
+    hidePauseMenu();
+    lastTime = performance.now();
+    animationFrame = requestAnimationFrame(loop);
+  };
+  
+  const exitToMainMenu = () => {
+    if (isExiting) return;
+    isExiting = true;
+    
+    // Confirm before exiting
+    if (dom.pauseMenuMessage) {
+      dom.pauseMenuMessage.textContent = 'Exiting to main menu...';
+      dom.pauseMenuMessage.className = 'pause-menu-message info';
+    }
+    
+    setTimeout(() => {
+      // Stop the game
+      gameRunning = false;
+      paused = false;
+      cancelAnimationFrame(animationFrame);
+      
+      // Hide pause menu
+      hidePauseMenu();
+      
+      // Hide game container and show start screen
+      dom.gameContainer.style.display = 'none';
+      dom.startScreen.style.display = 'flex';
+      
+      // Reset runtime state
+      resetRuntimeState();
+      
+      // Redraw start graphic
+      drawStartGraphic();
+      
+      isExiting = false;
+    }, 500);
+  };
+  
+  const restartGame = () => {
+    if (isRestarting) return;
+    isRestarting = true;
+    
+    if (dom.pauseMenuMessage) {
+      dom.pauseMenuMessage.textContent = 'Restarting game...';
+      dom.pauseMenuMessage.className = 'pause-menu-message info';
+    }
+    
+    setTimeout(() => {
+      // Hide pause menu
+      hidePauseMenu();
+      
+      // Restart from level 1
+      resetRuntimeState();
+      initShipSelection();
+      startLevel(1, true);
+      
+      isRestarting = false;
+    }, 500);
+  };
+  
+  const saveGameSlot = () => {
+    if (!gameRunning || !player) {
+      if (dom.pauseMenuMessage) {
+        dom.pauseMenuMessage.textContent = 'No active game to save!';
+        dom.pauseMenuMessage.className = 'pause-menu-message error';
+      }
+      return;
+    }
+    
+    try {
+      // NOTE: This save system only preserves core game state and player stats.
+      // Active entities (enemies, bullets, items) are not saved and will be
+      // regenerated when the game is loaded, effectively starting a "fresh" level.
+      const gameState = {
+        // Core game state
+        level: level,
+        score: score,
+        enemiesKilled: enemiesKilled,
+        enemiesToKill: enemiesToKill,
+        difficulty: currentDifficulty,
+        
+        // Player state
+        playerX: player.x,
+        playerY: player.y,
+        playerHealth: player.health,
+        playerAmmo: player.ammo,
+        playerShield: player.shield || 0,
+        playerSecondaryCharges: player.secondaryCharges || 0,
+        playerDefenseCooldown: player.defenseCooldown || 0,
+        playerUltCharge: player.ultCharge || 0,
+        
+        // Pilot progression
+        pilotLevel: pilotLevel,
+        pilotXP: pilotXP,
+        
+        // Ship and loadout
+        selectedShip: Save.data.selectedShip,
+        
+        // Timestamp
+        savedAt: Date.now(),
+        savedAtReadable: new Date().toLocaleString()
+      };
+      
+      localStorage.setItem(SAVE_SLOT_KEY, JSON.stringify(gameState));
+      
+      if (dom.pauseMenuMessage) {
+        dom.pauseMenuMessage.textContent = '✓ Game saved successfully!';
+        dom.pauseMenuMessage.className = 'pause-menu-message success';
+        
+        // Auto-clear success message after 3 seconds
+        setTimeout(() => {
+          if (dom.pauseMenuMessage && dom.pauseMenuMessage.textContent === '✓ Game saved successfully!') {
+            dom.pauseMenuMessage.textContent = '';
+            dom.pauseMenuMessage.className = 'pause-menu-message';
+          }
+        }, 3000);
+      }
+      
+      addLogEntry('Game saved', '#4ade80');
+    } catch (err) {
+      console.error('Failed to save game:', err);
+      if (dom.pauseMenuMessage) {
+        dom.pauseMenuMessage.textContent = '✗ Failed to save game!';
+        dom.pauseMenuMessage.className = 'pause-menu-message error';
+      }
+    }
+  };
+  
+  const loadGameSlot = () => {
+    if (isLoading) return;
+    isLoading = true;
+    
+    try {
+      const raw = localStorage.getItem(SAVE_SLOT_KEY);
+      if (!raw) {
+        if (dom.pauseMenuMessage) {
+          dom.pauseMenuMessage.textContent = 'No saved game found!';
+          dom.pauseMenuMessage.className = 'pause-menu-message error';
+        }
+        isLoading = false;
+        return;
+      }
+      
+      const gameState = JSON.parse(raw);
+
+      // Validate critical fields
+      if (
+        typeof gameState.level !== 'number' ||
+        gameState.level < 1 ||
+        gameState.level > 1000
+      ) {
+        throw new Error('Invalid level in save data');
+      }
+      if (
+        typeof gameState.playerX !== 'number' ||
+        typeof gameState.playerY !== 'number'
+      ) {
+        throw new Error('Invalid player position in save data');
+      }
+      if (
+        typeof gameState.score !== 'number' ||
+        gameState.score < 0
+      ) {
+        throw new Error('Invalid score in save data');
+      }
+      if (
+        typeof gameState.playerHealth !== 'number' ||
+        gameState.playerHealth < 0
+      ) {
+        throw new Error('Invalid player health in save data');
+      }
+      if (
+        typeof gameState.playerAmmo !== 'number' ||
+        gameState.playerAmmo < 0
+      ) {
+        throw new Error('Invalid player ammo in save data');
+      }
+      // Add more validation as needed for other fields
+      
+      if (dom.pauseMenuMessage) {
+        dom.pauseMenuMessage.textContent = `Loading game from ${gameState.savedAtReadable}...`;
+        dom.pauseMenuMessage.className = 'pause-menu-message info';
+      }
+      
+      setTimeout(() => {
+        // Hide pause menu
+        hidePauseMenu();
+        
+        // Reset and configure game state
+        resetRuntimeState();
+        
+        // Restore difficulty
+        currentDifficulty = gameState.difficulty || 'normal';
+        
+        // Restore ship selection
+        Save.data.selectedShip = gameState.selectedShip || 'vanguard';
+        Save.save();
+        initShipSelection();
+        
+        // Restore level and score
+        level = gameState.level || 1;
+        score = gameState.score || 0;
+        enemiesKilled = gameState.enemiesKilled || 0;
+        enemiesToKill = gameState.enemiesToKill || 15;
+        
+        // Restore pilot progression and persist it
+        pilotLevel = gameState.pilotLevel || 1;
+        pilotXP = gameState.pilotXP || 0;
+        Save.data.pilotLevel = pilotLevel;
+        Save.data.pilotXp = pilotXP;
+        Save.save();
+        
+        // Start the level
+        setupCanvas();
+        
+        // Create player at saved position
+        player = new PlayerEntity(
+          gameState.playerX || window.innerWidth / 2,
+          gameState.playerY || window.innerHeight / 2
+        );
+        
+        // Restore player state
+        player.health = gameState.playerHealth || player.maxHealth;
+        player.ammo = gameState.playerAmmo || player.maxAmmo;
+        if (gameState.playerShield) player.shield = gameState.playerShield;
+        if (gameState.playerSecondaryCharges) player.secondaryCharges = gameState.playerSecondaryCharges;
+        if (gameState.playerDefenseCooldown) player.defenseCooldown = gameState.playerDefenseCooldown;
+        if (gameState.playerUltCharge) player.ultCharge = gameState.playerUltCharge;
+        
+        // Set up camera and environment
+        camera.x = player.x - window.innerWidth / 2;
+        camera.y = player.y - window.innerHeight / 2;
+        spawnObstacles();
+        createSpawners(Math.min(1 + Math.floor(level / 2), 5), false);
+        
+        if (!starsFar) {
+          starsFar = makeStars(120);
+          starsMid = makeStars(80);
+          starsNear = makeStars(50);
+        } else {
+          recenterStars();
+        }
+        
+        lastTime = performance.now();
+        lastAmmoRegen = lastTime;
+        gameRunning = true;
+        paused = false;
+        
+        // Update HUD
+        updateHUD();
+        
+        // Start game loop
+        loop(lastTime);
+        
+        addLogEntry('Game loaded', '#4ade80');
+        
+        isLoading = false;
+      }, 500);
+    } catch (err) {
+      console.error('Failed to load game:', err);
+      if (dom.pauseMenuMessage) {
+        dom.pauseMenuMessage.textContent = '✗ Failed to load game!';
+        dom.pauseMenuMessage.className = 'pause-menu-message error';
+      }
+      isLoading = false;
     }
   };
   
@@ -2616,13 +3143,178 @@
     gameOverHandled = true;
     Save.setBest(score, level);
     Save.addCredits(Math.floor(score / 25));
-    showMessage('GAME OVER', `Level ${level} — Score ${score.toLocaleString()}`, 'Restart', () => startGame());
+    
+    // Submit to leaderboard if logged in
+    if (Auth.isLoggedIn()) {
+      const username = Auth.getCurrentUsername();
+      const rank = Leaderboard.addEntry(username, score, level, currentDifficulty);
+      showMessage('GAME OVER', `Level ${level} — Score ${score.toLocaleString()}\nLeaderboard Rank: #${rank}`, 'Restart', () => startGame());
+    } else {
+      showMessage('GAME OVER', `Level ${level} — Score ${score.toLocaleString()}\nLogin to save your score!`, 'Restart', () => startGame());
+    }
+  };
+
+  /* ====== AUTHENTICATION & LEADERBOARD UI ====== */
+  const openAuthModal = () => {
+    if (!dom.authModal) return;
+    // Close leaderboard if open
+    closeLeaderboardModal();
+    dom.authModal.style.display = 'flex';
+    if (dom.authUsername) dom.authUsername.value = '';
+    if (dom.authPassword) dom.authPassword.value = '';
+    if (dom.authStatus) dom.authStatus.value = '';
+    if (dom.authStatusLabel) dom.authStatusLabel.style.display = 'none';
+    if (dom.authError) dom.authError.textContent = '';
+  };
+
+  const closeAuthModal = () => {
+    if (dom.authModal) dom.authModal.style.display = 'none';
+  };
+
+  const handleAuthLogin = () => {
+    const username = dom.authUsername?.value || '';
+    const password = dom.authPassword?.value || '';
+    
+    const result = Auth.login(username, password);
+    
+    if (result.success) {
+      closeAuthModal();
+      updateAuthUI();
+      renderLeaderboard('all');
+    } else {
+      if (dom.authError) dom.authError.textContent = result.error;
+    }
+  };
+
+  const handleAuthRegister = () => {
+    const username = dom.authUsername?.value || '';
+    const password = dom.authPassword?.value || '';
+    const status = dom.authStatus?.value || '';
+    
+    const result = Auth.register(username, password);
+    
+    if (result.success) {
+      // Set status if provided during registration
+      if (status.trim()) {
+        Auth.updateStatus(status);
+      }
+      closeAuthModal();
+      updateAuthUI();
+      renderLeaderboard('all');
+    } else {
+      if (dom.authError) dom.authError.textContent = result.error;
+    }
+  };
+
+  const handleAuthLogout = () => {
+    Auth.logout();
+    updateAuthUI();
+    renderLeaderboard('all');
+  };
+
+  const updateAuthUI = () => {
+    const isLoggedIn = Auth.isLoggedIn();
+    const username = Auth.getCurrentUsername();
+    
+    if (dom.leaderboardUsername) {
+      dom.leaderboardUsername.textContent = isLoggedIn ? username : 'Not logged in';
+    }
+    
+    if (dom.leaderboardLogin) {
+      dom.leaderboardLogin.style.display = isLoggedIn ? 'none' : 'inline-block';
+    }
+    
+    if (dom.leaderboardLogout) {
+      dom.leaderboardLogout.style.display = isLoggedIn ? 'inline-block' : 'none';
+    }
+    
+    if (dom.editProfileBtn) {
+      dom.editProfileBtn.style.display = isLoggedIn ? 'inline-block' : 'none';
+    }
+  };
+
+  const openLeaderboardModal = () => {
+    if (!dom.leaderboardModal) return;
+    dom.leaderboardModal.style.display = 'flex';
+    updateAuthUI();
+    renderLeaderboard('all');
+  };
+
+  const closeLeaderboardModal = () => {
+    if (dom.leaderboardModal) dom.leaderboardModal.style.display = 'none';
+  };
+
+  const openEditProfileModal = () => {
+    if (!dom.editProfileModal) return;
+    const username = Auth.getCurrentUsername();
+    if (!username) return;
+    
+    const status = Auth.getUserStatus(username);
+    
+    if (dom.editProfileUsername) dom.editProfileUsername.value = username;
+    if (dom.editProfileStatus) dom.editProfileStatus.value = status || '';
+    if (dom.editProfileError) dom.editProfileError.textContent = '';
+    
+    dom.editProfileModal.style.display = 'flex';
+  };
+
+  const closeEditProfileModal = () => {
+    if (dom.editProfileModal) dom.editProfileModal.style.display = 'none';
+  };
+
+  const handleSaveProfile = () => {
+    const status = dom.editProfileStatus?.value || '';
+    
+    const result = Auth.updateStatus(status);
+    
+    if (result.success) {
+      closeEditProfileModal();
+      renderLeaderboard('all');
+    } else {
+      if (dom.editProfileError) dom.editProfileError.textContent = result.error;
+    }
+  };
+
+  const renderLeaderboard = (difficulty = 'all') => {
+    if (!dom.leaderboardList) return;
+    
+    const entries = Leaderboard.getEntries(difficulty, 50);
+    const currentUsername = Auth.getCurrentUsername();
+    
+    if (entries.length === 0) {
+      dom.leaderboardList.innerHTML = '<div class="leaderboard-empty">No scores yet. Be the first!</div>';
+      return;
+    }
+    
+    dom.leaderboardList.innerHTML = entries.map((entry, index) => {
+      const rank = index + 1;
+      const isCurrentUser = currentUsername && entry.username.toLowerCase() === currentUsername.toLowerCase();
+      const rankClass = rank === 1 ? 'top-1' : rank === 2 ? 'top-2' : rank === 3 ? 'top-3' : '';
+      const status = Auth.getUserStatus(entry.username);
+      // HTML escape status to prevent XSS
+      const escapedStatus = status ? status.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;') : '';
+      const statusDisplay = escapedStatus ? `<div class="leaderboard-status">${escapedStatus}</div>` : '';
+      
+      return `
+        <div class="leaderboard-entry ${isCurrentUser ? 'current-user' : ''}">
+          <div class="leaderboard-rank ${rankClass}">${rank}</div>
+          <div class="leaderboard-player-info">
+            <div class="leaderboard-player">${entry.username}</div>
+            ${statusDisplay}
+          </div>
+          <div class="leaderboard-score">${entry.score.toLocaleString()}</div>
+          <div class="leaderboard-level">Lvl ${entry.level}</div>
+        </div>
+      `;
+    }).join('');
   };
 
   /* ====== INITIALISATION ====== */
   const ready = () => {
     assignDomRefs();
     Save.load();
+    Auth.load();
+    Leaderboard.load();
     pilotLevel = Save.data.pilotLevel;
     pilotXP = Save.data.pilotXp;
     initShipSelection();
@@ -3079,6 +3771,86 @@
     }
     dom.openShopFromStart?.addEventListener('click', openShop);
     dom.settingsButton?.addEventListener('click', openHangar);
+    dom.leaderboardButton?.addEventListener('click', openLeaderboardModal);
+    
+    // Pause menu handlers
+    dom.resumeGameBtn?.addEventListener('click', resumeGame);
+    dom.restartGameBtn?.addEventListener('click', restartGame);
+    dom.saveGameBtn?.addEventListener('click', saveGameSlot);
+    dom.loadGameBtn?.addEventListener('click', loadGameSlot);
+    dom.exitToMenuBtn?.addEventListener('click', exitToMainMenu);
+    
+    // Close pause menu when clicking outside
+    dom.pauseMenuModal?.addEventListener('click', (e) => {
+      if (e.target === dom.pauseMenuModal) {
+        resumeGame();
+      }
+    });
+    
+    // ESC key closes pause menu if open
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' || e.key === 'Esc') {
+        // Check if pause menu is open (assume class 'open' or style 'display: block')
+        if (dom.pauseMenuModal && (dom.pauseMenuModal.classList.contains('open') || dom.pauseMenuModal.style.display === 'block')) {
+          resumeGame();
+          e.preventDefault();
+          return;
+        }
+        // Other modal ESC handling can go here...
+      }
+    });
+    // Authentication modal handlers
+    dom.closeAuth?.addEventListener('click', closeAuthModal);
+    dom.authLogin?.addEventListener('click', handleAuthLogin);
+    dom.authRegister?.addEventListener('click', handleAuthRegister);
+    
+    // Show status field when user starts typing in username (indicates registration intent)
+    dom.authUsername?.addEventListener('focus', () => {
+      if (dom.authStatusLabel) dom.authStatusLabel.style.display = 'block';
+    });
+    
+    // Allow Enter key to submit login form
+    dom.authPassword?.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        handleAuthLogin();
+      }
+    });
+    
+    dom.authModal?.addEventListener('click', (e) => {
+      if (e.target === dom.authModal) closeAuthModal();
+    });
+    
+    // Leaderboard modal handlers
+    dom.closeLeaderboard?.addEventListener('click', closeLeaderboardModal);
+    dom.leaderboardLogin?.addEventListener('click', openAuthModal);
+    dom.leaderboardLogout?.addEventListener('click', handleAuthLogout);
+    
+    dom.leaderboardModal?.addEventListener('click', (e) => {
+      if (e.target === dom.leaderboardModal) closeLeaderboardModal();
+    });
+    
+    // Edit Profile modal handlers
+    dom.editProfileBtn?.addEventListener('click', openEditProfileModal);
+    dom.closeEditProfile?.addEventListener('click', closeEditProfileModal);
+    dom.cancelEditProfile?.addEventListener('click', closeEditProfileModal);
+    dom.saveProfile?.addEventListener('click', handleSaveProfile);
+    
+    dom.editProfileModal?.addEventListener('click', (e) => {
+      if (e.target === dom.editProfileModal) closeEditProfileModal();
+    });
+    
+    // Leaderboard filter buttons
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        // Update active state
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        // Render filtered leaderboard
+        const difficulty = btn.dataset.difficulty;
+        renderLeaderboard(difficulty);
+      });
+    });
     
     dom.closeShopBtn?.addEventListener('click', () => {
       closeShop();
