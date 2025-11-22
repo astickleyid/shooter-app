@@ -3291,7 +3291,9 @@
       const isCurrentUser = currentUsername && entry.username.toLowerCase() === currentUsername.toLowerCase();
       const rankClass = rank === 1 ? 'top-1' : rank === 2 ? 'top-2' : rank === 3 ? 'top-3' : '';
       const status = Auth.getUserStatus(entry.username);
-      const statusDisplay = status ? `<div class="leaderboard-status">${status}</div>` : '';
+      // HTML escape status to prevent XSS
+      const escapedStatus = status ? status.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;') : '';
+      const statusDisplay = escapedStatus ? `<div class="leaderboard-status">${escapedStatus}</div>` : '';
       
       return `
         <div class="leaderboard-entry ${isCurrentUser ? 'current-user' : ''}">
@@ -3800,10 +3802,11 @@
     // Authentication modal handlers
     dom.closeAuth?.addEventListener('click', closeAuthModal);
     dom.authLogin?.addEventListener('click', handleAuthLogin);
-    dom.authRegister?.addEventListener('click', () => {
-      // Show status field when registering
+    dom.authRegister?.addEventListener('click', handleAuthRegister);
+    
+    // Show status field when user starts typing in username (indicates registration intent)
+    dom.authUsername?.addEventListener('focus', () => {
       if (dom.authStatusLabel) dom.authStatusLabel.style.display = 'block';
-      handleAuthRegister();
     });
     
     // Allow Enter key to submit login form
