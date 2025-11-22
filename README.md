@@ -4,6 +4,8 @@ VOID RIFT is a browser-based twin-stick shooter built entirely with vanilla HTML
 
 ## Quick Start
 
+### For Players
+
 - Option 1 – double-click `index.html` to open it in your browser.
 - Option 2 – run a lightweight static server (recommended for consistent audio/input):
   ```bash
@@ -13,6 +15,26 @@ VOID RIFT is a browser-based twin-stick shooter built entirely with vanilla HTML
   npx http-server -p 5173
   ```
   Then visit [http://localhost:5173](http://localhost:5173).
+
+### For Developers
+
+1. Install Node.js 14+ (for development tools)
+2. Clone the repository and install dependencies:
+   ```bash
+   git clone https://github.com/astickleyid/shooter-app.git
+   cd shooter-app
+   npm install
+   ```
+3. Start the development server:
+   ```bash
+   npm start
+   ```
+4. Run linting:
+   ```bash
+   npm run lint
+   ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed development guidelines.
 
 ## Deploying
 
@@ -46,13 +68,19 @@ VOID RIFT is a browser-based twin-stick shooter built entirely with vanilla HTML
 
 Progress (credits, upgrades, best score) is saved in `localStorage` under the key `void_rift_v11`. Clearing browser storage resets progress.
 
-## New Features
+## Recent Features
 
-Recent additions include:
+Game features:
 - **Fullscreen Mode**: Toggle with `F` key (outside of gameplay) or via the settings menu for an immersive experience
 - **FPS Counter**: Monitor performance with `G` key toggle or settings menu - displays in real-time with color coding (green = 55+ fps, yellow = 30-54 fps, red = <30 fps)
 - **Enhanced Robustness**: Improved error handling, save game validation, and automatic pause when tab loses focus
 - **Performance Monitoring**: Built-in frame rate tracking for smooth gameplay optimization
+
+Development improvements:
+- **Secure Authentication**: Password hashing using Web Crypto API (SHA-256)
+- **Code Quality Tools**: ESLint configuration for consistent code style
+- **Better Browser Support**: Enhanced meta tags for mobile and PWA compatibility
+- **Development Documentation**: Comprehensive contributing guidelines
 
 ## Contributing / Next Steps
 
