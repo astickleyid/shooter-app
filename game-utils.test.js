@@ -228,7 +228,7 @@ describe('Utility Functions', () => {
     test('should detect collision when circles touch', () => {
       // Circles at (0,0) r=5 and (10,0) r=5 are exactly touching (distance = 10, sum of radii = 10)
       // They should collide (<=, not <)
-      expect(circleCollision(0, 0, 5, 9.9, 0, 5)).toBe(true);
+      expect(circleCollision(0, 0, 5, 10, 0, 5)).toBe(true);
     });
 
     test('should detect collision when one circle contains another', () => {
