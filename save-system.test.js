@@ -109,13 +109,16 @@ describe('Save System', () => {
     test('should not spend credits when not enough available', () => {
       let credits = 30;
       const cost = 50;
-      const originalCredits = credits;
       
-      if (credits >= cost) {
+      // Attempt to spend credits - should fail because we don't have enough
+      const canSpend = credits >= cost;
+      if (canSpend) {
         credits -= cost;
       }
       
-      expect(credits).toBe(originalCredits);
+      // Credits should remain unchanged
+      expect(canSpend).toBe(false);
+      expect(credits).toBe(30);
     });
 
     test('should handle large credit amounts', () => {
@@ -148,13 +151,16 @@ describe('Save System', () => {
     test('should not update best score when not exceeded', () => {
       let bestScore = 2000;
       const newScore = 1500;
-      const original = bestScore;
       
-      if (newScore > bestScore) {
+      // Check if new score exceeds best score
+      const isNewRecord = newScore > bestScore;
+      if (isNewRecord) {
         bestScore = newScore;
       }
       
-      expect(bestScore).toBe(original);
+      // Best score should remain unchanged
+      expect(isNewRecord).toBe(false);
+      expect(bestScore).toBe(2000);
     });
 
     test('should track highest level reached', () => {
