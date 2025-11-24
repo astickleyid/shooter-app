@@ -1,0 +1,22 @@
+{
+  "env": {
+    "browser": true,
+    "es2022": true
+  },
+  "extends": "eslint:recommended",
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "script"
+  },
+  "rules": {
+    "no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+    "no-console": ["warn", { "allow": ["warn", "error"] }],
+    "eqeqeq": ["warn", "always"],
+    "curly": "off",
+    "semi": ["warn", "always"],
+    "quotes": "off",
+    "no-var": "error",
+    "prefer-const": "warn",
+    "no-trailing-spaces": "off"
+  }
+}
