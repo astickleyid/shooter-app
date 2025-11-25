@@ -999,58 +999,223 @@
   const addParticles = (kind, x, y, ang = 0, count = 8, colorOverride) => {
     for (let i = 0; i < count; i++) {
       if (kind === 'muzzle') {
-        particles.push({ x: x + Math.cos(ang) * 10, y: y + Math.sin(ang) * 10, vx: rand(-1, 1), vy: rand(-1, 1), life: 220, c: '#ffd54f', s: 2 });
+        // Phase A.4: Enhanced muzzle flash with directional spread
+        const spread = rand(-0.3, 0.3);
+        const speed = rand(2, 4);
+        particles.push({ 
+          x: x + Math.cos(ang) * 10, 
+          y: y + Math.sin(ang) * 10, 
+          vx: Math.cos(ang + spread) * speed, 
+          vy: Math.sin(ang + spread) * speed, 
+          life: 220, 
+          c: chance(0.7) ? '#ffd54f' : '#fff', 
+          s: rand(2, 3),
+          type: 'fade' // Phase A.4: Particle type for rendering
+        });
         continue;
       }
       if (kind === 'pop') {
-        particles.push({ x, y, vx: rand(-2, 2), vy: rand(-2, 2), life: 320, c: '#fca5a5', s: 2 });
+        particles.push({ x, y, vx: rand(-2, 2), vy: rand(-2, 2), life: 320, c: '#fca5a5', s: 2, type: 'fade' });
         continue;
       }
       if (kind === 'sparks') {
-        particles.push({ x, y, vx: rand(-2.6, 2.6), vy: rand(-2.6, 2.6), life: 160, c: '#ffffff', s: 1.5 });
+        // Phase A.4: Enhanced sparks with bounce physics and trails
+        const angle = rand(0, Math.PI * 2);
+        const speed = rand(2, 5);
+        particles.push({ 
+          x, 
+          y, 
+          vx: Math.cos(angle) * speed, 
+          vy: Math.sin(angle) * speed, 
+          life: rand(160, 240), 
+          c: chance(0.8) ? '#ffffff' : '#fde047', 
+          s: rand(1, 2),
+          type: 'spark', // Phase A.4: Spark type with physics
+          gravity: 0.05,
+          bounce: 0.6
+        });
         continue;
       }
       if (kind === 'debris') {
-        particles.push({ x, y, vx: rand(-1.5, 1.5), vy: rand(-1.5, 1.5), life: 400, c: '#9ca3af', s: 2.4 });
+        // Phase A.4: Rotating debris chunks
+        particles.push({ 
+          x, 
+          y, 
+          vx: rand(-2, 2), 
+          vy: rand(-2, 2), 
+          life: rand(350, 450), 
+          c: chance(0.5) ? '#9ca3af' : '#6b7280', 
+          s: rand(2, 4),
+          type: 'debris',
+          rotation: rand(0, Math.PI * 2),
+          rotSpeed: rand(-0.2, 0.2)
+        });
         continue;
       }
       if (kind === 'thruster') {
-        particles.push({ x, y, vx: rand(-0.6, 0.6), vy: rand(-0.6, 0.6), life: 180 + rand(-40, 60), c: colorOverride || '#ff9a3c', s: 1.8 + rand(-0.4, 0.6) });
+        particles.push({ x, y, vx: rand(-0.6, 0.6), vy: rand(-0.6, 0.6), life: 180 + rand(-40, 60), c: colorOverride || '#ff9a3c', s: 1.8 + rand(-0.4, 0.6), type: 'fade' });
         continue;
       }
       if (kind === 'levelup') {
-        particles.push({ x, y, vx: rand(-2.2, 2.2), vy: rand(-2.2, 2.2), life: 420, c: chance(0.5) ? '#38bdf8' : '#a855f7', s: 3 });
+        // Phase A.4: Enhanced level up with spiraling wisps
+        const angle = (i / count) * Math.PI * 2;
+        const speed = rand(2, 3.5);
+        particles.push({ 
+          x, 
+          y, 
+          vx: Math.cos(angle) * speed, 
+          vy: Math.sin(angle) * speed, 
+          life: 500, 
+          c: chance(0.5) ? '#38bdf8' : '#a855f7', 
+          s: 3,
+          type: 'wisp', // Phase A.4: Spiraling energy wisp
+          spiralSpeed: rand(0.05, 0.1)
+        });
         continue;
       }
       if (kind === 'nova') {
         const palette = ['#fde68a', '#f97316'];
-        particles.push({ x, y, vx: rand(-3, 3), vy: rand(-3, 3), life: 260, c: palette[i % palette.length], s: 3 });
+        particles.push({ x, y, vx: rand(-3, 3), vy: rand(-3, 3), life: 260, c: palette[i % palette.length], s: 3, type: 'fade' });
         continue;
       }
       if (kind === 'shield') {
-        particles.push({ x: x + rand(-14, 14), y: y + rand(-14, 14), vx: rand(-0.5, 0.5), vy: rand(-0.5, 0.5), life: 220, c: 'rgba(148,163,246,0.8)', s: 2 });
+        particles.push({ x: x + rand(-14, 14), y: y + rand(-14, 14), vx: rand(-0.5, 0.5), vy: rand(-0.5, 0.5), life: 220, c: 'rgba(148,163,246,0.8)', s: 2, type: 'fade' });
         continue;
       }
       if (kind === 'ultimate') {
         const palette = ['#f97316', '#a855f7'];
-        particles.push({ x: x + rand(-4, 4), y: y + rand(-4, 4), vx: rand(-4, 4), vy: rand(-4, 4), life: 320, c: palette[i % palette.length], s: 4 });
+        particles.push({ x: x + rand(-4, 4), y: y + rand(-4, 4), vx: rand(-4, 4), vy: rand(-4, 4), life: 320, c: palette[i % palette.length], s: 4, type: 'fade' });
+        continue;
+      }
+      // Phase A.4: New particle types
+      if (kind === 'smoke') {
+        particles.push({ 
+          x: x + rand(-5, 5), 
+          y: y + rand(-5, 5), 
+          vx: rand(-0.5, 0.5), 
+          vy: rand(-1.5, -0.5), 
+          life: rand(400, 600), 
+          c: `rgba(100, 100, 100, ${rand(0.3, 0.6)})`, 
+          s: rand(3, 6),
+          type: 'smoke',
+          growth: 1.02
+        });
+        continue;
+      }
+      if (kind === 'ring') {
+        // Phase A.4: Expanding shockwave ring
+        particles.push({ 
+          x, 
+          y, 
+          r: 5, 
+          maxR: rand(40, 80), 
+          life: 300, 
+          c: colorOverride || '#fde047', 
+          type: 'ring',
+          expandSpeed: rand(0.8, 1.5)
+        });
       }
     }
   };
 
   const drawParticles = (ctx, dt) => {
+    // Phase A.4: Cap particles for performance
+    const particleCap = 1000;
+    if (particles.length > particleCap) {
+      particles.splice(0, particles.length - particleCap);
+    }
+    
     for (let i = particles.length - 1; i >= 0; i--) {
       const p = particles[i];
-      p.x += p.vx;
-      p.y += p.vy;
+      const step = dt / 16.67;
+      
+      // Phase A.4: Different particle behaviors
+      if (p.type === 'spark') {
+        // Sparks with gravity and bounce
+        p.vy += (p.gravity || 0.05) * step;
+        p.x += p.vx * step;
+        p.y += p.vy * step;
+        // Simple bounce (could enhance with obstacle detection)
+        if (p.bounce && Math.abs(p.vy) > 0.1) {
+          // Simulated floor bounce
+          if (p.y > camera.y + window.innerHeight / 2 - 50) {
+            p.vy *= -p.bounce;
+            p.y = camera.y + window.innerHeight / 2 - 50;
+          }
+        }
+      } else if (p.type === 'debris') {
+        // Rotating debris
+        p.x += p.vx * step;
+        p.y += p.vy * step;
+        if (p.rotation !== undefined) p.rotation += (p.rotSpeed || 0) * step;
+      } else if (p.type === 'wisp') {
+        // Spiraling energy wisps
+        const angle = Math.atan2(p.vy, p.vx);
+        const spiral = (p.spiralSpeed || 0.05) * step;
+        p.vx = Math.cos(angle + spiral) * Math.hypot(p.vx, p.vy);
+        p.vy = Math.sin(angle + spiral) * Math.hypot(p.vx, p.vy);
+        p.x += p.vx * step;
+        p.y += p.vy * step;
+      } else if (p.type === 'smoke') {
+        // Smoke clouds that expand and rise
+        p.x += p.vx * step;
+        p.y += p.vy * step;
+        if (p.growth) p.s *= p.growth;
+      } else if (p.type === 'ring') {
+        // Expanding rings
+        p.r += (p.expandSpeed || 1) * step;
+      } else {
+        // Default particle movement
+        p.x += p.vx * step;
+        p.y += p.vy * step;
+      }
+      
       p.life -= dt;
-      if (p.life <= 0) {
+      if (p.life <= 0 || (p.type === 'ring' && p.r >= p.maxR)) {
         particles.splice(i, 1);
         continue;
       }
-      ctx.globalAlpha = Math.max(0, p.life / 320);
-      ctx.fillStyle = p.c;
-      ctx.fillRect(p.x, p.y, p.s, p.s);
+      
+      // Phase A.4: Enhanced rendering based on type
+      const alpha = Math.max(0, p.life / 320);
+      ctx.globalAlpha = alpha;
+      
+      if (p.type === 'ring') {
+        // Phase A.4: Draw expanding ring
+        ctx.strokeStyle = p.c;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.stroke();
+      } else if (p.type === 'debris' && p.rotation !== undefined) {
+        // Phase A.4: Draw rotating debris
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rotation);
+        ctx.fillStyle = p.c;
+        ctx.fillRect(-p.s / 2, -p.s / 2, p.s, p.s);
+        ctx.restore();
+      } else if (p.type === 'wisp') {
+        // Phase A.4: Draw glowing wisp with trail
+        ctx.shadowColor = p.c;
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = p.c;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.s, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      } else if (p.type === 'smoke') {
+        // Phase A.4: Draw smoke cloud as circle
+        ctx.fillStyle = p.c;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.s, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        // Phase A.4: Standard particle
+        ctx.fillStyle = p.c;
+        ctx.fillRect(p.x - p.s / 2, p.y - p.s / 2, p.s, p.s);
+      }
+      
       ctx.globalAlpha = 1;
     }
   };
@@ -1232,36 +1397,80 @@
       this.speed = speed;
       this.pierce = pierce;
       this.isEnemy = isEnemy;
+      this.rotation = Math.random() * Math.PI * 2; // Phase A.3: Rotating bullets
+      this.rotSpeed = 0.15; // Phase A.3: Rotation speed
     }
     draw(ctx) {
       if (this.isEnemy) {
-        // Enemy bullets: glowing red plasma orbs
+        // Phase A.3: Enhanced enemy bullets with pulsing plasma
+        const pulse = Math.sin(this.life / 50) * 0.2 + 1;
         ctx.shadowColor = '#dc2626';
-        ctx.shadowBlur = 8;
+        ctx.shadowBlur = 12 * pulse;
+        
+        // Outer glow layer
+        ctx.fillStyle = 'rgba(220, 38, 38, 0.4)';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size * 1.6 * pulse, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Main plasma orb
         ctx.fillStyle = '#dc2626';
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.size * 1.2, 0, Math.PI * 2);
         ctx.fill();
         ctx.shadowBlur = 0;
         
-        // Inner core
+        // Inner bright core
         ctx.fillStyle = '#fca5a5';
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.size * 0.6, 0, Math.PI * 2);
         ctx.fill();
-      } else {
-        // Player bullets: bright energy bolts with trail
-        ctx.shadowColor = this.color;
-        ctx.shadowBlur = 6;
-        ctx.fillStyle = this.color;
         
-        // Elongated bullet shape
+        // Energy crackle
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size * 0.3, 0, Math.PI * 2);
+        ctx.stroke();
+      } else {
+        // Phase A.3: Enhanced player bullets with energy trails
+        ctx.shadowColor = this.color;
+        ctx.shadowBlur = 10;
+        
+        // Phase A.3: Draw energy trail
+        const trailLength = 5;
+        for (let i = 0; i < trailLength; i++) {
+          const alpha = (trailLength - i) / trailLength * 0.5;
+          const trailX = this.x - this.vel.x * i * 2;
+          const trailY = this.y - this.vel.y * i * 2;
+          ctx.globalAlpha = alpha;
+          ctx.fillStyle = this.color;
+          ctx.beginPath();
+          ctx.arc(trailX, trailY, this.size * (1 - i * 0.15), 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        
+        // Phase A.3: Rotating bullet with elongated shape
         const angle = Math.atan2(this.vel.y, this.vel.x);
         ctx.save();
         ctx.translate(this.x, this.y);
-        ctx.rotate(angle);
+        ctx.rotate(angle + this.rotation);
         
-        // Draw elongated diamond
+        // Outer glow layer
+        ctx.fillStyle = this.color;
+        ctx.globalAlpha = 0.4;
+        ctx.beginPath();
+        ctx.moveTo(this.size * 2.5, 0);
+        ctx.lineTo(0, -this.size * 1.3);
+        ctx.lineTo(-this.size * 1.2, 0);
+        ctx.lineTo(0, this.size * 1.3);
+        ctx.closePath();
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        
+        // Main bullet body
+        ctx.fillStyle = this.color;
         ctx.beginPath();
         ctx.moveTo(this.size * 2, 0);
         ctx.lineTo(0, -this.size);
@@ -1270,9 +1479,18 @@
         ctx.closePath();
         ctx.fill();
         
-        // Bright core
+        // Bright energy core
         ctx.fillStyle = '#fff';
-        ctx.fillRect(-this.size * 0.5, -this.size * 0.4, this.size, this.size * 0.8);
+        ctx.beginPath();
+        ctx.ellipse(this.size * 0.3, 0, this.size * 0.8, this.size * 0.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Energy ring
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size * 0.6, 0, Math.PI * 2);
+        ctx.stroke();
         
         ctx.restore();
         ctx.shadowBlur = 0;
@@ -1283,6 +1501,7 @@
       this.x += this.vel.x * this.speed * step;
       this.y += this.vel.y * this.speed * step;
       this.life += dt;
+      this.rotation += this.rotSpeed * step; // Phase A.3: Rotate bullets
     }
     expired(maxDistance) {
       if (this.life > this.maxLife) return true;
@@ -1308,22 +1527,37 @@
       this.health = Math.ceil(baseHealth * diff.enemyHealth);
       this.maxHealth = this.health; // Phase 1: Track max health for health bar
       this.animPhase = Math.random() * Math.PI * 2;
+      this.hitFlash = 0; // Phase A.2: Hit flash timer
     }
     draw(ctx) {
       ctx.save();
       ctx.translate(this.x, this.y);
       ctx.rotate(this.rot);
       
+      // Phase A.2: Enhanced animation and visual states
       const pulse = Math.sin(performance.now() / 180 + this.animPhase) * 0.15 + 1;
+      const healthPct = this.health / this.maxHealth;
+      const damaged = healthPct < 0.5;
+      const criticalHealth = healthPct < 0.25;
       
-      // Enemy indicator - subtle glow effect
+      // Phase A.2: Hit flash effect overlay
+      if (this.hitFlash > 0) {
+        ctx.globalAlpha = this.hitFlash / 150;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(-this.size * 1.5, -this.size * 1.5, this.size * 3, this.size * 3);
+        ctx.globalAlpha = 1;
+      }
+      
+      // Phase A.2: Aggro indicator - intensified glow
+      const aggroIntensity = 12 + Math.sin(performance.now() / 200) * 6;
       ctx.shadowColor = '#dc2626';
-      ctx.shadowBlur = 12;
+      ctx.shadowBlur = aggroIntensity;
       
       if (this.kind === 'drone') {
-        // Basic red triangle drone
-        ctx.fillStyle = '#ef4444';
-        ctx.strokeStyle = '#fecaca';
+        // Phase A.2: Enhanced drone with multi-layer rendering
+        // Base layer - darker hull
+        ctx.fillStyle = damaged ? '#991b1b' : '#b91c1c';
+        ctx.strokeStyle = damaged ? '#dc2626' : '#ef4444';
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(this.size, 0);
@@ -1334,52 +1568,83 @@
         ctx.fill();
         ctx.stroke();
         
+        // Phase A.2: Glowing energy core
+        ctx.shadowColor = '#ef4444';
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = criticalHealth ? '#fca5a5' : '#fecaca';
+        ctx.beginPath();
+        ctx.arc(-this.size * 0.1, 0, this.size * 0.3 * pulse, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Phase A.2: Animated wing thrusters
+        ctx.shadowBlur = 6;
+        const thrusterGlow = Math.sin(performance.now() / 100) * 0.3 + 0.7;
+        ctx.fillStyle = `rgba(251, 113, 133, ${thrusterGlow})`;
+        ctx.beginPath();
+        ctx.arc(-this.size * 0.4, -this.size * 0.4, this.size * 0.15, 0, Math.PI * 2);
+        ctx.arc(-this.size * 0.4, this.size * 0.4, this.size * 0.15, 0, Math.PI * 2);
+        ctx.fill();
+        
       } else if (this.kind === 'chaser') {
-        // Alien organic creature - purple/magenta insectoid
-        ctx.fillStyle = '#a21caf';
-        ctx.strokeStyle = '#e879f9';
+        // Phase A.2: Enhanced alien organic creature with animated parts
+        // Base body layer - darker when damaged
+        ctx.fillStyle = damaged ? '#701a75' : '#a21caf';
+        ctx.strokeStyle = damaged ? '#c026d3' : '#e879f9';
         ctx.lineWidth = 2;
         
-        // Main body - organic oval
+        // Phase A.2: Animated body segments
+        const bodyPulse = Math.sin(performance.now() / 200 + this.animPhase) * 0.1 + 1;
         ctx.beginPath();
-        ctx.ellipse(0, 0, this.size * 1.2 * pulse, this.size * 0.8 * pulse, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 0, this.size * 1.2 * bodyPulse, this.size * 0.8 * pulse, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
         
-        // Mandibles/claws
+        // Phase A.2: Armor plates overlay
+        if (!criticalHealth) {
+          ctx.strokeStyle = '#f0abfc';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.ellipse(0, 0, this.size * 0.9, this.size * 0.6, 0, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        
+        // Phase A.2: Animated mandibles/claws with wave motion
         ctx.strokeStyle = '#d946ef';
         ctx.lineWidth = 3;
+        const clawWave = Math.sin(performance.now() / 150) * 0.2;
         ctx.beginPath();
         ctx.moveTo(this.size * 0.8, -this.size * 0.5);
-        ctx.lineTo(this.size * 1.4, -this.size * 0.8);
+        ctx.lineTo(this.size * (1.4 + clawWave), -this.size * (0.8 + clawWave));
         ctx.moveTo(this.size * 0.8, this.size * 0.5);
-        ctx.lineTo(this.size * 1.4, this.size * 0.8);
+        ctx.lineTo(this.size * (1.4 + clawWave), this.size * (0.8 + clawWave));
         ctx.stroke();
         
-        // Eyes - glowing red for enemy indicator
-        ctx.shadowColor = '#ef4444';
-        ctx.shadowBlur = 8;
-        ctx.fillStyle = '#ef4444';
+        // Phase A.2: Pulsing weak point eyes (glowing targets)
+        ctx.shadowColor = criticalHealth ? '#fca5a5' : '#ef4444';
+        ctx.shadowBlur = 8 + Math.sin(performance.now() / 150) * 4;
+        ctx.fillStyle = criticalHealth ? '#fca5a5' : '#ef4444';
         ctx.beginPath();
-        ctx.arc(this.size * 0.3, -this.size * 0.3, this.size * 0.2, 0, Math.PI * 2);
-        ctx.arc(this.size * 0.3, this.size * 0.3, this.size * 0.2, 0, Math.PI * 2);
+        ctx.arc(this.size * 0.3, -this.size * 0.3, this.size * 0.2 * pulse, 0, Math.PI * 2);
+        ctx.arc(this.size * 0.3, this.size * 0.3, this.size * 0.2 * pulse, 0, Math.PI * 2);
         ctx.fill();
         
-        // Pupils
+        // Phase A.2: Animated pupils tracking
         ctx.shadowBlur = 0;
         ctx.fillStyle = '#dc2626';
+        const pupilOffset = Math.sin(performance.now() / 300) * 0.05;
         ctx.beginPath();
-        ctx.arc(this.size * 0.35, -this.size * 0.3, this.size * 0.1, 0, Math.PI * 2);
-        ctx.arc(this.size * 0.35, this.size * 0.3, this.size * 0.1, 0, Math.PI * 2);
+        ctx.arc(this.size * (0.35 + pupilOffset), -this.size * 0.3, this.size * 0.1, 0, Math.PI * 2);
+        ctx.arc(this.size * (0.35 + pupilOffset), this.size * 0.3, this.size * 0.1, 0, Math.PI * 2);
         ctx.fill();
         
       } else if (this.kind === 'heavy') {
-        // Heavy tank - green crystalline structure with red core
-        ctx.fillStyle = '#15803d';
-        ctx.strokeStyle = '#86efac';
+        // Phase A.2: Enhanced heavy tank with rotating core and damage
+        // Outer armor layer - shows cracks when damaged
+        ctx.fillStyle = damaged ? '#14532d' : '#15803d';
+        ctx.strokeStyle = damaged ? '#22c55e' : '#86efac';
         ctx.lineWidth = 3;
         
-        // Central crystal body
+        // Phase A.2: Central crystal body with facets
         ctx.beginPath();
         ctx.moveTo(this.size * 1.2, 0);
         ctx.lineTo(this.size * 0.4, -this.size);
@@ -1391,31 +1656,57 @@
         ctx.fill();
         ctx.stroke();
         
-        // Inner crystal facets
+        // Phase A.2: Damage visualization - cracks
+        if (damaged) {
+          ctx.strokeStyle = '#052e16';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(this.size * 0.6, -this.size * 0.4);
+          ctx.lineTo(this.size * 0.2, this.size * 0.3);
+          ctx.moveTo(-this.size * 0.5, -this.size * 0.3);
+          ctx.lineTo(-this.size * 0.7, this.size * 0.2);
+          ctx.stroke();
+        }
+        
+        // Phase A.2: Rotating inner crystal facets
+        const rotation = performance.now() / 1000;
         ctx.strokeStyle = '#4ade80';
         ctx.lineWidth = 2;
+        ctx.save();
+        ctx.rotate(rotation);
         ctx.beginPath();
         ctx.moveTo(this.size * 0.4, -this.size * 0.6);
         ctx.lineTo(-this.size * 0.4, -this.size * 0.4);
         ctx.lineTo(-this.size * 0.4, this.size * 0.4);
         ctx.lineTo(this.size * 0.4, this.size * 0.6);
         ctx.stroke();
+        ctx.restore();
         
-        // Glowing red core for enemy indicator
-        ctx.fillStyle = '#ef4444';
+        // Phase A.2: Pulsing energy core (weak point)
+        const coreGlow = 12 + Math.sin(performance.now() / 120) * 6;
+        ctx.fillStyle = criticalHealth ? '#fca5a5' : '#ef4444';
         ctx.shadowColor = '#dc2626';
-        ctx.shadowBlur = 12;
+        ctx.shadowBlur = coreGlow;
         ctx.beginPath();
         ctx.arc(0, 0, this.size * 0.35 * pulse, 0, Math.PI * 2);
         ctx.fill();
         
+        // Phase A.2: Inner core ring
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = '#fef08a';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size * 0.2, 0, Math.PI * 2);
+        ctx.stroke();
+        
       } else {
-        // Swarmer - orange/yellow bio-energy blob
-        ctx.fillStyle = '#ea580c';
-        ctx.strokeStyle = '#fb923c';
+        // Phase A.2: Enhanced swarmer with layered bio-energy
+        // Outer membrane layer
+        ctx.fillStyle = damaged ? '#9a3412' : '#ea580c';
+        ctx.strokeStyle = damaged ? '#fb923c' : '#fdba74';
         ctx.lineWidth = 2;
         
-        // Amoeba-like body
+        // Phase A.2: Animated amoeba-like body with complex wobble
         ctx.beginPath();
         for (let i = 0; i < 8; i++) {
           const angle = (i / 8) * Math.PI * 2;
@@ -1430,25 +1721,45 @@
         ctx.fill();
         ctx.stroke();
         
-        // Red nucleus spots for enemy indicator
-        ctx.fillStyle = '#ef4444';
-        ctx.shadowColor = '#dc2626';
-        ctx.shadowBlur = 8;
+        // Phase A.2: Inner energy layer
+        ctx.fillStyle = 'rgba(251, 146, 60, 0.5)';
         ctx.beginPath();
-        ctx.arc(-this.size * 0.2, -this.size * 0.15, this.size * 0.2, 0, Math.PI * 2);
-        ctx.arc(this.size * 0.1, this.size * 0.2, this.size * 0.15, 0, Math.PI * 2);
+        for (let i = 0; i < 6; i++) {
+          const angle = (i / 6) * Math.PI * 2 + performance.now() / 500;
+          const wobble = Math.sin(performance.now() / 150 + i) * 0.15 + 0.85;
+          const r = this.size * 0.6 * wobble;
+          const x = Math.cos(angle) * r;
+          const y = Math.sin(angle) * r;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
         ctx.fill();
         
-        // Pulsing tendrils
+        // Phase A.2: Pulsing nucleus spots (weak points)
+        ctx.fillStyle = criticalHealth ? '#fca5a5' : '#ef4444';
+        ctx.shadowColor = '#dc2626';
+        ctx.shadowBlur = 8 + Math.sin(performance.now() / 100) * 4;
+        ctx.beginPath();
+        ctx.arc(-this.size * 0.2, -this.size * 0.15, this.size * 0.2 * pulse, 0, Math.PI * 2);
+        ctx.arc(this.size * 0.1, this.size * 0.2, this.size * 0.15 * pulse, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Phase A.2: Animated waving tendrils
         ctx.shadowBlur = 0;
         ctx.strokeStyle = '#fdba74';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2.5;
         for (let i = 0; i < 4; i++) {
-          const a = (i * Math.PI) / 2 + this.rot;
-          const extend = Math.sin(performance.now() / 150 + i) * 0.3 + 0.7;
+          const a = (i * Math.PI) / 2;
+          const wave = Math.sin(performance.now() / 150 + i) * 0.3 + 0.7;
+          const bend = Math.sin(performance.now() / 100 + i) * 0.15;
           ctx.beginPath();
           ctx.moveTo(Math.cos(a) * this.size * 0.6, Math.sin(a) * this.size * 0.6);
-          ctx.lineTo(Math.cos(a) * this.size * (1 + extend), Math.sin(a) * this.size * (1 + extend));
+          const midX = Math.cos(a + bend) * this.size * (0.8 + wave * 0.5);
+          const midY = Math.sin(a + bend) * this.size * (0.8 + wave * 0.5);
+          const endX = Math.cos(a) * this.size * (1 + wave);
+          const endY = Math.sin(a) * this.size * (1 + wave);
+          ctx.quadraticCurveTo(midX, midY, endX, endY);
           ctx.stroke();
         }
       }
@@ -1456,6 +1767,9 @@
       ctx.restore();
     }
     update(dt) {
+      // Phase A.2: Update hit flash timer
+      if (this.hitFlash > 0) this.hitFlash -= dt;
+      
       const dx = player.x - this.x;
       const dy = player.y - this.y;
       const dist = Math.hypot(dx, dy) || 1;
@@ -2282,6 +2596,29 @@
     
     dropCoin(enemy.x, enemy.y);
     if (chance(0.22)) dropSupply(enemy.x, enemy.y);
+    
+    // Phase A.4: Enhanced death effects based on enemy type
+    const deathColor = enemy.kind === 'drone' ? '#ef4444' : 
+                       enemy.kind === 'chaser' ? '#e879f9' :
+                       enemy.kind === 'heavy' ? '#4ade80' : '#fb923c';
+    
+    // Phase A.4: Shockwave ring
+    addParticles('ring', enemy.x, enemy.y, 0, 1, deathColor);
+    
+    // Phase A.4: Type-specific particles
+    if (enemy.kind === 'heavy') {
+      addParticles('debris', enemy.x, enemy.y, 0, 20);
+      addParticles('smoke', enemy.x, enemy.y, 0, 8);
+      addParticles('ring', enemy.x, enemy.y, 0, 2, '#15803d');
+      shakeScreen(6, 180);
+    } else if (enemy.kind === 'swarmer') {
+      addParticles('sparks', enemy.x, enemy.y, 0, 15);
+      addParticles('pop', enemy.x, enemy.y, 0, 10);
+    } else {
+      addParticles('sparks', enemy.x, enemy.y, 0, 12);
+      addParticles('debris', enemy.x, enemy.y, 0, 8);
+    }
+    
     enemies.splice(index, 1);
     enemiesKilled++;
     const scoreGain = 15 + (comboCount > 1 ? comboCount * 2 : 0);
@@ -2291,7 +2628,6 @@
     spawnDamageNumber(enemy.x, enemy.y - enemy.size, `+${scoreGain}`, false);
     
     addXP(30 + level * 4 + xpBonus);
-    addParticles('pop', enemy.x, enemy.y, 0, 14);
     shakeScreen(3.4, 110);
     if (player) player.addUltimateCharge(15 + level * 2);
     
@@ -2317,6 +2653,9 @@
       
       // Phase 1: Show damage number
       spawnDamageNumber(enemy.x, enemy.y, dealt, false);
+      
+      // Phase A.2: Hit flash on damage
+      enemy.hitFlash = 150;
       
       if (pull) {
         enemy.x -= (dx / (dist || 1)) * pull * 12;
@@ -2357,6 +2696,9 @@
       
       // Phase 1: Show damage number
       spawnDamageNumber(enemy.x, enemy.y, dealt, false);
+      
+      // Phase A.2: Hit flash on damage
+      enemy.hitFlash = 150;
       
       addParticles('sparks', enemy.x, enemy.y, 0, 16);
       if (enemy.health <= 0) handleEnemyDeath(i, dealt * 0.5);
@@ -2765,6 +3107,9 @@
           
           // Phase 1: Show damage number
           spawnDamageNumber(enemy.x, enemy.y, bullet.damage, false);
+          
+          // Phase A.2: Hit flash on damage
+          enemy.hitFlash = 150;
           
           addParticles('sparks', bullet.x, bullet.y, 0, 6);
           if (player) player.addUltimateCharge(bullet.damage * 0.35);
