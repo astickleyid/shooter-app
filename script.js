@@ -418,6 +418,22 @@
   const MAX_LOG_ENTRIES = 5;
   const LOG_ENTRY_LIFETIME = 4000; // ms
 
+  // Phase 1: Combo & Kill Streak System
+  let comboCount = 0;
+  let comboTimer = 0;
+  const COMBO_TIMEOUT = 2500; // ms - time between kills to maintain combo
+  let totalKillsThisRun = 0;
+  let lastKillStreakNotification = 0;
+  const KILL_STREAK_MILESTONES = [5, 10, 25, 50, 100, 200];
+
+  // Phase 1: Floating Damage Numbers
+  const damageNumbers = [];
+  
+  // Phase 1: Level Up Animation
+  let levelUpAnimationActive = false;
+  let levelUpAnimationStart = 0;
+  const LEVEL_UP_DURATION = 2000; // ms
+
   const addLogEntry = (message, color = '#fff') => {
     actionLog.push({
       message,
@@ -858,6 +874,15 @@
     pilotXP = Save.data.pilotXp;
     tookDamageThisLevel = false;
     gameOverHandled = false;
+    
+    // Phase 1: Reset combo and kill streak
+    comboCount = 0;
+    comboTimer = 0;
+    totalKillsThisRun = 0;
+    lastKillStreakNotification = 0;
+    damageNumbers.length = 0;
+    levelUpAnimationActive = false;
+    
     Object.keys(input).forEach((k) => {
       if (typeof input[k] === 'boolean') input[k] = false;
       else input[k] = 0;
@@ -868,6 +893,13 @@
 
   const addXP = (amount) => {
     if (!amount || amount <= 0) return false;
+    
+    // Phase 1: Apply combo bonus
+    if (comboCount > 1) {
+      const comboBonus = 1 + (comboCount * 0.1);
+      amount = Math.floor(amount * comboBonus);
+    }
+    
     pilotXP += amount;
     let leveled = false;
     let needed = XP_PER_LEVEL(pilotLevel);
@@ -876,6 +908,12 @@
       pilotLevel += 1;
       leveled = true;
       needed = XP_PER_LEVEL(pilotLevel);
+      
+      // Phase 1: Trigger level-up celebration
+      levelUpAnimationActive = true;
+      levelUpAnimationStart = performance.now();
+      addLogEntry(`🎉 Level Up! Pilot Level ${pilotLevel}`, '#4ade80');
+      shakeScreen(8, 300);
     }
     Save.data.pilotLevel = pilotLevel;
     Save.data.pilotXp = pilotXP;
@@ -903,6 +941,58 @@
   const shakeScreen = (power = 4, duration = 120) => {
     shakeUntil = Math.max(shakeUntil, performance.now() + duration);
     shakePower = power;
+  };
+
+  // Phase 1: Spawn floating damage number
+  const spawnDamageNumber = (x, y, damage, isCrit = false) => {
+    const text = isCrit ? `${Math.round(damage)}!` : Math.round(damage);
+    const size = isCrit ? 24 : 18;
+    const color = isCrit ? 'rgb(234, 88, 12)' : 'rgb(251, 191, 36)';
+    damageNumbers.push({
+      x: x + rand(-10, 10),
+      y: y - 20,
+      text: String(text),
+      size,
+      color,
+      time: performance.now(),
+      lifetime: 1000
+    });
+  };
+
+  // Phase 1: Add kill to combo system
+  const addComboKill = () => {
+    const now = performance.now();
+    comboCount++;
+    comboTimer = now + COMBO_TIMEOUT;
+    totalKillsThisRun++;
+    
+    // Check for kill streak milestones
+    for (const milestone of KILL_STREAK_MILESTONES) {
+      if (totalKillsThisRun === milestone && lastKillStreakNotification < milestone) {
+        lastKillStreakNotification = milestone;
+        const messages = {
+          5: 'Kill Streak!',
+          10: 'Rampage!',
+          25: 'Dominating!',
+          50: 'UNSTOPPABLE!',
+          100: 'LEGENDARY!',
+          200: 'GODLIKE!'
+        };
+        addLogEntry(`🔥 ${messages[milestone]} (${milestone} kills)`, '#f97316');
+        shakeScreen(6, 200);
+        addParticles('levelup', player.x, player.y, 0, 30);
+      }
+    }
+  };
+
+  // Phase 1: Reset combo on timeout
+  const updateComboSystem = () => {
+    if (comboCount > 0 && performance.now() > comboTimer) {
+      if (comboCount >= 5) {
+        addLogEntry(`Combo ended: ${comboCount}x`, '#94a3b8');
+      }
+      comboCount = 0;
+    }
   };
 
   /* ====== PARTICLES ====== */
@@ -1216,6 +1306,7 @@
       this.speed = BASE.ENEMY_SPEED * (speedMap[kind] || 1.05) * diff.enemySpeed;
       const baseHealth = kind === 'heavy' ? 3 : 1;
       this.health = Math.ceil(baseHealth * diff.enemyHealth);
+      this.maxHealth = this.health; // Phase 1: Track max health for health bar
       this.animPhase = Math.random() * Math.PI * 2;
     }
     draw(ctx) {
@@ -1876,6 +1967,16 @@
       this.flash = true;
       this.invEnd = now + BASE.INVULN_MS;
       shakeScreen(4, 120);
+      
+      // Phase 1: Show damage taken
+      spawnDamageNumber(this.x, this.y - this.size, amount, true);
+      
+      // Phase 1: Reset combo on taking damage
+      if (comboCount >= 3) {
+        addLogEntry(`Combo broken! (${comboCount}x)`, '#ef4444');
+        comboCount = 0;
+      }
+      
       if (this.health <= 0) {
         this.health = 0;
         gameRunning = false;
@@ -1980,11 +2081,20 @@
   const handleEnemyDeath = (index, xpBonus = 0) => {
     const enemy = enemies[index];
     if (!enemy) return;
+    
+    // Phase 1: Add to combo system
+    addComboKill();
+    
     dropCoin(enemy.x, enemy.y);
     if (chance(0.22)) dropSupply(enemy.x, enemy.y);
     enemies.splice(index, 1);
     enemiesKilled++;
-    score += 15;
+    const scoreGain = 15 + (comboCount > 1 ? comboCount * 2 : 0);
+    score += scoreGain;
+    
+    // Phase 1: Show score as damage number
+    spawnDamageNumber(enemy.x, enemy.y - enemy.size, `+${scoreGain}`, false);
+    
     addXP(30 + level * 4 + xpBonus);
     addParticles('pop', enemy.x, enemy.y, 0, 14);
     shakeScreen(3.4, 110);
@@ -2009,6 +2119,10 @@
       enemy.health -= damage;
       const dealt = Math.min(prev, damage);
       total += dealt;
+      
+      // Phase 1: Show damage number
+      spawnDamageNumber(enemy.x, enemy.y, dealt, false);
+      
       if (pull) {
         enemy.x -= (dx / (dist || 1)) * pull * 12;
         enemy.y -= (dy / (dist || 1)) * pull * 12;
@@ -2045,6 +2159,10 @@
       enemy.health -= damage;
       const dealt = Math.min(prev, damage);
       total += dealt;
+      
+      // Phase 1: Show damage number
+      spawnDamageNumber(enemy.x, enemy.y, dealt, false);
+      
       addParticles('sparks', enemy.x, enemy.y, 0, 16);
       if (enemy.health <= 0) handleEnemyDeath(i, dealt * 0.5);
     }
@@ -2413,6 +2531,7 @@
     if (!player) return;
     player.update(dt);
     consumeTimedEffects(now);
+    updateComboSystem(); // Phase 1: Update combo timer
     const targetX = player.x - window.innerWidth / 2;
     const targetY = player.y - window.innerHeight / 2;
     camera.x += (targetX - camera.x) * 0.12;
@@ -2448,6 +2567,10 @@
         const dy = bullet.y - enemy.y;
         if (Math.hypot(dx, dy) < bullet.size + enemy.size) {
           enemy.health -= bullet.damage;
+          
+          // Phase 1: Show damage number
+          spawnDamageNumber(enemy.x, enemy.y, bullet.damage, false);
+          
           addParticles('sparks', bullet.x, bullet.y, 0, 6);
           if (player) player.addUltimateCharge(bullet.damage * 0.35);
           if (enemy.health <= 0) handleEnemyDeath(j);
@@ -2608,6 +2731,54 @@
     for (const supply of supplies) supply.draw(ctx);
     for (const bullet of bullets) bullet.draw(ctx);
     for (const enemy of enemies) enemy.draw(ctx);
+    
+    // Phase 1: Draw enemy health bars
+    for (const enemy of enemies) {
+      if (enemy.health < enemy.maxHealth) {
+        const barWidth = enemy.size * 2.5;
+        const barHeight = 4;
+        const barX = enemy.x - barWidth / 2;
+        const barY = enemy.y - enemy.size - 12;
+        
+        // Background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillRect(barX, barY, barWidth, barHeight);
+        
+        // Health fill
+        const healthPct = enemy.health / enemy.maxHealth;
+        const fillColor = healthPct > 0.6 ? '#4ade80' : healthPct > 0.3 ? '#fbbf24' : '#ef4444';
+        ctx.fillStyle = fillColor;
+        ctx.fillRect(barX, barY, barWidth * healthPct, barHeight);
+        
+        // Border
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(barX, barY, barWidth, barHeight);
+      }
+    }
+    
+    // Phase 1: Draw floating damage numbers
+    for (let i = damageNumbers.length - 1; i >= 0; i--) {
+      const dmg = damageNumbers[i];
+      const age = performance.now() - dmg.time;
+      if (age > dmg.lifetime) {
+        damageNumbers.splice(i, 1);
+        continue;
+      }
+      
+      const alpha = 1 - (age / dmg.lifetime);
+      const yOffset = age * 0.05;
+      ctx.save();
+      ctx.font = `bold ${dmg.size}px Arial`;
+      ctx.fillStyle = dmg.color.replace(')', `, ${alpha})`).replace('rgb', 'rgba');
+      ctx.strokeStyle = `rgba(0, 0, 0, ${alpha * 0.8})`;
+      ctx.lineWidth = 3;
+      ctx.textAlign = 'center';
+      ctx.strokeText(dmg.text, dmg.x, dmg.y - yOffset);
+      ctx.fillText(dmg.text, dmg.x, dmg.y - yOffset);
+      ctx.restore();
+    }
+    
     drawParticles(ctx, 16.67);
     player.draw(ctx);
     ctx.restore();
@@ -2623,6 +2794,81 @@
       ctx.strokeText(`${fps} FPS`, canvas.width - 10, 30);
       ctx.fillText(`${fps} FPS`, canvas.width - 10, 30);
       ctx.restore();
+    }
+    
+    // Phase 1: Draw combo counter
+    const now = performance.now();
+    if (comboCount > 1 && now < comboTimer) {
+      ctx.save();
+      const comboAge = now - (comboTimer - COMBO_TIMEOUT);
+      const scale = Math.min(1, comboAge / 150);
+      const pulse = Math.sin(now / 100) * 0.1 + 1;
+      
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      const x = canvas.width / 2;
+      const y = 80;
+      
+      // Shadow
+      ctx.shadowColor = '#000';
+      ctx.shadowBlur = 10;
+      
+      // Combo text
+      ctx.font = `bold ${Math.floor(32 * scale * pulse)}px Arial`;
+      const comboColor = comboCount >= 20 ? '#a855f7' : comboCount >= 10 ? '#f97316' : comboCount >= 5 ? '#fbbf24' : '#4ade80';
+      ctx.fillStyle = comboColor;
+      ctx.fillText(`${comboCount}x COMBO`, x, y);
+      
+      // Multiplier info
+      ctx.font = '16px Arial';
+      ctx.fillStyle = '#fff';
+      ctx.fillText(`+${Math.floor(comboCount * 10)}% XP`, x, y + 40);
+      
+      ctx.restore();
+    }
+    
+    // Phase 1: Draw level-up celebration
+    if (levelUpAnimationActive) {
+      const elapsed = now - levelUpAnimationStart;
+      if (elapsed > LEVEL_UP_DURATION) {
+        levelUpAnimationActive = false;
+      } else {
+        ctx.save();
+        const progress = elapsed / LEVEL_UP_DURATION;
+        const alpha = progress < 0.3 ? progress / 0.3 : 1 - ((progress - 0.3) / 0.7);
+        
+        // Full screen flash
+        ctx.fillStyle = `rgba(74, 222, 128, ${alpha * 0.15})`;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Center text
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        
+        const scale = progress < 0.2 ? progress / 0.2 : 1;
+        const yOffset = progress < 0.5 ? 0 : (progress - 0.5) * 100;
+        
+        ctx.font = `bold ${Math.floor(64 * scale)}px Arial`;
+        ctx.fillStyle = `rgba(74, 222, 128, ${alpha})`;
+        ctx.shadowColor = '#4ade80';
+        ctx.shadowBlur = 30;
+        ctx.fillText('LEVEL UP!', centerX, centerY - 50 - yOffset);
+        
+        ctx.font = `bold ${Math.floor(48 * scale)}px Arial`;
+        ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+        ctx.shadowBlur = 20;
+        ctx.fillText(`PILOT LEVEL ${pilotLevel}`, centerX, centerY + 20 - yOffset);
+        
+        ctx.shadowBlur = 0;
+        ctx.restore();
+        
+        // Particle burst
+        if (elapsed < 300 && Math.random() < 0.3) {
+          addParticles('levelup', player.x, player.y, Math.random() * Math.PI * 2, 3);
+        }
+      }
     }
     
     // Draw countdown
