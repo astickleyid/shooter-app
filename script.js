@@ -1737,20 +1737,101 @@
       ctx.save();
       ctx.translate(this.x, this.y);
       ctx.rotate(this.lookAngle);
+      
+      const now = performance.now();
+      const healthPct = this.health / this.hpMax;
+      const isBoosting = input.isBoosting;
+      const isLowHealth = healthPct < 0.3;
+      
+      // Phase A: Enhanced engine trails
       const thrusterDist = this.size * (this.engineOffset || 1.1);
-      if (chance(0.3)) addParticles('thruster', this.x - Math.cos(this.lookAngle) * thrusterDist, this.y - Math.sin(this.lookAngle) * thrusterDist, 0, 1, this.thrusterColor);
-      drawShip(ctx, currentShip?.id || Save.data.selectedShip, this.size);
-      const glow = Math.max(0, (this.invEnd - performance.now()) / BASE.INVULN_MS);
-      if (glow > 0 || this.flash) {
-        ctx.globalAlpha = glow > 0 ? 0.8 : 0.35;
-        ctx.strokeStyle = glow > 0 ? '#93c5fd' : '#e5e7eb';
-        ctx.lineWidth = glow > 0 ? 4 : 2;
+      if (isBoosting) {
+        // Boost afterburner - multiple particles
+        if (Math.random() < 0.8) {
+          addParticles('thruster', this.x - Math.cos(this.lookAngle) * thrusterDist, this.y - Math.sin(this.lookAngle) * thrusterDist, 0, 3, this.thrusterColor);
+        }
+        // Boost glow effect
+        ctx.save();
+        ctx.globalAlpha = 0.4 + Math.sin(now / 50) * 0.2;
+        ctx.shadowColor = this.thrusterColor;
+        ctx.shadowBlur = 30;
+        ctx.fillStyle = this.thrusterColor;
         ctx.beginPath();
-        ctx.arc(0, 0, this.size * 1.2, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.globalAlpha = 1;
-        this.flash = false;
+        ctx.arc(-this.size * 1.1, 0, this.size * 0.8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      } else if (chance(0.3)) {
+        addParticles('thruster', this.x - Math.cos(this.lookAngle) * thrusterDist, this.y - Math.sin(this.lookAngle) * thrusterDist, 0, 1, this.thrusterColor);
       }
+      
+      // Phase A: Draw ship with enhancements
+      drawShip(ctx, currentShip?.id || Save.data.selectedShip, this.size, {
+        healthPct,
+        isBoosting,
+        isDefenseActive: this.isDefenseActive(now),
+        time: now
+      });
+      
+      // Phase A: Shield bubble effect
+      const glow = Math.max(0, (this.invEnd - now) / BASE.INVULN_MS);
+      if (glow > 0 || this.flash || this.isDefenseActive(now)) {
+        ctx.save();
+        
+        if (this.isDefenseActive(now)) {
+          // Hexagonal shield pattern
+          ctx.globalAlpha = 0.5 + Math.sin(now / 100) * 0.2;
+          ctx.strokeStyle = this.defenseStats?.color || '#a855f7';
+          ctx.lineWidth = 3;
+          const hexRadius = this.size * 1.4;
+          ctx.beginPath();
+          for (let i = 0; i < 6; i++) {
+            const angle = (i / 6) * Math.PI * 2;
+            const x = Math.cos(angle) * hexRadius;
+            const y = Math.sin(angle) * hexRadius;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          }
+          ctx.closePath();
+          ctx.stroke();
+          
+          // Inner hexagon glow
+          ctx.globalAlpha = 0.3;
+          ctx.shadowColor = this.defenseStats?.color || '#a855f7';
+          ctx.shadowBlur = 15;
+          ctx.stroke();
+        } else {
+          // Invulnerability glow
+          ctx.globalAlpha = glow > 0 ? 0.8 : 0.35;
+          ctx.strokeStyle = glow > 0 ? '#93c5fd' : '#e5e7eb';
+          ctx.lineWidth = glow > 0 ? 4 : 2;
+          ctx.shadowColor = glow > 0 ? '#60a5fa' : '#94a3b8';
+          ctx.shadowBlur = 12;
+          ctx.beginPath();
+          ctx.arc(0, 0, this.size * 1.2, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        
+        ctx.globalAlpha = 1;
+        ctx.shadowBlur = 0;
+        this.flash = false;
+        ctx.restore();
+      }
+      
+      // Phase A: Low health warning
+      if (isLowHealth) {
+        ctx.save();
+        const pulse = Math.sin(now / 150) * 0.5 + 0.5;
+        ctx.globalAlpha = 0.3 * pulse;
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 3;
+        ctx.shadowColor = '#dc2626';
+        ctx.shadowBlur = 20;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size * 1.3, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+      
       ctx.restore();
     }
 
@@ -1984,17 +2065,69 @@
     }
   }
 
-  const drawShip = (ctx, shipId, size) => {
+  const drawShip = (ctx, shipId, size, state = {}) => {
     const template = getShipTemplate(shipId) || SHIP_TEMPLATES[0];
     const colors = template.colors || {};
     const primary = colors.primary || '#0ea5e9';
     const trim = colors.trim || '#ffffff';
     const accent = colors.accent || trim;
     const canopy = colors.canopy || '#7dd3fc';
+    const thruster = colors.thruster || '#f97316';
     const shape = template.shape || 'spear';
+    const now = state.time || performance.now();
+    const healthPct = state.healthPct || 1;
+    const isBoosting = state.isBoosting || false;
+    const isDefenseActive = state.isDefenseActive || false;
+    
+    // Phase A: Damage visualization
+    const damageLevel = 1 - healthPct;
+    const isDamaged = healthPct < 0.7;
+    
+    // Phase A: Base glow layer
+    if (isBoosting || isDefenseActive) {
+      ctx.save();
+      ctx.globalAlpha = 0.3;
+      ctx.shadowColor = isBoosting ? thruster : (colors.primary || '#0ea5e9');
+      ctx.shadowBlur = 25;
+      ctx.fillStyle = isBoosting ? thruster : (colors.primary || '#0ea5e9');
+      ctx.beginPath();
+      if (shape === 'needle') {
+        ctx.moveTo(size * 1.28, 0);
+        ctx.lineTo(-size * 0.45, -size * 0.42);
+        ctx.lineTo(-size * 0.95, -size * 0.08);
+        ctx.lineTo(-size * 0.95, size * 0.08);
+        ctx.lineTo(-size * 0.45, size * 0.42);
+      } else if (shape === 'bastion') {
+        ctx.moveTo(size * 1.05, 0);
+        ctx.lineTo(size * 0.42, -size * 1.05);
+        ctx.lineTo(-size * 0.58, -size * 0.9);
+        ctx.lineTo(-size * 1.05, -size * 0.28);
+        ctx.lineTo(-size * 1.05, size * 0.28);
+        ctx.lineTo(-size * 0.58, size * 0.9);
+      } else if (shape === 'razor') {
+        ctx.moveTo(size * 1.25, 0);
+        ctx.lineTo(size * 0.42, -size * 0.72);
+        ctx.lineTo(-size * 0.82, -size * 0.38);
+        ctx.lineTo(-size * 0.28, 0);
+        ctx.lineTo(-size * 0.82, size * 0.38);
+        ctx.lineTo(size * 0.42, size * 0.72);
+      } else {
+        ctx.moveTo(size * 1.15, 0);
+        ctx.lineTo(-size * 0.94, -size * 0.82);
+        ctx.lineTo(-size * 0.22, 0);
+        ctx.lineTo(-size * 0.94, size * 0.82);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+    
+    // Phase A: Main hull with enhanced border
     ctx.fillStyle = primary;
     ctx.strokeStyle = trim;
     ctx.lineWidth = Math.max(2, size * 0.14);
+    ctx.shadowColor = primary;
+    ctx.shadowBlur = 10;
     ctx.beginPath();
     if (shape === 'needle') {
       ctx.moveTo(size * 1.28, 0);
@@ -2025,8 +2158,34 @@
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
+    ctx.shadowBlur = 0;
+    
+    // Phase A: Damage visualization - cracks and burn marks
+    if (isDamaged) {
+      ctx.save();
+      ctx.strokeStyle = '#7f1d1d';
+      ctx.lineWidth = size * 0.08;
+      ctx.globalAlpha = damageLevel * 0.7;
+      ctx.beginPath();
+      // Random damage patterns based on shape
+      if (damageLevel > 0.3) {
+        ctx.moveTo(-size * 0.4, -size * 0.3);
+        ctx.lineTo(-size * 0.2, -size * 0.5);
+        ctx.moveTo(size * 0.3, size * 0.2);
+        ctx.lineTo(size * 0.5, size * 0.4);
+      }
+      if (damageLevel > 0.6) {
+        ctx.moveTo(-size * 0.6, size * 0.2);
+        ctx.lineTo(-size * 0.3, size * 0.4);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
 
+    // Phase A: Accent lines with glow
     ctx.strokeStyle = accent;
+    ctx.shadowColor = accent;
+    ctx.shadowBlur = 8;
     if (shape === 'needle') {
       ctx.lineWidth = size * 0.12;
       ctx.beginPath();
@@ -2061,18 +2220,54 @@
       ctx.stroke();
     }
 
+    // Phase A: Enhanced canopy with pulsing cockpit lights
     const canopyX = shape === 'bastion' ? size * 0.15 : size * 0.3;
     const canopyW = size * (shape === 'bastion' ? 0.42 : 0.36);
     const canopyH = size * 0.28;
+    
+    // Canopy glow
+    ctx.save();
+    ctx.shadowColor = canopy;
+    ctx.shadowBlur = 12;
     ctx.fillStyle = canopy;
+    ctx.globalAlpha = 0.9;
     ctx.beginPath();
     ctx.ellipse(canopyX, 0, canopyW, canopyH, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+    ctx.restore();
+    
+    // Cockpit reflection
+    ctx.strokeStyle = 'rgba(255,255,255,0.65)';
     ctx.lineWidth = size * 0.05;
     ctx.beginPath();
     ctx.ellipse(canopyX - size * 0.08, -size * 0.08, canopyW * 0.35, canopyH * 0.35, 0, 0, Math.PI * 2);
     ctx.stroke();
+    
+    // Phase A: Pulsing energy core visible through hull
+    const corePulse = Math.sin(now / 300) * 0.3 + 0.7;
+    ctx.save();
+    ctx.globalAlpha = 0.6 * corePulse;
+    ctx.shadowColor = primary;
+    ctx.shadowBlur = 20;
+    ctx.fillStyle = primary;
+    ctx.beginPath();
+    ctx.arc(0, 0, size * 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    
+    // Phase A: Engine glow indicators
+    const engineY1 = shape === 'bastion' ? size * 0.6 : size * 0.5;
+    const engineY2 = -engineY1;
+    ctx.save();
+    ctx.shadowColor = thruster;
+    ctx.shadowBlur = 15;
+    ctx.fillStyle = thruster;
+    ctx.globalAlpha = 0.8 + Math.sin(now / 100) * 0.2;
+    ctx.beginPath();
+    ctx.arc(-size * 0.7, engineY1, size * 0.15, 0, Math.PI * 2);
+    ctx.arc(-size * 0.7, engineY2, size * 0.15, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
   };
 
   const dropCoin = (x, y) => coins.push(new Coin(x, y));
