@@ -169,8 +169,45 @@
           <button id="restartGameBtn" class="pause-menu-btn" aria-label="Restart Game">🔄 Restart Game</button>
           <button id="saveGameBtn" class="pause-menu-btn" aria-label="Save Game">💾 Save Game</button>
           <button id="loadGameBtn" class="pause-menu-btn" aria-label="Load Game">📂 Load Game</button>
+          <button id="pauseShopBtn" class="pause-menu-btn" aria-label="Upgrades Shop">🛒 Upgrades & Shop</button>
+          <button id="pauseHangarBtn" class="pause-menu-btn" aria-label="Ship Hangar">🚀 Ship Hangar</button>
+          <button id="pauseLeaderboardBtn" class="pause-menu-btn" aria-label="Leaderboard">🏆 Leaderboard</button>
           <button id="exitToMenuBtn" class="pause-menu-btn danger" aria-label="Exit to Main Menu">🚪 Exit to Main Menu</button>
           <div id="pauseMenuMessage" class="pause-menu-message"></div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Game Over Modal -->
+    <div id="gameOverModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="gameOverTitle">
+      <div class="modal-content game-over-screen">
+        <div class="game-over-header">
+          <h1 id="gameOverTitle">💀 GAME OVER</h1>
+        </div>
+        <div class="game-over-stats">
+          <div class="stat-item">
+            <span class="stat-label">Final Score</span>
+            <span id="gameOverScore" class="stat-value">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Level Reached</span>
+            <span id="gameOverLevel" class="stat-value">1</span>
+          </div>
+          <div class="stat-item" id="gameOverRankContainer">
+            <span class="stat-label">Leaderboard Rank</span>
+            <span id="gameOverRank" class="stat-value rank-badge">#1</span>
+          </div>
+          <div id="gameOverLoginPrompt" class="login-prompt" style="display: none;">
+            <p>🔓 Login to save your score to the leaderboard!</p>
+          </div>
+        </div>
+        <div class="game-over-actions">
+          <button id="gameOverRestartBtn" class="game-over-btn primary">🔄 Play Again</button>
+          <button id="gameOverShopBtn" class="game-over-btn">🛒 Upgrades & Shop</button>
+          <button id="gameOverHangarBtn" class="game-over-btn">🚀 Ship Hangar</button>
+          <button id="gameOverLeaderboardBtn" class="game-over-btn">🏆 Leaderboard</button>
+          <button id="gameOverLoginBtn" class="game-over-btn" style="display: none;">🔑 Login</button>
+          <button id="gameOverMenuBtn" class="game-over-btn secondary">🏠 Main Menu</button>
         </div>
       </div>
     </div>

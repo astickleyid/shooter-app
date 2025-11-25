@@ -3080,23 +3080,11 @@
     }
     
     setTimeout(() => {
-      // Stop the game
-      gameRunning = false;
-      paused = false;
-      cancelAnimationFrame(animationFrame);
-      
-      // Hide pause menu
-      hidePauseMenu();
-      
-      // Hide game container and show start screen
-      dom.gameContainer.style.display = 'none';
-      dom.startScreen.style.display = 'flex';
-      
       // Reset runtime state
       resetRuntimeState();
       
-      // Redraw start graphic
-      drawStartGraphic();
+      // Return to main menu
+      returnToMainMenu();
       
       isExiting = false;
     }, 500);
@@ -3383,14 +3371,85 @@
     Save.setBest(score, level);
     Save.addCredits(Math.floor(score / 25));
     
+    // Stop game and show game over screen
+    gameRunning = false;
+    paused = false;
+    cancelAnimationFrame(animationFrame);
+    
     // Submit to leaderboard if logged in
+    const finalScore = score;
+    const finalLevel = level;
+    
     if (Auth.isLoggedIn()) {
       const username = Auth.getCurrentUsername();
-      const rank = Leaderboard.addEntry(username, score, level, currentDifficulty);
-      showMessage('GAME OVER', `Level ${level} — Score ${score.toLocaleString()}\nLeaderboard Rank: #${rank}`, 'Restart', () => startGame());
+      const rank = Leaderboard.addEntry(username, finalScore, finalLevel, currentDifficulty);
+      showGameOverScreen(finalScore, finalLevel, rank);
     } else {
-      showMessage('GAME OVER', `Level ${level} — Score ${score.toLocaleString()}\nLogin to save your score!`, 'Restart', () => startGame());
+      showGameOverScreen(finalScore, finalLevel, null);
     }
+  };
+
+  const showGameOverScreen = (finalScore, finalLevel, rank) => {
+    // Hide game container
+    dom.gameContainer.style.display = 'none';
+    
+    // Show custom game over modal
+    const gameOverModal = document.getElementById('gameOverModal');
+    if (gameOverModal) {
+      const scoreEl = document.getElementById('gameOverScore');
+      const levelEl = document.getElementById('gameOverLevel');
+      const rankEl = document.getElementById('gameOverRank');
+      const rankContainer = document.getElementById('gameOverRankContainer');
+      const loginPromptEl = document.getElementById('gameOverLoginPrompt');
+      const loginBtn = document.getElementById('gameOverLoginBtn');
+      
+      if (scoreEl) scoreEl.textContent = finalScore.toLocaleString();
+      if (levelEl) levelEl.textContent = finalLevel;
+      
+      if (rank !== null) {
+        if (rankContainer) rankContainer.style.display = 'flex';
+        if (rankEl) rankEl.textContent = `#${rank}`;
+        if (loginPromptEl) loginPromptEl.style.display = 'none';
+        if (loginBtn) loginBtn.style.display = 'none';
+      } else {
+        if (rankContainer) rankContainer.style.display = 'none';
+        if (loginPromptEl) loginPromptEl.style.display = 'block';
+        if (loginBtn) loginBtn.style.display = 'block';
+      }
+      
+      gameOverModal.style.display = 'flex';
+    }
+  };
+  
+  const closeGameOverScreen = () => {
+    const gameOverModal = document.getElementById('gameOverModal');
+    if (gameOverModal) {
+      gameOverModal.style.display = 'none';
+    }
+  };
+  
+  const returnToMainMenu = () => {
+    // Close any open modals
+    closeGameOverScreen();
+    hidePauseMenu();
+    closeShop();
+    closeHangar();
+    closeLeaderboardModal();
+    closeAuthModal();
+    
+    // Hide game container
+    dom.gameContainer.style.display = 'none';
+    
+    // Show start screen
+    dom.startScreen.style.display = 'flex';
+    
+    // Reset game state
+    gameRunning = false;
+    paused = false;
+    cancelAnimationFrame(animationFrame);
+    
+    // Redraw start graphic
+    drawStartGraphic();
   };
 
   /* ====== AUTHENTICATION & LEADERBOARD UI ====== */
@@ -3982,7 +4041,55 @@
     dom.restartGameBtn?.addEventListener('click', restartGame);
     dom.saveGameBtn?.addEventListener('click', saveGameSlot);
     dom.loadGameBtn?.addEventListener('click', loadGameSlot);
+    
+    // Pause menu navigation buttons
+    document.getElementById('pauseShopBtn')?.addEventListener('click', () => {
+      hidePauseMenu();
+      openShop();
+    });
+    document.getElementById('pauseHangarBtn')?.addEventListener('click', () => {
+      hidePauseMenu();
+      openHangar();
+    });
+    document.getElementById('pauseLeaderboardBtn')?.addEventListener('click', () => {
+      hidePauseMenu();
+      openLeaderboardModal();
+    });
     dom.exitToMenuBtn?.addEventListener('click', exitToMainMenu);
+    
+    // Game Over screen handlers
+    document.getElementById('gameOverRestartBtn')?.addEventListener('click', () => {
+      closeGameOverScreen();
+      startGame();
+    });
+    document.getElementById('gameOverShopBtn')?.addEventListener('click', () => {
+      closeGameOverScreen();
+      dom.gameContainer.style.display = 'none';
+      dom.startScreen.style.display = 'flex';
+      openShop();
+    });
+    document.getElementById('gameOverHangarBtn')?.addEventListener('click', () => {
+      closeGameOverScreen();
+      dom.gameContainer.style.display = 'none';
+      dom.startScreen.style.display = 'flex';
+      openHangar();
+    });
+    document.getElementById('gameOverLeaderboardBtn')?.addEventListener('click', () => {
+      closeGameOverScreen();
+      dom.gameContainer.style.display = 'none';
+      dom.startScreen.style.display = 'flex';
+      openLeaderboardModal();
+    });
+    document.getElementById('gameOverLoginBtn')?.addEventListener('click', () => {
+      closeGameOverScreen();
+      dom.gameContainer.style.display = 'none';
+      dom.startScreen.style.display = 'flex';
+      openAuthModal();
+    });
+    document.getElementById('gameOverMenuBtn')?.addEventListener('click', () => {
+      closeGameOverScreen();
+      returnToMainMenu();
+    });
     
     // Close pause menu when clicking outside
     dom.pauseMenuModal?.addEventListener('click', (e) => {
