@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Backend Test - VOID RIFT</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #0f172a;
+      color: #e2e8f0;
+    }
+    h1 { color: #60a5fa; }
+    button {
+      background: #3b82f6;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      margin: 5px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    button:hover { background: #2563eb; }
+    button:disabled { background: #475569; cursor: not-allowed; }
+    pre {
+      background: #1e293b;
+      padding: 15px;
+      border-radius: 8px;
+      overflow-x: auto;
+      border: 1px solid #334155;
+    }
+    .status {
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 6px;
+    }
+    .success { background: #166534; color: #86efac; }
+    .error { background: #7f1d1d; color: #fca5a5; }
+    .info { background: #1e3a8a; color: #93c5fd; }
+  </style>
+</head>
+<body>
+  <h1>🧪 VOID RIFT - Backend Test</h1>
+  
+  <div class="status info">
+    <strong>Status:</strong> <span id="status">Ready to test</span>
+  </div>
+  
+  <div>
+    <button onclick="testConnection()">Test Connection</button>
+    <button onclick="submitTestScore()">Submit Test Score</button>
+    <button onclick="fetchScores()">Fetch Leaderboard</button>
+    <button onclick="clearResults()">Clear Results</button>
+  </div>
+  
+  <h2>Results</h2>
+  <pre id="results">Click buttons above to test the backend...</pre>
+  
+  <script src="backend-api.js"></script>
+  <script>
+    const resultsEl = document.getElementById('results');
+    const statusEl = document.getElementById('status');
+    
+    function setStatus(message, type = 'info') {
+      statusEl.textContent = message;
+      statusEl.parentElement.className = `status ${type}`;
+    }
+    
+    function log(message) {
+      resultsEl.textContent += message + '\n';
+      resultsEl.scrollTop = resultsEl.scrollHeight;
+    }
+    
+    function clearResults() {
+      resultsEl.textContent = '';
+      setStatus('Ready to test', 'info');
+    }
+    
+    async function testConnection() {
+      log('Testing connection...');
+      setStatus('Testing connection...', 'info');
+      
+      try {
+        const isConnected = await GlobalLeaderboard.checkConnection();
+        
+        if (isConnected) {
+          log('✅ Backend is reachable!');
+          setStatus('Backend connected', 'success');
+        } else {
+          log('❌ Backend is not reachable');
+          log(`   URL: ${BACKEND_CONFIG.API_URL}`);
+          setStatus('Backend not reachable', 'error');
+        }
+      } catch (error) {
+        log(`❌ Error: ${error.message}`);
+        setStatus('Test failed', 'error');
+      }
+    }
+    
+    async function submitTestScore() {
+      log('Submitting test score...');
+      setStatus('Submitting score...', 'info');
+      
+      const testEntry = {
+        username: 'TestPlayer' + Math.floor(Math.random() * 100),
+        score: Math.floor(Math.random() * 10000) + 1000,
+        level: Math.floor(Math.random() * 20) + 1,
+        difficulty: ['easy', 'normal', 'hard'][Math.floor(Math.random() * 3)]
+      };
+      
+      log(`Submitting: ${JSON.stringify(testEntry, null, 2)}`);
+      
+      try {
+        const result = await GlobalLeaderboard.submitScore(testEntry);
+        
+        if (result) {
+          log('✅ Score submitted successfully!');
+          log(`   Response: ${JSON.stringify(result, null, 2)}`);
+          setStatus('Score submitted', 'success');
+        } else {
+          log('❌ Failed to submit score (backend may be unavailable)');
+          setStatus('Submission failed', 'error');
+        }
+      } catch (error) {
+        log(`❌ Error: ${error.message}`);
+        setStatus('Test failed', 'error');
+      }
+    }
+    
+    async function fetchScores() {
+      log('Fetching leaderboard...');
+      setStatus('Fetching scores...', 'info');
+      
+      try {
+        const scores = await GlobalLeaderboard.fetchScores('all', 10);
+        
+        if (scores && scores.length > 0) {
+          log(`✅ Fetched ${scores.length} scores:`);
+          scores.forEach((entry, i) => {
+            log(`   ${i + 1}. ${entry.username} - ${entry.score} pts (Lvl ${entry.level}) [${entry.difficulty}]`);
+          });
+          setStatus(`Fetched ${scores.length} scores`, 'success');
+        } else {
+          log('⚠️  No scores found (leaderboard is empty)');
+          setStatus('No scores found', 'info');
+        }
+      } catch (error) {
+        log(`❌ Error: ${error.message}`);
+        setStatus('Test failed', 'error');
+      }
+    }
+    
+    // Auto-test on load
+    window.addEventListener('load', () => {
+      log('🚀 Backend Test Page Loaded');
+      log(`   API URL: ${BACKEND_CONFIG.API_URL}`);
+      log(`   Global enabled: ${BACKEND_CONFIG.USE_GLOBAL}`);
+      log('');
+    });
+  </script>
+</body>
+</html>

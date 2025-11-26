@@ -38,8 +38,24 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed development guidelines.
 
 ## Deploying
 
-- GitHub Pages: push the repo to a branch called `gh-pages` or enable Pages via the GitHub UI and point it to the root. No build step is required.
-- Any static host will work: upload `index.html`, `script.js`, and `style.css`.
+### Game Files (Frontend)
+- **GitHub Pages:** push the repo to a branch called `gh-pages` or enable Pages via the GitHub UI and point it to the root. No build step is required.
+- **Any static host** will work: upload `index.html`, `script.js`, `style.css`, and `backend-api.js`.
+
+### Global Leaderboard (Backend)
+The game now supports a **global leaderboard** visible to all players! To enable it:
+
+1. Deploy the serverless API to Vercel (free):
+   ```bash
+   ./deploy.sh
+   ```
+   Or manually: `vercel --prod`
+
+2. Update the API URL in `backend-api.js` with your deployment URL
+
+See [BACKEND_SETUP.md](BACKEND_SETUP.md) for detailed instructions.
+
+**Note:** The leaderboard falls back to local-only mode if the backend is unavailable.
 
 ## Controls
 

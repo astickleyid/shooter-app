@@ -1877,3 +1877,16 @@ html, body {
   font-size: 15px;
   font-style: italic;
 }
+
+.leaderboard-loading {
+  text-align: center;
+  padding: 60px 20px;
+  color: #60a5fa;
+  font-size: 15px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}

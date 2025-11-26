@@ -756,6 +756,7 @@
   /* ====== LEADERBOARD SYSTEM ====== */
   const Leaderboard = {
     entries: [],
+    useGlobal: typeof GlobalLeaderboard !== 'undefined',
     
     load() {
       try {
@@ -777,7 +778,7 @@
       }
     },
     
-    addEntry(username, score, level, difficulty) {
+    async addEntry(username, score, level, difficulty) {
       const entry = {
         username: username,
         score: score,
@@ -786,19 +787,28 @@
         timestamp: Date.now()
       };
       
+      // Save to local storage as backup
       this.entries.push(entry);
-      
-      // Sort by score descending
       this.entries.sort((a, b) => b.score - a.score);
-      
-      // Keep only top 100 entries
       if (this.entries.length > 100) {
         this.entries = this.entries.slice(0, 100);
       }
-      
       this.save();
       
-      // Return the rank
+      // Submit to global leaderboard
+      if (this.useGlobal) {
+        try {
+          const result = await GlobalLeaderboard.submitScore(entry);
+          if (result && result.rank) {
+            console.log(`🏆 Global rank: #${result.rank}`);
+            return result.rank;
+          }
+        } catch (err) {
+          console.warn('Global leaderboard unavailable, using local');
+        }
+      }
+      
+      // Return local rank as fallback
       return this.entries.findIndex(e => 
         e.username === username && 
         e.score === score && 
@@ -806,13 +816,25 @@
       ) + 1;
     },
     
-    getEntries(difficulty = 'all', limit = 50) {
-      let filtered = this.entries;
+    async getEntries(difficulty = 'all', limit = 50) {
+      // Try to fetch from global leaderboard first
+      if (this.useGlobal) {
+        try {
+          const globalEntries = await GlobalLeaderboard.fetchScores(difficulty, limit);
+          if (globalEntries && globalEntries.length > 0) {
+            console.log(`📊 Displaying ${globalEntries.length} global entries`);
+            return globalEntries;
+          }
+        } catch (err) {
+          console.warn('Global leaderboard unavailable, using local');
+        }
+      }
       
+      // Fallback to local entries
+      let filtered = this.entries;
       if (difficulty !== 'all') {
         filtered = this.entries.filter(e => e.difficulty === difficulty);
       }
-      
       return filtered.slice(0, limit);
     },
     
@@ -4074,10 +4096,13 @@
     }
   };
 
-  const renderLeaderboard = (difficulty = 'all') => {
+  const renderLeaderboard = async (difficulty = 'all') => {
     if (!dom.leaderboardList) return;
 
-    const entries = Leaderboard.getEntries(difficulty, 50);
+    // Show loading state
+    dom.leaderboardList.innerHTML = '<div class="leaderboard-loading">Loading scores...</div>';
+    
+    const entries = await Leaderboard.getEntries(difficulty, 50);
     const currentUsername = Auth.getCurrentUsername();
     
     if (entries.length === 0) {
@@ -4085,7 +4110,11 @@
       return;
     }
     
-    dom.leaderboardList.innerHTML = entries.map((entry, index) => {
+    const sourceLabel = Leaderboard.useGlobal 
+      ? '<div style="text-align:center;color:#22c55e;font-size:12px;margin-bottom:8px;">🌍 Global Leaderboard</div>' 
+      : '<div style="text-align:center;color:#eab308;font-size:12px;margin-bottom:8px;">📱 Local Scores</div>';
+    
+    dom.leaderboardList.innerHTML = sourceLabel + entries.map((entry, index) => {
       const rank = index + 1;
       const isCurrentUser = currentUsername && entry.username.toLowerCase() === currentUsername.toLowerCase();
       const rankClass = rank === 1 ? 'top-1' : rank === 2 ? 'top-2' : rank === 3 ? 'top-3' : '';
