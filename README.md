@@ -82,6 +82,24 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed documentation.
 
 Progress (credits, upgrades, best score) is saved in `localStorage` under the key `void_rift_v11`. Clearing browser storage resets progress.
 
+## Testing
+
+The project uses [Jest](https://jestjs.io/) for testing. To run tests:
+
+```bash
+npm install
+npm test
+```
+
+Test suites include:
+- **game-utils.test.js** – Tests for utility functions (clamp, rand, chance, distance, collision detection)
+- **game-config.test.js** – Tests for game configuration and balance
+- **save-system.test.js** – Tests for save/load functionality and data persistence
+
+To run tests with coverage:
+```bash
+npm test -- --coverage
+```
 ## Recent Features
 
 Game features:
