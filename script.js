@@ -757,6 +757,7 @@
   const Leaderboard = {
     entries: [],
     useGlobal: typeof GlobalLeaderboard !== 'undefined',
+    migrated: false,
     
     load() {
       try {
@@ -768,6 +769,40 @@
         console.warn('Failed to load leaderboard', err);
         this.entries = [];
       }
+      
+      // Auto-migrate local scores to global on first load
+      this.autoMigrate();
+    },
+    
+    async autoMigrate() {
+      if (this.migrated || !this.useGlobal || this.entries.length === 0) {
+        return;
+      }
+      
+      const MIGRATION_KEY = 'void_rift_scores_migrated';
+      if (localStorage.getItem(MIGRATION_KEY)) {
+        this.migrated = true;
+        return;
+      }
+      
+      console.log(`🔄 Migrating ${this.entries.length} local scores to global leaderboard...`);
+      
+      let success = 0;
+      for (const entry of this.entries) {
+        try {
+          const result = await GlobalLeaderboard.submitScore(entry);
+          if (result && result.success) {
+            success++;
+          }
+          await new Promise(resolve => setTimeout(resolve, 100));
+        } catch (err) {
+          console.warn('Migration error:', err);
+        }
+      }
+      
+      localStorage.setItem(MIGRATION_KEY, 'true');
+      this.migrated = true;
+      console.log(`✅ Migrated ${success}/${this.entries.length} scores to global leaderboard`);
     },
     
     save() {
