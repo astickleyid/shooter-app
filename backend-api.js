@@ -6,7 +6,7 @@
 const BACKEND_CONFIG = {
   // Update this URL after deploying to Vercel
   // Example: 'https://your-app.vercel.app/api/leaderboard'
-  API_URL: 'http://localhost:3000/api/leaderboard', // Change for production
+  API_URL: 'https://shooter-app-one.vercel.app/api/leaderboard',
   USE_GLOBAL: true,
   TIMEOUT_MS: 5000
 };

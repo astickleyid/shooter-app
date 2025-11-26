@@ -56,3 +56,4 @@ temp/
 # OS generated files
 Thumbs.db
 desktop.ini
+.vercel
