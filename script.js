@@ -969,8 +969,8 @@
           // Migrate to hashed password
           user.passwordHash = await hashPassword(password);
           delete user.password;
-          this.save();
           this.currentUser = cleanUsername;
+          this.save();
           return { success: true };
         }
         return { success: false, error: 'Invalid username or password' };
@@ -1113,7 +1113,7 @@
           if (globalEntries !== null && Array.isArray(globalEntries)) {
             console.log(`📊 Global leaderboard: ${globalEntries.length} entries`);
             // Merge with local entries to ensure user's scores appear
-            const mergedEntries = this.mergeWithLocal(globalEntries);
+            const mergedEntries = this.mergeWithLocal(globalEntries, difficulty);
             return mergedEntries.slice(0, limit);
           }
         } catch (err) {
@@ -1130,9 +1130,14 @@
     },
     
     // Merge global entries with local entries (in case global doesn't have user's recent scores)
-    mergeWithLocal(globalEntries) {
+    mergeWithLocal(globalEntries, difficulty = 'all') {
       const globalIds = new Set(globalEntries.map(e => e.id));
-      const localToAdd = this.entries.filter(e => !globalIds.has(e.id));
+      // Filter local entries by difficulty and exclude entries already in global
+      const localToAdd = this.entries.filter(e => {
+        const matchesDifficulty = difficulty === 'all' || e.difficulty === difficulty;
+        const notInGlobal = !globalIds.has(e.id);
+        return matchesDifficulty && notInGlobal;
+      });
       
       // Combine and sort by score
       const merged = [...globalEntries, ...localToAdd];
@@ -4945,6 +4950,8 @@
   /* ====== AUTHENTICATION & LEADERBOARD UI ====== */
   const openAuthModal = () => {
     if (!dom.authModal) return;
+    // Close leaderboard modal when opening auth modal to prevent z-index conflicts
+    if (dom.leaderboardModal) dom.leaderboardModal.style.display = 'none';
     dom.authModal.style.display = 'flex';
     if (dom.authUsername) dom.authUsername.value = '';
     if (dom.authPassword) dom.authPassword.value = '';
@@ -4968,7 +4975,8 @@
       if (result.success) {
         closeAuthModal();
         updateAuthUI();
-        setLeaderboardFilter(currentLeaderboardFilter);
+        // Reopen leaderboard modal to show updated user info
+        openLeaderboardModal();
       } else {
         if (dom.authError) dom.authError.textContent = result.error;
       }
@@ -4991,7 +4999,8 @@
       if (result.success) {
         closeAuthModal();
         updateAuthUI();
-        setLeaderboardFilter(currentLeaderboardFilter);
+        // Reopen leaderboard modal to show updated user info
+        openLeaderboardModal();
       } else {
         if (dom.authError) dom.authError.textContent = result.error;
       }
