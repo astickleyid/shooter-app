@@ -166,6 +166,56 @@ export const SHIP_TEMPLATES = [
       pickup: 1,
       ammoRegen: 0.95
     }
+  },
+  {
+    id: 'spectre',
+    name: 'Spectre-9',
+    desc: 'Stealth reconnaissance craft with enhanced sensors and cloaking matrix.',
+    shape: 'dart',
+    scale: 0.88,
+    engineOffset: 1.15,
+    colors: {
+      primary: '#6366f1',
+      trim: '#e0e7ff',
+      canopy: '#a5b4fc',
+      accent: '#818cf8',
+      thruster: '#c084fc'
+    },
+    stats: {
+      hp: 0.75,
+      speed: 1.35,
+      boost: 1.4,
+      ammo: 0.85,
+      damage: 0.88,
+      fireRate: 0.85,
+      pickup: 1.25,
+      ammoRegen: 1.1
+    }
+  },
+  {
+    id: 'titan',
+    name: 'Titan Heavy',
+    desc: 'Capital-class gunship with devastating firepower and armored hull.',
+    shape: 'fortress',
+    scale: 1.25,
+    engineOffset: 0.85,
+    colors: {
+      primary: '#78716c',
+      trim: '#d6d3d1',
+      canopy: '#a8a29e',
+      accent: '#57534e',
+      thruster: '#dc2626'
+    },
+    stats: {
+      hp: 1.6,
+      speed: 0.72,
+      boost: 0.78,
+      ammo: 1.45,
+      damage: 1.35,
+      fireRate: 1.3,
+      pickup: 0.8,
+      ammoRegen: 0.75
+    }
   }
 ];
 
@@ -203,6 +253,22 @@ export const ARMORY = {
       unlock: 520,
       stats: { cd: 0.92, damage: 0.9, ammo: 0.95, shots: 3, spread: 0.24, pelletJitter: 0.1, bulletSpeed: 1.2, bulletSize: 0.85, ammoPerShot: 1, pierce: 0 },
       color: '#38bdf8'
+    },
+    {
+      id: 'plasma',
+      name: 'Plasma Cutter',
+      desc: 'Superheated plasma stream with sustained damage over time.',
+      unlock: 720,
+      stats: { cd: 0.78, damage: 0.65, ammo: 0.85, shots: 0, spread: 0.04, pelletJitter: 0.02, bulletSpeed: 1.5, bulletSize: 0.7, ammoPerShot: 1, pierce: 1 },
+      color: '#4ade80'
+    },
+    {
+      id: 'photon',
+      name: 'Photon Repeater',
+      desc: 'High-velocity light projectiles with extreme rate of fire.',
+      unlock: 850,
+      stats: { cd: 0.55, damage: 0.45, ammo: 1.3, shots: 0, spread: 0.08, pelletJitter: 0.06, bulletSpeed: 2.5, bulletSize: 0.6, ammoPerShot: 1, pierce: 0 },
+      color: '#f0abfc'
     }
   ],
   secondary: [
@@ -221,6 +287,22 @@ export const ARMORY = {
       unlock: 540,
       color: '#38bdf8',
       stats: { ammo: 2, cooldown: 11000, radius: 130, damage: 45, clusters: 5 }
+    },
+    {
+      id: 'seeker',
+      name: 'Seeker Swarm',
+      desc: 'Release homing micro-drones that track and eliminate targets.',
+      unlock: 680,
+      color: '#22d3ee',
+      stats: { ammo: 4, cooldown: 8000, radius: 80, damage: 35, seekers: 6 }
+    },
+    {
+      id: 'gravity',
+      name: 'Gravity Well',
+      desc: 'Creates a localized gravity anomaly pulling enemies together.',
+      unlock: 820,
+      color: '#8b5cf6',
+      stats: { ammo: 2, cooldown: 15000, radius: 180, damage: 25, pull: 0.8, duration: 3000 }
     }
   ],
   defense: [
@@ -239,6 +321,22 @@ export const ARMORY = {
       unlock: 600,
       color: '#a855f7',
       stats: { duration: 2600, cooldown: 9500, absorb: 0.45, reflect: 0.25 }
+    },
+    {
+      id: 'phaseshift',
+      name: 'Phase Shift',
+      desc: 'Temporarily phase out of reality, becoming invulnerable.',
+      unlock: 750,
+      color: '#06b6d4',
+      stats: { duration: 1800, cooldown: 8000, absorb: 1.0 }
+    },
+    {
+      id: 'overcharge',
+      name: 'Overcharge Matrix',
+      desc: 'Converts incoming damage into temporary weapon power boost.',
+      unlock: 900,
+      color: '#eab308',
+      stats: { duration: 4000, cooldown: 14000, absorb: 0.35, damageBoost: 0.5 }
     }
   ],
   ultimate: [
@@ -257,6 +355,22 @@ export const ARMORY = {
       unlock: 780,
       color: '#facc15',
       stats: { charge: 120, beamLength: 520, width: 90, damage: 220 }
+    },
+    {
+      id: 'timewarp',
+      name: 'Temporal Rift',
+      desc: 'Slows time around the ship while maintaining normal speed.',
+      unlock: 950,
+      color: '#c084fc',
+      stats: { charge: 140, radius: 350, damage: 0, slowFactor: 0.3, duration: 5000 }
+    },
+    {
+      id: 'supernova',
+      name: 'Supernova Burst',
+      desc: 'Channel all energy into a cataclysmic explosion clearing the field.',
+      unlock: 1100,
+      color: '#fb923c',
+      stats: { charge: 180, radius: 400, damage: 350, selfDamage: 0.15 }
     }
   ]
 };
@@ -287,14 +401,21 @@ export const UPGRADES = [
   { id: 'damage', name: 'Damage Amplifier', desc: 'Increase weapon damage output.', cat: 'Offense', base: 80, step: 40, max: 10 },
   { id: 'firerate', name: 'Fire Rate', desc: 'Reduce cooldown between shots.', cat: 'Offense', base: 100, step: 50, max: 8 },
   { id: 'multi', name: 'Multishot', desc: 'Fire additional projectiles per shot.', cat: 'Offense', base: 150, step: 80, max: 4 },
+  { id: 'crit', name: 'Critical Strike', desc: 'Chance for double damage on hits.', cat: 'Offense', base: 130, step: 65, max: 6 },
   // Defense
   { id: 'shield', name: 'Hull Plating', desc: 'Increase maximum health.', cat: 'Defense', base: 70, step: 35, max: 12 },
   { id: 'regen', name: 'Regenerator', desc: 'Passive health regeneration over time.', cat: 'Defense', base: 120, step: 60, max: 6 },
   { id: 'field', name: 'Repulse Field', desc: 'Push enemies away when they get close.', cat: 'Defense', base: 180, step: 90, max: 5 },
+  { id: 'armor', name: 'Reactive Armor', desc: 'Reduce incoming damage percentage.', cat: 'Defense', base: 140, step: 70, max: 5 },
   // Utility
   { id: 'ammo', name: 'Ammo Regen', desc: 'Faster ammunition regeneration.', cat: 'Utility', base: 90, step: 45, max: 8 },
   { id: 'boost', name: 'Boost Speed', desc: 'Increase boost movement speed.', cat: 'Utility', base: 110, step: 55, max: 7 },
-  { id: 'magnet', name: 'Magnet Range', desc: 'Increase pickup radius for coins and supplies.', cat: 'Utility', base: 85, step: 42, max: 8 }
+  { id: 'magnet', name: 'Magnet Range', desc: 'Increase pickup radius for coins and supplies.', cat: 'Utility', base: 85, step: 42, max: 8 },
+  { id: 'luck', name: 'Fortune Module', desc: 'Increase credits earned from enemies.', cat: 'Utility', base: 100, step: 50, max: 6 },
+  // Special - new category
+  { id: 'ultimate', name: 'Ultimate Charger', desc: 'Faster ultimate ability charge rate.', cat: 'Special', base: 160, step: 80, max: 5 },
+  { id: 'cooldown', name: 'System Coolant', desc: 'Reduce all ability cooldowns.', cat: 'Special', base: 175, step: 88, max: 5 },
+  { id: 'pierce', name: 'Armor Piercing', desc: 'Projectiles pass through additional enemies.', cat: 'Special', base: 200, step: 100, max: 3 }
 ];
 
 // Experience calculation
