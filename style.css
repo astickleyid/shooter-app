@@ -52,7 +52,7 @@ html, body {
 }
 
 .title-tagline {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: #64748b;
   letter-spacing: 0.35em;
@@ -188,7 +188,7 @@ html, body {
 }
 
 .nav-label {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   color: #94a3b8;
   text-transform: uppercase;
@@ -235,7 +235,7 @@ html, body {
   width: auto;
   border-radius: 6px;
   padding: 0 12px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -2943,7 +2943,7 @@ html, body {
   }
   
   .title-tagline {
-    font-size: 9px;
+    font-size: 10px;
     margin-top: 4px;
   }
   
@@ -2971,7 +2971,7 @@ html, body {
   }
   
   .nav-label {
-    font-size: 9px;
+    font-size: 10px;
   }
   
   .start-footer {
@@ -2997,7 +2997,7 @@ html, body {
   }
   
   .nav-label {
-    font-size: 9px;
+    font-size: 10px;
   }
 }
 
