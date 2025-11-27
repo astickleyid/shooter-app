@@ -89,6 +89,16 @@ const SocialHub = {
 
   // Show player profile modal
   async showProfile(userId = null, username = null) {
+    // If viewing own profile (no userId/username provided), check if logged in
+    if (!userId && !username) {
+      if (!SocialAPI.isLoggedIn()) {
+        this.showAuthModal('login');
+        return;
+      }
+      // Use current user's ID to fetch their profile
+      userId = SocialAPI.currentUser.id;
+    }
+
     try {
       const user = await SocialAPI.getProfile(userId, username);
       const isOwnProfile = SocialAPI.currentUser && user.id === SocialAPI.currentUser.id;
