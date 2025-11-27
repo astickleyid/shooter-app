@@ -25,15 +25,49 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+// Get local auth username if available
+function getLocalAuthUsername() {
+  try {
+    const authKey = 'void_rift_auth';
+    const authData = JSON.parse(localStorage.getItem(authKey) || '{}');
+    if (authData.currentUser && authData.users?.[authData.currentUser]) {
+      return authData.users[authData.currentUser].username;
+    }
+  } catch (err) {
+    // Ignore errors
+  }
+  return null;
+}
+
+// Check if logged in (either SocialAPI or local Auth)
+function isLoggedInUnified() {
+  if (SocialAPI.isLoggedIn()) {
+    return true;
+  }
+  return getLocalAuthUsername() !== null;
+}
+
+// Get unified username (prefer SocialAPI, fallback to local)
+function getUnifiedUsername() {
+  if (SocialAPI.currentUser) {
+    return SocialAPI.currentUser.username;
+  }
+  return getLocalAuthUsername();
+}
+
 // Update UI based on login state - unified with main game
 function updateSocialUI() {
   const user = SocialAPI.currentUser;
+  const localUsername = getLocalAuthUsername();
   const loginBtn = document.getElementById('loginButton');
   const profileBtn = document.getElementById('profileButton');
 
-  if (user && loginBtn) {
+  // Use SocialAPI user if available, otherwise check local auth
+  const displayUsername = user?.username || localUsername;
+  
+  if (displayUsername && loginBtn) {
     // Update login button to show username
-    loginBtn.textContent = user.username;
+    loginBtn.textContent = displayUsername;
     loginBtn.onclick = () => SocialHub.showProfile();
     loginBtn.classList.remove('footer-btn-text');
     loginBtn.classList.add('footer-btn-logged-in');
@@ -41,7 +75,7 @@ function updateSocialUI() {
     // Show level badge on profile button
     if (profileBtn) {
       profileBtn.innerHTML = `👤`;
-      profileBtn.title = `Profile (Lvl ${user.profile?.level || 1})`;
+      profileBtn.title = `Profile (Lvl ${user?.profile?.level || 1})`;
     }
   } else if (loginBtn) {
     // Not logged in - show login button

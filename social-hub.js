@@ -131,29 +131,56 @@ const SocialHub = {
            error.name === 'AbortError';
   },
 
+  // Check if user is logged in (checks both SocialAPI and local Auth)
+  isLoggedIn() {
+    // Check SocialAPI first
+    if (SocialAPI.isLoggedIn()) {
+      return true;
+    }
+    // Check local Auth storage
+    try {
+      const authKey = 'void_rift_auth';
+      const authData = JSON.parse(localStorage.getItem(authKey) || '{}');
+      if (authData.currentUser && authData.users?.[authData.currentUser]) {
+        return true;
+      }
+    } catch (err) {
+      // Ignore errors
+    }
+    return false;
+  },
+
   // Show player profile modal with achievements, prestige, and all unified data
   async showProfile(userId = null, username = null) {
     // If viewing own profile (no userId/username provided), check if logged in
     if (!userId && !username) {
-      if (!SocialAPI.isLoggedIn()) {
+      // Check both SocialAPI and local Auth
+      if (!this.isLoggedIn()) {
         this.showAuthModal('login');
         return;
       }
-      // Use current user's ID to fetch their profile
-      userId = SocialAPI.currentUser.id;
+      // Use current user's ID if available, otherwise use local profile
+      if (SocialAPI.currentUser) {
+        userId = SocialAPI.currentUser.id;
+      }
     }
 
     try {
-      // Get profile from SocialAPI
+      // Get profile from SocialAPI or local
       let user;
       try {
-        user = await SocialAPI.getProfile(userId, username);
+        if (userId) {
+          user = await SocialAPI.getProfile(userId, username);
+        } else {
+          // Use local profile
+          user = this.getLocalProfile();
+        }
       } catch (err) {
         // If social API fails, create mock profile from local data
         user = this.getLocalProfile();
       }
       
-      const isOwnProfile = SocialAPI.currentUser && user.id === SocialAPI.currentUser?.id;
+      const isOwnProfile = !userId || (SocialAPI.currentUser && user.id === SocialAPI.currentUser?.id) || user.username === this.getLocalProfile().username;
       const isFriend = SocialAPI.currentUser && SocialAPI.currentUser.friends?.includes(user.id);
 
       // Get local game data for enhanced profile
