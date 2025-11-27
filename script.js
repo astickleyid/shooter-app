@@ -1075,12 +1075,12 @@
     // Merge global entries with local entries (in case global doesn't have user's recent scores)
     mergeWithLocal(globalEntries, difficulty = 'all') {
       const globalIds = new Set(globalEntries.map(e => e.id));
-      // Filter local entries by difficulty before merging
-      let localFiltered = this.entries;
-      if (difficulty !== 'all') {
-        localFiltered = this.entries.filter(e => e.difficulty === difficulty);
-      }
-      const localToAdd = localFiltered.filter(e => !globalIds.has(e.id));
+      // Filter local entries by difficulty and exclude entries already in global
+      const localToAdd = this.entries.filter(e => {
+        const matchesDifficulty = difficulty === 'all' || e.difficulty === difficulty;
+        const notInGlobal = !globalIds.has(e.id);
+        return matchesDifficulty && notInGlobal;
+      });
       
       // Combine and sort by score
       const merged = [...globalEntries, ...localToAdd];
