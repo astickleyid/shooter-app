@@ -1745,11 +1745,15 @@
         return;
       }
       
-      // Migration logging removed for production
+      console.warn(`Migrating ${this.entries.length} local scores to global leaderboard...`);
       
+      let success = 0;
       for (const entry of this.entries) {
         try {
-          await GlobalLeaderboard.submitScore(entry);
+          const result = await GlobalLeaderboard.submitScore(entry);
+          if (result && result.success) {
+            success++;
+          }
           await new Promise(resolve => setTimeout(resolve, 100));
         } catch (err) {
           console.warn('Migration error:', err);
@@ -1758,7 +1762,7 @@
       
       localStorage.setItem(MIGRATION_KEY, 'true');
       this.migrated = true;
-      // Migration complete
+      console.warn(`Migrated ${success}/${this.entries.length} scores to global leaderboard`);
     },
     
     save() {
