@@ -720,6 +720,22 @@
     dom.loadGameBtn = document.getElementById('loadGameBtn');
     dom.exitToMenuBtn = document.getElementById('exitToMenuBtn');
     dom.pauseMenuMessage = document.getElementById('pauseMenuMessage');
+    // Radio elements
+    dom.radioWidget = document.getElementById('radioWidget');
+    dom.radioToggle = document.getElementById('radioToggle');
+    dom.radioStationIcon = document.getElementById('radioStationIcon');
+    dom.radioStationName = document.getElementById('radioStationName');
+    dom.radioStatus = document.getElementById('radioStatus');
+    dom.radioVisualizer = document.getElementById('radioVisualizer');
+    dom.radioPrev = document.getElementById('radioPrev');
+    dom.radioNext = document.getElementById('radioNext');
+    dom.radioExpand = document.getElementById('radioExpand');
+    dom.radioPanel = document.getElementById('radioPanel');
+    dom.radioBackdrop = document.getElementById('radioBackdrop');
+    dom.radioPanelClose = document.getElementById('radioPanelClose');
+    dom.radioStations = document.getElementById('radioStations');
+    dom.radioVolumeSlider = document.getElementById('radioVolumeSlider');
+    dom.radioVolumeValue = document.getElementById('radioVolumeValue');
   };
 
   /* ====== STATE ====== */
@@ -8008,5 +8024,232 @@
     
     // Initialize equipment dock interaction listeners
     initEquipmentDockListeners();
+    
+    // Initialize music radio
+    initMusicRadio();
+  };
+
+  /* ====== MUSIC RADIO ====== */
+  
+  /**
+   * Initialize the music radio UI and event handlers
+   */
+  const initMusicRadio = () => {
+    if (typeof MusicRadio === 'undefined') {
+      console.warn('MusicRadio not loaded');
+      return;
+    }
+    
+    // Initialize MusicRadio
+    MusicRadio.init();
+    
+    // Update UI with initial state
+    updateRadioUI();
+    
+    // Populate station cards
+    populateRadioStations();
+    
+    // Radio toggle button
+    dom.radioToggle?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (typeof AudioManager !== 'undefined') {
+        AudioManager.init();
+        AudioManager.resume();
+      }
+      MusicRadio.toggle();
+    });
+    
+    // Radio widget click (also toggles)
+    dom.radioWidget?.addEventListener('click', (e) => {
+      if (e.target === dom.radioWidget || e.target.classList.contains('radio-info')) {
+        if (typeof AudioManager !== 'undefined') {
+          AudioManager.init();
+          AudioManager.resume();
+        }
+        MusicRadio.toggle();
+      }
+    });
+    
+    // Previous station
+    dom.radioPrev?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      MusicRadio.prevStation();
+      updateRadioUI();
+    });
+    
+    // Next station
+    dom.radioNext?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      MusicRadio.nextStation();
+      updateRadioUI();
+    });
+    
+    // Expand to full panel
+    dom.radioExpand?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openRadioPanel();
+    });
+    
+    // Close panel button
+    dom.radioPanelClose?.addEventListener('click', closeRadioPanel);
+    
+    // Backdrop click closes panel
+    dom.radioBackdrop?.addEventListener('click', closeRadioPanel);
+    
+    // Volume slider
+    dom.radioVolumeSlider?.addEventListener('input', (e) => {
+      const value = parseInt(e.target.value) / 100;
+      MusicRadio.setVolume(value);
+      if (dom.radioVolumeValue) {
+        dom.radioVolumeValue.textContent = `${e.target.value}%`;
+      }
+    });
+    
+    // Listen for radio state changes
+    window.addEventListener('radioStateChange', (e) => {
+      updateRadioUI();
+    });
+    
+    // Keyboard shortcut: M to toggle radio
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'm' || e.key === 'M') {
+        // Don't toggle if typing in an input
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        e.preventDefault();
+        if (typeof AudioManager !== 'undefined') {
+          AudioManager.init();
+          AudioManager.resume();
+        }
+        MusicRadio.toggle();
+      }
+    });
+  };
+  
+  /**
+   * Update the radio widget UI based on current state
+   */
+  const updateRadioUI = () => {
+    if (typeof MusicRadio === 'undefined') return;
+    
+    const isPlaying = MusicRadio.isPlaying();
+    const station = MusicRadio.getCurrentStation();
+    
+    // Update widget playing state
+    if (dom.radioWidget) {
+      dom.radioWidget.classList.toggle('playing', isPlaying);
+    }
+    
+    // Update station display
+    if (station) {
+      if (dom.radioStationIcon) dom.radioStationIcon.textContent = station.icon;
+      if (dom.radioStationName) dom.radioStationName.textContent = station.name;
+    }
+    
+    // Update status text
+    if (dom.radioStatus) {
+      dom.radioStatus.textContent = isPlaying ? 'Now Playing' : 'Click to play';
+    }
+    
+    // Update station cards active state
+    const stationCards = document.querySelectorAll('.radio-station-card');
+    stationCards.forEach(card => {
+      const isActive = station && card.dataset.stationId === station.id;
+      card.classList.toggle('active', isActive && isPlaying);
+    });
+    
+    // Update volume slider
+    if (dom.radioVolumeSlider) {
+      const volume = Math.round(MusicRadio.getVolume() * 100);
+      dom.radioVolumeSlider.value = volume;
+      if (dom.radioVolumeValue) {
+        dom.radioVolumeValue.textContent = `${volume}%`;
+      }
+    }
+  };
+  
+  /**
+   * Populate the station cards in the radio panel
+   */
+  const populateRadioStations = () => {
+    if (!dom.radioStations || typeof MusicRadio === 'undefined') return;
+    
+    const stations = MusicRadio.getStations();
+    const currentStation = MusicRadio.getCurrentStation();
+    
+    let html = '';
+    
+    Object.values(stations).forEach(station => {
+      const isActive = currentStation && currentStation.id === station.id;
+      html += `
+        <div class="radio-station-card ${isActive && MusicRadio.isPlaying() ? 'active' : ''}" 
+             data-station-id="${station.id}"
+             style="--station-color: ${station.color}; --station-color-rgb: ${hexToRgb(station.color)};">
+          <div class="station-card-header">
+            <span class="station-card-icon">${station.icon}</span>
+            <span class="station-card-name">${station.name}</span>
+          </div>
+          <div class="station-card-desc">${station.desc}</div>
+          <div class="station-card-playing">
+            <div class="radio-bar"></div>
+            <div class="radio-bar"></div>
+            <div class="radio-bar"></div>
+            <div class="radio-bar"></div>
+          </div>
+        </div>
+      `;
+    });
+    
+    dom.radioStations.innerHTML = html;
+    
+    // Add click handlers to station cards
+    const stationCards = dom.radioStations.querySelectorAll('.radio-station-card');
+    stationCards.forEach(card => {
+      card.addEventListener('click', () => {
+        const stationId = card.dataset.stationId;
+        if (typeof AudioManager !== 'undefined') {
+          AudioManager.init();
+          AudioManager.resume();
+        }
+        MusicRadio.play(stationId);
+        updateRadioUI();
+      });
+    });
+  };
+  
+  /**
+   * Convert hex color to RGB values string
+   */
+  const hexToRgb = (hex) => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    if (result) {
+      return `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}`;
+    }
+    return '96, 165, 250'; // Default blue
+  };
+  
+  /**
+   * Open the full radio panel
+   */
+  const openRadioPanel = () => {
+    if (dom.radioPanel) {
+      dom.radioPanel.classList.add('active');
+    }
+    if (dom.radioBackdrop) {
+      dom.radioBackdrop.classList.add('active');
+    }
+    populateRadioStations(); // Refresh station list
+    updateRadioUI();
+  };
+  
+  /**
+   * Close the radio panel
+   */
+  const closeRadioPanel = () => {
+    if (dom.radioPanel) {
+      dom.radioPanel.classList.remove('active');
+    }
+    if (dom.radioBackdrop) {
+      dom.radioBackdrop.classList.remove('active');
+    }
   };
 })();

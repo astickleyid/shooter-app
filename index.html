@@ -149,6 +149,29 @@
     <!-- ACTION LOG -->
     <div id="actionLog"></div>
     
+    <!-- MUSIC RADIO WIDGET -->
+    <div id="radioWidget" role="button" aria-label="Music Radio" tabindex="0">
+      <button class="radio-toggle" id="radioToggle" aria-label="Toggle Radio">📻</button>
+      <div class="radio-info">
+        <span class="radio-station-name">
+          <span class="radio-station-icon" id="radioStationIcon">🌆</span>
+          <span id="radioStationName">Synthwave FM</span>
+        </span>
+        <span class="radio-status" id="radioStatus">Click to play</span>
+        <div class="radio-visualizer" id="radioVisualizer">
+          <div class="radio-bar"></div>
+          <div class="radio-bar"></div>
+          <div class="radio-bar"></div>
+          <div class="radio-bar"></div>
+        </div>
+      </div>
+      <div class="radio-controls">
+        <button class="radio-btn" id="radioPrev" aria-label="Previous Station">◀</button>
+        <button class="radio-btn" id="radioNext" aria-label="Next Station">▶</button>
+        <button class="radio-btn" id="radioExpand" aria-label="Open Stations">☰</button>
+      </div>
+    </div>
+    
     <!-- EQUIPMENT SLOT INDICATOR - Secondary Weapons Dock -->
     <div id="equipmentIndicator" role="toolbar" aria-label="Equipment slots">
       <div class="equip-slot active" data-slot="0" tabindex="0" role="button" aria-pressed="true" aria-label="Primary weapon slot">
@@ -500,12 +523,33 @@
     </div>
   </div>
 
+  <!-- MUSIC RADIO PANEL -->
+  <div id="radioBackdrop"></div>
+  <div id="radioPanel" role="dialog" aria-modal="true" aria-labelledby="radioPanelTitle">
+    <div class="radio-panel-header">
+      <h2 class="radio-panel-title">
+        <span class="radio-panel-title-icon">📻</span>
+        Music Radio
+      </h2>
+      <button class="radio-panel-close" id="radioPanelClose" aria-label="Close">✕</button>
+    </div>
+    <div class="radio-stations" id="radioStations">
+      <!-- Station cards will be populated by JavaScript -->
+    </div>
+    <div class="radio-volume-section">
+      <span class="radio-volume-label">🔊 Volume</span>
+      <input type="range" class="radio-volume-slider" id="radioVolumeSlider" min="0" max="100" value="50">
+      <span class="radio-volume-value" id="radioVolumeValue">50%</span>
+    </div>
+  </div>
+
   <!-- Include external scripts -->
   <script src="backend-api.js"></script>
   <script src="social-api.js"></script>
   <script src="social-hub.js"></script>
   <script src="social-integration.js"></script>
   <script src="audio-manager.js"></script>
+  <script src="music-radio.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
