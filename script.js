@@ -342,9 +342,16 @@
     MAX_LEVEL_FOR_SCALING: 25,
     
     // Progressive difficulty thresholds
-    EASY_LEVELS: 5,           // First N levels are easier
-    MID_GAME_START: 6,        // When difficulty starts ramping
+    EASY_LEVELS: 5,           // First N levels are easier (MID_GAME_START = EASY_LEVELS + 1)
     LATE_GAME_START: 15,      // When difficulty becomes challenging
+    
+    // Diminishing returns on player upgrades
+    POWER_EFFECTIVENESS_THRESHOLD: 0.5,  // Power ratio above which diminishing returns kick in
+    POWER_EFFECTIVENESS_REDUCTION: 0.6,  // Multiplier for effectiveness reduction above threshold
+    
+    // Late game exponential scaling parameters
+    LATE_GAME_SCALING_FACTOR: 0.15,      // Base factor for exponential growth
+    LATE_GAME_SCALING_EXPONENT: 1.3,     // Exponent for late game difficulty curve
     
     // Enemy damage scaling - increased for better challenge
     MAX_DAMAGE_MULTIPLIER: 2.5,
@@ -429,7 +436,8 @@
   // Get progressive level scaling factor
   // Returns a multiplier that increases difficulty after the easy early levels
   const getLevelProgressionFactor = () => {
-    const { EASY_LEVELS, MID_GAME_START, LATE_GAME_START } = ADAPTIVE_CONSTANTS;
+    const { EASY_LEVELS, LATE_GAME_START, LATE_GAME_SCALING_FACTOR, LATE_GAME_SCALING_EXPONENT } = ADAPTIVE_CONSTANTS;
+    const MID_GAME_START = EASY_LEVELS + 1; // Mid game starts right after easy levels
     
     if (level <= EASY_LEVELS) {
       // Early game: reduced difficulty (0.6 to 0.9 scaling)
@@ -441,7 +449,7 @@
     } else {
       // Late game: aggressive scaling (1.5+ with exponential growth)
       const lateProgress = level - LATE_GAME_START;
-      return 1.5 + Math.pow(lateProgress * 0.15, 1.3);
+      return 1.5 + Math.pow(lateProgress * LATE_GAME_SCALING_FACTOR, LATE_GAME_SCALING_EXPONENT);
     }
   };
   
@@ -453,8 +461,11 @@
     const combinedFactor = (powerRatio * ADAPTIVE_CONSTANTS.POWER_WEIGHT + levelFactor * ADAPTIVE_CONSTANTS.LEVEL_WEIGHT);
     
     // Apply diminishing returns to high power levels
-    // At max power, effectiveness is reduced to 70%
-    const powerEffectiveness = powerRatio > 0.5 ? 1 - (powerRatio - 0.5) * 0.6 : 1;
+    // At max power, effectiveness is reduced based on configured threshold and reduction
+    const { POWER_EFFECTIVENESS_THRESHOLD, POWER_EFFECTIVENESS_REDUCTION } = ADAPTIVE_CONSTANTS;
+    const powerEffectiveness = powerRatio > POWER_EFFECTIVENESS_THRESHOLD 
+      ? 1 - (powerRatio - POWER_EFFECTIVENESS_THRESHOLD) * POWER_EFFECTIVENESS_REDUCTION 
+      : 1;
     
     // Calculate progressive enemy stat bonuses (kicks in after early game)
     const levelsAfterEasy = Math.max(0, level - ADAPTIVE_CONSTANTS.EASY_LEVELS);
