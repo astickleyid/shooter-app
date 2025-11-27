@@ -1745,15 +1745,11 @@
         return;
       }
       
-      console.log(`🔄 Migrating ${this.entries.length} local scores to global leaderboard...`);
+      // Migration logging removed for production
       
-      let success = 0;
       for (const entry of this.entries) {
         try {
-          const result = await GlobalLeaderboard.submitScore(entry);
-          if (result && result.success) {
-            success++;
-          }
+          await GlobalLeaderboard.submitScore(entry);
           await new Promise(resolve => setTimeout(resolve, 100));
         } catch (err) {
           console.warn('Migration error:', err);
@@ -1762,7 +1758,7 @@
       
       localStorage.setItem(MIGRATION_KEY, 'true');
       this.migrated = true;
-      console.log(`✅ Migrated ${success}/${this.entries.length} scores to global leaderboard`);
+      // Migration complete
     },
     
     save() {
@@ -1795,7 +1791,7 @@
         try {
           const result = await GlobalLeaderboard.submitScore(entry);
           if (result && result.rank) {
-            console.log(`🏆 Global rank: #${result.rank}`);
+            // Score submitted successfully
             return result.rank;
           }
         } catch (err) {
@@ -1818,7 +1814,7 @@
           const globalEntries = await GlobalLeaderboard.fetchScores(difficulty, limit);
           // Return global entries even if empty (distinguishes from error)
           if (globalEntries !== null && Array.isArray(globalEntries)) {
-            console.log(`📊 Global leaderboard: ${globalEntries.length} entries`);
+            // Global entries fetched successfully
             // Merge with local entries to ensure user's scores appear
             const mergedEntries = this.mergeWithLocal(globalEntries, difficulty);
             return mergedEntries.slice(0, limit);
@@ -5931,7 +5927,7 @@
     g.restore();
   };
 
-  const showMessage = (title, html, button = 'Continue', handler) => {
+  const _showMessage = (title, html, button = 'Continue', handler) => {
     dom.messageTitle.textContent = title;
     dom.messageText.innerHTML = html;
     dom.messageButton.textContent = button;
