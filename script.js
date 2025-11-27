@@ -336,53 +336,70 @@
   // Adaptive difficulty - scales challenge based on player power
   // Adaptive difficulty constants
   const ADAPTIVE_CONSTANTS = {
-    // Scaling weights
-    POWER_WEIGHT: 0.6,
-    LEVEL_WEIGHT: 0.4,
-    MAX_LEVEL_FOR_SCALING: 20,
+    // Scaling weights - increased to make upgrades less dominant
+    POWER_WEIGHT: 0.5,
+    LEVEL_WEIGHT: 0.5,
+    MAX_LEVEL_FOR_SCALING: 25,
     
-    // Enemy damage scaling
-    MAX_DAMAGE_MULTIPLIER: 1.5,
+    // Progressive difficulty thresholds
+    EASY_LEVELS: 5,           // First N levels are easier (MID_GAME_START = EASY_LEVELS + 1)
+    LATE_GAME_START: 15,      // When difficulty becomes challenging
     
-    // Shield penetration
-    MAX_SHIELD_PENETRATION: 0.5,
-    PENETRATION_SCALE: 0.6,
-    ELITE_PENETRATION_BONUS: 0.2,
-    BOSS_PENETRATION_BONUS: 0.35,
+    // Diminishing returns on player upgrades
+    POWER_EFFECTIVENESS_THRESHOLD: 0.5,  // Power ratio above which diminishing returns kick in
+    POWER_EFFECTIVENESS_REDUCTION: 0.6,  // Multiplier for effectiveness reduction above threshold
+    
+    // Late game exponential scaling parameters
+    LATE_GAME_SCALING_FACTOR: 0.15,      // Base factor for exponential growth
+    LATE_GAME_SCALING_EXPONENT: 1.3,     // Exponent for late game difficulty curve
+    
+    // Enemy damage scaling - increased for better challenge
+    MAX_DAMAGE_MULTIPLIER: 2.5,
+    
+    // Shield penetration - increased to counter high defense builds
+    MAX_SHIELD_PENETRATION: 0.65,
+    PENETRATION_SCALE: 0.75,
+    ELITE_PENETRATION_BONUS: 0.25,
+    BOSS_PENETRATION_BONUS: 0.4,
     BULLET_PENETRATION_FACTOR: 0.7,
     
-    // Repulse field
-    MIN_REPULSE_EFFECTIVENESS: 0.3,
-    REPULSE_SCALE: 0.7,
-    ELITE_REPULSE_RESISTANCE: 0.5,
-    BOSS_REPULSE_RESISTANCE: 0.8,
+    // Repulse field - more aggressive reduction
+    MIN_REPULSE_EFFECTIVENESS: 0.2,
+    REPULSE_SCALE: 0.8,
+    ELITE_REPULSE_RESISTANCE: 0.6,
+    BOSS_REPULSE_RESISTANCE: 0.85,
     
-    // Enemy speed
-    MAX_SPEED_BOOST: 0.4,
+    // Enemy speed - increased scaling
+    MAX_SPEED_BOOST: 0.6,
     
-    // Elite/Boss spawn rates
-    MAX_ELITE_CHANCE: 0.35,
-    ELITE_CHANCE_SCALE: 0.4,
+    // Elite/Boss spawn rates - more elites at higher levels
+    MAX_ELITE_CHANCE: 0.5,
+    ELITE_CHANCE_SCALE: 0.55,
     MIN_BOSS_INTERVAL: 3,
-    MAX_BOSS_INTERVAL: 8,
+    MAX_BOSS_INTERVAL: 7,
     
-    // Elite stats
-    ELITE_SIZE_MULT: 1.3,
-    ELITE_SPEED_MULT: 1.15,
-    ELITE_HEALTH_MULT: 3,
-    ELITE_DAMAGE_MULT: 1.5,
+    // Elite stats - stronger elites
+    ELITE_SIZE_MULT: 1.35,
+    ELITE_SPEED_MULT: 1.2,
+    ELITE_HEALTH_MULT: 4,
+    ELITE_DAMAGE_MULT: 1.75,
     
-    // Boss stats
+    // Boss stats - more challenging bosses
     BOSS_SIZE_MULT: 2.5,
-    BOSS_SPEED_MULT: 0.7,
-    BOSS_BASE_HEALTH_MULT: 15,
-    BOSS_HEALTH_PER_LEVEL: 2,
-    BOSS_DAMAGE_MULT: 2,
+    BOSS_SPEED_MULT: 0.75,
+    BOSS_BASE_HEALTH_MULT: 20,
+    BOSS_HEALTH_PER_LEVEL: 3,
+    BOSS_DAMAGE_MULT: 2.5,
     
     // Ranged attack scaling
-    RANGED_DAMAGE_MULT: 0.6,
-    BOSS_BULLET_SPEED_MULT: 0.8,
-    ELITE_BULLET_SPEED_MULT: 0.6
+    RANGED_DAMAGE_MULT: 0.7,
+    BOSS_BULLET_SPEED_MULT: 0.85,
+    ELITE_BULLET_SPEED_MULT: 0.65,
+    
+    // Progressive enemy stat scaling per level (after early game)
+    HEALTH_PER_LEVEL: 0.12,      // +12% health per level after early game
+    DAMAGE_PER_LEVEL: 0.08,      // +8% damage per level after early game
+    SPEED_PER_LEVEL: 0.03        // +3% speed per level after early game
   };
 
   // Cached power calculations (invalidated when upgrades change)
@@ -416,27 +433,67 @@
     return cachedPowerRatio;
   };
 
-  // Adaptive scaling factors based on player power
+  // Get progressive level scaling factor
+  // Returns a multiplier that increases difficulty after the easy early levels
+  const getLevelProgressionFactor = () => {
+    const { EASY_LEVELS, LATE_GAME_START, LATE_GAME_SCALING_FACTOR, LATE_GAME_SCALING_EXPONENT } = ADAPTIVE_CONSTANTS;
+    const MID_GAME_START = EASY_LEVELS + 1; // Mid game starts right after easy levels
+    
+    if (level <= EASY_LEVELS) {
+      // Early game: reduced difficulty (0.6 to 0.9 scaling)
+      return 0.6 + (level / EASY_LEVELS) * 0.3;
+    } else if (level <= LATE_GAME_START) {
+      // Mid game: steady ramp up (1.0 to 1.5)
+      const midProgress = (level - MID_GAME_START) / (LATE_GAME_START - MID_GAME_START);
+      return 1.0 + midProgress * 0.5;
+    } else {
+      // Late game: aggressive scaling (1.5+ with exponential growth)
+      const lateProgress = level - LATE_GAME_START;
+      return 1.5 + Math.pow(lateProgress * LATE_GAME_SCALING_FACTOR, LATE_GAME_SCALING_EXPONENT);
+    }
+  };
+  
+  // Adaptive scaling factors based on player power and level progression
   const getAdaptiveScaling = () => {
     const powerRatio = getPowerRatio();
     const levelFactor = Math.min(level / ADAPTIVE_CONSTANTS.MAX_LEVEL_FOR_SCALING, 1);
+    const progressionFactor = getLevelProgressionFactor();
     const combinedFactor = (powerRatio * ADAPTIVE_CONSTANTS.POWER_WEIGHT + levelFactor * ADAPTIVE_CONSTANTS.LEVEL_WEIGHT);
     
+    // Apply diminishing returns to high power levels
+    // At max power, effectiveness is reduced based on configured threshold and reduction
+    const { POWER_EFFECTIVENESS_THRESHOLD, POWER_EFFECTIVENESS_REDUCTION } = ADAPTIVE_CONSTANTS;
+    const powerEffectiveness = powerRatio > POWER_EFFECTIVENESS_THRESHOLD 
+      ? 1 - (powerRatio - POWER_EFFECTIVENESS_THRESHOLD) * POWER_EFFECTIVENESS_REDUCTION 
+      : 1;
+    
+    // Calculate progressive enemy stat bonuses (kicks in after early game)
+    const levelsAfterEasy = Math.max(0, level - ADAPTIVE_CONSTANTS.EASY_LEVELS);
+    const progressiveHealthBonus = 1 + levelsAfterEasy * ADAPTIVE_CONSTANTS.HEALTH_PER_LEVEL;
+    const progressiveDamageBonus = 1 + levelsAfterEasy * ADAPTIVE_CONSTANTS.DAMAGE_PER_LEVEL;
+    const progressiveSpeedBonus = 1 + levelsAfterEasy * ADAPTIVE_CONSTANTS.SPEED_PER_LEVEL;
+    
     return {
-      // Enemy damage scales up to bypass high defenses
-      enemyDamageMultiplier: 1 + combinedFactor * ADAPTIVE_CONSTANTS.MAX_DAMAGE_MULTIPLIER,
+      // Progressive level scaling factor
+      progressionFactor,
+      // Player upgrade effectiveness (diminishing returns at high power)
+      powerEffectiveness,
+      // Enemy damage scales up to bypass high defenses (enhanced with progression)
+      enemyDamageMultiplier: (1 + combinedFactor * ADAPTIVE_CONSTANTS.MAX_DAMAGE_MULTIPLIER) * progressiveDamageBonus,
       // Shield penetration increases (% of damage that bypasses shields)
-      shieldPenetration: Math.min(ADAPTIVE_CONSTANTS.MAX_SHIELD_PENETRATION, combinedFactor * ADAPTIVE_CONSTANTS.PENETRATION_SCALE),
+      shieldPenetration: Math.min(ADAPTIVE_CONSTANTS.MAX_SHIELD_PENETRATION, combinedFactor * ADAPTIVE_CONSTANTS.PENETRATION_SCALE * progressionFactor),
       // Repulse field becomes less effective at higher power levels
-      repulseEffectiveness: Math.max(ADAPTIVE_CONSTANTS.MIN_REPULSE_EFFECTIVENESS, 1 - combinedFactor * ADAPTIVE_CONSTANTS.REPULSE_SCALE),
-      // Enemy speed increases slightly
-      enemySpeedBoost: 1 + combinedFactor * ADAPTIVE_CONSTANTS.MAX_SPEED_BOOST,
-      // Elite enemy spawn chance increases
-      eliteChance: Math.min(ADAPTIVE_CONSTANTS.MAX_ELITE_CHANCE, combinedFactor * ADAPTIVE_CONSTANTS.ELITE_CHANCE_SCALE),
-      // Boss spawn threshold (every N levels)
+      repulseEffectiveness: Math.max(ADAPTIVE_CONSTANTS.MIN_REPULSE_EFFECTIVENESS, 1 - combinedFactor * ADAPTIVE_CONSTANTS.REPULSE_SCALE * progressionFactor),
+      // Enemy speed increases (enhanced with progression)
+      enemySpeedBoost: (1 + combinedFactor * ADAPTIVE_CONSTANTS.MAX_SPEED_BOOST) * progressiveSpeedBonus,
+      // Elite enemy spawn chance increases (more at higher levels)
+      eliteChance: Math.min(ADAPTIVE_CONSTANTS.MAX_ELITE_CHANCE, combinedFactor * ADAPTIVE_CONSTANTS.ELITE_CHANCE_SCALE * progressionFactor),
+      // Boss spawn threshold (every N levels, more frequent at high power)
       bossInterval: Math.max(ADAPTIVE_CONSTANTS.MIN_BOSS_INTERVAL, ADAPTIVE_CONSTANTS.MAX_BOSS_INTERVAL - Math.floor(powerRatio * 5)),
       // Environment hazard intensity
-      hazardIntensity: combinedFactor
+      hazardIntensity: combinedFactor * progressionFactor,
+      // Progressive enemy health bonus (for enemy constructor)
+      progressiveHealthBonus
     };
   };
 
@@ -1929,23 +1986,23 @@
       // Base size scaling
       const sizeMap = { heavy: 1.45, swarmer: 0.9, drone: 0.75 };
       let baseSize = BASE.ENEMY_SIZE * (sizeMap[kind] || 1);
-      if (isElite) baseSize *= 1.3;
-      if (isBoss) baseSize *= 2.5;
+      if (isElite) baseSize *= ADAPTIVE_CONSTANTS.ELITE_SIZE_MULT;
+      if (isBoss) baseSize *= ADAPTIVE_CONSTANTS.BOSS_SIZE_MULT;
       this.size = baseSize;
       
-      // Speed scaling with adaptive difficulty
+      // Speed scaling with adaptive difficulty and progression
       const speedMap = { heavy: 0.85, swarmer: 1.45, drone: 1.2 };
       let baseSpeed = BASE.ENEMY_SPEED * (speedMap[kind] || 1.05) * diff.enemySpeed;
       baseSpeed *= adaptive.enemySpeedBoost;
-      if (isElite) baseSpeed *= 1.15;
-      if (isBoss) baseSpeed *= 0.7; // Bosses are slower but more dangerous
+      if (isElite) baseSpeed *= ADAPTIVE_CONSTANTS.ELITE_SPEED_MULT;
+      if (isBoss) baseSpeed *= ADAPTIVE_CONSTANTS.BOSS_SPEED_MULT; // Bosses are slower but more dangerous
       this.speed = baseSpeed;
       
-      // Health scaling
+      // Health scaling with progressive difficulty
       const baseHealth = kind === 'heavy' ? 3 : 1;
-      let health = Math.ceil(baseHealth * diff.enemyHealth);
-      if (isElite) health *= 3;
-      if (isBoss) health *= 15 + level * 2; // Bosses scale heavily with level
+      let health = Math.ceil(baseHealth * diff.enemyHealth * adaptive.progressiveHealthBonus);
+      if (isElite) health *= ADAPTIVE_CONSTANTS.ELITE_HEALTH_MULT;
+      if (isBoss) health *= ADAPTIVE_CONSTANTS.BOSS_BASE_HEALTH_MULT + level * ADAPTIVE_CONSTANTS.BOSS_HEALTH_PER_LEVEL;
       this.health = health;
       this.maxHealth = this.health;
       
@@ -1969,10 +2026,11 @@
       this.specialAttackCooldown = 3000;
       this.attackPhase = 0;
       
-      // Shooting capability for ranged enemies
-      this.canShoot = isBoss || (isElite && Math.random() < 0.5);
+      // Shooting capability for ranged enemies - more aggressive at higher levels
+      const shootChance = level > ADAPTIVE_CONSTANTS.EASY_LEVELS ? 0.6 : 0.4;
+      this.canShoot = isBoss || (isElite && Math.random() < shootChance);
       this.lastShot = 0;
-      this.shotCooldown = isBoss ? 1500 : 2500;
+      this.shotCooldown = isBoss ? Math.max(1000, 1500 - level * 30) : Math.max(1500, 2500 - level * 50);
       
       this.animPhase = Math.random() * Math.PI * 2;
       this.hitFlash = 0;
@@ -2518,16 +2576,37 @@
 
   const spawnRate = () => {
     const diff = getDifficulty();
-    // Increased scaling: base reduced by 120ms per level (from 90ms)
-    const base = BASE.SPAWNER_RATE_MS - level * 120 + Math.random() * 300;
+    
+    // Early levels have slower spawns, then ramps up
+    let levelReduction;
+    if (level <= ADAPTIVE_CONSTANTS.EASY_LEVELS) {
+      // Early game: gentle spawn rate (60ms reduction per level)
+      levelReduction = level * 60;
+    } else if (level <= ADAPTIVE_CONSTANTS.LATE_GAME_START) {
+      // Mid game: standard spawn rate increase (100ms per level after easy)
+      levelReduction = ADAPTIVE_CONSTANTS.EASY_LEVELS * 60 + (level - ADAPTIVE_CONSTANTS.EASY_LEVELS) * 100;
+    } else {
+      // Late game: aggressive spawn rate (140ms per level after mid)
+      levelReduction = ADAPTIVE_CONSTANTS.EASY_LEVELS * 60 + 
+        (ADAPTIVE_CONSTANTS.LATE_GAME_START - ADAPTIVE_CONSTANTS.EASY_LEVELS) * 100 + 
+        (level - ADAPTIVE_CONSTANTS.LATE_GAME_START) * 140;
+    }
+    
+    const base = BASE.SPAWNER_RATE_MS - levelReduction + Math.random() * 300;
     const withDifficulty = base / diff.enemySpawnRate;
-    return Math.max(400, withDifficulty);  // Reduced minimum from 500 to 400
+    // Progressive scaling makes minimum spawn time lower at higher levels
+    const minSpawnTime = level > ADAPTIVE_CONSTANTS.LATE_GAME_START ? 300 : 400;
+    return Math.max(minSpawnTime, withDifficulty);
   };
 
   const createSpawners = (count, isInitial = false) => {
     spawners = [];
     const diff = getDifficulty();
-    const adjustedCount = Math.max(1, Math.round(count * diff.spawnerCount));
+    // More spawners at higher progression levels
+    let adjustedCount = Math.max(1, Math.round(count * diff.spawnerCount));
+    if (level > ADAPTIVE_CONSTANTS.LATE_GAME_START) {
+      adjustedCount = Math.ceil(adjustedCount * 1.2); // 20% more spawners in late game
+    }
     for (let i = 0; i < adjustedCount; i++) spawners.push(new Spawner(isInitial));
   };
 
@@ -2601,19 +2680,40 @@
     #dynamicStats() {
       const L = (id) => Save.getUpgradeLevel(id);
       const weaponStats = (this.primary && this.primary.stats) || {};
-      const fireBase = clamp(140 - L('firerate') * 18, 55, 999) * shipStat('fireRate', 1);
+      const adaptive = getAdaptiveScaling();
+      
+      // Apply diminishing returns at high power levels
+      const effectiveness = adaptive.powerEffectiveness;
+      
+      // Fire rate: diminishing returns on very fast fire rates
+      const fireBase = clamp(140 - L('firerate') * 18 * effectiveness, 55, 999) * shipStat('fireRate', 1);
+      
+      // HP: full benefit (survivability shouldn't be nerfed too hard)
       const hpBase = (BASE.PLAYER_HEALTH + L('shield') * 22) * shipStat('hp', 1);
-      const pickupBase = (26 + L('magnet') * 14) * shipStat('pickup', 1);
-      const ammoRegenBase = clamp((BASE.AMMO_REGEN_MS - L('ammo') * 120) * shipStat('ammoRegen', 1), 280, 2200);
+      
+      // Pickup and ammo regen: slight effectiveness reduction
+      const pickupBase = (26 + L('magnet') * 14 * effectiveness) * shipStat('pickup', 1);
+      const ammoRegenBase = clamp((BASE.AMMO_REGEN_MS - L('ammo') * 120 * effectiveness) * shipStat('ammoRegen', 1), 280, 2200);
+      
+      // Speed bonuses: keep full benefit for mobility
       const baseSpeed = BASE.PLAYER_SPEED * shipStat('speed', 1);
       const boostSpeed = (BASE.PLAYER_BOOST_SPEED + L('boost') * 0.9) * shipStat('boost', shipStat('speed', 1));
+      
+      // Damage and regen: apply effectiveness modifier
+      const damageMultiplier = (1 + L('damage') * 0.6 * effectiveness);
+      const regenAmount = L('regen') * 3 * effectiveness;
+      
+      // Repulse field: reduced by both effectiveness and adaptive scaling
+      const repulseBase = L('field') > 0 ? 2 + L('field') * 0.8 : 0;
+      const repulseEffective = repulseBase * adaptive.repulseEffectiveness;
+      
       return {
         fireCD: clamp(fireBase * (weaponStats.cd || 1), 35, 999),
-        dmg: (1 + L('damage') * 0.6) * shipStat('damage', 1) * (weaponStats.damage || 1),
+        dmg: damageMultiplier * shipStat('damage', 1) * (weaponStats.damage || 1),
         multishot: 1 + L('multi') + (weaponStats.shots || 0),
         hpMax: hpBase,
-        hpRegen5: L('regen') * 3,
-        repulse: L('field') > 0 ? 2 + L('field') * 0.8 : 0,
+        hpRegen5: regenAmount,
+        repulse: repulseEffective,
         pickupR: pickupBase,
         ammoRegen: ammoRegenBase,
         boost: boostSpeed,
@@ -3957,8 +4057,22 @@
     const waveType = WAVE_TYPES[currentWaveType];
     const diff = getDifficulty();
     
-    // Calculate enemies to kill with wave type modifiers
-    let baseEnemies = Math.floor((10 + level * 5.5) * diff.enemiesToKill);
+    // Calculate enemies to kill with progressive scaling
+    // Early game: fewer enemies (8-20 range)
+    // Mid game: standard enemies (scales with level * 5.5)
+    // Late game: more enemies (scales with level * 7)
+    let baseEnemies;
+    if (level <= ADAPTIVE_CONSTANTS.EASY_LEVELS) {
+      // Early game: gentler enemy count
+      baseEnemies = Math.floor((8 + level * 2.5) * diff.enemiesToKill);
+    } else if (level <= ADAPTIVE_CONSTANTS.LATE_GAME_START) {
+      // Mid game: standard scaling
+      baseEnemies = Math.floor((10 + level * 5.5) * diff.enemiesToKill);
+    } else {
+      // Late game: more enemies with accelerated scaling
+      const lateBonus = (level - ADAPTIVE_CONSTANTS.LATE_GAME_START) * 2;
+      baseEnemies = Math.floor((10 + level * 7 + lateBonus) * diff.enemiesToKill);
+    }
     if (waveType.enemyMultiplier) baseEnemies = Math.floor(baseEnemies * waveType.enemyMultiplier);
     enemiesToKill = baseEnemies;
     
@@ -4358,7 +4472,17 @@
     enemiesKilled = 0;
     // Use the improved scaling with difficulty
     const diff = getDifficulty();
-    enemiesToKill = Math.floor((10 + level * 5.5) * diff.enemiesToKill);
+    // Progressive enemy count calculation
+    let baseEnemies;
+    if (level <= ADAPTIVE_CONSTANTS.EASY_LEVELS) {
+      baseEnemies = Math.floor((8 + level * 2.5) * diff.enemiesToKill);
+    } else if (level <= ADAPTIVE_CONSTANTS.LATE_GAME_START) {
+      baseEnemies = Math.floor((10 + level * 5.5) * diff.enemiesToKill);
+    } else {
+      const lateBonus = (level - ADAPTIVE_CONSTANTS.LATE_GAME_START) * 2;
+      baseEnemies = Math.floor((10 + level * 7 + lateBonus) * diff.enemiesToKill);
+    }
+    enemiesToKill = baseEnemies;
     setupCanvas();
     player = new PlayerEntity(dom.canvas.width / 2, dom.canvas.height / 2);
     camera.x = player.x - dom.canvas.width / 2;
