@@ -6,6 +6,12 @@
 const SocialHub = {
   // Show login/register modal
   showAuthModal(mode = 'login') {
+    // Remove any existing auth modal first to avoid duplicate IDs
+    const existingModal = document.getElementById('authModal');
+    if (existingModal) {
+      existingModal.remove();
+    }
+
     const modalHTML = `
       <div id="authModal" class="social-modal">
         <div class="social-modal-content">
@@ -83,12 +89,36 @@ const SocialHub = {
         this.updateUI();
       }, 1500);
     } catch (error) {
-      errorEl.textContent = error.message || 'Authentication failed';
+      // Show more helpful error message for network failures
+      if (this.isNetworkError(error)) {
+        errorEl.textContent = '⚠️ Unable to connect to server. Please check your connection and try again.';
+      } else {
+        errorEl.textContent = error.message || 'Authentication failed';
+      }
     }
+  },
+
+  // Helper to detect network errors
+  isNetworkError(error) {
+    return error.name === 'TypeError' || 
+           error.message === 'Failed to fetch' ||
+           error.message.includes('NetworkError') ||
+           error.message.includes('network') ||
+           error.name === 'AbortError';
   },
 
   // Show player profile modal
   async showProfile(userId = null, username = null) {
+    // If viewing own profile (no userId/username provided), check if logged in
+    if (!userId && !username) {
+      if (!SocialAPI.isLoggedIn()) {
+        this.showAuthModal('login');
+        return;
+      }
+      // Use current user's ID to fetch their profile
+      userId = SocialAPI.currentUser.id;
+    }
+
     try {
       const user = await SocialAPI.getProfile(userId, username);
       const isOwnProfile = SocialAPI.currentUser && user.id === SocialAPI.currentUser.id;
@@ -157,7 +187,7 @@ const SocialHub = {
       document.body.insertAdjacentHTML('beforeend', modalHTML);
     } catch (error) {
       console.error('Failed to load profile:', error);
-      alert('Failed to load profile');
+      this.showErrorModal('Profile Unavailable', 'Unable to load profile. The social server may be temporarily unavailable. Please try again later.');
     }
   },
 
@@ -227,7 +257,7 @@ const SocialHub = {
       document.body.insertAdjacentHTML('beforeend', modalHTML);
     } catch (error) {
       console.error('Failed to load friends:', error);
-      alert('Failed to load friends list');
+      this.showErrorModal('Friends Unavailable', 'Unable to load friends list. The social server may be temporarily unavailable. Please try again later.');
     }
   },
 
@@ -265,7 +295,7 @@ const SocialHub = {
       document.body.insertAdjacentHTML('beforeend', modalHTML);
     } catch (error) {
       console.error('Failed to load activity:', error);
-      alert('Failed to load activity feed');
+      this.showErrorModal('Activity Unavailable', 'Unable to load activity feed. The social server may be temporarily unavailable. Please try again later.');
     }
   },
 
@@ -388,6 +418,27 @@ const SocialHub = {
   closeModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) modal.remove();
+  },
+
+  // Show error modal with helpful message
+  showErrorModal(title, message) {
+    // Remove any existing error modal to avoid duplicates
+    const existingModal = document.getElementById('errorModal');
+    if (existingModal) {
+      existingModal.remove();
+    }
+
+    const modalHTML = `
+      <div id="errorModal" class="social-modal">
+        <div class="social-modal-content">
+          <span class="close-modal" onclick="SocialHub.closeModal('errorModal')">&times;</span>
+          <h2>⚠️ ${title}</h2>
+          <p style="color: #94a3b8; margin: 20px 0; line-height: 1.6;">${message}</p>
+          <button class="btn-primary" onclick="SocialHub.closeModal('errorModal')">OK</button>
+        </div>
+      </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
   },
 
   // Update UI based on login state

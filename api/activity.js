@@ -11,7 +11,7 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type'
 };
 
-module.exports = async(req, res) {
+module.exports = async (req, res) => {
   Object.entries(CORS_HEADERS).forEach(([key, value]) => {
     res.setHeader(key, value);
   });
