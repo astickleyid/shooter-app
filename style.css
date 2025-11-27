@@ -17,83 +17,238 @@ html, body {
   background: #000;
 }
 
-/* START SCREEN */
+/* START SCREEN - Refined Compact Design */
 #startScreen {
   position: absolute;
   inset: 0;
-  background: #0a0a0a;
+  background: radial-gradient(ellipse at 50% 30%, #0d1117 0%, #010409 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 24px;
+  gap: 16px;
   z-index: 20;
-  padding: 20px;
+  padding: 16px;
+}
+
+/* Header with title and tagline */
+.start-header {
+  text-align: center;
+  margin-bottom: 4px;
 }
 
 #gameTitle {
-  font-size: 64px;
+  font-size: clamp(42px, 10vw, 72px);
   font-weight: 900;
+  color: #e2e8f0;
+  letter-spacing: 0.12em;
+  text-shadow: 0 0 30px rgba(74, 222, 128, 0.6), 0 2px 0 #0f172a;
+  line-height: 1;
+}
+
+.title-accent {
   color: #4ade80;
-  text-shadow: 0 0 20px rgba(74, 222, 128, 0.8), 0 0 40px rgba(74, 222, 128, 0.4);
-  letter-spacing: 0.08em;
-  text-align: center;
-  margin-bottom: 8px;
+  text-shadow: 0 0 40px rgba(74, 222, 128, 0.9), 0 0 80px rgba(74, 222, 128, 0.4);
+}
+
+.title-tagline {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  letter-spacing: 0.35em;
+  margin-top: 6px;
+  text-transform: uppercase;
 }
 
 #startGraphicCanvas {
-  width: 90%;
-  max-width: 480px;
-  height: 220px;
-  background: #000;
-  border-radius: 12px;
-  border: 2px solid rgba(74, 222, 128, 0.6);
-  box-shadow: 0 0 20px rgba(74, 222, 128, 0.3), inset 0 0 40px rgba(74, 222, 128, 0.1);
+  width: min(360px, 85vw);
+  height: 140px;
+  background: linear-gradient(180deg, #030712 0%, #0f172a 100%);
+  border-radius: 8px;
+  border: 1px solid rgba(74, 222, 128, 0.35);
+  box-shadow: 0 0 30px rgba(74, 222, 128, 0.15), inset 0 0 60px rgba(0, 0, 0, 0.5);
 }
 
-.difficultySelector {
+/* Main action area */
+.start-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0;
+}
+
+.startButton-primary {
   display: flex;
   align-items: center;
-  gap: 16px;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 48px;
   font-size: 16px;
-  font-weight: 600;
-  color: #cbd5e1;
-  margin-top: 8px;
-  margin-bottom: 8px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+  color: #022c22;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 20px rgba(74, 222, 128, 0.4), inset 0 1px 0 rgba(255,255,255,0.2);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  position: relative;
+  min-width: 220px;
 }
 
-.difficultySelector label {
+.startButton-primary .btn-icon {
   font-size: 14px;
+}
+
+.startButton-primary:hover {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  box-shadow: 0 6px 30px rgba(74, 222, 128, 0.6), inset 0 1px 0 rgba(255,255,255,0.3);
+  transform: translateY(-2px);
+}
+
+.startButton-primary:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 10px rgba(74, 222, 128, 0.4);
+}
+
+/* Inline difficulty selector */
+.difficulty-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.difficultyDropdown {
+  background: rgba(15, 23, 42, 0.8);
+  color: #94a3b8;
+  border: 1px solid rgba(100, 116, 139, 0.3);
+  border-radius: 6px;
+  padding: 6px 24px 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
-.difficultyDropdown {
-  background: rgba(31, 41, 59, 0.95);
-  color: #fff;
-  border: 2px solid rgba(74, 222, 128, 0.4);
-  border-radius: 10px;
-  padding: 10px 20px;
-  font-size: 15px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.25s ease;
-  outline: none;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-}
-
 .difficultyDropdown:hover {
-  border-color: #4ade80;
-  background: rgba(59, 130, 246, 0.15);
-  box-shadow: 0 4px 16px rgba(74, 222, 128, 0.3);
-  transform: translateY(-1px);
+  border-color: rgba(74, 222, 128, 0.5);
+  color: #e2e8f0;
 }
 
 .difficultyDropdown:focus {
   border-color: #4ade80;
-  box-shadow: 0 0 12px rgba(74, 222, 128, 0.5);
+  box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.2);
 }
 
+/* Navigation buttons row */
+.start-nav {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.nav-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 20px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(100, 116, 139, 0.25);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 80px;
+}
+
+.nav-btn:hover {
+  background: rgba(30, 41, 59, 0.8);
+  border-color: rgba(96, 165, 250, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.nav-btn:active {
+  transform: translateY(0);
+}
+
+.nav-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.nav-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.nav-btn:hover .nav-label {
+  color: #e2e8f0;
+}
+
+/* Footer with social icons */
+.start-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(100, 116, 139, 0.15);
+}
+
+.footer-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid rgba(100, 116, 139, 0.2);
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  color: #64748b;
+}
+
+.footer-btn:hover {
+  background: rgba(30, 41, 59, 0.6);
+  border-color: rgba(96, 165, 250, 0.4);
+  color: #e2e8f0;
+  transform: scale(1.1);
+}
+
+.footer-btn-text {
+  width: auto;
+  border-radius: 6px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.footer-divider {
+  width: 1px;
+  height: 20px;
+  background: rgba(100, 116, 139, 0.2);
+  margin: 0 4px;
+}
+
+/* Legacy support - keep these for compatibility */
 .menuRow {
   display: flex;
   flex-direction: column;
@@ -2757,7 +2912,7 @@ html, body {
   background: rgba(96, 165, 250, 0.5);
 }
 
-/* Social Menu Row */
+/* Social Menu Row - Updated for footer design */
 .social-menu-row {
   margin-top: 16px;
   padding-top: 16px;
@@ -2765,15 +2920,85 @@ html, body {
 }
 
 .menuTertiary {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(29, 78, 216, 0.2) 100%);
-  border: 1px solid rgba(96, 165, 250, 0.4);
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(96, 165, 250, 0.3);
 }
 
 .menuTertiary:hover {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.3) 0%, rgba(29, 78, 216, 0.3) 100%);
+  background: rgba(59, 130, 246, 0.2);
   border-color: #60a5fa;
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(96, 165, 250, 0.3);
+}
+
+/* Responsive adjustments for start screen */
+@media screen and (max-height: 600px) {
+  #startScreen {
+    gap: 10px;
+    padding: 12px;
+  }
+  
+  #gameTitle {
+    font-size: clamp(32px, 8vw, 48px);
+  }
+  
+  .title-tagline {
+    font-size: 10px;
+    margin-top: 4px;
+  }
+  
+  #startGraphicCanvas {
+    height: 100px;
+    width: min(300px, 80vw);
+  }
+  
+  .start-main {
+    margin: 4px 0;
+  }
+  
+  .startButton-primary {
+    padding: 10px 36px;
+    font-size: 14px;
+  }
+  
+  .nav-btn {
+    padding: 8px 14px;
+    min-width: 65px;
+  }
+  
+  .nav-icon {
+    font-size: 16px;
+  }
+  
+  .nav-label {
+    font-size: 10px;
+  }
+  
+  .start-footer {
+    margin-top: 8px;
+    padding-top: 8px;
+  }
+  
+  .footer-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 12px;
+  }
+}
+
+@media screen and (max-width: 400px) {
+  .start-nav {
+    gap: 6px;
+  }
+  
+  .nav-btn {
+    padding: 10px 14px;
+    min-width: 70px;
+  }
+  
+  .nav-label {
+    font-size: 10px;
+  }
 }
 
 /* Notification Badge */

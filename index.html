@@ -15,35 +15,48 @@
 <body>
   <!-- START SCREEN -->
   <div id="startScreen">
-    <div id="gameTitle">VOID RIFT</div>
+    <div class="start-header">
+      <div id="gameTitle">VOID<span class="title-accent">RIFT</span></div>
+      <div class="title-tagline">TWIN-STICK SHOOTER</div>
+    </div>
+    
     <canvas id="startGraphicCanvas"></canvas>
-    <div class="difficultySelector">
-      <label for="difficultySelect">Difficulty:</label>
-      <select id="difficultySelect" class="difficultyDropdown">
-        <option value="easy">Easy - Relaxed Pace</option>
-        <option value="normal" selected>Normal - Balanced</option>
-        <option value="hard">Hard - Intense Action</option>
-      </select>
+    
+    <div class="start-main">
+      <button id="startButton" class="startButton-primary">
+        <span class="btn-icon">▶</span> START GAME
+      </button>
+      
+      <div class="difficulty-inline">
+        <select id="difficultySelect" class="difficultyDropdown">
+          <option value="easy">Easy</option>
+          <option value="normal" selected>Normal</option>
+          <option value="hard">Hard</option>
+        </select>
+      </div>
     </div>
-    <div class="menuRow">
-      <button id="startButton" class="menuButton">Start Game</button>
-      <button id="openShopFromStart" class="menuButton menuSecondary">Upgrades / Shop</button>
-      <button id="settingsButton" class="menuButton menuSecondary">Ship Hangar</button>
-      <button id="leaderboardButton" class="menuButton menuSecondary">Leaderboard</button>
+    
+    <div class="start-nav">
+      <button id="openShopFromStart" class="nav-btn">
+        <span class="nav-icon">⚡</span>
+        <span class="nav-label">Upgrades</span>
+      </button>
+      <button id="settingsButton" class="nav-btn">
+        <span class="nav-icon">🚀</span>
+        <span class="nav-label">Hangar</span>
+      </button>
+      <button id="leaderboardButton" class="nav-btn">
+        <span class="nav-icon">🏆</span>
+        <span class="nav-label">Rankings</span>
+      </button>
     </div>
-    <div class="menuRow social-menu-row">
-      <button id="profileButton" class="menuButton menuSecondary" onclick="SocialHub.showProfile()">
-        👤 Profile
-      </button>
-      <button id="friendsButton" class="menuButton menuSecondary" onclick="SocialHub.showFriendsList()">
-        👥 Friends
-      </button>
-      <button id="activityButton" class="menuButton menuSecondary" onclick="SocialHub.showActivityFeed()">
-        📰 Activity
-      </button>
-      <button id="loginButton" class="menuButton menuTertiary" onclick="SocialHub.showAuthModal('login')">
-        🔐 Login / Register
-      </button>
+    
+    <div class="start-footer">
+      <button id="profileButton" class="footer-btn" onclick="SocialHub.showProfile()">👤</button>
+      <button id="friendsButton" class="footer-btn" onclick="SocialHub.showFriendsList()">👥</button>
+      <button id="activityButton" class="footer-btn" onclick="SocialHub.showActivityFeed()">📰</button>
+      <span class="footer-divider"></span>
+      <button id="loginButton" class="footer-btn footer-btn-text" onclick="SocialHub.showAuthModal('login')">Login</button>
     </div>
   </div>
 
