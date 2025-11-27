@@ -1398,11 +1398,6 @@
         const wrapAngle = Math.random() * Math.PI * 2;
         star.x = camera.x + Math.cos(wrapAngle) * Math.sqrt(Math.random()) * margin;
       }
-      if (star.y > camera.y + margin) {
-        star.y = camera.y - margin;
-        const wrapAngle = Math.random() * Math.PI * 2;
-        star.x = camera.x + Math.cos(wrapAngle) * Math.sqrt(Math.random()) * margin;
-      }
     }
     ctx.globalAlpha = 1;
   };
