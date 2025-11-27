@@ -21,6 +21,9 @@
   ],
   "author": "",
   "license": "MIT",
+  "dependencies": {
+    "@vercel/kv": "^2.0.0"
+  },
   "devDependencies": {
     "eslint": "^8.57.0"
   },

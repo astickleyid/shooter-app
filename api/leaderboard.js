@@ -1,9 +1,63 @@
 /**
  * Serverless API Function for Global Leaderboard
- * Deploy this to Vercel (recommended - free and easy)
+ * Uses Vercel KV (Redis) for persistent storage when available
+ * Falls back to file-based storage in /tmp for basic persistence
  */
 
-let leaderboardData = [];
+const fs = require('fs');
+const path = require('path');
+
+// Import Vercel KV for persistent storage
+let kv;
+try {
+  kv = require('@vercel/kv').kv;
+} catch (e) {
+  // Fallback for local development or if KV not configured
+  kv = null;
+}
+
+// File-based fallback storage (persists within same serverless instance)
+const STORAGE_FILE = '/tmp/leaderboard-data.json';
+
+// Load data from file storage
+function loadFromFile() {
+  try {
+    if (fs.existsSync(STORAGE_FILE)) {
+      const data = fs.readFileSync(STORAGE_FILE, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (e) {
+    console.error('Error loading from file:', e);
+  }
+  return [];
+}
+
+// Save data to file storage
+function saveToFile(data) {
+  try {
+    fs.writeFileSync(STORAGE_FILE, JSON.stringify(data), 'utf8');
+  } catch (e) {
+    console.error('Error saving to file:', e);
+  }
+}
+
+// In-memory cache (initialized from file on cold start)
+let memoryCache = null;
+
+function getMemoryData() {
+  if (memoryCache === null) {
+    memoryCache = loadFromFile();
+  }
+  return memoryCache;
+}
+
+function setMemoryData(data) {
+  memoryCache = data;
+  saveToFile(data);
+}
+
+// Key for storing all entries in a sorted set
+const ALL_ENTRIES_KEY = 'leaderboard:all_entries';
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -16,17 +70,49 @@ module.exports = async (req, res) => {
 
   try {
     if (req.method === 'GET') {
-      const { difficulty = 'all', limit = 50 } = req.query;
+      const { difficulty = 'all', limit = 100 } = req.query;
+      const parsedLimit = Math.min(parseInt(limit) || 100, 100);
       
-      let filtered = leaderboardData;
-      if (difficulty !== 'all') {
-        filtered = filtered.filter(e => e.difficulty === difficulty);
+      let entries = [];
+      let storageType = 'file';
+      
+      if (kv) {
+        // Use Vercel KV for persistent storage
+        try {
+          const rawEntries = await kv.zrange(ALL_ENTRIES_KEY, 0, -1, { rev: true });
+          
+          if (rawEntries && rawEntries.length > 0) {
+            entries = rawEntries
+              .map(e => typeof e === 'string' ? JSON.parse(e) : e)
+              .filter(e => difficulty === 'all' || e.difficulty === difficulty)
+              .slice(0, parsedLimit);
+            storageType = 'kv';
+          }
+        } catch (kvError) {
+          console.error('KV error:', kvError);
+        }
       }
       
-      filtered.sort((a, b) => b.score - a.score);
-      const limited = filtered.slice(0, parseInt(limit));
+      // If KV didn't return data, use file-based storage
+      if (entries.length === 0) {
+        const allData = getMemoryData();
+        entries = allData
+          .filter(e => difficulty === 'all' || e.difficulty === difficulty)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, parsedLimit);
+        storageType = 'file';
+      }
       
-      return res.status(200).json({ success: true, entries: limited });
+      return res.status(200).json({ 
+        success: true, 
+        entries,
+        storage: storageType,
+        count: entries.length,
+        debug: {
+          kvAvailable: !!kv,
+          timestamp: Date.now()
+        }
+      });
     }
     
     if (req.method === 'POST') {
@@ -36,26 +122,70 @@ module.exports = async (req, res) => {
         return res.status(400).json({ success: false, error: 'Invalid data' });
       }
       
+      // Validate difficulty
+      const validDifficulties = ['easy', 'normal', 'hard'];
+      if (!validDifficulties.includes(difficulty)) {
+        return res.status(400).json({ success: false, error: 'Invalid difficulty' });
+      }
+      
+      // Generate unique ID
+      const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+      
       const entry = {
-        id: Date.now() + Math.random(),
-        username: String(username).slice(0, 30),
-        score: Math.floor(score),
-        level: Math.floor(level || 1),
+        id: uniqueId,
+        username: String(username).slice(0, 30).trim(),
+        score: Math.max(0, Math.floor(score)),
+        level: Math.max(1, Math.floor(level || 1)),
         difficulty,
         timestamp: timestamp || Date.now()
       };
       
-      leaderboardData.push(entry);
+      let rank = 1;
+      let storageType = 'file';
       
-      if (leaderboardData.length > 1000) {
-        leaderboardData.sort((a, b) => b.score - a.score);
-        leaderboardData = leaderboardData.slice(0, 1000);
+      if (kv) {
+        // Use Vercel KV for persistent storage
+        try {
+          const entryJson = JSON.stringify(entry);
+          
+          await kv.zadd(ALL_ENTRIES_KEY, { score: entry.score, member: entryJson });
+          
+          const higherScores = await kv.zcount(ALL_ENTRIES_KEY, entry.score + 1, '+inf');
+          rank = higherScores + 1;
+          
+          const count = await kv.zcard(ALL_ENTRIES_KEY);
+          if (count > 1000) {
+            await kv.zremrangebyrank(ALL_ENTRIES_KEY, 0, count - 1001);
+          }
+          storageType = 'kv';
+        } catch (kvError) {
+          console.error('KV write error:', kvError);
+        }
       }
       
-      const sorted = [...leaderboardData].sort((a, b) => b.score - a.score);
-      const rank = sorted.findIndex(e => e.id === entry.id) + 1;
+      // Always also save to file-based storage as backup
+      const allData = getMemoryData();
+      allData.push(entry);
+      allData.sort((a, b) => b.score - a.score);
+      if (allData.length > 1000) {
+        allData.splice(1000);
+      }
+      setMemoryData(allData);
       
-      return res.status(201).json({ success: true, entry, rank });
+      if (storageType === 'file') {
+        rank = allData.findIndex(e => e.id === entry.id) + 1;
+      }
+      
+      return res.status(201).json({ 
+        success: true, 
+        entry, 
+        rank,
+        storage: storageType,
+        debug: {
+          kvAvailable: !!kv,
+          totalEntries: allData.length
+        }
+      });
     }
     
     return res.status(405).json({ success: false, error: 'Method not allowed' });
