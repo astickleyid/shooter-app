@@ -1,4 +1,4 @@
-/* global AudioManager */
+/* global AudioManager, SocialAPI, SocialHub, GlobalLeaderboard, updateSocialUI */
 (() => {
   /* ====== UTILS ====== */
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -1014,7 +1014,7 @@
     if (dom.shopCreditsText) dom.shopCreditsText.textContent = Save.data.credits;
   };
 
-  /* ====== AUTHENTICATION SYSTEM ====== */
+  /* ====== UNIFIED AUTHENTICATION SYSTEM ====== */
   /**
    * Simple SHA-256 hash implementation using Web Crypto API
    * @param {string} message - The message to hash
@@ -1027,9 +1027,96 @@
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
   };
 
+  /* ====== PRESTIGE & ACHIEVEMENT SYSTEM ====== */
+  const PRESTIGE_LEVELS_PER_TIER = 50;
+  const MAX_PRESTIGE = 10;
+  
+  const PRESTIGE_REWARDS = {
+    1: { rareWeapon: 'plasma', ship: null, title: 'Void Walker' },
+    2: { rareWeapon: 'photon', ship: 'spectre', title: 'Star Pilot' },
+    3: { rareWeapon: 'seeker', ship: null, title: 'Ace Commander' },
+    4: { rareWeapon: 'gravity', ship: 'titan', title: 'Elite Hunter' },
+    5: { rareWeapon: 'phaseshift', ship: null, title: 'Legendary Pilot' },
+    6: { rareWeapon: 'overcharge', ship: null, title: 'Mythic Warrior' },
+    7: { rareWeapon: 'timewarp', ship: null, title: 'Time Bender' },
+    8: { rareWeapon: 'supernova', ship: null, title: 'Galaxy Master' },
+    9: { rareWeapon: null, ship: null, title: 'Cosmic Legend' },
+    10: { rareWeapon: null, ship: null, title: 'VOID RIFT Champion' }
+  };
+
+  const ACHIEVEMENTS = [
+    // Combat achievements
+    { id: 'first_blood', name: 'First Blood', desc: 'Kill your first enemy', icon: '🎯', category: 'combat', requirement: { kills: 1 } },
+    { id: 'centurion', name: 'Centurion', desc: 'Kill 100 enemies in total', icon: '⚔️', category: 'combat', requirement: { totalKills: 100 } },
+    { id: 'slayer', name: 'Slayer', desc: 'Kill 1000 enemies in total', icon: '💀', category: 'combat', requirement: { totalKills: 1000 } },
+    { id: 'boss_hunter', name: 'Boss Hunter', desc: 'Defeat your first boss', icon: '👹', category: 'combat', requirement: { bossKills: 1 } },
+    { id: 'elite_destroyer', name: 'Elite Destroyer', desc: 'Kill 50 elite enemies', icon: '💎', category: 'combat', requirement: { eliteKills: 50 } },
+    
+    // Survival achievements
+    { id: 'survivor', name: 'Survivor', desc: 'Reach level 5', icon: '🛡️', category: 'survival', requirement: { level: 5 } },
+    { id: 'veteran', name: 'Veteran', desc: 'Reach level 10', icon: '⭐', category: 'survival', requirement: { level: 10 } },
+    { id: 'champion', name: 'Champion', desc: 'Reach level 20', icon: '🏆', category: 'survival', requirement: { level: 20 } },
+    { id: 'legend', name: 'Legend', desc: 'Reach level 30', icon: '👑', category: 'survival', requirement: { level: 30 } },
+    { id: 'flawless', name: 'Flawless Victory', desc: 'Complete a level without taking damage', icon: '✨', category: 'survival', requirement: { flawlessLevel: 1 } },
+    
+    // Score achievements
+    { id: 'scorer', name: 'Point Scorer', desc: 'Score 10,000 points', icon: '📊', category: 'score', requirement: { score: 10000 } },
+    { id: 'high_roller', name: 'High Roller', desc: 'Score 50,000 points', icon: '💰', category: 'score', requirement: { score: 50000 } },
+    { id: 'millionaire', name: 'Millionaire', desc: 'Score 100,000 points', icon: '💎', category: 'score', requirement: { score: 100000 } },
+    
+    // Pilot achievements  
+    { id: 'pilot_10', name: 'Experienced Pilot', desc: 'Reach Pilot Level 10', icon: '🎖️', category: 'pilot', requirement: { pilotLevel: 10 } },
+    { id: 'pilot_25', name: 'Ace Pilot', desc: 'Reach Pilot Level 25', icon: '🏅', category: 'pilot', requirement: { pilotLevel: 25 } },
+    { id: 'pilot_50', name: 'Master Pilot', desc: 'Reach Pilot Level 50', icon: '🥇', category: 'pilot', requirement: { pilotLevel: 50 } },
+    
+    // Prestige achievements
+    { id: 'prestige_1', name: 'Ascended', desc: 'Reach Prestige 1', icon: '🌟', category: 'prestige', requirement: { prestige: 1 } },
+    { id: 'prestige_5', name: 'Transcendent', desc: 'Reach Prestige 5', icon: '💫', category: 'prestige', requirement: { prestige: 5 } },
+    { id: 'prestige_10', name: 'Immortal', desc: 'Reach Prestige 10 (Max)', icon: '🔱', category: 'prestige', requirement: { prestige: 10 } },
+    
+    // Special achievements
+    { id: 'collector', name: 'Collector', desc: 'Unlock 5 different weapons', icon: '🗃️', category: 'special', requirement: { unlockedWeapons: 5 } },
+    { id: 'arsenal', name: 'Arsenal Master', desc: 'Unlock all weapons', icon: '🎒', category: 'special', requirement: { unlockedWeapons: 20 } },
+    { id: 'ship_collector', name: 'Ship Collector', desc: 'Unlock 3 different ships', icon: '🚀', category: 'special', requirement: { unlockedShips: 3 } },
+    { id: 'wealthy', name: 'Wealthy', desc: 'Accumulate 10,000 credits', icon: '💵', category: 'special', requirement: { credits: 10000 } },
+    { id: 'upgrader', name: 'Upgrader', desc: 'Purchase 10 upgrades', icon: '⬆️', category: 'special', requirement: { totalUpgrades: 10 } }
+  ];
+
+  // Achievement categories for UI grouping (used by profile renderer)
+  // eslint-disable-next-line no-unused-vars
+  const ACHIEVEMENT_CATEGORIES = {
+    combat: { name: 'Combat', icon: '⚔️' },
+    survival: { name: 'Survival', icon: '🛡️' },
+    score: { name: 'Score', icon: '📊' },
+    pilot: { name: 'Pilot', icon: '🎖️' },
+    prestige: { name: 'Prestige', icon: '🌟' },
+    special: { name: 'Special', icon: '✨' }
+  };
+
+  /**
+   * Unified Authentication Manager
+   * Syncs local Auth with SocialAPI for a single login experience
+   */
   const Auth = {
     users: {},
     currentUser: null,
+    
+    // Player profile data (unified across all features)
+    playerProfile: {
+      prestige: 0,
+      prestigeLevel: 1,
+      achievements: [],
+      unlockedAchievements: [],
+      totalKills: 0,
+      bossKills: 0,
+      eliteKills: 0,
+      gamesPlayed: 0,
+      totalPlayTime: 0,
+      flawlessLevels: 0,
+      unlockedShips: ['vanguard'],
+      customShipColors: {},
+      title: 'Rookie Pilot'
+    },
     
     load() {
       try {
@@ -1049,6 +1136,34 @@
         this.users = {};
         this.currentUser = null;
       }
+      
+      // Load player profile data
+      this.loadProfile();
+      
+      // Sync with SocialAPI if available
+      this.syncWithSocial();
+    },
+    
+    loadProfile() {
+      try {
+        const profileKey = `${AUTH_KEY}_profile_${this.currentUser || 'guest'}`;
+        const raw = localStorage.getItem(profileKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          this.playerProfile = { ...this.playerProfile, ...parsed };
+        }
+      } catch (err) {
+        console.warn('Failed to load player profile', err);
+      }
+    },
+    
+    saveProfile() {
+      try {
+        const profileKey = `${AUTH_KEY}_profile_${this.currentUser || 'guest'}`;
+        localStorage.setItem(profileKey, JSON.stringify(this.playerProfile));
+      } catch (err) {
+        console.warn('Failed to save player profile', err);
+      }
     },
     
     save() {
@@ -1057,8 +1172,43 @@
           users: this.users,
           currentUser: this.currentUser
         }));
+        this.saveProfile();
       } catch (err) {
         console.warn('Failed to save auth data', err);
+      }
+    },
+    
+    /**
+     * Sync authentication state with SocialAPI
+     * This ensures one login works for all features
+     */
+    syncWithSocial() {
+      if (typeof SocialAPI !== 'undefined') {
+        // Check if SocialAPI has a session
+        SocialAPI.loadSession();
+        
+        if (SocialAPI.isLoggedIn() && !this.currentUser) {
+          // SocialAPI is logged in but local Auth isn't - sync local auth
+          const socialUser = SocialAPI.currentUser;
+          if (socialUser && socialUser.username) {
+            const cleanUsername = socialUser.username.trim().toLowerCase();
+            if (!this.users[cleanUsername]) {
+              // Create local user entry
+              this.users[cleanUsername] = {
+                username: socialUser.username,
+                passwordHash: 'social_sync', // Special marker for socially synced accounts
+                createdAt: Date.now(),
+                socialId: socialUser.id
+              };
+            }
+            this.currentUser = cleanUsername;
+            this.loadProfile();
+            this.save();
+          }
+        } else if (this.currentUser && !SocialAPI.isLoggedIn()) {
+          // Local Auth is logged in but SocialAPI isn't - could be offline mode
+          // Leave as-is for offline play
+        }
       }
     },
     
@@ -1076,7 +1226,31 @@
         return { success: false, error: 'Username already exists' };
       }
       
-      // Hash the password before storing
+      // Try to register with SocialAPI first (if available)
+      if (typeof SocialAPI !== 'undefined') {
+        try {
+          const socialResult = await SocialAPI.register(username, password);
+          if (socialResult && socialResult.success) {
+            // Social registration successful - create local entry
+            this.users[cleanUsername] = {
+              username: username.trim(),
+              passwordHash: await hashPassword(password),
+              createdAt: Date.now(),
+              socialId: socialResult.user?.id
+            };
+            this.currentUser = cleanUsername;
+            this.loadProfile();
+            this.save();
+            this.updateAllUI();
+            return { success: true };
+          }
+        } catch (err) {
+          // Social registration failed - continue with local registration
+          console.warn('Social registration failed, using local:', err.message);
+        }
+      }
+      
+      // Fallback to local-only registration
       const hashedPassword = await hashPassword(password);
       
       this.users[cleanUsername] = {
@@ -1086,7 +1260,9 @@
       };
       
       this.currentUser = cleanUsername;
+      this.loadProfile();
       this.save();
+      this.updateAllUI();
       
       return { success: true };
     },
@@ -1097,6 +1273,36 @@
       }
       
       const cleanUsername = username.trim().toLowerCase();
+      
+      // Try to login with SocialAPI first (if available)
+      if (typeof SocialAPI !== 'undefined') {
+        try {
+          const socialResult = await SocialAPI.login(username, password);
+          if (socialResult && socialResult.success) {
+            // Social login successful - sync local entry
+            if (!this.users[cleanUsername]) {
+              this.users[cleanUsername] = {
+                username: username.trim(),
+                passwordHash: await hashPassword(password),
+                createdAt: Date.now(),
+                socialId: socialResult.user?.id
+              };
+            } else {
+              this.users[cleanUsername].socialId = socialResult.user?.id;
+            }
+            this.currentUser = cleanUsername;
+            this.loadProfile();
+            this.save();
+            this.updateAllUI();
+            return { success: true };
+          }
+        } catch (err) {
+          // Social login failed - try local login
+          console.warn('Social login failed, trying local:', err.message);
+        }
+      }
+      
+      // Fallback to local login
       const user = this.users[cleanUsername];
       
       if (!user) {
@@ -1110,10 +1316,18 @@
           user.passwordHash = await hashPassword(password);
           delete user.password;
           this.currentUser = cleanUsername;
+          this.loadProfile();
           this.save();
+          this.updateAllUI();
           return { success: true };
         }
         return { success: false, error: 'Invalid username or password' };
+      }
+      
+      // Special case: socially synced accounts can login if they exist
+      if (user.passwordHash === 'social_sync') {
+        // Try re-validating with social
+        return { success: false, error: 'Please login through the social system' };
       }
       
       // Verify hashed password
@@ -1123,26 +1337,247 @@
       }
       
       this.currentUser = cleanUsername;
+      this.loadProfile();
       this.save();
+      this.updateAllUI();
       
       return { success: true };
     },
     
     logout() {
       this.currentUser = null;
+      this.playerProfile = {
+        prestige: 0,
+        prestigeLevel: 1,
+        achievements: [],
+        unlockedAchievements: [],
+        totalKills: 0,
+        bossKills: 0,
+        eliteKills: 0,
+        gamesPlayed: 0,
+        totalPlayTime: 0,
+        flawlessLevels: 0,
+        unlockedShips: ['vanguard'],
+        customShipColors: {},
+        title: 'Rookie Pilot'
+      };
       this.save();
+      
+      // Also logout from SocialAPI
+      if (typeof SocialAPI !== 'undefined') {
+        SocialAPI.logout();
+      }
+      
+      this.updateAllUI();
     },
     
     isLoggedIn() {
-      // Verify both that currentUser is set AND that the user exists in the users object
-      if (!this.currentUser) return false;
-      return !!this.users[this.currentUser];
+      // Check both local and social login states
+      if (this.currentUser && this.users[this.currentUser]) {
+        return true;
+      }
+      // Also check SocialAPI
+      if (typeof SocialAPI !== 'undefined' && SocialAPI.isLoggedIn()) {
+        this.syncWithSocial();
+        return true;
+      }
+      return false;
     },
     
     getCurrentUsername() {
-      if (!this.currentUser) return null;
-      const user = this.users[this.currentUser];
-      return user ? user.username : null;
+      if (this.currentUser) {
+        const user = this.users[this.currentUser];
+        return user ? user.username : null;
+      }
+      // Fallback to SocialAPI
+      if (typeof SocialAPI !== 'undefined' && SocialAPI.currentUser) {
+        return SocialAPI.currentUser.username;
+      }
+      return null;
+    },
+    
+    // Get current user's full profile data
+    getProfile() {
+      return {
+        username: this.getCurrentUsername(),
+        ...this.playerProfile,
+        pilotLevel: Save.data.pilotLevel,
+        pilotXp: Save.data.pilotXp,
+        credits: Save.data.credits,
+        bestScore: Save.data.bestScore,
+        highestLevel: Save.data.highestLevel
+      };
+    },
+    
+    // Update all UI elements across the game
+    updateAllUI() {
+      // Update local auth UI
+      if (typeof updateAuthUI === 'function') {
+        updateAuthUI();
+      }
+      // Update social UI if available
+      if (typeof updateSocialUI === 'function') {
+        updateSocialUI();
+      }
+      // Update login button in footer
+      const loginBtn = document.getElementById('loginButton');
+      if (loginBtn) {
+        if (this.isLoggedIn()) {
+          const username = this.getCurrentUsername();
+          loginBtn.textContent = username || 'Profile';
+          loginBtn.onclick = () => {
+            if (typeof SocialHub !== 'undefined') {
+              SocialHub.showProfile();
+            }
+          };
+        } else {
+          loginBtn.textContent = 'Login';
+          loginBtn.onclick = () => {
+            if (typeof SocialHub !== 'undefined') {
+              SocialHub.showAuthModal('login');
+            }
+          };
+        }
+      }
+    },
+    
+    // Prestige system functions
+    canPrestige() {
+      return Save.data.pilotLevel >= PRESTIGE_LEVELS_PER_TIER && this.playerProfile.prestige < MAX_PRESTIGE;
+    },
+    
+    doPrestige() {
+      if (!this.canPrestige()) return false;
+      
+      this.playerProfile.prestige++;
+      this.playerProfile.prestigeLevel = 1;
+      
+      // Award prestige rewards
+      const rewards = PRESTIGE_REWARDS[this.playerProfile.prestige];
+      if (rewards) {
+        this.playerProfile.title = rewards.title;
+        
+        if (rewards.rareWeapon) {
+          // Unlock the rare weapon
+          const weaponTypes = ['primary', 'secondary', 'defense', 'ultimate'];
+          for (const type of weaponTypes) {
+            const weapon = ARMORY[type]?.find(w => w.id === rewards.rareWeapon);
+            if (weapon) {
+              Save.unlockArmory(type, rewards.rareWeapon);
+              break;
+            }
+          }
+        }
+        
+        if (rewards.ship) {
+          if (!this.playerProfile.unlockedShips.includes(rewards.ship)) {
+            this.playerProfile.unlockedShips.push(rewards.ship);
+          }
+        }
+      }
+      
+      // Reset pilot level but keep credits and other progress
+      Save.data.pilotLevel = 1;
+      Save.data.pilotXp = 0;
+      Save.save();
+      
+      this.saveProfile();
+      this.checkAchievements();
+      
+      return true;
+    },
+    
+    // Achievement checking
+    checkAchievements() {
+      const profile = this.getProfile();
+      const newlyUnlocked = [];
+      
+      for (const achievement of ACHIEVEMENTS) {
+        // Skip already unlocked achievements
+        if (this.playerProfile.unlockedAchievements.includes(achievement.id)) {
+          continue;
+        }
+        
+        const req = achievement.requirement;
+        let unlocked = false;
+        
+        if (req.kills && profile.totalKills >= req.kills) unlocked = true;
+        if (req.totalKills && profile.totalKills >= req.totalKills) unlocked = true;
+        if (req.bossKills && profile.bossKills >= req.bossKills) unlocked = true;
+        if (req.eliteKills && profile.eliteKills >= req.eliteKills) unlocked = true;
+        if (req.level && profile.highestLevel >= req.level) unlocked = true;
+        if (req.score && profile.bestScore >= req.score) unlocked = true;
+        if (req.pilotLevel && profile.pilotLevel >= req.pilotLevel) unlocked = true;
+        if (req.prestige && profile.prestige >= req.prestige) unlocked = true;
+        if (req.flawlessLevel && profile.flawlessLevels >= req.flawlessLevel) unlocked = true;
+        if (req.credits && profile.credits >= req.credits) unlocked = true;
+        
+        if (req.unlockedWeapons) {
+          const totalUnlocked = Object.values(Save.data.armory.unlocked).flat().length;
+          if (totalUnlocked >= req.unlockedWeapons) unlocked = true;
+        }
+        
+        if (req.unlockedShips && profile.unlockedShips.length >= req.unlockedShips) unlocked = true;
+        
+        if (req.totalUpgrades) {
+          const totalUpgrades = Object.values(Save.data.upgrades).reduce((a, b) => a + b, 0);
+          if (totalUpgrades >= req.totalUpgrades) unlocked = true;
+        }
+        
+        if (unlocked) {
+          this.playerProfile.unlockedAchievements.push(achievement.id);
+          newlyUnlocked.push(achievement);
+        }
+      }
+      
+      if (newlyUnlocked.length > 0) {
+        this.saveProfile();
+        // Show achievement notification for each newly unlocked
+        newlyUnlocked.forEach(achievement => {
+          this.showAchievementNotification(achievement);
+        });
+      }
+      
+      return newlyUnlocked;
+    },
+    
+    showAchievementNotification(achievement) {
+      // Create achievement toast notification
+      const toast = document.createElement('div');
+      toast.className = 'achievement-toast';
+      toast.innerHTML = `
+        <div class="achievement-toast-icon">${achievement.icon}</div>
+        <div class="achievement-toast-content">
+          <div class="achievement-toast-title">Achievement Unlocked!</div>
+          <div class="achievement-toast-name">${achievement.name}</div>
+        </div>
+      `;
+      document.body.appendChild(toast);
+      
+      // Animate in
+      setTimeout(() => toast.classList.add('show'), 100);
+      
+      // Remove after 4 seconds
+      setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    },
+    
+    // Update stats after a game
+    updateGameStats(stats) {
+      this.playerProfile.gamesPlayed++;
+      this.playerProfile.totalKills += stats.kills || 0;
+      this.playerProfile.bossKills += stats.bossKills || 0;
+      this.playerProfile.eliteKills += stats.eliteKills || 0;
+      this.playerProfile.totalPlayTime += stats.playTime || 0;
+      
+      if (stats.flawlessLevel) {
+        this.playerProfile.flawlessLevels++;
+      }
+      
+      this.saveProfile();
+      this.checkAchievements();
     }
   };
 
@@ -6113,6 +6548,15 @@
     Save.setBest(score, level);
     Save.addCredits(Math.floor(score / 25));
     
+    // Update game stats for achievements
+    Auth.updateGameStats({
+      kills: totalKillsThisRun,
+      bossKills: bossActive ? 0 : (bossEntity ? 1 : 0),
+      eliteKills: 0, // Would need to track elites separately
+      playTime: performance.now() - (waveStartTime || performance.now()),
+      flawlessLevel: !tookDamageThisLevel
+    });
+    
     // Stop game and show game over screen
     gameRunning = false;
     paused = false;
@@ -6122,6 +6566,16 @@
     if (typeof AudioManager !== 'undefined') {
       AudioManager.playGameOver();
       AudioManager.stopMusic();
+    }
+    
+    // Also update social stats if logged in
+    if (typeof window.socialGameOver === 'function') {
+      window.socialGameOver(score, level, currentDifficulty, {
+        kills: totalKillsThisRun,
+        deaths: 1,
+        accuracy: 0,
+        playTime: performance.now() - (waveStartTime || performance.now())
+      });
     }
     
     // Submit to leaderboard if logged in

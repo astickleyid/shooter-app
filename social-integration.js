@@ -1,12 +1,15 @@
 /**
  * Social Integration
  * Connects social features with the existing game
+ * Now integrated with unified authentication system
  */
 
 // Initialize social features when page loads
 document.addEventListener('DOMContentLoaded', () => {
-  // Load user session
+  // Load user session from SocialAPI
   SocialAPI.loadSession();
+  
+  // Sync with unified auth in main script
   updateSocialUI();
 
   // Set up periodic online status update
@@ -16,31 +19,61 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update last active timestamp
         await SocialAPI.updateProfile({});
       } catch (error) {
-        console.error('Failed to update online status:', error);
+        // Silently ignore online status update errors
       }
     }, 60000); // Every minute
   }
 });
 
-// Update UI based on login state
+// Update UI based on login state - unified with main game
 function updateSocialUI() {
   const user = SocialAPI.currentUser;
   const loginBtn = document.getElementById('loginButton');
   const profileBtn = document.getElementById('profileButton');
 
   if (user && loginBtn) {
-    loginBtn.innerHTML = `
-      <img src="${user.profile.avatar}" alt="${user.username}" class="nav-avatar">
-      ${user.username}
-    `;
+    // Update login button to show username
+    loginBtn.textContent = user.username;
     loginBtn.onclick = () => SocialHub.showProfile();
-    loginBtn.classList.remove('menuTertiary');
-    loginBtn.classList.add('menuSecondary');
+    loginBtn.classList.remove('footer-btn-text');
+    loginBtn.classList.add('footer-btn-logged-in');
 
-    // Show level badge
+    // Show level badge on profile button
     if (profileBtn) {
-      profileBtn.innerHTML = `👤 Profile (Lvl ${user.profile.level})`;
+      profileBtn.innerHTML = `👤`;
+      profileBtn.title = `Profile (Lvl ${user.profile?.level || 1})`;
     }
+  } else if (loginBtn) {
+    // Not logged in - show login button
+    loginBtn.textContent = 'Login';
+    loginBtn.onclick = () => SocialHub.showAuthModal('login');
+    loginBtn.classList.add('footer-btn-text');
+    loginBtn.classList.remove('footer-btn-logged-in');
+  }
+  
+  // Also update any other UI elements that depend on login state
+  updateLeaderboardUI();
+}
+
+// Update leaderboard UI elements
+function updateLeaderboardUI() {
+  const leaderboardUsername = document.getElementById('leaderboardUsername');
+  const leaderboardLogin = document.getElementById('leaderboardLogin');
+  const leaderboardLogout = document.getElementById('leaderboardLogout');
+  
+  const isLoggedIn = SocialAPI.isLoggedIn();
+  const username = isLoggedIn ? SocialAPI.currentUser?.username : null;
+  
+  if (leaderboardUsername) {
+    leaderboardUsername.textContent = isLoggedIn ? username : 'Not logged in';
+  }
+  
+  if (leaderboardLogin) {
+    leaderboardLogin.style.display = isLoggedIn ? 'none' : 'inline-block';
+  }
+  
+  if (leaderboardLogout) {
+    leaderboardLogout.style.display = isLoggedIn ? 'inline-block' : 'none';
   }
 }
 
@@ -83,7 +116,7 @@ window.socialGameOver = async function(finalScore, level, difficulty, stats) {
     // Update UI
     updateSocialUI();
   } catch (error) {
-    console.error('Failed to update social stats:', error);
+    // Silently ignore social stats errors
   }
 };
 
@@ -127,7 +160,6 @@ window.submitSocialScore = async function(username, score, level, difficulty) {
 
 // Fetch leaderboard with social profiles
 window.fetchSocialLeaderboard = async function(difficulty = 'all', limit = 50) {
-  const userId = SocialAPI.currentUser?.id;
   const entries = await GlobalLeaderboard.fetchScores(difficulty, limit);
   
   // Enhance leaderboard after render
@@ -148,15 +180,19 @@ async function updateNotificationBadge() {
     
     const friendsBtn = document.getElementById('friendsButton');
     if (friendsBtn && unreadCount > 0) {
-      friendsBtn.innerHTML = `👥 Friends <span class="notification-badge">${unreadCount}</span>`;
+      friendsBtn.innerHTML = `👥`;
+      const badge = document.createElement('span');
+      badge.className = 'notification-badge-small';
+      badge.textContent = unreadCount;
+      friendsBtn.appendChild(badge);
     }
   } catch (error) {
-    console.error('Failed to update notifications:', error);
+    // Silently ignore notification errors
   }
 }
 
 // Check for notifications periodically
-if (SocialAPI.isLoggedIn()) {
+if (typeof SocialAPI !== 'undefined' && SocialAPI.isLoggedIn()) {
   updateNotificationBadge();
   setInterval(updateNotificationBadge, 30000); // Every 30 seconds
 }

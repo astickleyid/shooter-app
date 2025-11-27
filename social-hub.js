@@ -1,38 +1,42 @@
 /**
  * Social Hub UI Components
  * Renders profile cards, friends list, activity feed, player search
+ * Now integrated with unified authentication system
  */
 
 const SocialHub = {
-  // Show login/register modal
+  // Show login/register modal - unified with main game auth
   showAuthModal(mode = 'login') {
     // Remove any existing auth modal first to avoid duplicate IDs
-    const existingModal = document.getElementById('authModal');
+    const existingModal = document.getElementById('socialAuthModal');
     if (existingModal) {
       existingModal.remove();
     }
 
     const modalHTML = `
-      <div id="authModal" class="social-modal">
+      <div id="socialAuthModal" class="social-modal">
         <div class="social-modal-content">
-          <span class="close-modal" onclick="SocialHub.closeModal('authModal')">&times;</span>
-          <h2>${mode === 'login' ? '🎮 Login' : '✨ Create Account'}</h2>
+          <span class="close-modal" onclick="SocialHub.closeModal('socialAuthModal')">&times;</span>
+          <h2>${mode === 'login' ? '🎮 Player Login' : '✨ Create Account'}</h2>
+          <p style="color: #94a3b8; font-size: 14px; margin-bottom: 16px; text-align: center;">
+            One account for all features: Leaderboards, Social Hub, Profile & more!
+          </p>
           
           <div id="authTabs" class="auth-tabs">
             <button class="auth-tab ${mode === 'login' ? 'active' : ''}" onclick="SocialHub.switchAuthTab('login')">Login</button>
             <button class="auth-tab ${mode === 'register' ? 'active' : ''}" onclick="SocialHub.switchAuthTab('register')">Register</button>
           </div>
 
-          <form id="authForm" onsubmit="SocialHub.handleAuth(event, '${mode}')">
-            <input type="text" id="authUsername" placeholder="Username" required minlength="3">
-            <input type="password" id="authPassword" placeholder="Password" required minlength="6">
-            ${mode === 'register' ? '<input type="email" id="authEmail" placeholder="Email (optional)">' : ''}
+          <form id="socialAuthForm" onsubmit="SocialHub.handleAuth(event, '${mode}')">
+            <input type="text" id="socialAuthUsername" placeholder="Username" required minlength="3">
+            <input type="password" id="socialAuthPassword" placeholder="Password" required minlength="4">
+            ${mode === 'register' ? '<input type="email" id="socialAuthEmail" placeholder="Email (optional)">' : ''}
             
             <button type="submit" class="btn-primary">${mode === 'login' ? 'Login' : 'Create Account'}</button>
           </form>
 
-          <div id="authError" class="error-message"></div>
-          <div id="authSuccess" class="success-message"></div>
+          <div id="socialAuthError" class="error-message"></div>
+          <div id="socialAuthSuccess" class="success-message"></div>
         </div>
       </div>
     `;
@@ -44,49 +48,69 @@ const SocialHub = {
     document.querySelectorAll('.auth-tab').forEach(tab => tab.classList.remove('active'));
     event.target.classList.add('active');
     
-    const emailInput = document.getElementById('authEmail');
-    const submitBtn = document.querySelector('#authForm button[type="submit"]');
+    const emailInput = document.getElementById('socialAuthEmail');
+    const submitBtn = document.querySelector('#socialAuthForm button[type="submit"]');
     
     if (mode === 'register') {
       if (!emailInput) {
-        document.querySelector('#authPassword').insertAdjacentHTML('afterend', 
-          '<input type="email" id="authEmail" placeholder="Email (optional)">');
+        document.querySelector('#socialAuthPassword').insertAdjacentHTML('afterend', 
+          '<input type="email" id="socialAuthEmail" placeholder="Email (optional)">');
       }
       submitBtn.textContent = 'Create Account';
-      document.querySelector('#authForm').setAttribute('onsubmit', "SocialHub.handleAuth(event, 'register')");
+      document.querySelector('#socialAuthForm').setAttribute('onsubmit', "SocialHub.handleAuth(event, 'register')");
     } else {
       if (emailInput) emailInput.remove();
       submitBtn.textContent = 'Login';
-      document.querySelector('#authForm').setAttribute('onsubmit', "SocialHub.handleAuth(event, 'login')");
+      document.querySelector('#socialAuthForm').setAttribute('onsubmit', "SocialHub.handleAuth(event, 'login')");
     }
   },
 
   async handleAuth(event, mode) {
     event.preventDefault();
     
-    const username = document.getElementById('authUsername').value;
-    const password = document.getElementById('authPassword').value;
-    const email = document.getElementById('authEmail')?.value || null;
+    const username = document.getElementById('socialAuthUsername').value;
+    const password = document.getElementById('socialAuthPassword').value;
 
-    const errorEl = document.getElementById('authError');
-    const successEl = document.getElementById('authSuccess');
+    const errorEl = document.getElementById('socialAuthError');
+    const successEl = document.getElementById('socialAuthSuccess');
     
     errorEl.textContent = '';
     successEl.textContent = '';
 
     try {
+      // Use unified Auth system which syncs with SocialAPI
       let result;
       if (mode === 'register') {
-        result = await SocialAPI.register(username, password, email);
+        // Access Auth from main script via window
+        if (typeof window.__VOID_RIFT__ !== 'undefined') {
+          // Try direct API call first
+          result = await SocialAPI.register(username, password);
+        } else {
+          result = await SocialAPI.register(username, password);
+        }
         successEl.textContent = '✅ Account created! Welcome to Void Rift!';
       } else {
-        result = await SocialAPI.login(username, password);
+        if (typeof window.__VOID_RIFT__ !== 'undefined') {
+          result = await SocialAPI.login(username, password);
+        } else {
+          result = await SocialAPI.login(username, password);
+        }
         successEl.textContent = '✅ Welcome back!';
       }
 
       setTimeout(() => {
-        this.closeModal('authModal');
+        this.closeModal('socialAuthModal');
         this.updateUI();
+        // Also update main game UI
+        if (typeof updateAuthUI === 'function') {
+          updateAuthUI();
+        }
+        // Refresh login button
+        const loginBtn = document.getElementById('loginButton');
+        if (loginBtn && SocialAPI.isLoggedIn()) {
+          loginBtn.textContent = SocialAPI.currentUser.username;
+          loginBtn.onclick = () => SocialHub.showProfile();
+        }
       }, 1500);
     } catch (error) {
       // Show more helpful error message for network failures
@@ -107,7 +131,7 @@ const SocialHub = {
            error.name === 'AbortError';
   },
 
-  // Show player profile modal
+  // Show player profile modal with achievements, prestige, and all unified data
   async showProfile(userId = null, username = null) {
     // If viewing own profile (no userId/username provided), check if logged in
     if (!userId && !username) {
@@ -120,45 +144,105 @@ const SocialHub = {
     }
 
     try {
-      const user = await SocialAPI.getProfile(userId, username);
-      const isOwnProfile = SocialAPI.currentUser && user.id === SocialAPI.currentUser.id;
+      // Get profile from SocialAPI
+      let user;
+      try {
+        user = await SocialAPI.getProfile(userId, username);
+      } catch (err) {
+        // If social API fails, create mock profile from local data
+        user = this.getLocalProfile();
+      }
+      
+      const isOwnProfile = SocialAPI.currentUser && user.id === SocialAPI.currentUser?.id;
       const isFriend = SocialAPI.currentUser && SocialAPI.currentUser.friends?.includes(user.id);
+
+      // Get local game data for enhanced profile
+      const localProfile = this.getLocalProfile();
+      
+      // Merge local achievements and prestige data
+      const prestige = localProfile.prestige || 0;
+      const prestigeLevel = localProfile.prestigeLevel || 1;
+      const achievements = localProfile.unlockedAchievements || [];
+      const title = localProfile.title || 'Rookie Pilot';
 
       const modalHTML = `
         <div id="profileModal" class="social-modal">
-          <div class="social-modal-content profile-card">
+          <div class="social-modal-content profile-card enhanced-profile">
             <span class="close-modal" onclick="SocialHub.closeModal('profileModal')">&times;</span>
             
             <div class="profile-header">
-              <img src="${user.profile.avatar}" alt="${user.username}" class="profile-avatar-large">
+              <img src="${user.profile?.avatar || this.generateAvatar(user.username)}" alt="${user.username}" class="profile-avatar-large">
               <div class="profile-info">
                 <h2>${user.username} ${user.settings?.privacy === 'private' ? '🔒' : ''}</h2>
+                <div class="profile-title">${title}</div>
                 <div class="profile-badges">
-                  ${user.profile.badges.map(b => `<span class="badge">${this.getBadgeEmoji(b)}</span>`).join('')}
+                  ${(user.profile?.badges || []).map(b => `<span class="badge">${this.getBadgeEmoji(b)}</span>`).join('')}
                 </div>
-                <p class="profile-level">Level ${user.profile.level} • ${user.profile.xp} XP</p>
-                ${user.profile.bio ? `<p class="profile-bio">${user.profile.bio}</p>` : ''}
+                <p class="profile-level">
+                  ${prestige > 0 ? `<span class="prestige-badge">P${prestige}</span>` : ''}
+                  Pilot Level ${localProfile.pilotLevel || 1} • ${localProfile.credits || 0} CR
+                </p>
+                ${user.profile?.bio ? `<p class="profile-bio">${user.profile.bio}</p>` : ''}
               </div>
             </div>
 
             <div class="profile-stats">
               <div class="stat-card">
-                <div class="stat-value">${user.profile.highScore.toLocaleString()}</div>
-                <div class="stat-label">High Score</div>
+                <div class="stat-value">${(localProfile.bestScore || 0).toLocaleString()}</div>
+                <div class="stat-label">Best Score</div>
               </div>
               <div class="stat-card">
-                <div class="stat-value">${user.profile.gamesPlayed}</div>
+                <div class="stat-value">${localProfile.highestLevel || 1}</div>
+                <div class="stat-label">Highest Level</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">${localProfile.gamesPlayed || 0}</div>
                 <div class="stat-label">Games Played</div>
               </div>
               <div class="stat-card">
-                <div class="stat-value">${user.stats.kills}</div>
-                <div class="stat-label">Kills</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-value">${user.stats.accuracy}%</div>
-                <div class="stat-label">Accuracy</div>
+                <div class="stat-value">${localProfile.totalKills || 0}</div>
+                <div class="stat-label">Total Kills</div>
               </div>
             </div>
+
+            ${isOwnProfile ? `
+              <div class="profile-section">
+                <h3>🏆 Achievements (${achievements.length}/${this.getTotalAchievements()})</h3>
+                <div class="achievements-grid">
+                  ${this.renderAchievements(achievements)}
+                </div>
+              </div>
+
+              <div class="profile-section">
+                <h3>🌟 Prestige Progress</h3>
+                <div class="prestige-info">
+                  <div class="prestige-level">
+                    ${prestige > 0 ? `<span class="prestige-star">⭐</span> Prestige ${prestige}` : 'Not Yet Prestiged'}
+                  </div>
+                  <div class="prestige-progress">
+                    <div class="prestige-bar">
+                      <div class="prestige-fill" style="width: ${Math.min(100, ((localProfile.pilotLevel || 1) / 50) * 100)}%"></div>
+                    </div>
+                    <span>Level ${localProfile.pilotLevel || 1}/50</span>
+                  </div>
+                  ${this.canPrestige(localProfile) ? `
+                    <button class="btn-prestige" onclick="SocialHub.doPrestige()">
+                      🌟 PRESTIGE NOW
+                    </button>
+                    <p class="prestige-warning">Warning: Prestige resets your pilot level to 1, but unlocks exclusive rewards!</p>
+                  ` : `
+                    <p class="prestige-hint">Reach Pilot Level 50 to prestige and unlock rare rewards!</p>
+                  `}
+                </div>
+              </div>
+
+              <div class="profile-section">
+                <h3>🚀 Ships & Equipment</h3>
+                <div class="ships-grid">
+                  ${this.renderUnlockedShips(localProfile)}
+                </div>
+              </div>
+            ` : ''}
 
             ${!isOwnProfile ? `
               <div class="profile-actions">
@@ -178,6 +262,9 @@ const SocialHub = {
                 <button class="btn-secondary" onclick="SocialHub.showEditProfile()">
                   ✏️ Edit Profile
                 </button>
+                <button class="btn-secondary" onclick="SocialHub.logout()">
+                  🚪 Logout
+                </button>
               </div>
             ` : ''}
           </div>
@@ -187,7 +274,219 @@ const SocialHub = {
       document.body.insertAdjacentHTML('beforeend', modalHTML);
     } catch (error) {
       console.error('Failed to load profile:', error);
-      this.showErrorModal('Profile Unavailable', 'Unable to load profile. The social server may be temporarily unavailable. Please try again later.');
+      // Show offline profile with local data
+      this.showOfflineProfile();
+    }
+  },
+
+  // Get local profile data from localStorage
+  getLocalProfile() {
+    try {
+      const saveKey = 'void_rift_v11';
+      const authKey = 'void_rift_auth';
+      
+      const saveData = JSON.parse(localStorage.getItem(saveKey) || '{}');
+      const authData = JSON.parse(localStorage.getItem(authKey) || '{}');
+      
+      // Get profile for current user
+      const currentUser = authData.currentUser;
+      const profileKey = `${authKey}_profile_${currentUser || 'guest'}`;
+      const profileData = JSON.parse(localStorage.getItem(profileKey) || '{}');
+      
+      return {
+        username: currentUser ? authData.users?.[currentUser]?.username : 'Guest',
+        pilotLevel: saveData.pilotLevel || 1,
+        pilotXp: saveData.pilotXp || 0,
+        credits: saveData.credits || 0,
+        bestScore: saveData.bestScore || 0,
+        highestLevel: saveData.highestLevel || 1,
+        prestige: profileData.prestige || 0,
+        prestigeLevel: profileData.prestigeLevel || 1,
+        unlockedAchievements: profileData.unlockedAchievements || [],
+        totalKills: profileData.totalKills || 0,
+        bossKills: profileData.bossKills || 0,
+        eliteKills: profileData.eliteKills || 0,
+        gamesPlayed: profileData.gamesPlayed || 0,
+        flawlessLevels: profileData.flawlessLevels || 0,
+        unlockedShips: profileData.unlockedShips || ['vanguard'],
+        title: profileData.title || 'Rookie Pilot'
+      };
+    } catch (err) {
+      console.error('Failed to load local profile:', err);
+      return {
+        username: 'Guest',
+        pilotLevel: 1,
+        prestige: 0,
+        unlockedAchievements: [],
+        totalKills: 0,
+        gamesPlayed: 0,
+        unlockedShips: ['vanguard'],
+        title: 'Rookie Pilot'
+      };
+    }
+  },
+
+  // Check if player can prestige
+  canPrestige(profile) {
+    return (profile.pilotLevel || 1) >= 50 && (profile.prestige || 0) < 10;
+  },
+
+  // Trigger prestige from profile
+  doPrestige() {
+    if (typeof window.__VOID_RIFT__ !== 'undefined') {
+      // Prestige is handled through the Auth system in script.js
+      // For now, show a message
+      alert('🌟 Prestige system activated! This would reset your pilot level and unlock exclusive rewards.');
+    }
+    this.closeModal('profileModal');
+  },
+
+  // Generate avatar URL from username
+  generateAvatar(username) {
+    // Use a deterministic avatar based on username
+    const colors = ['4ade80', '60a5fa', 'f97316', 'a855f7', 'f43f5e', '22d3ee'];
+    const colorIndex = username ? username.charCodeAt(0) % colors.length : 0;
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(username || 'P')}&background=${colors[colorIndex]}&color=fff&bold=true`;
+  },
+
+  // Get total achievements count
+  getTotalAchievements() {
+    // Standard achievement count
+    return 24;
+  },
+
+  // Render achievements grid
+  renderAchievements(unlockedIds) {
+    const achievements = [
+      { id: 'first_blood', name: 'First Blood', icon: '🎯' },
+      { id: 'centurion', name: 'Centurion', icon: '⚔️' },
+      { id: 'slayer', name: 'Slayer', icon: '💀' },
+      { id: 'boss_hunter', name: 'Boss Hunter', icon: '👹' },
+      { id: 'elite_destroyer', name: 'Elite Destroyer', icon: '💎' },
+      { id: 'survivor', name: 'Survivor', icon: '🛡️' },
+      { id: 'veteran', name: 'Veteran', icon: '⭐' },
+      { id: 'champion', name: 'Champion', icon: '🏆' },
+      { id: 'legend', name: 'Legend', icon: '👑' },
+      { id: 'flawless', name: 'Flawless', icon: '✨' },
+      { id: 'scorer', name: 'Point Scorer', icon: '📊' },
+      { id: 'high_roller', name: 'High Roller', icon: '💰' },
+      { id: 'millionaire', name: 'Millionaire', icon: '💎' },
+      { id: 'pilot_10', name: 'Experienced', icon: '🎖️' },
+      { id: 'pilot_25', name: 'Ace Pilot', icon: '🏅' },
+      { id: 'pilot_50', name: 'Master Pilot', icon: '🥇' },
+      { id: 'prestige_1', name: 'Ascended', icon: '🌟' },
+      { id: 'prestige_5', name: 'Transcendent', icon: '💫' },
+      { id: 'prestige_10', name: 'Immortal', icon: '🔱' },
+      { id: 'collector', name: 'Collector', icon: '🗃️' },
+      { id: 'arsenal', name: 'Arsenal', icon: '🎒' },
+      { id: 'ship_collector', name: 'Ship Collector', icon: '🚀' },
+      { id: 'wealthy', name: 'Wealthy', icon: '💵' },
+      { id: 'upgrader', name: 'Upgrader', icon: '⬆️' }
+    ];
+
+    return achievements.map(a => {
+      const unlocked = unlockedIds.includes(a.id);
+      return `
+        <div class="achievement-item ${unlocked ? 'unlocked' : 'locked'}" title="${a.name}">
+          <span class="achievement-icon">${a.icon}</span>
+          <span class="achievement-name">${a.name}</span>
+        </div>
+      `;
+    }).join('');
+  },
+
+  // Render unlocked ships
+  renderUnlockedShips(profile) {
+    const ships = [
+      { id: 'vanguard', name: 'Vanguard Mk.I', icon: '🚀' },
+      { id: 'phantom', name: 'Phantom-X', icon: '👻' },
+      { id: 'bulwark', name: 'Bulwark-7', icon: '🛡️' },
+      { id: 'emberwing', name: 'Emberwing', icon: '🔥' },
+      { id: 'spectre', name: 'Spectre-9', icon: '💜' },
+      { id: 'titan', name: 'Titan Heavy', icon: '⚔️' }
+    ];
+
+    const unlockedShips = profile.unlockedShips || ['vanguard'];
+
+    return ships.map(s => {
+      const unlocked = unlockedShips.includes(s.id);
+      return `
+        <div class="ship-item ${unlocked ? 'unlocked' : 'locked'}">
+          <span class="ship-icon">${s.icon}</span>
+          <span class="ship-name">${s.name}</span>
+          ${!unlocked ? '<span class="ship-lock">🔒</span>' : ''}
+        </div>
+      `;
+    }).join('');
+  },
+
+  // Show offline profile
+  showOfflineProfile() {
+    const localProfile = this.getLocalProfile();
+    
+    const modalHTML = `
+      <div id="profileModal" class="social-modal">
+        <div class="social-modal-content profile-card">
+          <span class="close-modal" onclick="SocialHub.closeModal('profileModal')">&times;</span>
+          
+          <div class="profile-header">
+            <div class="profile-avatar-large" style="background: linear-gradient(135deg, #4ade80, #22c55e); display: flex; align-items: center; justify-content: center; font-size: 48px;">
+              👤
+            </div>
+            <div class="profile-info">
+              <h2>${localProfile.username}</h2>
+              <div class="profile-title">${localProfile.title}</div>
+              <p class="profile-level">Pilot Level ${localProfile.pilotLevel} • ${localProfile.credits} CR</p>
+              <p style="color: #f59e0b; font-size: 12px;">⚠️ Offline Mode - Social features unavailable</p>
+            </div>
+          </div>
+
+          <div class="profile-stats">
+            <div class="stat-card">
+              <div class="stat-value">${localProfile.bestScore.toLocaleString()}</div>
+              <div class="stat-label">Best Score</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">${localProfile.highestLevel}</div>
+              <div class="stat-label">Highest Level</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">${localProfile.gamesPlayed}</div>
+              <div class="stat-label">Games Played</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">${localProfile.totalKills}</div>
+              <div class="stat-label">Total Kills</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+  },
+
+  // Logout function
+  logout() {
+    SocialAPI.logout();
+    // Also clear local auth
+    try {
+      const authKey = 'void_rift_auth';
+      const authData = JSON.parse(localStorage.getItem(authKey) || '{}');
+      authData.currentUser = null;
+      localStorage.setItem(authKey, JSON.stringify(authData));
+    } catch (err) {
+      console.error('Failed to clear local auth:', err);
+    }
+    
+    this.closeModal('profileModal');
+    this.updateUI();
+    
+    // Update login button
+    const loginBtn = document.getElementById('loginButton');
+    if (loginBtn) {
+      loginBtn.textContent = 'Login';
+      loginBtn.onclick = () => SocialHub.showAuthModal('login');
     }
   },
 
@@ -310,6 +609,8 @@ const SocialHub = {
         return `leveled up to <strong>Level ${activity.data.level}</strong>! ⬆️`;
       case 'game_complete':
         return `completed a game on ${activity.data.difficulty} difficulty! 🎮`;
+      case 'prestige':
+        return `reached <strong>Prestige ${activity.data.prestige}</strong>! 🌟`;
       default:
         return 'did something cool!';
     }
@@ -389,6 +690,11 @@ const SocialHub = {
     }
   },
 
+  // Show edit profile modal
+  showEditProfile() {
+    alert('Profile editing coming soon! For now, your profile is automatically updated as you play.');
+  },
+
   // Helpers
   getBadgeEmoji(badge) {
     const badges = {
@@ -398,7 +704,10 @@ const SocialHub = {
       legend: '👑',
       sharpshooter: '🎯',
       survivor: '🛡️',
-      speedrunner: '⚡'
+      speedrunner: '⚡',
+      prestige1: '🌟',
+      prestige5: '💫',
+      prestige10: '🔱'
     };
     return badges[badge] || '🏅';
   },
@@ -444,16 +753,14 @@ const SocialHub = {
   // Update UI based on login state
   updateUI() {
     const user = SocialAPI.currentUser;
-    const loginBtn = document.querySelector('.login-btn');
-    const profileBtn = document.querySelector('.profile-btn');
+    const loginBtn = document.getElementById('loginButton');
 
     if (user && loginBtn) {
-      loginBtn.outerHTML = `
-        <button class="profile-btn" onclick="SocialHub.showProfile()">
-          <img src="${user.profile.avatar}" alt="${user.username}" class="nav-avatar">
-          ${user.username}
-        </button>
-      `;
+      loginBtn.textContent = user.username;
+      loginBtn.onclick = () => SocialHub.showProfile();
+    } else if (loginBtn) {
+      loginBtn.textContent = 'Login';
+      loginBtn.onclick = () => SocialHub.showAuthModal('login');
     }
   }
 };
