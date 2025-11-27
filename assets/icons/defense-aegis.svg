@@ -1,0 +1,8 @@
+<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Aegis Field - Shield with energy field -->
+  <path d="M24 6L8 14V26C8 34 16 42 24 44C32 42 40 34 40 26V14L24 6Z" fill="none" stroke="#38bdf8" stroke-width="2.5"/>
+  <path d="M24 10L12 16V26C12 32 18 38 24 40C30 38 36 32 36 26V16L24 10Z" fill="#0ea5e9" fill-opacity="0.4"/>
+  <!-- Inner core -->
+  <circle cx="24" cy="24" r="6" fill="#7dd3fc" fill-opacity="0.6"/>
+  <circle cx="24" cy="24" r="3" fill="#e0f2fe"/>
+</svg>

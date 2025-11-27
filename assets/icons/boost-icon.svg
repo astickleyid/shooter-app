@@ -1,0 +1,8 @@
+<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Boost - Speed/thrust icon -->
+  <path d="M12 24L24 8L28 20L40 16L28 24L40 32L28 28L24 40L12 24Z" fill="#4ade80" stroke="#22c55e" stroke-width="1.5"/>
+  <!-- Inner energy -->
+  <path d="M18 24L24 14L26 22L34 20L26 24L34 28L26 26L24 34L18 24Z" fill="#86efac"/>
+  <!-- Core -->
+  <circle cx="24" cy="24" r="3" fill="#dcfce7"/>
+</svg>
