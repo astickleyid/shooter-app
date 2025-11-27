@@ -248,4 +248,119 @@ describe('Utility Functions', () => {
       expect(circleCollision(0, 0, 1, 50, 50, 10)).toBe(false);
     });
   });
+
+  describe('Planetary Physics', () => {
+    const {
+      getTerrainHeightAt,
+      applyGravity,
+      isOnGround,
+      PLANET_CONFIGS
+    } = require('./game-utils');
+
+    describe('getTerrainHeightAt', () => {
+      test('should interpolate between terrain points', () => {
+        const terrain = [
+          { x: 0, y: 100 },
+          { x: 100, y: 200 }
+        ];
+        expect(getTerrainHeightAt(terrain, 50, 0)).toBe(150);
+      });
+
+      test('should return exact point value at terrain point', () => {
+        const terrain = [
+          { x: 0, y: 100 },
+          { x: 100, y: 200 },
+          { x: 200, y: 150 }
+        ];
+        expect(getTerrainHeightAt(terrain, 0, 0)).toBe(100);
+      });
+
+      test('should return default value for empty terrain', () => {
+        expect(getTerrainHeightAt([], 50, 500)).toBe(500);
+        expect(getTerrainHeightAt(null, 50, 500)).toBe(500);
+      });
+
+      test('should return default for single point terrain', () => {
+        expect(getTerrainHeightAt([{ x: 0, y: 100 }], 50, 500)).toBe(500);
+      });
+
+      test('should handle x outside terrain bounds', () => {
+        const terrain = [
+          { x: 0, y: 100 },
+          { x: 100, y: 200 }
+        ];
+        expect(getTerrainHeightAt(terrain, -50, 500)).toBe(500);
+        expect(getTerrainHeightAt(terrain, 150, 500)).toBe(500);
+      });
+    });
+
+    describe('applyGravity', () => {
+      test('should increase velocity with gravity', () => {
+        const newVel = applyGravity(0, 0.4, 15, 16.67);
+        expect(newVel).toBeCloseTo(0.4);
+      });
+
+      test('should cap velocity at max fall speed', () => {
+        const newVel = applyGravity(14, 0.4, 15, 16.67);
+        expect(newVel).toBeLessThanOrEqual(15);
+      });
+
+      test('should respect different gravity values', () => {
+        const highGrav = applyGravity(0, 0.5, 15, 16.67);
+        const lowGrav = applyGravity(0, 0.15, 15, 16.67);
+        expect(highGrav).toBeGreaterThan(lowGrav);
+      });
+
+      test('should scale with delta time', () => {
+        const normal = applyGravity(0, 0.4, 15, 16.67);
+        const double = applyGravity(0, 0.4, 15, 33.34);
+        expect(double).toBeCloseTo(normal * 2, 1);
+      });
+    });
+
+    describe('isOnGround', () => {
+      test('should return true when entity touches ground', () => {
+        expect(isOnGround(90, 10, 100)).toBe(true);
+      });
+
+      test('should return true when entity is below ground', () => {
+        expect(isOnGround(100, 10, 100)).toBe(true);
+      });
+
+      test('should return false when entity is above ground', () => {
+        expect(isOnGround(80, 10, 100)).toBe(false);
+      });
+
+      test('should handle different entity sizes', () => {
+        expect(isOnGround(50, 50, 100)).toBe(true);
+        expect(isOnGround(50, 10, 100)).toBe(false);
+      });
+    });
+
+    describe('PLANET_CONFIGS', () => {
+      test('should have all expected planets', () => {
+        expect(PLANET_CONFIGS.terra).toBeDefined();
+        expect(PLANET_CONFIGS.mars).toBeDefined();
+        expect(PLANET_CONFIGS.ice).toBeDefined();
+        expect(PLANET_CONFIGS.volcanic).toBeDefined();
+        expect(PLANET_CONFIGS.moon).toBeDefined();
+      });
+
+      test('should have correct gravity values', () => {
+        expect(PLANET_CONFIGS.terra.gravity).toBe(0.4);
+        expect(PLANET_CONFIGS.mars.gravity).toBe(0.28);
+        expect(PLANET_CONFIGS.moon.gravity).toBe(0.15);
+      });
+
+      test('moon should have lowest gravity', () => {
+        const gravities = Object.values(PLANET_CONFIGS).map(p => p.gravity);
+        expect(Math.min(...gravities)).toBe(PLANET_CONFIGS.moon.gravity);
+      });
+
+      test('volcanic should have highest gravity', () => {
+        const gravities = Object.values(PLANET_CONFIGS).map(p => p.gravity);
+        expect(Math.max(...gravities)).toBe(PLANET_CONFIGS.volcanic.gravity);
+      });
+    });
+  });
 });
