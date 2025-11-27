@@ -1,0 +1,10 @@
+<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Cluster Barrage - Multiple small warheads -->
+  <circle cx="24" cy="14" r="5" fill="#38bdf8" stroke="#0ea5e9" stroke-width="1.5"/>
+  <circle cx="16" cy="26" r="4" fill="#38bdf8" stroke="#0ea5e9" stroke-width="1.5"/>
+  <circle cx="32" cy="26" r="4" fill="#38bdf8" stroke="#0ea5e9" stroke-width="1.5"/>
+  <circle cx="20" cy="36" r="3.5" fill="#38bdf8" stroke="#0ea5e9" stroke-width="1.5"/>
+  <circle cx="28" cy="36" r="3.5" fill="#38bdf8" stroke="#0ea5e9" stroke-width="1.5"/>
+  <!-- Connecting trails -->
+  <path d="M24 19L18 24M24 19L30 24M18 30L21 34M30 30L27 34" stroke="#7dd3fc" stroke-width="1" stroke-dasharray="2 2"/>
+</svg>

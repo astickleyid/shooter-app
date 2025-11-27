@@ -265,6 +265,49 @@
     ultimate: Object.fromEntries(ARMORY.ultimate.map((w) => [w.id, w]))
   };
 
+  // Shared equipment icon paths and weapon info
+  const EQUIPMENT_ICONS = {
+    paths: {
+      'primary:pulse': 'assets/icons/primary-pulse.svg',
+      'primary:scatter': 'assets/icons/primary-pulse.svg',
+      'primary:rail': 'assets/icons/primary-pulse.svg',
+      'primary:ionburst': 'assets/icons/primary-pulse.svg',
+      'secondary:nova': 'assets/icons/secondary-nova.svg',
+      'secondary:cluster': 'assets/icons/secondary-cluster.svg',
+      'defense:aegis': 'assets/icons/defense-aegis.svg',
+      'defense:reflector': 'assets/icons/defense-reflector.svg',
+      'boost': 'assets/icons/boost-icon.svg',
+      'ultimate:voidstorm': 'assets/icons/ultimate-voidstorm.svg',
+      'ultimate:solarbeam': 'assets/icons/ultimate-solarbeam.svg'
+    },
+    info: {
+      'primary:pulse': { name: 'Pulse Blaster', desc: 'Standard pulse cannon' },
+      'primary:scatter': { name: 'Scatter Coil', desc: 'Tri-barrel scatter assembly' },
+      'primary:rail': { name: 'Rail Lance', desc: 'Accelerated rail slug' },
+      'primary:ionburst': { name: 'Ion Burst Array', desc: 'Ionized shard fan' },
+      'secondary:nova': { name: 'Nova Bomb', desc: 'Antimatter detonation' },
+      'secondary:cluster': { name: 'Cluster Barrage', desc: 'Micro warhead scatter' },
+      'defense:aegis': { name: 'Aegis Field', desc: 'Forward arc shield' },
+      'defense:reflector': { name: 'Reflector Veil', desc: 'Damage reflection' },
+      'boost': { name: 'Boost', desc: 'Speed burst' },
+      'ultimate:voidstorm': { name: 'Voidstorm Cascade', desc: 'Gravity well blast' },
+      'ultimate:solarbeam': { name: 'Solar Beam', desc: 'Orbital plasma sweep' }
+    },
+    getKey: (slotData) => {
+      if (!slotData) return 'boost';
+      return slotData.type === 'boost' ? 'boost' : `${slotData.type}:${slotData.id}`;
+    },
+    getPath: (slotData) => {
+      const key = EQUIPMENT_ICONS.getKey(slotData);
+      return EQUIPMENT_ICONS.paths[key] || 'assets/icons/boost-icon.svg';
+    },
+    getInfo: (slotData) => {
+      const key = EQUIPMENT_ICONS.getKey(slotData);
+      const info = EQUIPMENT_ICONS.info[key] || { name: slotData?.id || slotData?.type || 'Unknown', desc: '' };
+      return { ...info, icon: EQUIPMENT_ICONS.getPath(slotData) };
+    }
+  };
+
   const HANGAR_STATS = [
     { key: 'hp', label: 'Hull' },
     { key: 'speed', label: 'Speed' },
@@ -530,11 +573,28 @@
   // Fullscreen state
   let isFullscreen = false;
 
-  // Equipment tap system
+  // Equipment interaction system - Enhanced secondary weapons dock
   let lastTapTime = 0;
   let tapCount = 0;
   let currentEquipmentSlot = 0; // 0=primary, 1=slot2, 2=slot3, 3=slot4
   const TAP_TIMEOUT = 500; // ms between taps
+  const LONG_PRESS_THRESHOLD = 300; // ms for long-press to open radial menu
+  const DEBOUNCE_DELAY = 100; // ms debounce for preventing accidental activations
+  
+  // Equipment dock state
+  const equipmentInteractionState = {
+    longPressTimer: null,
+    isLongPressing: false,
+    isDragging: false,
+    dragStartSlot: null,
+    radialMenuOpen: false,
+    previewSlot: null,
+    previewTimer: null,
+    lastInteractionTime: 0,
+    pointerStartPos: null,
+    activePointerId: null,
+    keyboardFocusIndex: 0 // For arrow key navigation
+  };
 
   // Action logging system
   const actionLog = [];
@@ -3256,8 +3316,10 @@
     slots.forEach((slot, index) => {
       if (index === currentEquipmentSlot) {
         slot.classList.add('active');
+        slot.setAttribute('aria-pressed', 'true');
       } else {
         slot.classList.remove('active');
+        slot.setAttribute('aria-pressed', 'false');
       }
     });
     
@@ -3267,24 +3329,56 @@
       const slotData = equipClass[slotKey];
       const slotElement = document.querySelector(`.equip-slot[data-slot="${index}"]`);
       if (slotElement && slotData) {
-        const iconSpan = slotElement.querySelector('.equip-icon');
+        const iconImg = slotElement.querySelector('.equip-icon');
         const labelSpan = slotElement.querySelector('.equip-label');
         
-        // Set icon based on type
-        const iconMap = {
-          'primary': '🔫',
-          'secondary': '💣',
-          'defense': '🛡️',
-          'boost': '🚀',
-          'ultimate': '⭐'
-        };
+        const iconPath = EQUIPMENT_ICONS.getPath(slotData);
         
-        if (iconSpan) iconSpan.textContent = iconMap[slotData.type] || '⚡';
+        if (iconImg && iconImg.tagName === 'IMG') {
+          iconImg.src = iconPath;
+          iconImg.alt = slotData.id || slotData.type;
+        }
+        
         if (labelSpan) {
           if (index === 0) {
             labelSpan.textContent = 'Primary';
           } else {
-            labelSpan.textContent = `${index + 1} taps`;
+            labelSpan.textContent = `Slot ${index + 1}`;
+          }
+        }
+      }
+    });
+    
+    // Also update radial menu icons if it exists
+    updateRadialMenuIcons();
+  };
+  
+  // Update radial menu icons to match equipment loadout
+  const updateRadialMenuIcons = () => {
+    const radialMenu = document.getElementById('radialMenu');
+    if (!radialMenu) return;
+    
+    const equipClass = Save.data.armory.equipmentClass || defaultArmory().equipmentClass;
+    const radialItems = radialMenu.querySelectorAll('.radial-item');
+    
+    radialItems.forEach((item, index) => {
+      const slotData = equipClass[`slot${index + 1}`];
+      if (slotData) {
+        const iconImg = item.querySelector('img');
+        const labelSpan = item.querySelector('span');
+        
+        const iconPath = EQUIPMENT_ICONS.getPath(slotData);
+        
+        if (iconImg) {
+          iconImg.src = iconPath;
+          iconImg.alt = slotData.id || slotData.type;
+        }
+        
+        if (labelSpan) {
+          if (index === 0) {
+            labelSpan.textContent = 'Primary';
+          } else {
+            labelSpan.textContent = `Slot ${index + 1}`;
           }
         }
       }
@@ -5092,6 +5186,479 @@
     }
   };
 
+  /* ====== SECONDARY WEAPONS DOCK INTERACTIONS ====== */
+  
+  // Haptic feedback helper
+  const triggerHapticFeedback = (pattern = 'select') => {
+    if (!controlSettings.hapticFeedback || !navigator.vibrate) return;
+    
+    const patterns = {
+      'select': [15],           // Short tap for selection
+      'equip': [30],            // Medium tap for equipping
+      'preview': [10],          // Very short for preview
+      'longpress': [20, 50, 20], // Pattern for long-press activation
+      'drag': [5]               // Subtle for drag movement
+    };
+    
+    navigator.vibrate(patterns[pattern] || [15]);
+  };
+  
+  // Debounce helper to prevent accidental activations
+  const canInteract = () => {
+    const now = performance.now();
+    if (now - equipmentInteractionState.lastInteractionTime < DEBOUNCE_DELAY) {
+      return false;
+    }
+    return true;
+  };
+  
+  const markInteraction = () => {
+    equipmentInteractionState.lastInteractionTime = performance.now();
+  };
+  
+  // Show weapon preview HUD
+  const showWeaponPreview = (slotIndex) => {
+    const preview = document.getElementById('weaponPreview');
+    if (!preview) return;
+    
+    const equipClass = Save.data.armory.equipmentClass || defaultArmory().equipmentClass;
+    const slotData = equipClass[`slot${slotIndex + 1}`];
+    if (!slotData) return;
+    
+    // Get weapon info
+    const weaponInfo = getWeaponInfo(slotData);
+    
+    const iconImg = preview.querySelector('.preview-icon');
+    const nameSpan = preview.querySelector('.preview-name');
+    const descSpan = preview.querySelector('.preview-desc');
+    
+    if (iconImg) {
+      iconImg.src = weaponInfo.icon;
+      iconImg.alt = weaponInfo.name;
+    }
+    if (nameSpan) nameSpan.textContent = weaponInfo.name;
+    if (descSpan) descSpan.textContent = weaponInfo.desc;
+    
+    preview.style.display = 'flex';
+    equipmentInteractionState.previewSlot = slotIndex;
+    
+    // Clear any existing preview timer
+    if (equipmentInteractionState.previewTimer) {
+      clearTimeout(equipmentInteractionState.previewTimer);
+    }
+    
+    // Auto-hide after 2 seconds
+    equipmentInteractionState.previewTimer = setTimeout(() => {
+      hideWeaponPreview();
+    }, 2000);
+  };
+  
+  const hideWeaponPreview = () => {
+    const preview = document.getElementById('weaponPreview');
+    if (preview) {
+      preview.style.display = 'none';
+    }
+    equipmentInteractionState.previewSlot = null;
+    if (equipmentInteractionState.previewTimer) {
+      clearTimeout(equipmentInteractionState.previewTimer);
+      equipmentInteractionState.previewTimer = null;
+    }
+  };
+  
+  // Get weapon info for preview
+  // Get weapon info for preview (uses shared EQUIPMENT_ICONS)
+  const getWeaponInfo = (slotData) => {
+    return EQUIPMENT_ICONS.getInfo(slotData);
+  };
+  
+  // Open radial quick-select menu
+  const openRadialMenu = (x, y) => {
+    const radialMenu = document.getElementById('radialMenu');
+    if (!radialMenu) return;
+    
+    // Position at center of screen or touch point
+    radialMenu.style.left = `${x}px`;
+    radialMenu.style.top = `${y}px`;
+    radialMenu.style.display = 'block';
+    radialMenu.classList.add('opening');
+    radialMenu.classList.remove('closing');
+    
+    equipmentInteractionState.radialMenuOpen = true;
+    
+    // Update icons to match current loadout
+    updateRadialMenuIcons();
+    
+    // Mark current slot as selected
+    const radialItems = radialMenu.querySelectorAll('.radial-item');
+    radialItems.forEach((item, index) => {
+      item.classList.toggle('selected', index === currentEquipmentSlot);
+      item.classList.remove('hovered');
+    });
+    
+    triggerHapticFeedback('longpress');
+  };
+  
+  const closeRadialMenu = (selectedSlot = null) => {
+    const radialMenu = document.getElementById('radialMenu');
+    if (!radialMenu) return;
+    
+    radialMenu.classList.remove('opening');
+    radialMenu.classList.add('closing');
+    
+    setTimeout(() => {
+      radialMenu.style.display = 'none';
+      radialMenu.classList.remove('closing');
+    }, 150);
+    
+    equipmentInteractionState.radialMenuOpen = false;
+    
+    // If a slot was selected, equip it
+    if (selectedSlot !== null && selectedSlot !== currentEquipmentSlot) {
+      switchEquipmentSlot(selectedSlot);
+    }
+  };
+  
+  // Get radial menu item from pointer position
+  const getRadialItemFromPosition = (x, y) => {
+    const radialMenu = document.getElementById('radialMenu');
+    if (!radialMenu || !equipmentInteractionState.radialMenuOpen) return null;
+    
+    const rect = radialMenu.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    
+    const dx = x - centerX;
+    const dy = y - centerY;
+    const dist = Math.hypot(dx, dy);
+    
+    // If in center zone, no selection
+    if (dist < 30) return null;
+    
+    // Determine which quadrant/direction
+    const angle = Math.atan2(dy, dx);
+    const deg = ((angle * 180 / Math.PI) + 360) % 360;
+    
+    // Map angle to slot (0=top, 1=right, 2=bottom, 3=left)
+    if (deg >= 315 || deg < 45) return 1;   // Right = slot 2
+    if (deg >= 45 && deg < 135) return 2;   // Bottom = slot 3
+    if (deg >= 135 && deg < 225) return 3;  // Left = slot 4
+    if (deg >= 225 && deg < 315) return 0;  // Top = slot 1 (primary)
+    
+    return null;
+  };
+  
+  // Handle radial menu hover during drag
+  const updateRadialHover = (x, y) => {
+    const radialMenu = document.getElementById('radialMenu');
+    if (!radialMenu || !equipmentInteractionState.radialMenuOpen) return;
+    
+    const hoveredSlot = getRadialItemFromPosition(x, y);
+    const radialItems = radialMenu.querySelectorAll('.radial-item');
+    
+    radialItems.forEach((item, index) => {
+      item.classList.toggle('hovered', index === hoveredSlot);
+    });
+  };
+  
+  // Equipment slot pointer/touch event handlers
+  const handleEquipSlotPointerDown = (e, slotIndex) => {
+    if (!canInteract()) return;
+    
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const state = equipmentInteractionState;
+    state.activePointerId = e.pointerId || null;
+    state.pointerStartPos = { x: e.clientX, y: e.clientY };
+    state.dragStartSlot = slotIndex;
+    state.isLongPressing = false;
+    state.isDragging = false;
+    
+    // Start long-press timer
+    state.longPressTimer = setTimeout(() => {
+      if (!state.isDragging) {
+        state.isLongPressing = true;
+        openRadialMenu(e.clientX, e.clientY);
+      }
+    }, LONG_PRESS_THRESHOLD);
+    
+    // Visual feedback
+    const slot = e.currentTarget;
+    slot.classList.add('preview');
+    
+    triggerHapticFeedback('preview');
+  };
+  
+  const handleEquipSlotPointerMove = (e) => {
+    const state = equipmentInteractionState;
+    if (!state.pointerStartPos) return;
+    
+    const dx = e.clientX - state.pointerStartPos.x;
+    const dy = e.clientY - state.pointerStartPos.y;
+    const dist = Math.hypot(dx, dy);
+    
+    // If moved enough, start dragging
+    if (dist > 15 && !state.isLongPressing) {
+      // Cancel long-press timer
+      if (state.longPressTimer) {
+        clearTimeout(state.longPressTimer);
+        state.longPressTimer = null;
+      }
+      
+      if (!state.isDragging) {
+        state.isDragging = true;
+        
+        // Mark source slot as dragging
+        const sourceSlot = document.querySelector(`.equip-slot[data-slot="${state.dragStartSlot}"]`);
+        if (sourceSlot) {
+          sourceSlot.classList.add('dragging');
+        }
+        
+        triggerHapticFeedback('drag');
+      }
+    }
+    
+    // If radial menu is open, update hover state
+    if (state.radialMenuOpen) {
+      updateRadialHover(e.clientX, e.clientY);
+    }
+  };
+  
+  const handleEquipSlotPointerUp = (e) => {
+    const state = equipmentInteractionState;
+    
+    // Cancel long-press timer
+    if (state.longPressTimer) {
+      clearTimeout(state.longPressTimer);
+      state.longPressTimer = null;
+    }
+    
+    // Clean up visual states
+    document.querySelectorAll('.equip-slot').forEach(slot => {
+      slot.classList.remove('preview', 'dragging');
+    });
+    
+    // Handle radial menu selection
+    if (state.radialMenuOpen) {
+      const selectedSlot = getRadialItemFromPosition(e.clientX, e.clientY);
+      closeRadialMenu(selectedSlot);
+      markInteraction();
+      state.pointerStartPos = null;
+      state.activePointerId = null;
+      return;
+    }
+    
+    // Handle drag completion
+    if (state.isDragging) {
+      // Check if dropped on equipment indicator area (center target)
+      const indicator = document.getElementById('equipmentIndicator');
+      if (indicator) {
+        const rect = indicator.getBoundingClientRect();
+        const centerY = rect.top + rect.height / 2;
+        const centerX = rect.left + rect.width / 2;
+        
+        // If dropped near center, equip the dragged slot
+        const dx = e.clientX - centerX;
+        const dy = e.clientY - centerY;
+        if (Math.hypot(dx, dy) < 100) {
+          switchEquipmentSlot(state.dragStartSlot);
+          triggerHapticFeedback('equip');
+        }
+      }
+      
+      state.isDragging = false;
+      state.dragStartSlot = null;
+      markInteraction();
+      state.pointerStartPos = null;
+      state.activePointerId = null;
+      return;
+    }
+    
+    // Single tap - show preview and select
+    if (state.pointerStartPos && !state.isLongPressing) {
+      const slotIndex = parseInt(e.currentTarget?.dataset?.slot ?? state.dragStartSlot);
+      
+      // Show preview
+      showWeaponPreview(slotIndex);
+      
+      // Visual highlight
+      document.querySelectorAll('.equip-slot').forEach((slot, index) => {
+        slot.classList.toggle('preview', index === slotIndex && index !== currentEquipmentSlot);
+      });
+      
+      triggerHapticFeedback('select');
+      markInteraction();
+    }
+    
+    state.isLongPressing = false;
+    state.pointerStartPos = null;
+    state.activePointerId = null;
+  };
+  
+  const handleEquipSlotPointerCancel = () => {
+    const state = equipmentInteractionState;
+    
+    if (state.longPressTimer) {
+      clearTimeout(state.longPressTimer);
+      state.longPressTimer = null;
+    }
+    
+    if (state.radialMenuOpen) {
+      closeRadialMenu();
+    }
+    
+    document.querySelectorAll('.equip-slot').forEach(slot => {
+      slot.classList.remove('preview', 'dragging');
+    });
+    
+    state.isDragging = false;
+    state.isLongPressing = false;
+    state.pointerStartPos = null;
+    state.activePointerId = null;
+  };
+  
+  // Equipment slot click handler (for single tap equip action)
+  const handleEquipSlotClick = (e, slotIndex) => {
+    if (!canInteract()) return;
+    if (equipmentInteractionState.isDragging || equipmentInteractionState.isLongPressing) return;
+    
+    // Double-click to equip immediately
+    const now = performance.now();
+    if (now - lastTapTime < 300 && tapCount >= 1) {
+      // Double tap - equip immediately
+      switchEquipmentSlot(slotIndex);
+      triggerHapticFeedback('equip');
+      tapCount = 0;
+      markInteraction();
+      return;
+    }
+    
+    lastTapTime = now;
+    tapCount++;
+    
+    // Clear tap count after timeout
+    setTimeout(() => {
+      if (performance.now() - lastTapTime >= 300) {
+        tapCount = 0;
+      }
+    }, 300);
+    
+    markInteraction();
+  };
+  
+  // Keyboard navigation for equipment slots
+  const handleEquipmentKeyboard = (e) => {
+    const state = equipmentInteractionState;
+    
+    // Number keys 1-4 for direct slot selection
+    if (e.key >= '1' && e.key <= '4' && !e.ctrlKey && !e.altKey && !e.metaKey) {
+      const slotIndex = parseInt(e.key) - 1;
+      switchEquipmentSlot(slotIndex);
+      triggerHapticFeedback('equip');
+      e.preventDefault();
+      return true;
+    }
+    
+    // Arrow key navigation within equipment indicator
+    const equipIndicator = document.getElementById('equipmentIndicator');
+    if (!equipIndicator || document.activeElement?.closest('#equipmentIndicator') === null) {
+      return false;
+    }
+    
+    const slots = equipIndicator.querySelectorAll('.equip-slot');
+    const currentFocus = state.keyboardFocusIndex;
+    
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+      e.preventDefault();
+      state.keyboardFocusIndex = Math.min(currentFocus + 1, slots.length - 1);
+      slots[state.keyboardFocusIndex]?.focus();
+      showWeaponPreview(state.keyboardFocusIndex);
+      triggerHapticFeedback('preview');
+      return true;
+    }
+    
+    if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+      e.preventDefault();
+      state.keyboardFocusIndex = Math.max(currentFocus - 1, 0);
+      slots[state.keyboardFocusIndex]?.focus();
+      showWeaponPreview(state.keyboardFocusIndex);
+      triggerHapticFeedback('preview');
+      return true;
+    }
+    
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      switchEquipmentSlot(state.keyboardFocusIndex);
+      triggerHapticFeedback('equip');
+      return true;
+    }
+    
+    if (e.key === 'Escape' && state.radialMenuOpen) {
+      e.preventDefault();
+      closeRadialMenu();
+      return true;
+    }
+    
+    return false;
+  };
+  
+  // Initialize equipment dock event listeners
+  const initEquipmentDockListeners = () => {
+    const equipIndicator = document.getElementById('equipmentIndicator');
+    if (!equipIndicator) return;
+    
+    const slots = equipIndicator.querySelectorAll('.equip-slot');
+    
+    slots.forEach((slot, index) => {
+      // Pointer events for unified touch/mouse handling
+      slot.addEventListener('pointerdown', (e) => handleEquipSlotPointerDown(e, index));
+      slot.addEventListener('click', (e) => handleEquipSlotClick(e, index));
+      
+      // Focus handling for keyboard navigation
+      slot.addEventListener('focus', () => {
+        equipmentInteractionState.keyboardFocusIndex = index;
+        showWeaponPreview(index);
+      });
+      
+      slot.addEventListener('blur', () => {
+        hideWeaponPreview();
+        slot.classList.remove('preview');
+      });
+    });
+    
+    // Global pointer move/up handlers
+    document.addEventListener('pointermove', handleEquipSlotPointerMove);
+    document.addEventListener('pointerup', handleEquipSlotPointerUp);
+    document.addEventListener('pointercancel', handleEquipSlotPointerCancel);
+    
+    // Radial menu item click handlers
+    const radialMenu = document.getElementById('radialMenu');
+    if (radialMenu) {
+      const radialItems = radialMenu.querySelectorAll('.radial-item');
+      radialItems.forEach((item, index) => {
+        item.addEventListener('click', (e) => {
+          e.stopPropagation();
+          closeRadialMenu(index);
+        });
+        
+        item.addEventListener('pointerenter', () => {
+          item.classList.add('hovered');
+        });
+        
+        item.addEventListener('pointerleave', () => {
+          item.classList.remove('hovered');
+        });
+      });
+      
+      // Close radial menu when clicking outside
+      radialMenu.addEventListener('click', (e) => {
+        if (e.target === radialMenu || e.target.classList.contains('radial-center')) {
+          closeRadialMenu();
+        }
+      });
+    }
+  };
+
   /* ====== INPUT ====== */
 
   const triggerSecondary = () => {
@@ -5519,6 +6086,12 @@
           closeControlSettings();
           return;
         }
+        // Close radial menu on Escape
+        if (equipmentInteractionState.radialMenuOpen) {
+          e.preventDefault();
+          closeRadialMenu();
+          return;
+        }
       }
       if (e.key === 'p' || e.key === 'P') togglePause();
       if (e.key === 'r' || e.key === 'R') input.ultimateQueued = true;
@@ -5533,6 +6106,14 @@
           toggleFullscreen();
         }
       }
+      
+      // Equipment slot keyboard shortcuts (number keys 1-4)
+      if (gameRunning && !paused && !countdownActive) {
+        if (handleEquipmentKeyboard(e)) {
+          return; // Keyboard event was handled by equipment system
+        }
+      }
+      
       if (Object.prototype.hasOwnProperty.call(keyboard, e.key)) keyboard[e.key] = true;
       updateFromKeyboard();
     });
@@ -5836,5 +6417,8 @@
         }
       }
     });
+    
+    // Initialize equipment dock interaction listeners
+    initEquipmentDockListeners();
   };
 })();
