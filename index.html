@@ -386,6 +386,28 @@
         <!-- Controls Tab -->
         <div class="tab-content" id="controlsTab">
           <div class="settings-section">
+            <h3>Audio</h3>
+            <label class="checkbox-label">
+              <input type="checkbox" id="audioEnabled" checked>
+              <span>Sound Enabled</span>
+            </label>
+            <label>
+              <span>Master Volume</span>
+              <input type="range" id="masterVolume" min="0" max="100" value="70">
+              <span id="masterVolumeValue">70%</span>
+            </label>
+            <label>
+              <span>Sound Effects</span>
+              <input type="range" id="sfxVolume" min="0" max="100" value="80">
+              <span id="sfxVolumeValue">80%</span>
+            </label>
+            <label>
+              <span>Music</span>
+              <input type="range" id="musicVolume" min="0" max="100" value="50">
+              <span id="musicVolumeValue">50%</span>
+            </label>
+          </div>
+          <div class="settings-section">
             <h3>Layout</h3>
             <label>
               <span>Control Opacity</span>
@@ -483,6 +505,7 @@
   <script src="social-api.js"></script>
   <script src="social-hub.js"></script>
   <script src="social-integration.js"></script>
+  <script src="audio-manager.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
