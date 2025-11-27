@@ -3,7 +3,8 @@
  * Handles user registration, profiles, stats
  */
 
-const { kv } = require("@vercel/kv");
+const { kv } = require('./redis-client');
+const crypto = require('crypto');
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -12,13 +13,8 @@ const CORS_HEADERS = {
 };
 
 // Helper: Hash password (simple SHA-256)
-async function hashPassword(password) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password);
-  const hash = await crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(hash))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
+function hashPassword(password) {
+  return crypto.createHash('sha256').update(password).digest('hex');
 }
 
 // Helper: Generate user ID
@@ -54,7 +50,7 @@ module.exports = async(req, res) {
       }
 
       const userId = generateUserId();
-      const passwordHash = await hashPassword(password);
+      const passwordHash = hashPassword(password);
 
       const user = {
         id: userId,
@@ -121,7 +117,7 @@ module.exports = async(req, res) {
       }
 
       const user = await kv.get(`user:${userId}`);
-      const passwordHash = await hashPassword(password);
+      const passwordHash = hashPassword(password);
 
       if (user.passwordHash !== passwordHash) {
         return res.status(401).json({ error: 'Invalid credentials' });
