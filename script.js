@@ -951,13 +951,41 @@
   let killStreakPopup = null;
   const KILL_STREAK_POPUP_DURATION = 2500; // ms
 
+  // Visual constants for combo and kill streak displays
+  const COMBO_VISUAL_CONFIG = {
+    PANEL_WIDTH_RATIO: 0.5,          // Max panel width as ratio of canvas width
+    PANEL_MAX_WIDTH: 200,            // Max panel width in pixels
+    FONT_SIZE_RATIO: 0.08,           // Font size as ratio of canvas width
+    FONT_SIZE_MAX: 36,               // Max font size in pixels
+    TIER_THRESHOLDS: [5, 10, 20, 50] // Combo counts for tier upgrades
+  };
+
+  const KILL_STREAK_VISUAL_CONFIG = {
+    PANEL_WIDTH_RATIO: 0.75,         // Max panel width as ratio of canvas width
+    PANEL_MAX_WIDTH: 280,            // Max panel width in pixels
+    SHAKE_BASE_INTENSITY: 6,         // Base screen shake intensity
+    SHAKE_MILESTONE_DIVISOR: 25,     // Divides milestone for additional shake
+    SHAKE_BASE_DURATION: 200,        // Base screen shake duration in ms
+    SHAKE_DURATION_MULTIPLIER: 2,    // Multiplier for milestone-based duration
+    PARTICLE_BASE_COUNT: 30          // Base particle count for celebration
+  };
+
+  // Calculate tier level from a count value with given thresholds
+  const getTierFromCount = (count, thresholds) => {
+    let tier = 1;
+    for (let i = 0; i < thresholds.length; i++) {
+      if (count >= thresholds[i]) tier = i + 2;
+    }
+    return tier;
+  };
+
   // Kill streak popup data structure
   const createKillStreakPopup = (milestone, message) => {
     killStreakPopup = {
       milestone,
       message,
       startTime: performance.now(),
-      tier: milestone >= 100 ? 5 : milestone >= 50 ? 4 : milestone >= 25 ? 3 : milestone >= 10 ? 2 : 1
+      tier: getTierFromCount(milestone, [10, 25, 50, 100])
     };
   };
 
@@ -2047,8 +2075,10 @@
         // Create stylish kill streak popup instead of just log entry
         createKillStreakPopup(milestone, messages[milestone]);
         addLogEntry(`🔥 ${messages[milestone]} (${milestone} kills)`, '#f97316');
-        shakeScreen(6 + Math.floor(milestone / 25), 200 + milestone * 2);
-        addParticles('levelup', player.x, player.y, 0, 30 + milestone);
+        const shakeIntensity = KILL_STREAK_VISUAL_CONFIG.SHAKE_BASE_INTENSITY + Math.floor(milestone / KILL_STREAK_VISUAL_CONFIG.SHAKE_MILESTONE_DIVISOR);
+        const shakeDuration = KILL_STREAK_VISUAL_CONFIG.SHAKE_BASE_DURATION + milestone * KILL_STREAK_VISUAL_CONFIG.SHAKE_DURATION_MULTIPLIER;
+        shakeScreen(shakeIntensity, shakeDuration);
+        addParticles('levelup', player.x, player.y, 0, KILL_STREAK_VISUAL_CONFIG.PARTICLE_BASE_COUNT + milestone);
         
         // Play combo milestone sound
         if (typeof AudioManager !== 'undefined') {
@@ -6658,8 +6688,8 @@
       const x = canvas.width / 2 + shake;
       const y = baseY;
       
-      // Get tier-based styling
-      const tier = comboCount >= 50 ? 5 : comboCount >= 20 ? 4 : comboCount >= 10 ? 3 : comboCount >= 5 ? 2 : 1;
+      // Get tier-based styling using shared helper
+      const tier = getTierFromCount(comboCount, COMBO_VISUAL_CONFIG.TIER_THRESHOLDS);
       const tierColors = {
         1: { main: '#4ade80', glow: '#22c55e', bg: 'rgba(34, 197, 94, 0.15)' },
         2: { main: '#fbbf24', glow: '#f59e0b', bg: 'rgba(251, 191, 36, 0.15)' },
@@ -6670,7 +6700,7 @@
       const colors = tierColors[tier];
       
       // Background panel with rounded corners - responsive width
-      const panelWidth = Math.min(200, canvas.width * 0.5);
+      const panelWidth = Math.min(COMBO_VISUAL_CONFIG.PANEL_MAX_WIDTH, canvas.width * COMBO_VISUAL_CONFIG.PANEL_WIDTH_RATIO);
       const panelHeight = 70;
       const panelX = x - panelWidth / 2;
       const panelY = y - 8;
@@ -6708,7 +6738,7 @@
       ctx.fillText('COMBO', x, y + 2);
       
       // Big combo number with glow
-      const fontSize = Math.floor(Math.min(36, canvas.width * 0.08) * appearScale * pulse);
+      const fontSize = Math.floor(Math.min(COMBO_VISUAL_CONFIG.FONT_SIZE_MAX, canvas.width * COMBO_VISUAL_CONFIG.FONT_SIZE_RATIO) * appearScale * pulse);
       ctx.font = `bold ${fontSize}px Arial, sans-serif`;
       ctx.shadowColor = colors.glow;
       ctx.shadowBlur = 20;
@@ -6835,8 +6865,8 @@
         };
         const style = tierStyles[killStreakPopup.tier] || tierStyles[1];
         
-        // Background panel - responsive sizing
-        const panelWidth = Math.min(280, canvas.width * 0.75);
+        // Background panel - responsive sizing using config
+        const panelWidth = Math.min(KILL_STREAK_VISUAL_CONFIG.PANEL_MAX_WIDTH, canvas.width * KILL_STREAK_VISUAL_CONFIG.PANEL_WIDTH_RATIO);
         const panelHeight = 90;
         
         // Outer glow
