@@ -745,6 +745,32 @@
     }
   };
 
+  // Terrain generation constants
+  const TERRAIN_CONFIG = {
+    GRASSY_WAVE_1: 0.3,
+    GRASSY_WAVE_2: 0.7,
+    GRASSY_AMPLITUDE_1: 20,
+    GRASSY_AMPLITUDE_2: 10,
+    ROCKY_VARIATION: 30,
+    CRATER_DEPTH: 40,
+    CRATER_SLOPE: 3,
+    VOLCANIC_WAVE: 0.5,
+    VOLCANIC_AMPLITUDE: 15,
+    ICY_WAVE: 0.2,
+    ICY_AMPLITUDE: 8,
+    PLATFORM_MIN_WIDTH: 80,
+    PLATFORM_MAX_WIDTH: 200,
+    PLATFORM_MIN_HEIGHT: 15,
+    PLATFORM_MAX_HEIGHT: 30,
+    PLATFORM_Y_MIN: 0.3,
+    PLATFORM_Y_MAX: 0.7,
+    MOVING_PLATFORM_CHANCE: 0.15,
+    PASSTHROUGH_PLATFORM_CHANCE: 0.3,
+    CRUMBLING_PLATFORM_CHANCE: 0.4,
+    PLATFORM_RESPAWN_DELAY: 5000,
+    JUMP_COOLDOWN_MS: 100
+  };
+
   // Current game mode state
   let currentGameMode = 'space';
   let currentPlanet = null;
@@ -3711,20 +3737,22 @@
       const x = -canvasWidth + i * segmentWidth;
       let y = groundLevel;
       
-      // Add terrain variation based on terrain type
+      // Add terrain variation based on terrain type using constants
       if (planet.terrainType === 'grassy') {
-        y += Math.sin(i * 0.3) * 20 + Math.sin(i * 0.7) * 10;
+        y += Math.sin(i * TERRAIN_CONFIG.GRASSY_WAVE_1) * TERRAIN_CONFIG.GRASSY_AMPLITUDE_1 + 
+             Math.sin(i * TERRAIN_CONFIG.GRASSY_WAVE_2) * TERRAIN_CONFIG.GRASSY_AMPLITUDE_2;
       } else if (planet.terrainType === 'rocky') {
-        y += Math.random() * 30 - 15;
+        y += Math.random() * TERRAIN_CONFIG.ROCKY_VARIATION - TERRAIN_CONFIG.ROCKY_VARIATION / 2;
       } else if (planet.terrainType === 'crater') {
         // Create crater-like depressions
         const craterCenter = terrainSegments / 2;
         const distFromCenter = Math.abs(i - craterCenter);
-        y += Math.max(0, 40 - distFromCenter * 3);
+        y += Math.max(0, TERRAIN_CONFIG.CRATER_DEPTH - distFromCenter * TERRAIN_CONFIG.CRATER_SLOPE);
       } else if (planet.terrainType === 'volcanic') {
-        y += Math.sin(i * 0.5) * 15 + (Math.random() > 0.9 ? -40 : 0);
+        y += Math.sin(i * TERRAIN_CONFIG.VOLCANIC_WAVE) * TERRAIN_CONFIG.VOLCANIC_AMPLITUDE + 
+             (Math.random() > 0.9 ? -TERRAIN_CONFIG.CRATER_DEPTH : 0);
       } else if (planet.terrainType === 'icy') {
-        y += Math.sin(i * 0.2) * 8;
+        y += Math.sin(i * TERRAIN_CONFIG.ICY_WAVE) * TERRAIN_CONFIG.ICY_AMPLITUDE;
       }
       
       planetaryTerrain.push({ x, y });
@@ -3735,16 +3763,16 @@
     
     for (let i = 0; i < platformCount; i++) {
       const x = rand(-canvasWidth * 0.5, canvasWidth * 1.5);
-      const y = rand(canvasHeight * 0.3, canvasHeight * 0.7);
-      const width = rand(80, 200);
-      const height = rand(15, 30);
+      const y = rand(canvasHeight * TERRAIN_CONFIG.PLATFORM_Y_MIN, canvasHeight * TERRAIN_CONFIG.PLATFORM_Y_MAX);
+      const width = rand(TERRAIN_CONFIG.PLATFORM_MIN_WIDTH, TERRAIN_CONFIG.PLATFORM_MAX_WIDTH);
+      const height = rand(TERRAIN_CONFIG.PLATFORM_MIN_HEIGHT, TERRAIN_CONFIG.PLATFORM_MAX_HEIGHT);
       
       // Randomly assign platform type
       const typeRoll = Math.random();
       let type = 'solid';
-      if (typeRoll < 0.15) type = 'moving';
-      else if (typeRoll < 0.3) type = 'passthrough';
-      else if (typeRoll < 0.4 && level > 3) type = 'crumbling';
+      if (typeRoll < TERRAIN_CONFIG.MOVING_PLATFORM_CHANCE) type = 'moving';
+      else if (typeRoll < TERRAIN_CONFIG.PASSTHROUGH_PLATFORM_CHANCE) type = 'passthrough';
+      else if (typeRoll < TERRAIN_CONFIG.CRUMBLING_PLATFORM_CHANCE && level > 3) type = 'crumbling';
       
       planetaryPlatforms.push(new Platform(x, y, width, height, type));
     }
@@ -3994,15 +4022,13 @@
   const handlePlanetaryJump = (entity) => {
     if (currentGameMode !== 'planetary') return false;
     
-    if (entity.isGrounded && entity.canJump !== false) {
+    const now = performance.now();
+    
+    // Use timestamp-based cooldown instead of setTimeout
+    if (entity.isGrounded && (entity.jumpCooldownEnd === undefined || now >= entity.jumpCooldownEnd)) {
       entity.velocityY = GAME_MODES.planetary.jumpForce;
       entity.isGrounded = false;
-      entity.canJump = false;
-      
-      // Jump cooldown
-      setTimeout(() => {
-        entity.canJump = true;
-      }, 100);
+      entity.jumpCooldownEnd = now + TERRAIN_CONFIG.JUMP_COOLDOWN_MS;
       
       return true;
     }
@@ -4011,17 +4037,22 @@
 
   // Update platforms
   const updatePlatforms = (dt) => {
+    const now = performance.now();
+    
     for (let i = planetaryPlatforms.length - 1; i >= 0; i--) {
       const platform = planetaryPlatforms[i];
       platform.update(dt);
       
-      // Respawn broken platforms after delay
+      // Use timestamp-based respawn instead of setTimeout
       if (platform.broken) {
-        setTimeout(() => {
+        if (!platform.respawnTime) {
+          platform.respawnTime = now + TERRAIN_CONFIG.PLATFORM_RESPAWN_DELAY;
+        } else if (now >= platform.respawnTime) {
           platform.broken = false;
           platform.crumbling = false;
           platform.crumbleTimer = 0;
-        }, 5000);
+          platform.respawnTime = null;
+        }
       }
     }
   };
