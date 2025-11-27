@@ -371,10 +371,9 @@
   let starsFar = null;
   let starsMid = null;
   let starsNear = null;
-  // Enhanced star layers for premium visual depth
-  let starsDeepSpace = null;     // Extremely distant, subtle stars
-  let starsNebula = null;        // Faint colored nebula dust
-  let starsBright = null;        // Bright foreground accent stars
+  // Enhanced realistic star layers for deep space aesthetic
+  let starsDeepSpace = null;     // Very distant, faint stars (nearly static)
+  let starsBright = null;        // Occasional bright stars with subtle twinkle
   let particles = [];
   let obstacles = [];
   let timedEffects = [];
@@ -944,7 +943,7 @@
     obstacles = [];
     timedEffects = [];
     starsFar = starsMid = starsNear = null;
-    starsDeepSpace = starsNebula = starsBright = null;
+    starsDeepSpace = starsBright = null;
     score = 0;
     level = 1;
     enemiesToKill = 15;  // Increased from 10 for better pacing
@@ -1315,16 +1314,22 @@
     const cx = camera.x + window.innerWidth / 2;
     const cy = camera.y + window.innerHeight / 2;
     for (let i = 0; i < n; i++) {
+      // Use polar coordinates for truly random distribution (avoids grid patterns)
+      const angle = Math.random() * Math.PI * 2;
+      const dist = Math.sqrt(Math.random()) * margin; // sqrt for uniform area distribution
       arr.push({
-        x: cx + (Math.random() - 0.5) * margin * 2,
-        y: cy + (Math.random() - 0.5) * margin * 2,
-        s: Math.random() * 2 + 0.4
+        x: cx + Math.cos(angle) * dist,
+        y: cy + Math.sin(angle) * dist,
+        s: Math.random() * 1.8 + 0.3, // Smaller, more realistic sizes
+        // Random drift direction for each star (very subtle)
+        driftAngle: Math.random() * Math.PI * 2,
+        driftSpeed: Math.random() * 0.02 // Nearly imperceptible movement
       });
     }
     return arr;
   };
 
-  // Enhanced star maker with color and twinkle support
+  // Enhanced star maker with color and subtle twinkle support for realism
   const makeEnhancedStars = (n, options = {}) => {
     const arr = [];
     const margin = viewRadius(1.6);
@@ -1336,157 +1341,115 @@
     const twinkle = options.twinkle || false;
     
     for (let i = 0; i < n; i++) {
+      // Use polar coordinates for truly random distribution
+      const angle = Math.random() * Math.PI * 2;
+      const dist = Math.sqrt(Math.random()) * margin;
       arr.push({
-        x: cx + (Math.random() - 0.5) * margin * 2,
-        y: cy + (Math.random() - 0.5) * margin * 2,
+        x: cx + Math.cos(angle) * dist,
+        y: cy + Math.sin(angle) * dist,
         s: Math.random() * (maxSize - minSize) + minSize,
         color: colors[Math.floor(Math.random() * colors.length)],
         twinkle: twinkle,
         twinklePhase: Math.random() * Math.PI * 2,
-        twinkleSpeed: 0.002 + Math.random() * 0.003,
-        baseAlpha: options.baseAlpha || 1
+        twinkleSpeed: 0.001 + Math.random() * 0.002, // Slower, more subtle twinkle
+        baseAlpha: options.baseAlpha || 1,
+        // Random drift direction (nearly static)
+        driftAngle: Math.random() * Math.PI * 2,
+        driftSpeed: Math.random() * 0.01
       });
     }
     return arr;
   };
 
-  // Create nebula dust particles - larger, colored, very faint
-  const makeNebulaDust = (n) => {
-    const arr = [];
-    const margin = viewRadius(2.0);
-    const cx = camera.x + window.innerWidth / 2;
-    const cy = camera.y + window.innerHeight / 2;
-    const nebulaColors = [
-      'rgba(138, 43, 226, 0.15)',   // Purple
-      'rgba(30, 144, 255, 0.12)',   // Dodger blue
-      'rgba(255, 20, 147, 0.10)',   // Deep pink
-      'rgba(0, 191, 255, 0.12)',    // Deep sky blue
-      'rgba(148, 0, 211, 0.10)',    // Dark violet
-      'rgba(72, 61, 139, 0.15)'     // Dark slate blue
-    ];
-    
-    for (let i = 0; i < n; i++) {
-      arr.push({
-        x: cx + (Math.random() - 0.5) * margin * 2,
-        y: cy + (Math.random() - 0.5) * margin * 2,
-        s: Math.random() * 60 + 30,
-        color: nebulaColors[Math.floor(Math.random() * nebulaColors.length)],
-        driftX: (Math.random() - 0.5) * 0.02,
-        driftY: (Math.random() - 0.5) * 0.02
-      });
-    }
-    return arr;
-  };
-
-  const drawStarsLayer = (ctx, arr, speed) => {
+  // Draw stars layer with realistic near-static movement
+  const drawStarsLayer = (ctx, arr, parallaxFactor) => {
     ctx.fillStyle = '#fff';
     for (const star of arr) {
-      ctx.globalAlpha = clamp(star.s / 2.6, 0.2, 0.9);
+      // Smaller stars appear dimmer (realistic)
+      ctx.globalAlpha = clamp(star.s / 2.2, 0.15, 0.85);
       ctx.fillRect(star.x, star.y, star.s, star.s);
-      star.x -= speed;
+      
+      // Very subtle individual drift (stars appear nearly static like real space)
+      if (star.driftAngle !== undefined) {
+        star.x += Math.cos(star.driftAngle) * star.driftSpeed * parallaxFactor;
+        star.y += Math.sin(star.driftAngle) * star.driftSpeed * parallaxFactor;
+      }
+      
+      // Wrap stars at edges
       const margin = viewRadius(1.8);
       if (star.x < camera.x - margin) {
         star.x = camera.x + margin;
-        star.y = camera.y + (Math.random() - 0.5) * margin * 2;
+        // Randomize Y using polar coordinates when wrapping
+        const wrapAngle = Math.random() * Math.PI * 2;
+        star.y = camera.y + Math.sin(wrapAngle) * Math.sqrt(Math.random()) * margin;
       }
       if (star.x > camera.x + margin) {
         star.x = camera.x - margin;
-        star.y = camera.y + (Math.random() - 0.5) * margin * 2;
+        const wrapAngle = Math.random() * Math.PI * 2;
+        star.y = camera.y + Math.sin(wrapAngle) * Math.sqrt(Math.random()) * margin;
       }
       if (star.y < camera.y - margin) {
         star.y = camera.y + margin;
-        star.x = camera.x + (Math.random() - 0.5) * margin * 2;
+        const wrapAngle = Math.random() * Math.PI * 2;
+        star.x = camera.x + Math.cos(wrapAngle) * Math.sqrt(Math.random()) * margin;
       }
       if (star.y > camera.y + margin) {
         star.y = camera.y - margin;
-        star.x = camera.x + (Math.random() - 0.5) * margin * 2;
+        const wrapAngle = Math.random() * Math.PI * 2;
+        star.x = camera.x + Math.cos(wrapAngle) * Math.sqrt(Math.random()) * margin;
+      }
+      if (star.y > camera.y + margin) {
+        star.y = camera.y - margin;
+        const wrapAngle = Math.random() * Math.PI * 2;
+        star.x = camera.x + Math.cos(wrapAngle) * Math.sqrt(Math.random()) * margin;
       }
     }
     ctx.globalAlpha = 1;
   };
 
-  // Enhanced star layer drawing with color, twinkle, and glow support
-  const drawEnhancedStarsLayer = (ctx, arr, speed, options = {}) => {
-    const glow = options.glow || false;
-    
+  // Enhanced star layer with subtle twinkle for realistic space appearance
+  const drawEnhancedStarsLayer = (ctx, arr, parallaxFactor) => {
     for (const star of arr) {
-      let alpha = clamp(star.s / 2.6, 0.2, 0.9) * (star.baseAlpha || 1);
+      let alpha = clamp(star.s / 2.2, 0.15, 0.85) * (star.baseAlpha || 1);
       
-      // Apply twinkling effect (phase advances based on star's speed)
+      // Apply subtle twinkling effect
       if (star.twinkle) {
-        // Advance twinkle phase (speed is calibrated for ~60fps)
         star.twinklePhase += star.twinkleSpeed * 16.67;
-        alpha *= 0.6 + 0.4 * Math.sin(star.twinklePhase);
+        // More subtle twinkle range for realism
+        alpha *= 0.75 + 0.25 * Math.sin(star.twinklePhase);
       }
       
       ctx.globalAlpha = alpha;
       ctx.fillStyle = star.color || '#fff';
-      
-      // Draw glow for bright stars
-      if (glow && star.s > 1.5) {
-        ctx.shadowColor = star.color || '#fff';
-        ctx.shadowBlur = star.s * 2;
-      }
-      
       ctx.fillRect(star.x, star.y, star.s, star.s);
       
-      if (glow && star.s > 1.5) {
-        ctx.shadowBlur = 0;
+      // Very subtle individual drift
+      if (star.driftAngle !== undefined) {
+        star.x += Math.cos(star.driftAngle) * star.driftSpeed * parallaxFactor;
+        star.y += Math.sin(star.driftAngle) * star.driftSpeed * parallaxFactor;
       }
       
-      // Move star with parallax
-      star.x -= speed;
+      // Wrap stars at edges with proper randomization
       const margin = viewRadius(1.8);
       if (star.x < camera.x - margin) {
         star.x = camera.x + margin;
-        star.y = camera.y + (Math.random() - 0.5) * margin * 2;
+        const wrapAngle = Math.random() * Math.PI * 2;
+        star.y = camera.y + Math.sin(wrapAngle) * Math.sqrt(Math.random()) * margin;
       }
       if (star.x > camera.x + margin) {
         star.x = camera.x - margin;
-        star.y = camera.y + (Math.random() - 0.5) * margin * 2;
+        const wrapAngle = Math.random() * Math.PI * 2;
+        star.y = camera.y + Math.sin(wrapAngle) * Math.sqrt(Math.random()) * margin;
       }
       if (star.y < camera.y - margin) {
         star.y = camera.y + margin;
-        star.x = camera.x + (Math.random() - 0.5) * margin * 2;
+        const wrapAngle = Math.random() * Math.PI * 2;
+        star.x = camera.x + Math.cos(wrapAngle) * Math.sqrt(Math.random()) * margin;
       }
       if (star.y > camera.y + margin) {
         star.y = camera.y - margin;
-        star.x = camera.x + (Math.random() - 0.5) * margin * 2;
-      }
-    }
-    ctx.globalAlpha = 1;
-  };
-
-  // Draw nebula dust layer (very slow moving, large blurred circles)
-  const drawNebulaLayer = (ctx, arr, speed) => {
-    for (const dust of arr) {
-      ctx.globalAlpha = 1;
-      ctx.fillStyle = dust.color;
-      
-      ctx.beginPath();
-      ctx.arc(dust.x, dust.y, dust.s, 0, Math.PI * 2);
-      ctx.fill();
-      
-      // Very slow drift
-      dust.x -= speed + dust.driftX;
-      dust.y += dust.driftY;
-      
-      const margin = viewRadius(2.2);
-      if (dust.x < camera.x - margin) {
-        dust.x = camera.x + margin;
-        dust.y = camera.y + (Math.random() - 0.5) * margin * 2;
-      }
-      if (dust.x > camera.x + margin) {
-        dust.x = camera.x - margin;
-        dust.y = camera.y + (Math.random() - 0.5) * margin * 2;
-      }
-      if (dust.y < camera.y - margin) {
-        dust.y = camera.y + margin;
-        dust.x = camera.x + (Math.random() - 0.5) * margin * 2;
-      }
-      if (dust.y > camera.y + margin) {
-        dust.y = camera.y - margin;
-        dust.x = camera.x + (Math.random() - 0.5) * margin * 2;
+        const wrapAngle = Math.random() * Math.PI * 2;
+        star.x = camera.x + Math.cos(wrapAngle) * Math.sqrt(Math.random()) * margin;
       }
     }
     ctx.globalAlpha = 1;
@@ -1496,38 +1459,39 @@
     const margin = viewRadius(1.6);
     const cx = camera.x + window.innerWidth / 2;
     const cy = camera.y + window.innerHeight / 2;
-    const bundles = [starsFar, starsMid, starsNear, starsDeepSpace, starsNebula, starsBright];
+    const bundles = [starsFar, starsMid, starsNear, starsDeepSpace, starsBright];
     for (const layer of bundles) {
       if (!layer) continue;
       for (const star of layer) {
-        star.x = cx + (Math.random() - 0.5) * margin * 2;
-        star.y = cy + (Math.random() - 0.5) * margin * 2;
+        // Use polar distribution when recentering for natural appearance
+        const angle = Math.random() * Math.PI * 2;
+        const dist = Math.sqrt(Math.random()) * margin;
+        star.x = cx + Math.cos(angle) * dist;
+        star.y = cy + Math.sin(angle) * dist;
       }
     }
   };
 
-  // Initialize all star layers for enhanced multi-layer starfield
+  // Initialize realistic star layers for dark space aesthetic
   const initStarLayers = () => {
-    // Layer 0: Nebula dust (slow, atmospheric)
-    starsNebula = makeNebulaDust(15);
-    // Layer 1: Deep space (extremely distant, subtle)
-    starsDeepSpace = makeEnhancedStars(200, {
-      colors: ['#6b7280', '#9ca3af', '#4b5563'],
-      minSize: 0.3,
-      maxSize: 0.8,
-      baseAlpha: 0.4,
+    // Layer 1: Deep space stars (very distant, faint, nearly static)
+    starsDeepSpace = makeEnhancedStars(300, {
+      colors: ['#ffffff', '#e5e7eb', '#d1d5db'],  // Subtle white/gray tones
+      minSize: 0.2,
+      maxSize: 0.6,
+      baseAlpha: 0.3,
       twinkle: true
     });
-    // Layer 2-4: Original star layers
-    starsFar = makeStars(120);
-    starsMid = makeStars(80);
-    starsNear = makeStars(50);
-    // Layer 5: Bright accent stars (close, vivid)
-    starsBright = makeEnhancedStars(25, {
-      colors: ['#ffffff', '#fef3c7', '#dbeafe', '#fce7f3', '#e0f2fe'],
-      minSize: 1.5,
-      maxSize: 3.0,
-      baseAlpha: 0.9,
+    // Layer 2-4: Main star layers (varying distances)
+    starsFar = makeStars(150);   // Most distant, smallest
+    starsMid = makeStars(100);   // Middle distance
+    starsNear = makeStars(60);   // Closer stars
+    // Layer 5: Occasional bright stars (rare, prominent)
+    starsBright = makeEnhancedStars(12, {
+      colors: ['#ffffff', '#fef9c3', '#e0f2fe'],  // Pure white with slight color variance
+      minSize: 1.2,
+      maxSize: 2.0,
+      baseAlpha: 0.8,
       twinkle: true
     });
   };
@@ -3510,26 +3474,22 @@
     ctx.save();
     ctx.translate(-camera.x + shakeX, -camera.y + shakeY);
     
-    // Draw enhanced multi-layer starfield (back to front)
-    if (starsNebula) {
-      // Layer 0: Nebula dust (slowest, most distant)
-      drawNebulaLayer(ctx, starsNebula, 0.08);
-    }
+    // Draw realistic multi-layer starfield (back to front, nearly static)
     if (starsDeepSpace) {
-      // Layer 1: Deep space stars (very faint, very slow)
-      drawEnhancedStarsLayer(ctx, starsDeepSpace, 0.12, { glow: false });
+      // Deepest layer: very faint, distant stars
+      drawEnhancedStarsLayer(ctx, starsDeepSpace, 0.05);
     }
     if (starsFar) {
-      // Layer 2: Far stars (original)
-      drawStarsLayer(ctx, starsFar, 0.3);
-      // Layer 3: Mid stars (original)
-      drawStarsLayer(ctx, starsMid, 0.6);
-      // Layer 4: Near stars (original)
-      drawStarsLayer(ctx, starsNear, 1.1);
+      // Far stars - slightly larger
+      drawStarsLayer(ctx, starsFar, 0.1);
+      // Mid stars
+      drawStarsLayer(ctx, starsMid, 0.15);
+      // Near stars - most visible
+      drawStarsLayer(ctx, starsNear, 0.2);
     }
     if (starsBright) {
-      // Layer 5: Bright accent stars (closest, with glow and twinkle)
-      drawEnhancedStarsLayer(ctx, starsBright, 1.5, { glow: true });
+      // Bright prominent stars (rare)
+      drawEnhancedStarsLayer(ctx, starsBright, 0.25);
     }
     for (const obstacle of obstacles) obstacle.draw(ctx);
     if (!player) {
