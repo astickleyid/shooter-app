@@ -1,3 +1,4 @@
+/* global AudioManager */
 (() => {
   /* ====== UTILS ====== */
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -1252,6 +1253,11 @@
       levelUpAnimationStart = performance.now();
       addLogEntry(`🎉 Level Up! Pilot Level ${pilotLevel}`, '#4ade80');
       shakeScreen(8, 300);
+      
+      // Play level up sound
+      if (typeof AudioManager !== 'undefined') {
+        AudioManager.playLevelUp();
+      }
     }
     Save.data.pilotLevel = pilotLevel;
     Save.data.pilotXp = pilotXP;
@@ -1319,6 +1325,11 @@
         addLogEntry(`🔥 ${messages[milestone]} (${milestone} kills)`, '#f97316');
         shakeScreen(6, 200);
         addParticles('levelup', player.x, player.y, 0, 30);
+        
+        // Play combo milestone sound
+        if (typeof AudioManager !== 'undefined') {
+          AudioManager.playComboMilestone();
+        }
       }
     }
   };
@@ -2948,6 +2959,18 @@
         bullets.push(new Bullet(sx, sy, vel, stats.dmg, color, speed, size, pierce));
       }
       addParticles('muzzle', this.x, this.y, this.lookAngle, 6);
+      
+      // Play shooting sound based on weapon type
+      if (typeof AudioManager !== 'undefined') {
+        const weaponId = this.primary?.id || 'pulse';
+        if (weaponId === 'scatter') {
+          AudioManager.playScatterShoot();
+        } else if (weaponId === 'rail') {
+          AudioManager.playRailShoot();
+        } else {
+          AudioManager.playShoot();
+        }
+      }
     }
 
     trySecondary(now) {
@@ -2961,6 +2984,12 @@
       const originY = this.y + Math.sin(this.lookAngle) * (this.size * 1.4);
       addParticles('nova', originX, originY, 0, 24);
       shakeScreen(7, 220);
+      
+      // Play secondary weapon sound
+      if (typeof AudioManager !== 'undefined') {
+        AudioManager.playSecondary();
+      }
+      
       if (this.secondary.id === 'cluster') {
         const clusters = stats.clusters || 5;
         for (let i = 0; i < clusters; i++) {
@@ -2987,6 +3016,12 @@
       this.defenseActiveUntil = now + (stats.duration || 3000);
       addParticles('shield', this.x, this.y, 0, 24);
       shakeScreen(4, 140);
+      
+      // Play shield activation sound
+      if (typeof AudioManager !== 'undefined') {
+        AudioManager.playShield();
+      }
+      
       return true;
     }
 
@@ -3003,6 +3038,12 @@
       this.lastUltimateAt = now;
       addParticles('ultimate', this.x, this.y, 0, 48);
       shakeScreen(12, 320);
+      
+      // Play ultimate sound
+      if (typeof AudioManager !== 'undefined') {
+        AudioManager.playUltimate();
+      }
+      
       if (this.ultimate.id === 'solarbeam') {
         const length = stats.beamLength || 520;
         const width = stats.width || 90;
@@ -3032,6 +3073,11 @@
       }
       addParticles('shield', this.x, this.y, 0, 18);
       this.addUltimateCharge(12);
+      
+      // Play supply pickup sound
+      if (typeof AudioManager !== 'undefined') {
+        AudioManager.playSupplyPickup();
+      }
     }
 
     takeDamage(amount, source = null) {
@@ -3064,6 +3110,11 @@
       this.flash = true;
       this.invEnd = now + BASE.INVULN_MS;
       shakeScreen(4, 120);
+      
+      // Play player damage sound
+      if (typeof AudioManager !== 'undefined') {
+        AudioManager.playPlayerDamage();
+      }
       
       // Phase 1: Show damage taken
       spawnDamageNumber(this.x, this.y - this.size, amount, true);
@@ -3326,6 +3377,17 @@
     
     // Phase A.4: Shockwave ring
     addParticles('ring', enemy.x, enemy.y, 0, wasBoss ? 3 : 1, deathColor);
+    
+    // Play explosion sound based on enemy type
+    if (typeof AudioManager !== 'undefined') {
+      if (wasBoss) {
+        AudioManager.playExplosionLarge();
+      } else if (wasElite) {
+        AudioManager.playExplosionMedium();
+      } else {
+        AudioManager.playExplosionSmall();
+      }
+    }
     
     // Enhanced effects for boss/elite
     if (wasBoss) {
@@ -3924,6 +3986,12 @@
           
           addParticles('sparks', bullet.x, bullet.y, 0, 6);
           if (player) player.addUltimateCharge(bullet.damage * 0.35);
+          
+          // Play hit sound
+          if (typeof AudioManager !== 'undefined') {
+            AudioManager.playHit();
+          }
+          
           if (enemy.health <= 0) handleEnemyDeath(j);
           if (bullet.pierce > 0) {
             bullet.pierce--;
@@ -3957,6 +4025,11 @@
         score += 10;
         Save.addCredits(1);
         addXP(6);
+        
+        // Play coin pickup sound
+        if (typeof AudioManager !== 'undefined') {
+          AudioManager.playCoinPickup();
+        }
       }
     }
 
@@ -4037,6 +4110,11 @@
     Save.addCredits(Math.floor(20 + level * 5 + enemiesKilled * 1.5));
     addXP(90 + level * 12);
     if (!tookDamageThisLevel) addXP(110 + level * 18);
+    
+    // Play level advance sound
+    if (typeof AudioManager !== 'undefined') {
+      AudioManager.playLevelAdvance();
+    }
     
     const completedLevel = level; // Store current level before incrementing
     level += 1;
@@ -4142,6 +4220,11 @@
     bossActive = true;
     addLogEntry('💀 BOSS HAS ARRIVED!', '#dc2626');
     shakeScreen(10, 400);
+    
+    // Play boss spawn sound
+    if (typeof AudioManager !== 'undefined') {
+      AudioManager.playBossSpawn();
+    }
   };
 
   // Check if survival wave is complete
@@ -4513,6 +4596,13 @@
     dom.startScreen.style.display = 'none';
     dom.gameContainer.style.display = 'block';
     dom.messageBox.style.display = 'none';
+    
+    // Initialize audio system on user interaction (required for Chrome autoplay policy)
+    if (typeof AudioManager !== 'undefined') {
+      AudioManager.init();
+      AudioManager.startMusic();
+    }
+    
     startLevel(1, true);
   };
 
@@ -4869,6 +4959,12 @@
     gameRunning = false;
     paused = false;
     cancelAnimationFrame(animationFrame);
+    
+    // Play game over sound and stop music
+    if (typeof AudioManager !== 'undefined') {
+      AudioManager.playGameOver();
+      AudioManager.stopMusic();
+    }
     
     // Submit to leaderboard if logged in
     const finalScore = score;
@@ -5437,6 +5533,10 @@
         input.isBoosting = true;
         setTimeout(() => (input.isBoosting = false), 300);
         addLogEntry(`BOOST activated!`, '#4ade80');
+        // Play boost sound
+        if (typeof AudioManager !== 'undefined') {
+          AudioManager.playBoost();
+        }
         break;
         
       case 'secondary':
@@ -5996,9 +6096,17 @@
     }
     
     if (dom.startButton) {
-      dom.startButton.addEventListener('click', startGame);
+      dom.startButton.addEventListener('click', () => {
+        if (typeof AudioManager !== 'undefined') {
+          AudioManager.playClick();
+        }
+        startGame();
+      });
       dom.startButton.addEventListener('touchstart', (e) => {
         e.preventDefault();
+        if (typeof AudioManager !== 'undefined') {
+          AudioManager.playClick();
+        }
         startGame();
       }, { passive: false });
     }
@@ -6182,6 +6290,55 @@
     setupSlider('moveSensitivity', 'moveSensValue');
     setupSlider('aimSensitivity', 'aimSensValue');
     setupSlider('deadzone', 'deadzoneValue');
+    
+    // Audio controls setup
+    const setupAudioControls = () => {
+      const masterSlider = document.getElementById('masterVolume');
+      const sfxSlider = document.getElementById('sfxVolume');
+      const musicSlider = document.getElementById('musicVolume');
+      const audioToggle = document.getElementById('audioEnabled');
+      
+      // Initialize with saved values if AudioManager is available
+      if (typeof AudioManager !== 'undefined') {
+        if (masterSlider) {
+          masterSlider.value = Math.round(AudioManager.getVolume('master') * 100);
+          document.getElementById('masterVolumeValue').textContent = `${masterSlider.value}%`;
+          masterSlider.addEventListener('input', () => {
+            const value = parseInt(masterSlider.value) / 100;
+            AudioManager.setVolume('master', value);
+            document.getElementById('masterVolumeValue').textContent = `${masterSlider.value}%`;
+          });
+        }
+        
+        if (sfxSlider) {
+          sfxSlider.value = Math.round(AudioManager.getVolume('sfx') * 100);
+          document.getElementById('sfxVolumeValue').textContent = `${sfxSlider.value}%`;
+          sfxSlider.addEventListener('input', () => {
+            const value = parseInt(sfxSlider.value) / 100;
+            AudioManager.setVolume('sfx', value);
+            document.getElementById('sfxVolumeValue').textContent = `${sfxSlider.value}%`;
+          });
+        }
+        
+        if (musicSlider) {
+          musicSlider.value = Math.round(AudioManager.getVolume('music') * 100);
+          document.getElementById('musicVolumeValue').textContent = `${musicSlider.value}%`;
+          musicSlider.addEventListener('input', () => {
+            const value = parseInt(musicSlider.value) / 100;
+            AudioManager.setVolume('music', value);
+            document.getElementById('musicVolumeValue').textContent = `${musicSlider.value}%`;
+          });
+        }
+        
+        if (audioToggle) {
+          audioToggle.checked = !AudioManager.getMuted();
+          audioToggle.addEventListener('change', () => {
+            AudioManager.setMuted(!audioToggle.checked);
+          });
+        }
+      }
+    };
+    setupAudioControls();
     
     // Unified menu button (replaces old settings and ability buttons)
     const unifiedMenuBtn = document.getElementById('unifiedMenuButton');
