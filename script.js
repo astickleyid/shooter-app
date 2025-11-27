@@ -645,6 +645,60 @@
     hazard: { name: 'Hazard Zone', desc: 'Navigate the danger zone', hazards: true }
   };
 
+  // Game Modes - Different gameplay experiences
+  const GAME_MODES = {
+    classic: {
+      name: 'Classic',
+      desc: 'Progress through levels, defeat enemies and bosses',
+      icon: '🎮',
+      levelProgression: true,
+      hasLevelCap: false,
+      bossEveryNLevels: 5,
+      waveTypes: ['standard', 'swarm', 'elite', 'hazard'],
+      scoreMultiplier: 1.0
+    },
+    endless: {
+      name: 'Endless',
+      desc: 'Survive as long as possible, difficulty increases continuously',
+      icon: '♾️',
+      levelProgression: true,
+      hasLevelCap: false,
+      bossEveryNLevels: 10,
+      waveTypes: ['standard', 'swarm', 'elite', 'hazard'],
+      difficultyRamp: 1.15, // Faster difficulty scaling
+      scoreMultiplier: 1.25,
+      noLevelBreaks: true // No pause between levels
+    },
+    bossRush: {
+      name: 'Boss Rush',
+      desc: 'Fight bosses one after another with minimal breaks',
+      icon: '👹',
+      levelProgression: true,
+      hasLevelCap: false,
+      bossEveryNLevels: 1, // Boss every level
+      waveTypes: ['boss'],
+      bossHealthMultiplier: 0.7, // Slightly easier bosses
+      healBetweenBosses: 0.3, // Heal 30% between bosses
+      scoreMultiplier: 1.5
+    },
+    timeAttack: {
+      name: 'Time Attack',
+      desc: 'Score as many points as possible in 3 minutes',
+      icon: '⏱️',
+      levelProgression: false,
+      hasTimeLimit: true,
+      timeLimitMs: 180000, // 3 minutes
+      waveTypes: ['standard', 'swarm'],
+      spawnRateBoost: 1.5, // More enemies = more points
+      scoreMultiplier: 1.0,
+      showTimer: true
+    }
+  };
+
+  let currentGameMode = 'classic';
+  let gameModeTimer = 0;
+  let gameModeStartTime = 0;
+
   let currentWaveType = 'standard';
   let waveTimer = 0;
   let waveStartTime = 0;
@@ -661,6 +715,8 @@
     dom.openShopFromStart = document.getElementById('openShopFromStart');
     dom.settingsButton = document.getElementById('settingsButton');
     dom.difficultySelect = document.getElementById('difficultySelect');
+    dom.gameModeSelect = document.getElementById('gameModeSelect');
+    dom.modeDescription = document.getElementById('modeDescription');
     dom.startGraphicCanvas = document.getElementById('startGraphicCanvas');
     dom.gameContainer = document.getElementById('gameContainer');
     dom.canvas = document.getElementById('gameCanvas');
@@ -899,7 +955,8 @@
       pilotXp: 0,
       selectedShip: 'vanguard',
       armory: defaultArmory(),
-      difficulty: 'normal'  // Add difficulty preference
+      difficulty: 'normal',
+      gameMode: 'classic'  // Add game mode preference
     },
     load() {
       try {
@@ -926,7 +983,8 @@
           pilotXp: 0,
           selectedShip: 'vanguard',
           armory: defaultArmory(),
-          difficulty: 'normal'
+          difficulty: 'normal',
+          gameMode: 'classic'
         };
       }
       // Validate and sanitize loaded data
@@ -940,6 +998,9 @@
       }
       if (!this.data.difficulty || !DIFFICULTY_PRESETS[this.data.difficulty]) {
         this.data.difficulty = 'normal';
+      }
+      if (!this.data.gameMode || !GAME_MODES[this.data.gameMode]) {
+        this.data.gameMode = 'classic';
       }
       if (!this.data.armory || typeof this.data.armory !== 'object') this.data.armory = defaultArmory();
       // Ensure equipment class exists
@@ -2500,7 +2561,62 @@
     }
   }
   
-  // Celestial Body - Decorative background planets and moons
+  // Planet type definitions for realistic variety
+  const PLANET_TYPES = {
+    terrestrial: {
+      name: 'Terrestrial',
+      baseColors: ['#1e6b4a', '#2d5a3d', '#3a7d44', '#4a8c54'],
+      secondaryColors: ['#1a4f6e', '#2563eb', '#0891b2'],
+      hasClouds: true,
+      hasOceans: true,
+      hasAtmosphere: true,
+      atmosphereColor: 'rgba(135, 206, 235, 0.3)',
+      cloudColor: 'rgba(255, 255, 255, 0.6)'
+    },
+    gasGiant: {
+      name: 'Gas Giant',
+      baseColors: ['#d97706', '#c2410c', '#b45309', '#ea580c'],
+      bandColors: ['#fbbf24', '#f59e0b', '#d97706', '#b45309', '#92400e'],
+      hasBands: true,
+      hasStorm: true,
+      hasAtmosphere: true,
+      atmosphereColor: 'rgba(251, 191, 36, 0.2)'
+    },
+    iceGiant: {
+      name: 'Ice Giant',
+      baseColors: ['#0891b2', '#06b6d4', '#22d3ee', '#67e8f9'],
+      bandColors: ['#164e63', '#155e75', '#0891b2', '#06b6d4'],
+      hasBands: true,
+      hasAtmosphere: true,
+      atmosphereColor: 'rgba(34, 211, 238, 0.25)'
+    },
+    volcanic: {
+      name: 'Volcanic',
+      baseColors: ['#374151', '#4b5563', '#1f2937'],
+      lavaColors: ['#ef4444', '#f97316', '#fbbf24'],
+      hasLavaFlows: true,
+      hasAtmosphere: true,
+      atmosphereColor: 'rgba(239, 68, 68, 0.15)'
+    },
+    barren: {
+      name: 'Barren',
+      baseColors: ['#78716c', '#a8a29e', '#d6d3d1', '#57534e'],
+      hasCraters: true,
+      hasAtmosphere: false
+    },
+    ringed: {
+      name: 'Ringed',
+      baseColors: ['#fcd34d', '#fbbf24', '#f59e0b', '#d97706'],
+      bandColors: ['#fef3c7', '#fde68a', '#fcd34d', '#fbbf24'],
+      hasBands: true,
+      hasRings: true,
+      ringColors: ['rgba(210, 180, 140, 0.5)', 'rgba(245, 222, 179, 0.4)', 'rgba(188, 143, 143, 0.3)'],
+      hasAtmosphere: true,
+      atmosphereColor: 'rgba(251, 191, 36, 0.15)'
+    }
+  };
+
+  // Celestial Body - Decorative background planets and moons with realistic visuals
   class CelestialBody {
     constructor(x, y, type = 'moon') {
       this.x = x;
@@ -2509,44 +2625,154 @@
       this.size = type === 'planet' ? rand(150, 300) : rand(40, 100);
       this.rotation = rand(0, Math.PI * 2);
       this.rotSpeed = rand(-0.001, 0.001);
-      this.parallax = type === 'planet' ? 0.1 : 0.15; // Distant = less parallax
+      this.parallax = type === 'planet' ? 0.1 : 0.15;
       this.baseX = x;
       this.baseY = y;
+      this.time = rand(0, 1000); // Animation time offset
+      
+      // Select planet subtype for more variety
+      if (type === 'planet') {
+        const planetTypeKeys = Object.keys(PLANET_TYPES);
+        this.planetType = planetTypeKeys[Math.floor(Math.random() * planetTypeKeys.length)];
+        this.planetConfig = PLANET_TYPES[this.planetType];
+      } else {
+        this.planetType = 'moon';
+        this.planetConfig = null;
+      }
       
       // Generate surface features
       this.craters = [];
       this.color = this.generateColor();
-      const craterCount = type === 'planet' ? rand(5, 12) : rand(2, 6);
-      for (let i = 0; i < craterCount; i++) {
-        const angle = rand(0, Math.PI * 2);
-        const dist = rand(0, this.size * 0.7);
-        this.craters.push({
-          x: Math.cos(angle) * dist,
-          y: Math.sin(angle) * dist,
-          r: rand(this.size * 0.05, this.size * 0.15)
-        });
+      this.secondaryColor = this.generateSecondaryColor();
+      
+      // Craters for moons and barren planets
+      if (type === 'moon' || this.planetType === 'barren') {
+        const craterCount = type === 'planet' ? rand(8, 15) : rand(3, 8);
+        for (let i = 0; i < craterCount; i++) {
+          const angle = rand(0, Math.PI * 2);
+          const dist = rand(0, this.size * 0.75);
+          this.craters.push({
+            x: Math.cos(angle) * dist,
+            y: Math.sin(angle) * dist,
+            r: rand(this.size * 0.04, this.size * 0.12),
+            depth: rand(0.3, 0.6)
+          });
+        }
       }
       
-      // Rings for some planets
-      this.hasRings = type === 'planet' && chance(0.4);
-      this.ringColor = chance(0.5) ? 'rgba(200, 180, 150,' : 'rgba(180, 200, 220,';
+      // Cloud patterns for terrestrial planets
+      if (this.planetConfig?.hasClouds) {
+        this.clouds = [];
+        const cloudCount = rand(4, 8);
+        for (let i = 0; i < cloudCount; i++) {
+          this.clouds.push({
+            angle: rand(0, Math.PI * 2),
+            dist: rand(0.2, 0.8) * this.size,
+            width: rand(0.15, 0.35) * this.size,
+            height: rand(0.05, 0.12) * this.size,
+            speed: rand(0.0002, 0.0008),
+            opacity: rand(0.4, 0.7)
+          });
+        }
+      }
+      
+      // Ocean/continent features for terrestrial
+      if (this.planetConfig?.hasOceans) {
+        this.continents = [];
+        const continentCount = rand(2, 5);
+        for (let i = 0; i < continentCount; i++) {
+          this.continents.push({
+            angle: rand(0, Math.PI * 2),
+            dist: rand(0, 0.6) * this.size,
+            width: rand(0.2, 0.5) * this.size,
+            height: rand(0.15, 0.4) * this.size,
+            rotation: rand(0, Math.PI * 2)
+          });
+        }
+      }
+      
+      // Band patterns for gas/ice giants
+      if (this.planetConfig?.hasBands) {
+        this.bands = [];
+        const bandCount = rand(5, 9);
+        for (let i = 0; i < bandCount; i++) {
+          const y = -this.size + (i / bandCount) * 2 * this.size;
+          this.bands.push({
+            y: y,
+            height: this.size * 2 / bandCount * rand(0.8, 1.2),
+            color: this.planetConfig.bandColors[i % this.planetConfig.bandColors.length],
+            waveAmp: rand(2, 8),
+            waveFreq: rand(0.02, 0.05),
+            waveOffset: rand(0, Math.PI * 2)
+          });
+        }
+      }
+      
+      // Storm spot for gas giants
+      if (this.planetConfig?.hasStorm) {
+        this.storm = {
+          x: rand(-this.size * 0.3, this.size * 0.3),
+          y: rand(-this.size * 0.2, this.size * 0.2),
+          width: rand(this.size * 0.15, this.size * 0.3),
+          height: rand(this.size * 0.08, this.size * 0.15),
+          rotation: 0,
+          rotSpeed: rand(0.001, 0.003)
+        };
+      }
+      
+      // Lava flows for volcanic planets
+      if (this.planetConfig?.hasLavaFlows) {
+        this.lavaFlows = [];
+        const flowCount = rand(5, 10);
+        for (let i = 0; i < flowCount; i++) {
+          this.lavaFlows.push({
+            startAngle: rand(0, Math.PI * 2),
+            length: rand(0.2, 0.6) * this.size,
+            width: rand(3, 8),
+            pulseOffset: rand(0, Math.PI * 2)
+          });
+        }
+      }
+      
+      // Rings configuration
+      this.hasRings = this.planetConfig?.hasRings || (type === 'planet' && chance(0.3));
+      if (this.hasRings) {
+        this.rings = [];
+        const ringCount = rand(3, 6);
+        for (let i = 0; i < ringCount; i++) {
+          this.rings.push({
+            innerRadius: this.size * (1.25 + i * 0.12),
+            outerRadius: this.size * (1.32 + i * 0.12),
+            opacity: rand(0.2, 0.5),
+            color: this.planetConfig?.ringColors 
+              ? this.planetConfig.ringColors[i % this.planetConfig.ringColors.length]
+              : `rgba(${rand(180, 220)}, ${rand(160, 200)}, ${rand(140, 180)}, `
+          });
+        }
+        this.ringTilt = rand(0.1, 0.35);
+      }
     }
     
     generateColor() {
-      const colors = {
-        moon: ['#9ca3af', '#6b7280', '#d1d5db', '#e5e7eb'],
-        planet: ['#92400e', '#0891b2', '#7c3aed', '#dc2626', '#059669', '#ca8a04']
-      };
-      const palette = colors[this.type];
-      return palette[Math.floor(Math.random() * palette.length)];
+      if (this.planetConfig) {
+        const palette = this.planetConfig.baseColors;
+        return palette[Math.floor(Math.random() * palette.length)];
+      }
+      const moonColors = ['#9ca3af', '#6b7280', '#d1d5db', '#e5e7eb', '#a3a3a3'];
+      return moonColors[Math.floor(Math.random() * moonColors.length)];
+    }
+    
+    generateSecondaryColor() {
+      if (this.planetConfig?.secondaryColors) {
+        const palette = this.planetConfig.secondaryColors;
+        return palette[Math.floor(Math.random() * palette.length)];
+      }
+      return this.adjustBrightness(this.color, 0.7);
     }
     
     draw(ctx) {
       ctx.save();
       
-      // Apply parallax based on camera position
-      // Since ctx is already translated by -camera, we need to add back camera offset
-      // and then apply our own reduced parallax
       const parallaxOffset = 1 - this.parallax;
       const px = this.baseX + camera.x * parallaxOffset;
       const py = this.baseY + camera.y * parallaxOffset;
@@ -2554,7 +2780,225 @@
       ctx.translate(px, py);
       ctx.rotate(this.rotation);
       
-      // Shadow side gradient (3D effect)
+      // Draw back half of rings (behind planet)
+      if (this.hasRings) {
+        this.drawRings(ctx, true);
+      }
+      
+      // Create clipping region for planet surface
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(0, 0, this.size, 0, Math.PI * 2);
+      ctx.clip();
+      
+      // Draw planet body based on type
+      if (this.planetConfig?.hasBands) {
+        this.drawGasGiantBody(ctx);
+      } else if (this.planetConfig?.hasOceans) {
+        this.drawTerrestrialBody(ctx);
+      } else if (this.planetConfig?.hasLavaFlows) {
+        this.drawVolcanicBody(ctx);
+      } else {
+        this.drawBarrenBody(ctx);
+      }
+      
+      ctx.restore();
+      
+      // Atmosphere glow
+      if (this.planetConfig?.hasAtmosphere || this.type === 'planet') {
+        this.drawAtmosphere(ctx);
+      }
+      
+      // Draw clouds on top
+      if (this.planetConfig?.hasClouds) {
+        this.drawClouds(ctx);
+      }
+      
+      // Draw front half of rings
+      if (this.hasRings) {
+        this.drawRings(ctx, false);
+      }
+      
+      // Specular highlight
+      this.drawHighlight(ctx);
+      
+      // Terminator shadow (day/night boundary)
+      this.drawTerminator(ctx);
+      
+      ctx.restore();
+    }
+    
+    drawGasGiantBody(ctx) {
+      // Base color gradient
+      const baseGrad = ctx.createLinearGradient(0, -this.size, 0, this.size);
+      baseGrad.addColorStop(0, this.adjustBrightness(this.color, 1.2));
+      baseGrad.addColorStop(0.5, this.color);
+      baseGrad.addColorStop(1, this.adjustBrightness(this.color, 0.8));
+      
+      ctx.fillStyle = baseGrad;
+      ctx.fillRect(-this.size, -this.size, this.size * 2, this.size * 2);
+      
+      // Draw atmospheric bands
+      for (const band of this.bands) {
+        ctx.globalAlpha = 0.6;
+        ctx.fillStyle = band.color;
+        
+        ctx.beginPath();
+        ctx.moveTo(-this.size, band.y);
+        
+        // Wavy band edges
+        for (let x = -this.size; x <= this.size; x += 5) {
+          const wave = Math.sin(x * band.waveFreq + band.waveOffset + this.time * 0.001) * band.waveAmp;
+          ctx.lineTo(x, band.y + wave);
+        }
+        for (let x = this.size; x >= -this.size; x -= 5) {
+          const wave = Math.sin(x * band.waveFreq + band.waveOffset + this.time * 0.001) * band.waveAmp;
+          ctx.lineTo(x, band.y + band.height + wave);
+        }
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      
+      // Storm spot (like Jupiter's Great Red Spot)
+      if (this.storm) {
+        ctx.save();
+        ctx.translate(this.storm.x, this.storm.y);
+        ctx.rotate(this.storm.rotation);
+        
+        const stormGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, this.storm.width);
+        stormGrad.addColorStop(0, 'rgba(220, 80, 60, 0.9)');
+        stormGrad.addColorStop(0.5, 'rgba(200, 100, 80, 0.7)');
+        stormGrad.addColorStop(1, 'rgba(180, 120, 100, 0)');
+        
+        ctx.fillStyle = stormGrad;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, this.storm.width, this.storm.height, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.restore();
+      }
+    }
+    
+    drawTerrestrialBody(ctx) {
+      // Ocean base
+      const oceanGrad = ctx.createRadialGradient(
+        -this.size * 0.3, -this.size * 0.3, 0,
+        0, 0, this.size
+      );
+      oceanGrad.addColorStop(0, this.adjustBrightness(this.secondaryColor, 1.3));
+      oceanGrad.addColorStop(0.6, this.secondaryColor);
+      oceanGrad.addColorStop(1, this.adjustBrightness(this.secondaryColor, 0.5));
+      
+      ctx.fillStyle = oceanGrad;
+      ctx.fillRect(-this.size, -this.size, this.size * 2, this.size * 2);
+      
+      // Draw continents
+      for (const cont of this.continents) {
+        ctx.save();
+        const cx = Math.cos(cont.angle) * cont.dist;
+        const cy = Math.sin(cont.angle) * cont.dist;
+        ctx.translate(cx, cy);
+        ctx.rotate(cont.rotation);
+        
+        // Organic continent shape using multiple overlapping ellipses
+        const contGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, cont.width * 0.8);
+        contGrad.addColorStop(0, this.adjustBrightness(this.color, 1.2));
+        contGrad.addColorStop(0.6, this.color);
+        contGrad.addColorStop(1, this.adjustBrightness(this.color, 0.8));
+        
+        ctx.fillStyle = contGrad;
+        ctx.globalAlpha = 0.9;
+        
+        // Main continent body
+        ctx.beginPath();
+        ctx.ellipse(0, 0, cont.width, cont.height, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Add some irregular edges
+        for (let i = 0; i < 4; i++) {
+          const subAngle = rand(0, Math.PI * 2);
+          const subDist = rand(0.3, 0.6) * cont.width;
+          const subSize = rand(0.2, 0.4) * cont.width;
+          ctx.beginPath();
+          ctx.ellipse(
+            Math.cos(subAngle) * subDist,
+            Math.sin(subAngle) * subDist,
+            subSize, subSize * 0.7,
+            rand(0, Math.PI), 0, Math.PI * 2
+          );
+          ctx.fill();
+        }
+        
+        ctx.restore();
+      }
+      ctx.globalAlpha = 1;
+    }
+    
+    drawVolcanicBody(ctx) {
+      // Dark rocky base
+      const baseGrad = ctx.createRadialGradient(
+        -this.size * 0.3, -this.size * 0.3, 0,
+        0, 0, this.size
+      );
+      baseGrad.addColorStop(0, '#4b5563');
+      baseGrad.addColorStop(0.5, '#374151');
+      baseGrad.addColorStop(1, '#1f2937');
+      
+      ctx.fillStyle = baseGrad;
+      ctx.fillRect(-this.size, -this.size, this.size * 2, this.size * 2);
+      
+      // Lava flows
+      for (const flow of this.lavaFlows) {
+        const pulse = 0.7 + 0.3 * Math.sin(this.time * 0.003 + flow.pulseOffset);
+        const lavaColor = this.planetConfig.lavaColors[Math.floor(Math.random() * 3)];
+        
+        ctx.strokeStyle = lavaColor;
+        ctx.lineWidth = flow.width * pulse;
+        ctx.lineCap = 'round';
+        ctx.globalAlpha = 0.8 * pulse;
+        
+        ctx.beginPath();
+        const startX = Math.cos(flow.startAngle) * this.size * 0.3;
+        const startY = Math.sin(flow.startAngle) * this.size * 0.3;
+        const endX = Math.cos(flow.startAngle) * (this.size * 0.3 + flow.length);
+        const endY = Math.sin(flow.startAngle) * (this.size * 0.3 + flow.length);
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+        
+        // Glow effect
+        ctx.shadowColor = lavaColor;
+        ctx.shadowBlur = 15 * pulse;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+      ctx.globalAlpha = 1;
+      
+      // Add some volcanic craters
+      ctx.globalAlpha = 0.5;
+      for (let i = 0; i < 5; i++) {
+        const angle = rand(0, Math.PI * 2);
+        const dist = rand(0.2, 0.7) * this.size;
+        const cx = Math.cos(angle) * dist;
+        const cy = Math.sin(angle) * dist;
+        const cr = rand(8, 20);
+        
+        const craterGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, cr);
+        craterGrad.addColorStop(0, '#ef4444');
+        craterGrad.addColorStop(0.4, '#dc2626');
+        craterGrad.addColorStop(1, 'rgba(0, 0, 0, 0.8)');
+        
+        ctx.fillStyle = craterGrad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, cr, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+    
+    drawBarrenBody(ctx) {
+      // Base gradient with 3D shading
       const bodyGradient = ctx.createRadialGradient(
         -this.size * 0.3, -this.size * 0.3, 0,
         0, 0, this.size
@@ -2563,78 +3007,191 @@
       bodyGradient.addColorStop(0.5, this.color);
       bodyGradient.addColorStop(1, this.adjustBrightness(this.color, 0.4));
       
-      // Main body
       ctx.fillStyle = bodyGradient;
-      ctx.beginPath();
-      ctx.arc(0, 0, this.size, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.fillRect(-this.size, -this.size, this.size * 2, this.size * 2);
       
-      // Atmosphere glow for planets
-      if (this.type === 'planet') {
-        ctx.globalAlpha = 0.2;
-        const atmosGradient = ctx.createRadialGradient(0, 0, this.size * 0.9, 0, 0, this.size * 1.15);
-        atmosGradient.addColorStop(0, 'rgba(255, 255, 255, 0)');
-        atmosGradient.addColorStop(0.7, this.color);
-        atmosGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-        ctx.fillStyle = atmosGradient;
+      // Surface texture (noise-like pattern)
+      ctx.globalAlpha = 0.15;
+      for (let i = 0; i < 50; i++) {
+        const angle = rand(0, Math.PI * 2);
+        const dist = rand(0, this.size * 0.95);
+        const x = Math.cos(angle) * dist;
+        const y = Math.sin(angle) * dist;
+        const size = rand(2, 8);
+        ctx.fillStyle = chance(0.5) ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)';
         ctx.beginPath();
-        ctx.arc(0, 0, this.size * 1.15, 0, Math.PI * 2);
+        ctx.arc(x, y, size, 0, Math.PI * 2);
         ctx.fill();
-        ctx.globalAlpha = 1;
       }
+      ctx.globalAlpha = 1;
       
-      // Surface craters
-      ctx.globalAlpha = 0.4;
+      // Impact craters with realistic rim lighting
       for (const crater of this.craters) {
+        // Crater shadow
         const craterGrad = ctx.createRadialGradient(
-          crater.x, crater.y, 0,
+          crater.x - crater.r * 0.2, crater.y - crater.r * 0.2, 0,
           crater.x, crater.y, crater.r
         );
-        craterGrad.addColorStop(0, 'rgba(0, 0, 0, 0.4)');
-        craterGrad.addColorStop(0.7, 'rgba(0, 0, 0, 0.2)');
-        craterGrad.addColorStop(1, 'rgba(255, 255, 255, 0.1)');
+        craterGrad.addColorStop(0, `rgba(0, 0, 0, ${crater.depth})`);
+        craterGrad.addColorStop(0.6, `rgba(0, 0, 0, ${crater.depth * 0.5})`);
+        craterGrad.addColorStop(0.85, 'rgba(0, 0, 0, 0.1)');
+        craterGrad.addColorStop(1, 'rgba(255, 255, 255, 0.15)');
+        
         ctx.fillStyle = craterGrad;
         ctx.beginPath();
         ctx.arc(crater.x, crater.y, crater.r, 0, Math.PI * 2);
         ctx.fill();
-      }
-      ctx.globalAlpha = 1;
-      
-      // Rings for ringed planets
-      if (this.hasRings) {
-        ctx.save();
-        ctx.rotate(Math.PI * 0.15); // Slight tilt
-        ctx.scale(1, 0.3); // Flatten for 3D perspective
         
-        // Ring layers
-        for (let i = 0; i < 3; i++) {
-          const innerR = this.size * (1.3 + i * 0.15);
-          const outerR = this.size * (1.4 + i * 0.15);
-          ctx.strokeStyle = this.ringColor + (0.4 - i * 0.1) + ')';
-          ctx.lineWidth = outerR - innerR;
-          ctx.beginPath();
-          ctx.arc(0, 0, (innerR + outerR) / 2, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-        ctx.restore();
+        // Crater rim highlight
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(crater.x, crater.y, crater.r, Math.PI * 0.75, Math.PI * 1.75);
+        ctx.stroke();
       }
+    }
+    
+    drawAtmosphere(ctx) {
+      const atmosColor = this.planetConfig?.atmosphereColor || 'rgba(150, 200, 255, 0.2)';
       
-      // Highlight
+      // Inner glow
       ctx.globalAlpha = 0.3;
-      ctx.fillStyle = '#ffffff';
+      const innerGlow = ctx.createRadialGradient(0, 0, this.size * 0.85, 0, 0, this.size * 1.05);
+      innerGlow.addColorStop(0, 'rgba(255, 255, 255, 0)');
+      innerGlow.addColorStop(0.5, atmosColor);
+      innerGlow.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.fillStyle = innerGlow;
       ctx.beginPath();
-      ctx.arc(-this.size * 0.3, -this.size * 0.3, this.size * 0.2, 0, Math.PI * 2);
+      ctx.arc(0, 0, this.size * 1.05, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Outer halo
+      ctx.globalAlpha = 0.15;
+      const outerGlow = ctx.createRadialGradient(0, 0, this.size, 0, 0, this.size * 1.2);
+      outerGlow.addColorStop(0, atmosColor);
+      outerGlow.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.fillStyle = outerGlow;
+      ctx.beginPath();
+      ctx.arc(0, 0, this.size * 1.2, 0, Math.PI * 2);
       ctx.fill();
       ctx.globalAlpha = 1;
+    }
+    
+    drawClouds(ctx) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(0, 0, this.size * 0.98, 0, Math.PI * 2);
+      ctx.clip();
       
+      for (const cloud of this.clouds) {
+        const currentAngle = cloud.angle + this.time * cloud.speed;
+        const cx = Math.cos(currentAngle) * cloud.dist;
+        const cy = Math.sin(currentAngle) * cloud.dist * 0.3; // Flatten for perspective
+        
+        ctx.globalAlpha = cloud.opacity;
+        ctx.fillStyle = this.planetConfig?.cloudColor || 'rgba(255, 255, 255, 0.6)';
+        
+        // Soft cloud shape
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, cloud.width, cloud.height, currentAngle * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Cloud shadow
+        ctx.globalAlpha = cloud.opacity * 0.3;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.beginPath();
+        ctx.ellipse(cx + 5, cy + 5, cloud.width * 0.9, cloud.height * 0.9, currentAngle * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      
+      ctx.globalAlpha = 1;
       ctx.restore();
     }
     
+    drawRings(ctx, isBack) {
+      ctx.save();
+      ctx.rotate(Math.PI * 0.15);
+      ctx.scale(1, this.ringTilt || 0.25);
+      
+      for (const ring of this.rings) {
+        const midRadius = (ring.innerRadius + ring.outerRadius) / 2;
+        ctx.lineWidth = ring.outerRadius - ring.innerRadius;
+        
+        if (typeof ring.color === 'string' && ring.color.endsWith('(')) {
+          ctx.strokeStyle = ring.color + ring.opacity + ')';
+        } else {
+          ctx.strokeStyle = ring.color;
+        }
+        ctx.globalAlpha = ring.opacity;
+        
+        ctx.beginPath();
+        if (isBack) {
+          ctx.arc(0, 0, midRadius, Math.PI, Math.PI * 2);
+        } else {
+          ctx.arc(0, 0, midRadius, 0, Math.PI);
+        }
+        ctx.stroke();
+      }
+      
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
+    
+    drawHighlight(ctx) {
+      // Specular highlight for 3D effect
+      ctx.globalAlpha = 0.35;
+      const highlightGrad = ctx.createRadialGradient(
+        -this.size * 0.35, -this.size * 0.35, 0,
+        -this.size * 0.35, -this.size * 0.35, this.size * 0.4
+      );
+      highlightGrad.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
+      highlightGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.2)');
+      highlightGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      
+      ctx.fillStyle = highlightGrad;
+      ctx.beginPath();
+      ctx.arc(-this.size * 0.35, -this.size * 0.35, this.size * 0.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    
+    drawTerminator(ctx) {
+      // Day/night terminator shadow
+      ctx.globalAlpha = 0.4;
+      const shadowGrad = ctx.createLinearGradient(
+        this.size * 0.3, -this.size,
+        this.size, this.size
+      );
+      shadowGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+      shadowGrad.addColorStop(0.5, 'rgba(0, 0, 0, 0.3)');
+      shadowGrad.addColorStop(1, 'rgba(0, 0, 0, 0.6)');
+      
+      ctx.fillStyle = shadowGrad;
+      ctx.beginPath();
+      ctx.arc(0, 0, this.size, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    
     adjustBrightness(hex, factor) {
-      // Convert hex to RGB and adjust brightness
-      const r = parseInt(hex.slice(1, 3), 16);
-      const g = parseInt(hex.slice(3, 5), 16);
-      const b = parseInt(hex.slice(5, 7), 16);
+      // Handle both hex and rgb formats
+      let r, g, b;
+      if (hex.startsWith('#')) {
+        r = parseInt(hex.slice(1, 3), 16);
+        g = parseInt(hex.slice(3, 5), 16);
+        b = parseInt(hex.slice(5, 7), 16);
+      } else if (hex.startsWith('rgb')) {
+        const match = hex.match(/\d+/g);
+        if (match && match.length >= 3) {
+          r = parseInt(match[0]);
+          g = parseInt(match[1]);
+          b = parseInt(match[2]);
+        } else {
+          return hex;
+        }
+      } else {
+        return hex;
+      }
       const newR = Math.min(255, Math.floor(r * factor));
       const newG = Math.min(255, Math.floor(g * factor));
       const newB = Math.min(255, Math.floor(b * factor));
@@ -2643,6 +3200,12 @@
     
     update(dt) {
       this.rotation += this.rotSpeed * (dt / 16.67);
+      this.time += dt;
+      
+      // Update storm rotation for gas giants
+      if (this.storm) {
+        this.storm.rotation += this.storm.rotSpeed * (dt / 16.67);
+      }
     }
   }
   
@@ -5749,6 +6312,9 @@
   const startGame = () => {
     resetRuntimeState();
     currentDifficulty = Save.data.difficulty || 'normal';  // Load saved difficulty
+    currentGameMode = Save.data.gameMode || 'classic';  // Load saved game mode
+    gameModeStartTime = performance.now();
+    gameModeTimer = 0;
     initShipSelection();
     dom.startScreen.style.display = 'none';
     dom.gameContainer.style.display = 'block';
@@ -5761,6 +6327,18 @@
     }
     
     startLevel(1, true);
+  };
+  
+  // Get current game mode configuration
+  const getGameMode = () => GAME_MODES[currentGameMode] || GAME_MODES.classic;
+  
+  // Update mode description text
+  const updateModeDescription = (modeId) => {
+    if (!dom.modeDescription) return;
+    const mode = GAME_MODES[modeId];
+    if (mode) {
+      dom.modeDescription.textContent = `${mode.icon} ${mode.desc}`;
+    }
   };
 
   /* ====== PAUSE MENU & GAME STATE MANAGEMENT ====== */
@@ -7249,6 +7827,22 @@
         if (DIFFICULTY_PRESETS[newDifficulty]) {
           Save.data.difficulty = newDifficulty;
           Save.save();
+        }
+      });
+    }
+    
+    // Game mode selector handler
+    if (dom.gameModeSelect) {
+      // Set initial value from saved data
+      dom.gameModeSelect.value = Save.data.gameMode || 'classic';
+      updateModeDescription(dom.gameModeSelect.value);
+      
+      dom.gameModeSelect.addEventListener('change', (e) => {
+        const newMode = e.target.value;
+        if (GAME_MODES[newMode]) {
+          Save.data.gameMode = newMode;
+          Save.save();
+          updateModeDescription(newMode);
         }
       });
     }

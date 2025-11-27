@@ -27,13 +27,26 @@
         <span class="btn-icon">▶</span> START GAME
       </button>
       
-      <div class="difficulty-inline">
-        <select id="difficultySelect" class="difficultyDropdown">
-          <option value="easy">Easy</option>
-          <option value="normal" selected>Normal</option>
-          <option value="hard">Hard</option>
-        </select>
+      <div class="mode-difficulty-row">
+        <div class="mode-select-container">
+          <label class="mode-label">Mode</label>
+          <select id="gameModeSelect" class="modeDropdown">
+            <option value="classic">Classic</option>
+            <option value="endless">Endless</option>
+            <option value="bossRush">Boss Rush</option>
+            <option value="timeAttack">Time Attack</option>
+          </select>
+        </div>
+        <div class="difficulty-inline">
+          <label class="mode-label">Difficulty</label>
+          <select id="difficultySelect" class="difficultyDropdown">
+            <option value="easy">Easy</option>
+            <option value="normal" selected>Normal</option>
+            <option value="hard">Hard</option>
+          </select>
+        </div>
       </div>
+      <div id="modeDescription" class="mode-description">Progress through levels, defeat enemies and bosses</div>
     </div>
     
     <div class="start-nav">
