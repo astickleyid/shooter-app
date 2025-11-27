@@ -31,6 +31,20 @@
       <button id="settingsButton" class="menuButton menuSecondary">Ship Hangar</button>
       <button id="leaderboardButton" class="menuButton menuSecondary">Leaderboard</button>
     </div>
+    <div class="menuRow social-menu-row">
+      <button id="profileButton" class="menuButton menuSecondary" onclick="SocialHub.showProfile()">
+        👤 Profile
+      </button>
+      <button id="friendsButton" class="menuButton menuSecondary" onclick="SocialHub.showFriendsList()">
+        👥 Friends
+      </button>
+      <button id="activityButton" class="menuButton menuSecondary" onclick="SocialHub.showActivityFeed()">
+        📰 Activity
+      </button>
+      <button id="loginButton" class="menuButton menuTertiary" onclick="SocialHub.showAuthModal('login')">
+        🔐 Login / Register
+      </button>
+    </div>
   </div>
 
   <!-- AUTHENTICATION MODAL -->
@@ -394,6 +408,9 @@
 
   <!-- Include external scripts -->
   <script src="backend-api.js"></script>
+  <script src="social-api.js"></script>
+  <script src="social-hub.js"></script>
+  <script src="social-integration.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

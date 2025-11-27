@@ -1,6 +1,7 @@
 {
   "name": "void-rift",
   "version": "1.0.0",
+  "type": "module",
   "description": "VOID RIFT - A browser-based twin-stick shooter built with vanilla HTML, CSS, and JavaScript",
   "main": "index.html",
   "scripts": {
@@ -26,5 +27,8 @@
   },
   "engines": {
     "node": ">=14.0.0"
+  },
+  "dependencies": {
+    "@vercel/kv": "^3.0.0"
   }
 }
