@@ -1,9 +1,24 @@
 /**
  * Serverless API Function for Global Leaderboard
- * Deploy this to Vercel (recommended - free and easy)
+ * Uses Vercel KV (Redis) for persistent storage
+ * Deploy this to Vercel (recommended - free tier available)
  */
 
-let leaderboardData = [];
+// Import Vercel KV for persistent storage
+let kv;
+try {
+  kv = require('@vercel/kv').kv;
+} catch (e) {
+  // Fallback for local development or if KV not configured
+  kv = null;
+}
+
+// In-memory fallback for when KV is not available
+let memoryFallback = [];
+
+// Helper function to get leaderboard key
+const getLeaderboardKey = (difficulty) => `leaderboard:${difficulty}`;
+const ALL_ENTRIES_KEY = 'leaderboard:all_entries';
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -16,17 +31,46 @@ module.exports = async (req, res) => {
 
   try {
     if (req.method === 'GET') {
-      const { difficulty = 'all', limit = 50 } = req.query;
+      const { difficulty = 'all', limit = 100 } = req.query;
+      const parsedLimit = Math.min(parseInt(limit) || 100, 100);
       
-      let filtered = leaderboardData;
-      if (difficulty !== 'all') {
-        filtered = filtered.filter(e => e.difficulty === difficulty);
+      let entries = [];
+      
+      if (kv) {
+        // Use Vercel KV for persistent storage
+        try {
+          // Fetch all entries from Redis sorted set (sorted by score descending)
+          const rawEntries = await kv.zrange(ALL_ENTRIES_KEY, 0, -1, { rev: true });
+          
+          if (rawEntries && rawEntries.length > 0) {
+            // Parse entries and filter by difficulty if needed
+            entries = rawEntries
+              .map(e => typeof e === 'string' ? JSON.parse(e) : e)
+              .filter(e => difficulty === 'all' || e.difficulty === difficulty)
+              .slice(0, parsedLimit);
+          }
+        } catch (kvError) {
+          console.error('KV error:', kvError);
+          // Fall back to memory
+          entries = memoryFallback
+            .filter(e => difficulty === 'all' || e.difficulty === difficulty)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, parsedLimit);
+        }
+      } else {
+        // Use in-memory fallback
+        entries = memoryFallback
+          .filter(e => difficulty === 'all' || e.difficulty === difficulty)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, parsedLimit);
       }
       
-      filtered.sort((a, b) => b.score - a.score);
-      const limited = filtered.slice(0, parseInt(limit));
-      
-      return res.status(200).json({ success: true, entries: limited });
+      return res.status(200).json({ 
+        success: true, 
+        entries,
+        storage: kv ? 'persistent' : 'memory',
+        count: entries.length
+      });
     }
     
     if (req.method === 'POST') {
@@ -36,26 +80,64 @@ module.exports = async (req, res) => {
         return res.status(400).json({ success: false, error: 'Invalid data' });
       }
       
+      // Validate difficulty
+      const validDifficulties = ['easy', 'normal', 'hard'];
+      if (!validDifficulties.includes(difficulty)) {
+        return res.status(400).json({ success: false, error: 'Invalid difficulty' });
+      }
+      
       const entry = {
-        id: Date.now() + Math.random(),
-        username: String(username).slice(0, 30),
-        score: Math.floor(score),
-        level: Math.floor(level || 1),
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        username: String(username).slice(0, 30).trim(),
+        score: Math.max(0, Math.floor(score)),
+        level: Math.max(1, Math.floor(level || 1)),
         difficulty,
         timestamp: timestamp || Date.now()
       };
       
-      leaderboardData.push(entry);
+      let rank = 1;
       
-      if (leaderboardData.length > 1000) {
-        leaderboardData.sort((a, b) => b.score - a.score);
-        leaderboardData = leaderboardData.slice(0, 1000);
+      if (kv) {
+        // Use Vercel KV for persistent storage
+        try {
+          // Add entry to sorted set with score as the sort value
+          await kv.zadd(ALL_ENTRIES_KEY, { score: entry.score, member: JSON.stringify(entry) });
+          
+          // Get rank (0-indexed, so add 1)
+          const rankResult = await kv.zrevrank(ALL_ENTRIES_KEY, JSON.stringify(entry));
+          rank = (rankResult !== null ? rankResult : 0) + 1;
+          
+          // Trim to keep only top 1000 entries
+          const count = await kv.zcard(ALL_ENTRIES_KEY);
+          if (count > 1000) {
+            await kv.zremrangebyrank(ALL_ENTRIES_KEY, 0, count - 1001);
+          }
+        } catch (kvError) {
+          console.error('KV write error:', kvError);
+          // Fall back to memory storage
+          memoryFallback.push(entry);
+          memoryFallback.sort((a, b) => b.score - a.score);
+          if (memoryFallback.length > 1000) {
+            memoryFallback = memoryFallback.slice(0, 1000);
+          }
+          rank = memoryFallback.findIndex(e => e.id === entry.id) + 1;
+        }
+      } else {
+        // Use in-memory fallback
+        memoryFallback.push(entry);
+        memoryFallback.sort((a, b) => b.score - a.score);
+        if (memoryFallback.length > 1000) {
+          memoryFallback = memoryFallback.slice(0, 1000);
+        }
+        rank = memoryFallback.findIndex(e => e.id === entry.id) + 1;
       }
       
-      const sorted = [...leaderboardData].sort((a, b) => b.score - a.score);
-      const rank = sorted.findIndex(e => e.id === entry.id) + 1;
-      
-      return res.status(201).json({ success: true, entry, rank });
+      return res.status(201).json({ 
+        success: true, 
+        entry, 
+        rank,
+        storage: kv ? 'persistent' : 'memory'
+      });
     }
     
     return res.status(405).json({ success: false, error: 'Method not allowed' });
