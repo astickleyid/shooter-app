@@ -1,0 +1,6 @@
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Hangar/Ship icon - Spaceship -->
+  <path d="M12 3L4 12l2 2v5h4v-3h4v3h4v-5l2-2L12 3z" fill="#60a5fa" stroke="#3b82f6" stroke-width="1"/>
+  <path d="M12 5l-5 6 1 1v3h2v-2h4v2h2v-3l1-1L12 5z" fill="#93c5fd"/>
+  <circle cx="12" cy="10" r="2" fill="#dbeafe"/>
+</svg>

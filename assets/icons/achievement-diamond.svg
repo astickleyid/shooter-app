@@ -1,0 +1,7 @@
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Diamond/Elite icon -->
+  <path d="M12 2L4 9l8 13 8-13-8-7z" fill="#22d3ee" stroke="#06b6d4" stroke-width="1"/>
+  <path d="M12 2L4 9h16L12 2z" fill="#67e8f9"/>
+  <path d="M4 9l8 13 8-13H4z" fill="#06b6d4"/>
+  <path d="M12 2v6l4 1-4 13-4-13 4-1V2z" fill="#a5f3fc" fill-opacity="0.5"/>
+</svg>

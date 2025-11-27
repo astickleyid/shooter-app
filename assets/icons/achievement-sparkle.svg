@@ -1,0 +1,8 @@
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Sparkle/Flawless icon -->
+  <path d="M12 2l1.5 6.5L20 10l-6.5 1.5L12 18l-1.5-6.5L4 10l6.5-1.5L12 2z" fill="#a855f7" stroke="#9333ea" stroke-width="1"/>
+  <path d="M12 5l.8 3.2L16 9l-3.2.8L12 13l-.8-3.2L8 9l3.2-.8L12 5z" fill="#e9d5ff"/>
+  <circle cx="18" cy="4" r="1.5" fill="#c084fc"/>
+  <circle cx="6" cy="18" r="1.5" fill="#c084fc"/>
+  <circle cx="20" cy="17" r="1" fill="#c084fc"/>
+</svg>

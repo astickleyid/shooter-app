@@ -1,0 +1,7 @@
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Shop/Cart icon -->
+  <path d="M4 4h2l3 12h10l2-8H8" stroke="#4ade80" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="10" cy="19" r="2" fill="#4ade80"/>
+  <circle cx="18" cy="19" r="2" fill="#4ade80"/>
+  <path d="M8 8h12l-1.5 6H9.5" fill="#22c55e" fill-opacity="0.5"/>
+</svg>
