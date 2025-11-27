@@ -1,8 +1,11 @@
 /**
  * Serverless API Function for Global Leaderboard
- * Uses Vercel KV (Redis) for persistent storage
- * Deploy this to Vercel (recommended - free tier available)
+ * Uses Vercel KV (Redis) for persistent storage when available
+ * Falls back to file-based storage in /tmp for basic persistence
  */
+
+const fs = require('fs');
+const path = require('path');
 
 // Import Vercel KV for persistent storage
 let kv;
@@ -13,8 +16,45 @@ try {
   kv = null;
 }
 
-// In-memory fallback for when KV is not available
-let memoryFallback = [];
+// File-based fallback storage (persists within same serverless instance)
+const STORAGE_FILE = '/tmp/leaderboard-data.json';
+
+// Load data from file storage
+function loadFromFile() {
+  try {
+    if (fs.existsSync(STORAGE_FILE)) {
+      const data = fs.readFileSync(STORAGE_FILE, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (e) {
+    console.error('Error loading from file:', e);
+  }
+  return [];
+}
+
+// Save data to file storage
+function saveToFile(data) {
+  try {
+    fs.writeFileSync(STORAGE_FILE, JSON.stringify(data), 'utf8');
+  } catch (e) {
+    console.error('Error saving to file:', e);
+  }
+}
+
+// In-memory cache (initialized from file on cold start)
+let memoryCache = null;
+
+function getMemoryData() {
+  if (memoryCache === null) {
+    memoryCache = loadFromFile();
+  }
+  return memoryCache;
+}
+
+function setMemoryData(data) {
+  memoryCache = data;
+  saveToFile(data);
+}
 
 // Key for storing all entries in a sorted set
 const ALL_ENTRIES_KEY = 'leaderboard:all_entries';
@@ -34,43 +74,44 @@ module.exports = async (req, res) => {
       const parsedLimit = Math.min(parseInt(limit) || 100, 100);
       
       let entries = [];
+      let storageType = 'file';
       
       if (kv) {
         // Use Vercel KV for persistent storage
         try {
-          // Fetch entries from Redis sorted set (sorted by score descending)
-          // Note: Filtering by difficulty is done client-side for simplicity
-          // A production system could use separate sorted sets per difficulty
           const rawEntries = await kv.zrange(ALL_ENTRIES_KEY, 0, -1, { rev: true });
           
           if (rawEntries && rawEntries.length > 0) {
-            // Parse entries and filter by difficulty if needed
             entries = rawEntries
               .map(e => typeof e === 'string' ? JSON.parse(e) : e)
               .filter(e => difficulty === 'all' || e.difficulty === difficulty)
               .slice(0, parsedLimit);
+            storageType = 'kv';
           }
         } catch (kvError) {
           console.error('KV error:', kvError);
-          // Fall back to memory
-          entries = memoryFallback
-            .filter(e => difficulty === 'all' || e.difficulty === difficulty)
-            .sort((a, b) => b.score - a.score)
-            .slice(0, parsedLimit);
         }
-      } else {
-        // Use in-memory fallback
-        entries = memoryFallback
+      }
+      
+      // If KV didn't return data, use file-based storage
+      if (entries.length === 0) {
+        const allData = getMemoryData();
+        entries = allData
           .filter(e => difficulty === 'all' || e.difficulty === difficulty)
           .sort((a, b) => b.score - a.score)
           .slice(0, parsedLimit);
+        storageType = 'file';
       }
       
       return res.status(200).json({ 
         success: true, 
         entries,
-        storage: kv ? 'persistent' : 'memory',
-        count: entries.length
+        storage: storageType,
+        count: entries.length,
+        debug: {
+          kvAvailable: !!kv,
+          timestamp: Date.now()
+        }
       });
     }
     
@@ -87,7 +128,7 @@ module.exports = async (req, res) => {
         return res.status(400).json({ success: false, error: 'Invalid difficulty' });
       }
       
-      // Generate unique ID using substring instead of deprecated substr
+      // Generate unique ID
       const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
       
       const entry = {
@@ -100,50 +141,50 @@ module.exports = async (req, res) => {
       };
       
       let rank = 1;
+      let storageType = 'file';
       
       if (kv) {
         // Use Vercel KV for persistent storage
         try {
           const entryJson = JSON.stringify(entry);
           
-          // Add entry to sorted set with score as the sort value
           await kv.zadd(ALL_ENTRIES_KEY, { score: entry.score, member: entryJson });
           
-          // Get rank by counting entries with higher scores
-          // Using zcount is more reliable than zrevrank with JSON strings
           const higherScores = await kv.zcount(ALL_ENTRIES_KEY, entry.score + 1, '+inf');
           rank = higherScores + 1;
           
-          // Trim to keep only top 1000 entries
           const count = await kv.zcard(ALL_ENTRIES_KEY);
           if (count > 1000) {
             await kv.zremrangebyrank(ALL_ENTRIES_KEY, 0, count - 1001);
           }
+          storageType = 'kv';
         } catch (kvError) {
           console.error('KV write error:', kvError);
-          // Fall back to memory storage
-          memoryFallback.push(entry);
-          memoryFallback.sort((a, b) => b.score - a.score);
-          if (memoryFallback.length > 1000) {
-            memoryFallback = memoryFallback.slice(0, 1000);
-          }
-          rank = memoryFallback.findIndex(e => e.id === entry.id) + 1;
         }
-      } else {
-        // Use in-memory fallback
-        memoryFallback.push(entry);
-        memoryFallback.sort((a, b) => b.score - a.score);
-        if (memoryFallback.length > 1000) {
-          memoryFallback = memoryFallback.slice(0, 1000);
-        }
-        rank = memoryFallback.findIndex(e => e.id === entry.id) + 1;
+      }
+      
+      // Always also save to file-based storage as backup
+      const allData = getMemoryData();
+      allData.push(entry);
+      allData.sort((a, b) => b.score - a.score);
+      if (allData.length > 1000) {
+        allData.splice(1000);
+      }
+      setMemoryData(allData);
+      
+      if (storageType === 'file') {
+        rank = allData.findIndex(e => e.id === entry.id) + 1;
       }
       
       return res.status(201).json({ 
         success: true, 
         entry, 
         rank,
-        storage: kv ? 'persistent' : 'memory'
+        storage: storageType,
+        debug: {
+          kvAvailable: !!kv,
+          totalEntries: allData.length
+        }
       });
     }
     

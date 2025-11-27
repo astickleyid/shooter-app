@@ -865,12 +865,15 @@
       if (this.useGlobal) {
         try {
           const globalEntries = await GlobalLeaderboard.fetchScores(difficulty, limit);
-          if (globalEntries && globalEntries.length > 0) {
-            console.log(`📊 Displaying ${globalEntries.length} global entries`);
-            return globalEntries;
+          // Return global entries even if empty (distinguishes from error)
+          if (globalEntries !== null && Array.isArray(globalEntries)) {
+            console.log(`📊 Global leaderboard: ${globalEntries.length} entries`);
+            // Merge with local entries to ensure user's scores appear
+            const mergedEntries = this.mergeWithLocal(globalEntries);
+            return mergedEntries.slice(0, limit);
           }
         } catch (err) {
-          console.warn('Global leaderboard unavailable, using local');
+          console.warn('Global leaderboard unavailable, using local:', err.message);
         }
       }
       
@@ -880,6 +883,18 @@
         filtered = this.entries.filter(e => e.difficulty === difficulty);
       }
       return filtered.slice(0, limit);
+    },
+    
+    // Merge global entries with local entries (in case global doesn't have user's recent scores)
+    mergeWithLocal(globalEntries) {
+      const globalIds = new Set(globalEntries.map(e => e.id));
+      const localToAdd = this.entries.filter(e => !globalIds.has(e.id));
+      
+      // Combine and sort by score
+      const merged = [...globalEntries, ...localToAdd];
+      merged.sort((a, b) => b.score - a.score);
+      
+      return merged;
     },
     
     getUserBest(username) {
