@@ -651,6 +651,107 @@
   let bossActive = false;
   let bossEntity = null;
 
+  /* ====== PLANETARY GAME MODE SYSTEM ====== */
+  // Game modes - space (default twin-stick) and planetary (side-scrolling with gravity)
+  const GAME_MODES = {
+    space: {
+      id: 'space',
+      name: 'Space Combat',
+      desc: 'Classic twin-stick shooter in zero gravity',
+      gravity: 0,
+      hasGround: false,
+      jumpEnabled: false
+    },
+    planetary: {
+      id: 'planetary',
+      name: 'Planetary Assault',
+      desc: 'Surface combat with gravity physics',
+      gravity: 0.4,
+      hasGround: true,
+      jumpEnabled: true,
+      jumpForce: -12,
+      maxFallSpeed: 15
+    }
+  };
+
+  // Planet configurations for planetary mode
+  const PLANETS = {
+    terra: {
+      id: 'terra',
+      name: 'Terra Prime',
+      desc: 'Earth-like planet with moderate gravity',
+      gravity: 0.4,
+      groundColor: '#2d5a27',
+      groundAccent: '#1a3d1a',
+      skyGradient: ['#1a1a2e', '#16213e', '#0f3460'],
+      atmosphereColor: 'rgba(135, 206, 235, 0.15)',
+      terrainType: 'grassy',
+      platformCount: 8,
+      enemyTypes: ['walker', 'flyer', 'turret']
+    },
+    mars: {
+      id: 'mars',
+      name: 'Crimson Dunes',
+      desc: 'Dusty red planet with lower gravity',
+      gravity: 0.28,
+      groundColor: '#8b4513',
+      groundAccent: '#5a2d0a',
+      skyGradient: ['#1a0a0a', '#3d1a1a', '#5a2d1a'],
+      atmosphereColor: 'rgba(255, 100, 50, 0.1)',
+      terrainType: 'rocky',
+      platformCount: 6,
+      enemyTypes: ['crawler', 'flyer', 'bomber']
+    },
+    ice: {
+      id: 'ice',
+      name: 'Glacial Expanse',
+      desc: 'Frozen world with slippery surfaces',
+      gravity: 0.45,
+      groundColor: '#e8f4f8',
+      groundAccent: '#b8d4dc',
+      skyGradient: ['#0a1628', '#1a2840', '#2a3a5a'],
+      atmosphereColor: 'rgba(200, 230, 255, 0.2)',
+      terrainType: 'icy',
+      platformCount: 10,
+      friction: 0.92,
+      enemyTypes: ['walker', 'crystal', 'frostling']
+    },
+    volcanic: {
+      id: 'volcanic',
+      name: 'Inferno Core',
+      desc: 'Volcanic hellscape with extreme hazards',
+      gravity: 0.5,
+      groundColor: '#1a1a1a',
+      groundAccent: '#0d0d0d',
+      skyGradient: ['#1a0500', '#3d0a00', '#5a1500'],
+      atmosphereColor: 'rgba(255, 80, 0, 0.15)',
+      terrainType: 'volcanic',
+      platformCount: 5,
+      lavaLevel: 0.85,
+      enemyTypes: ['magma', 'flyer', 'ember']
+    },
+    moon: {
+      id: 'moon',
+      name: 'Lunar Surface',
+      desc: 'Airless moon with very low gravity',
+      gravity: 0.15,
+      groundColor: '#4a4a4a',
+      groundAccent: '#2a2a2a',
+      skyGradient: ['#000000', '#050510', '#0a0a20'],
+      atmosphereColor: 'rgba(255, 255, 255, 0)',
+      terrainType: 'crater',
+      platformCount: 7,
+      enemyTypes: ['drone', 'turret', 'bouncer']
+    }
+  };
+
+  // Current game mode state
+  let currentGameMode = 'space';
+  let currentPlanet = null;
+  let planetaryTerrain = [];
+  let planetaryPlatforms = [];
+  let groundLevel = 0;
+
   const XP_PER_LEVEL = (lvl) => Math.floor(160 + Math.pow(lvl, 1.65) * 55);
 
   /* ====== DOM ====== */
@@ -720,6 +821,9 @@
     dom.loadGameBtn = document.getElementById('loadGameBtn');
     dom.exitToMenuBtn = document.getElementById('exitToMenuBtn');
     dom.pauseMenuMessage = document.getElementById('pauseMenuMessage');
+    dom.gameModeSelect = document.getElementById('gameModeSelect');
+    dom.planetSelect = document.getElementById('planetSelect');
+    dom.planetSelectContainer = document.getElementById('planetSelectContainer');
   };
 
   /* ====== STATE ====== */
@@ -3444,6 +3548,484 @@
     }
   };
 
+  /* ====== PLANETARY TERRAIN & PHYSICS SYSTEM ====== */
+  
+  // Platform class for planetary mode
+  class Platform {
+    constructor(x, y, width, height, type = 'solid') {
+      this.x = x;
+      this.y = y;
+      this.width = width;
+      this.height = height;
+      this.type = type; // 'solid', 'passthrough', 'moving', 'crumbling'
+      this.originalY = y;
+      this.movePhase = Math.random() * Math.PI * 2;
+      this.moveRange = type === 'moving' ? 80 : 0;
+      this.crumbleTimer = 0;
+      this.crumbling = false;
+      this.broken = false;
+    }
+
+    update(dt) {
+      if (this.type === 'moving') {
+        this.movePhase += dt * 0.002;
+        this.y = this.originalY + Math.sin(this.movePhase) * this.moveRange;
+      }
+      if (this.crumbling) {
+        this.crumbleTimer += dt;
+        if (this.crumbleTimer > 1500) {
+          this.broken = true;
+        }
+      }
+    }
+
+    draw(ctx, planet) {
+      if (this.broken) return;
+      
+      const colors = planet || { groundColor: '#4a5568', groundAccent: '#2d3748' };
+      
+      ctx.save();
+      
+      // Platform shadow
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+      ctx.fillRect(this.x + 4, this.y + 4, this.width, this.height);
+      
+      // Main platform
+      const gradient = ctx.createLinearGradient(this.x, this.y, this.x, this.y + this.height);
+      gradient.addColorStop(0, colors.groundColor);
+      gradient.addColorStop(1, colors.groundAccent);
+      ctx.fillStyle = gradient;
+      
+      if (this.crumbling) {
+        // Shake effect when crumbling
+        const shake = Math.sin(this.crumbleTimer * 0.1) * 3;
+        ctx.translate(shake, 0);
+        ctx.globalAlpha = 1 - (this.crumbleTimer / 1500) * 0.5;
+      }
+      
+      ctx.fillRect(this.x, this.y, this.width, this.height);
+      
+      // Top edge highlight
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(this.x, this.y);
+      ctx.lineTo(this.x + this.width, this.y);
+      ctx.stroke();
+      
+      // Bottom edge shadow
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+      ctx.beginPath();
+      ctx.moveTo(this.x, this.y + this.height);
+      ctx.lineTo(this.x + this.width, this.y + this.height);
+      ctx.stroke();
+      
+      // Moving platform indicator
+      if (this.type === 'moving') {
+        ctx.fillStyle = 'rgba(100, 200, 255, 0.5)';
+        ctx.fillRect(this.x + this.width / 2 - 10, this.y + 2, 20, 4);
+      }
+      
+      // Passthrough platform indicator (dashed top)
+      if (this.type === 'passthrough') {
+        ctx.setLineDash([8, 8]);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(this.x, this.y);
+        ctx.lineTo(this.x + this.width, this.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      
+      ctx.restore();
+    }
+
+    checkCollision(entity, velocityY) {
+      if (this.broken) return null;
+      
+      const entityBottom = entity.y + entity.size;
+      const entityTop = entity.y - entity.size;
+      const entityLeft = entity.x - entity.size;
+      const entityRight = entity.x + entity.size;
+      
+      // Check if horizontally aligned
+      if (entityRight < this.x || entityLeft > this.x + this.width) {
+        return null;
+      }
+      
+      // For passthrough platforms, only collide when falling and from above
+      if (this.type === 'passthrough') {
+        if (velocityY > 0 && entityBottom >= this.y && entityBottom <= this.y + this.height + 10) {
+          return { type: 'top', y: this.y };
+        }
+        return null;
+      }
+      
+      // Solid platform collision
+      // Landing on top
+      if (velocityY >= 0 && entityBottom >= this.y && entityBottom <= this.y + this.height) {
+        if (this.type === 'crumbling' && !this.crumbling) {
+          this.crumbling = true;
+        }
+        return { type: 'top', y: this.y };
+      }
+      
+      // Hitting bottom
+      if (velocityY < 0 && entityTop <= this.y + this.height && entityTop >= this.y) {
+        return { type: 'bottom', y: this.y + this.height };
+      }
+      
+      // Side collisions
+      if (entityBottom > this.y && entityTop < this.y + this.height) {
+        if (entityRight >= this.x && entityLeft < this.x) {
+          return { type: 'left', x: this.x };
+        }
+        if (entityLeft <= this.x + this.width && entityRight > this.x + this.width) {
+          return { type: 'right', x: this.x + this.width };
+        }
+      }
+      
+      return null;
+    }
+  }
+
+  // Generate terrain for planetary mode
+  const generatePlanetaryTerrain = (planet) => {
+    planetaryTerrain = [];
+    planetaryPlatforms = [];
+    
+    if (!planet) return;
+    
+    const canvasWidth = dom.canvas?.width || window.innerWidth;
+    const canvasHeight = dom.canvas?.height || window.innerHeight;
+    
+    // Ground level at 85% of screen height
+    groundLevel = canvasHeight * 0.85;
+    
+    // Generate terrain points for the ground
+    const terrainSegments = 50;
+    const segmentWidth = (canvasWidth * 3) / terrainSegments; // Wider world
+    
+    for (let i = 0; i <= terrainSegments; i++) {
+      const x = -canvasWidth + i * segmentWidth;
+      let y = groundLevel;
+      
+      // Add terrain variation based on terrain type
+      if (planet.terrainType === 'grassy') {
+        y += Math.sin(i * 0.3) * 20 + Math.sin(i * 0.7) * 10;
+      } else if (planet.terrainType === 'rocky') {
+        y += Math.random() * 30 - 15;
+      } else if (planet.terrainType === 'crater') {
+        // Create crater-like depressions
+        const craterCenter = terrainSegments / 2;
+        const distFromCenter = Math.abs(i - craterCenter);
+        y += Math.max(0, 40 - distFromCenter * 3);
+      } else if (planet.terrainType === 'volcanic') {
+        y += Math.sin(i * 0.5) * 15 + (Math.random() > 0.9 ? -40 : 0);
+      } else if (planet.terrainType === 'icy') {
+        y += Math.sin(i * 0.2) * 8;
+      }
+      
+      planetaryTerrain.push({ x, y });
+    }
+    
+    // Generate platforms
+    const platformCount = planet.platformCount || 6;
+    
+    for (let i = 0; i < platformCount; i++) {
+      const x = rand(-canvasWidth * 0.5, canvasWidth * 1.5);
+      const y = rand(canvasHeight * 0.3, canvasHeight * 0.7);
+      const width = rand(80, 200);
+      const height = rand(15, 30);
+      
+      // Randomly assign platform type
+      const typeRoll = Math.random();
+      let type = 'solid';
+      if (typeRoll < 0.15) type = 'moving';
+      else if (typeRoll < 0.3) type = 'passthrough';
+      else if (typeRoll < 0.4 && level > 3) type = 'crumbling';
+      
+      planetaryPlatforms.push(new Platform(x, y, width, height, type));
+    }
+    
+    // Add some decorative elements based on terrain type
+    if (planet.terrainType === 'volcanic' && planet.lavaLevel) {
+      // Lava pools stored as special terrain markers
+      planetaryTerrain.lavaLevel = canvasHeight * planet.lavaLevel;
+    }
+  };
+
+  // Draw planetary background and terrain
+  const drawPlanetaryBackground = (ctx) => {
+    if (!currentPlanet) return;
+    
+    const canvas = dom.canvas;
+    const planet = currentPlanet;
+    
+    // Draw sky gradient
+    const skyGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    planet.skyGradient.forEach((color, i) => {
+      skyGradient.addColorStop(i / (planet.skyGradient.length - 1), color);
+    });
+    ctx.fillStyle = skyGradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw distant mountains/hills (parallax layer)
+    ctx.save();
+    ctx.translate(-camera.x * 0.2, 0);
+    drawDistantTerrain(ctx, planet);
+    ctx.restore();
+    
+    // Draw atmosphere effect
+    if (planet.atmosphereColor) {
+      ctx.fillStyle = planet.atmosphereColor;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+  };
+
+  // Draw distant terrain for parallax
+  const drawDistantTerrain = (ctx, planet) => {
+    const canvas = dom.canvas;
+    const mountainColor = planet.groundAccent || '#1a1a1a';
+    
+    ctx.fillStyle = mountainColor;
+    ctx.globalAlpha = 0.4;
+    ctx.beginPath();
+    ctx.moveTo(-200, canvas.height);
+    
+    // Generate mountain silhouette
+    for (let x = -200; x < canvas.width + 400; x += 60) {
+      const height = Math.sin(x * 0.01) * 80 + Math.sin(x * 0.003) * 120 + 200;
+      ctx.lineTo(x, canvas.height * 0.6 - height);
+    }
+    
+    ctx.lineTo(canvas.width + 200, canvas.height);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  };
+
+  // Draw ground terrain
+  const drawPlanetaryTerrain = (ctx) => {
+    if (!currentPlanet || planetaryTerrain.length < 2) return;
+    
+    const planet = currentPlanet;
+    
+    ctx.save();
+    
+    // Draw main terrain
+    const groundGradient = ctx.createLinearGradient(0, groundLevel - 50, 0, groundLevel + 100);
+    groundGradient.addColorStop(0, planet.groundColor);
+    groundGradient.addColorStop(0.5, planet.groundAccent);
+    groundGradient.addColorStop(1, '#000000');
+    
+    ctx.fillStyle = groundGradient;
+    ctx.beginPath();
+    ctx.moveTo(planetaryTerrain[0].x, planetaryTerrain[0].y);
+    
+    for (let i = 1; i < planetaryTerrain.length; i++) {
+      ctx.lineTo(planetaryTerrain[i].x, planetaryTerrain[i].y);
+    }
+    
+    ctx.lineTo(planetaryTerrain[planetaryTerrain.length - 1].x, dom.canvas.height + 100);
+    ctx.lineTo(planetaryTerrain[0].x, dom.canvas.height + 100);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Draw terrain edge highlight
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(planetaryTerrain[0].x, planetaryTerrain[0].y);
+    for (let i = 1; i < planetaryTerrain.length; i++) {
+      ctx.lineTo(planetaryTerrain[i].x, planetaryTerrain[i].y);
+    }
+    ctx.stroke();
+    
+    // Draw lava if volcanic planet
+    if (planetaryTerrain.lavaLevel) {
+      const lavaY = planetaryTerrain.lavaLevel;
+      const lavaGradient = ctx.createLinearGradient(0, lavaY - 20, 0, dom.canvas.height);
+      lavaGradient.addColorStop(0, 'rgba(255, 100, 0, 0.8)');
+      lavaGradient.addColorStop(0.3, 'rgba(255, 50, 0, 0.9)');
+      lavaGradient.addColorStop(1, 'rgba(100, 20, 0, 1)');
+      
+      ctx.fillStyle = lavaGradient;
+      ctx.fillRect(-500, lavaY, dom.canvas.width + 1000, dom.canvas.height - lavaY + 100);
+      
+      // Lava glow
+      ctx.shadowColor = '#ff4400';
+      ctx.shadowBlur = 30;
+      ctx.fillStyle = 'rgba(255, 150, 0, 0.3)';
+      ctx.fillRect(-500, lavaY - 30, dom.canvas.width + 1000, 30);
+      ctx.shadowBlur = 0;
+    }
+    
+    // Draw decorative elements based on terrain type
+    drawTerrainDecorations(ctx, planet);
+    
+    ctx.restore();
+  };
+
+  // Draw terrain decorations (grass, rocks, crystals, etc.)
+  const drawTerrainDecorations = (ctx, planet) => {
+    if (planet.terrainType === 'grassy') {
+      // Draw grass tufts
+      ctx.fillStyle = '#3d7a3d';
+      for (let i = 0; i < planetaryTerrain.length - 1; i++) {
+        const t = planetaryTerrain[i];
+        if (Math.random() < 0.3) {
+          for (let j = 0; j < 5; j++) {
+            const gx = t.x + Math.random() * 20 - 10;
+            const gy = t.y;
+            ctx.beginPath();
+            ctx.moveTo(gx, gy);
+            ctx.lineTo(gx - 3, gy - 15 - Math.random() * 10);
+            ctx.lineTo(gx + 3, gy - 12 - Math.random() * 10);
+            ctx.closePath();
+            ctx.fill();
+          }
+        }
+      }
+    } else if (planet.terrainType === 'icy') {
+      // Draw ice crystals
+      ctx.fillStyle = 'rgba(200, 230, 255, 0.6)';
+      for (let i = 0; i < planetaryTerrain.length - 1; i++) {
+        const t = planetaryTerrain[i];
+        if (Math.random() < 0.15) {
+          ctx.beginPath();
+          ctx.moveTo(t.x, t.y);
+          ctx.lineTo(t.x - 8, t.y - 25);
+          ctx.lineTo(t.x + 8, t.y - 25);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+    }
+  };
+
+  // Draw platforms
+  const drawPlatforms = (ctx) => {
+    for (const platform of planetaryPlatforms) {
+      platform.draw(ctx, currentPlanet);
+    }
+  };
+
+  // Apply planetary physics to an entity
+  const applyPlanetaryPhysics = (entity, dt) => {
+    if (currentGameMode !== 'planetary' || !currentPlanet) return;
+    
+    const gravity = currentPlanet.gravity || 0.4;
+    const maxFallSpeed = GAME_MODES.planetary.maxFallSpeed || 15;
+    const friction = currentPlanet.friction || 0.98;
+    
+    // Apply gravity
+    if (!entity.isGrounded) {
+      entity.velocityY = (entity.velocityY || 0) + gravity * (dt / 16.67);
+      entity.velocityY = Math.min(entity.velocityY, maxFallSpeed);
+    }
+    
+    // Apply velocity
+    entity.y += entity.velocityY * (dt / 16.67);
+    
+    // Apply friction to horizontal movement (on ground)
+    if (entity.isGrounded && currentPlanet.friction) {
+      entity.velocityX = (entity.velocityX || 0) * friction;
+    }
+    
+    // Check ground collision
+    const groundY = getGroundYAt(entity.x);
+    if (entity.y + entity.size >= groundY) {
+      entity.y = groundY - entity.size;
+      entity.velocityY = 0;
+      entity.isGrounded = true;
+    } else {
+      entity.isGrounded = false;
+    }
+    
+    // Check platform collisions
+    for (const platform of planetaryPlatforms) {
+      const collision = platform.checkCollision(entity, entity.velocityY);
+      if (collision) {
+        if (collision.type === 'top') {
+          entity.y = collision.y - entity.size;
+          entity.velocityY = 0;
+          entity.isGrounded = true;
+        } else if (collision.type === 'bottom') {
+          entity.y = collision.y + entity.size;
+          entity.velocityY = Math.abs(entity.velocityY) * 0.5;
+        } else if (collision.type === 'left') {
+          entity.x = collision.x - entity.size;
+        } else if (collision.type === 'right') {
+          entity.x = collision.x + entity.size;
+        }
+      }
+    }
+    
+    // Lava damage
+    if (planetaryTerrain.lavaLevel && entity.y + entity.size > planetaryTerrain.lavaLevel) {
+      if (entity.takeDamage) {
+        entity.takeDamage(5 * (dt / 16.67)); // Continuous lava damage
+      }
+    }
+  };
+
+  // Get ground height at a specific x position
+  const getGroundYAt = (x) => {
+    if (planetaryTerrain.length < 2) return groundLevel;
+    
+    // Find the terrain segment containing x
+    for (let i = 0; i < planetaryTerrain.length - 1; i++) {
+      const t1 = planetaryTerrain[i];
+      const t2 = planetaryTerrain[i + 1];
+      
+      if (x >= t1.x && x < t2.x) {
+        // Linear interpolation between terrain points
+        const t = (x - t1.x) / (t2.x - t1.x);
+        return t1.y + (t2.y - t1.y) * t;
+      }
+    }
+    
+    return groundLevel;
+  };
+
+  // Handle jump for planetary mode
+  const handlePlanetaryJump = (entity) => {
+    if (currentGameMode !== 'planetary') return false;
+    
+    if (entity.isGrounded && entity.canJump !== false) {
+      entity.velocityY = GAME_MODES.planetary.jumpForce;
+      entity.isGrounded = false;
+      entity.canJump = false;
+      
+      // Jump cooldown
+      setTimeout(() => {
+        entity.canJump = true;
+      }, 100);
+      
+      return true;
+    }
+    return false;
+  };
+
+  // Update platforms
+  const updatePlatforms = (dt) => {
+    for (let i = planetaryPlatforms.length - 1; i >= 0; i--) {
+      const platform = planetaryPlatforms[i];
+      platform.update(dt);
+      
+      // Respawn broken platforms after delay
+      if (platform.broken) {
+        setTimeout(() => {
+          platform.broken = false;
+          platform.crumbling = false;
+          platform.crumbleTimer = 0;
+        }, 5000);
+      }
+    }
+  };
+
   /* ====== ENTITY CLASSES ====== */
   class Bullet {
     constructor(x, y, vel, damage, color = '#fde047', speed = BASE.BULLET_SPEED, size = BASE.BULLET_SIZE, pierce = 0, isEnemy = false) {
@@ -4434,19 +5016,52 @@
       const spd = input.isBoosting ? stats.boost : stats.speed;
       const moveMag = Math.hypot(input.moveX, input.moveY);
       let moving = false;
-      if (moveMag > 0.01) {
-        const nx = input.moveX / moveMag;
-        const ny = input.moveY / moveMag;
-        const step = spd * (dt / 16.67);
-        this.x += nx * step;
-        this.y += ny * step;
-        this.vel.x = nx;
-        this.vel.y = ny;
-        moving = true;
+      
+      // Planetary mode: Different movement handling with gravity
+      if (currentGameMode === 'planetary' && currentPlanet) {
+        // Initialize velocity properties if needed
+        if (this.velocityY === undefined) this.velocityY = 0;
+        if (this.isGrounded === undefined) this.isGrounded = false;
+        if (this.canJump === undefined) this.canJump = true;
+        
+        // Horizontal movement (left/right)
+        if (Math.abs(input.moveX) > 0.01) {
+          const nx = input.moveX > 0 ? 1 : -1;
+          const step = spd * (dt / 16.67);
+          this.x += nx * step;
+          this.vel.x = nx;
+          moving = true;
+        } else {
+          this.vel.x = 0;
+        }
+        
+        // Jump with up input or boost
+        if ((input.moveY < -0.3 || input.isBoosting) && this.isGrounded && this.canJump) {
+          handlePlanetaryJump(this);
+        }
+        
+        // Apply planetary physics (gravity, platform collisions)
+        applyPlanetaryPhysics(this, dt);
+        
+        // Keep vel.y synced for aiming purposes
+        this.vel.y = this.velocityY > 0 ? 1 : (this.velocityY < 0 ? -1 : 0);
       } else {
-        this.vel.x = 0;
-        this.vel.y = 0;
+        // Space mode: Original twin-stick movement
+        if (moveMag > 0.01) {
+          const nx = input.moveX / moveMag;
+          const ny = input.moveY / moveMag;
+          const step = spd * (dt / 16.67);
+          this.x += nx * step;
+          this.y += ny * step;
+          this.vel.x = nx;
+          this.vel.y = ny;
+          moving = true;
+        } else {
+          this.vel.x = 0;
+          this.vel.y = 0;
+        }
       }
+      
       const hasAim = input.isAiming && (Math.abs(input.aimX) > 0.01 || Math.abs(input.aimY) > 0.01);
       if (hasAim) {
         this.lookAngle = Math.atan2(input.aimY, input.aimX);
@@ -5643,6 +6258,11 @@
 
     // Update environmental hazards
     updateHazards(dt);
+    
+    // Update platforms in planetary mode
+    if (currentGameMode === 'planetary') {
+      updatePlatforms(dt);
+    }
 
     for (let i = enemies.length - 1; i >= 0; i--) {
       const enemy = enemies[i];
@@ -5853,8 +6473,17 @@
     if (!dom.ctx) return;
     const ctx = dom.ctx;
     const canvas = dom.canvas;
-    ctx.fillStyle = '#030712';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Different background for planetary vs space mode
+    if (currentGameMode === 'planetary' && currentPlanet) {
+      // Planetary mode: Draw planet-specific background
+      drawPlanetaryBackground(ctx);
+    } else {
+      // Space mode: Dark space background
+      ctx.fillStyle = '#030712';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    
     let shakeX = 0;
     let shakeY = 0;
     if (performance.now() < shakeUntil) {
@@ -5864,26 +6493,28 @@
     ctx.save();
     ctx.translate(-camera.x + shakeX, -camera.y + shakeY);
     
-    // Draw realistic multi-layer starfield (back to front, nearly static)
-    if (starsDeepSpace) {
-      // Deepest layer: very faint, distant stars
-      drawEnhancedStarsLayer(ctx, starsDeepSpace, 0.05);
+    // Draw background layers based on game mode
+    if (currentGameMode === 'planetary' && currentPlanet) {
+      // Planetary mode: Draw terrain and platforms
+      drawPlanetaryTerrain(ctx);
+      drawPlatforms(ctx);
+    } else {
+      // Space mode: Draw realistic multi-layer starfield
+      if (starsDeepSpace) {
+        drawEnhancedStarsLayer(ctx, starsDeepSpace, 0.05);
+      }
+      if (starsFar) {
+        drawStarsLayer(ctx, starsFar, 0.1);
+        drawStarsLayer(ctx, starsMid, 0.15);
+        drawStarsLayer(ctx, starsNear, 0.2);
+      }
+      if (starsBright) {
+        drawEnhancedStarsLayer(ctx, starsBright, 0.25);
+      }
+      
+      // Draw celestial bodies and hazards (background layer)
+      drawEnvironment(ctx);
     }
-    if (starsFar) {
-      // Far stars - slightly larger
-      drawStarsLayer(ctx, starsFar, 0.1);
-      // Mid stars
-      drawStarsLayer(ctx, starsMid, 0.15);
-      // Near stars - most visible
-      drawStarsLayer(ctx, starsNear, 0.2);
-    }
-    if (starsBright) {
-      // Bright prominent stars (rare)
-      drawEnhancedStarsLayer(ctx, starsBright, 0.25);
-    }
-    
-    // Draw celestial bodies and hazards (background layer)
-    drawEnvironment(ctx);
     
     for (const obstacle of obstacles) obstacle.draw(ctx);
     if (!player) {
@@ -6165,17 +6796,42 @@
     }
     enemiesToKill = baseEnemies;
     setupCanvas();
-    player = new PlayerEntity(dom.canvas.width / 2, dom.canvas.height / 2);
+    
+    // Initialize player position based on game mode
+    if (currentGameMode === 'planetary' && currentPlanet) {
+      // Planetary mode: Generate terrain first, then place player
+      generatePlanetaryTerrain(currentPlanet);
+      const startX = dom.canvas.width / 2;
+      const startY = getGroundYAt(startX) - BASE.PLAYER_SIZE - 50;
+      player = new PlayerEntity(startX, startY);
+      player.velocityY = 0;
+      player.isGrounded = false;
+      player.canJump = true;
+    } else {
+      // Space mode: Center player
+      player = new PlayerEntity(dom.canvas.width / 2, dom.canvas.height / 2);
+    }
+    
     camera.x = player.x - dom.canvas.width / 2;
     camera.y = player.y - dom.canvas.height / 2;
-    spawnObstacles();
-    spawnHazards();  // Spawn environmental hazards
-    createSpawners(Math.min(1 + Math.floor(level / 2), 5), resetScore);  // Increased max spawners to 5
-    if (!starsFar) {
-      initStarLayers();
-    } else {
-      recenterStars();
+    
+    // Only spawn obstacles and hazards in space mode
+    if (currentGameMode !== 'planetary') {
+      spawnObstacles();
+      spawnHazards();
     }
+    
+    createSpawners(Math.min(1 + Math.floor(level / 2), 5), resetScore);
+    
+    // Initialize stars only for space mode
+    if (currentGameMode !== 'planetary') {
+      if (!starsFar) {
+        initStarLayers();
+      } else {
+        recenterStars();
+      }
+    }
+    
     lastTime = performance.now();
     lastAmmoRegen = lastTime;
     gameRunning = true;
@@ -6186,6 +6842,19 @@
   const startGame = () => {
     resetRuntimeState();
     currentDifficulty = Save.data.difficulty || 'normal';  // Load saved difficulty
+    
+    // Get selected game mode and planet
+    const modeSelect = document.getElementById('gameModeSelect');
+    const planetSelect = document.getElementById('planetSelect');
+    
+    currentGameMode = modeSelect?.value || 'space';
+    
+    if (currentGameMode === 'planetary' && planetSelect) {
+      currentPlanet = PLANETS[planetSelect.value] || PLANETS.terra;
+    } else {
+      currentPlanet = null;
+    }
+    
     initShipSelection();
     dom.startScreen.style.display = 'none';
     dom.gameContainer.style.display = 'block';
@@ -7706,6 +8375,17 @@
         if (DIFFICULTY_PRESETS[newDifficulty]) {
           Save.data.difficulty = newDifficulty;
           Save.save();
+        }
+      });
+    }
+    
+    // Game mode selector handler
+    if (dom.gameModeSelect) {
+      dom.gameModeSelect.addEventListener('change', (e) => {
+        const mode = e.target.value;
+        const planetContainer = document.getElementById('planetSelectContainer');
+        if (planetContainer) {
+          planetContainer.style.display = mode === 'planetary' ? 'flex' : 'none';
         }
       });
     }
