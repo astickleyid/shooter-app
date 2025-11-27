@@ -49,7 +49,7 @@ const GlobalLeaderboard = {
     }
   },
 
-  async fetchScores(difficulty = 'all', limit = 50) {
+  async fetchScores(difficulty = 'all', limit = 100) {
     if (!BACKEND_CONFIG.USE_GLOBAL) {
       return [];
     }

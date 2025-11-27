@@ -222,14 +222,37 @@
         
         <!-- Tab Navigation -->
         <div class="menu-tabs">
-          <button class="menu-tab active" data-tab="equipment">Equipment</button>
+          <button class="menu-tab active" data-tab="game">Game</button>
+          <button class="menu-tab" data-tab="equipment">Equipment</button>
           <button class="menu-tab" data-tab="upgrades">Upgrades</button>
           <button class="menu-tab" data-tab="weapons">Weapons</button>
           <button class="menu-tab" data-tab="controls">Controls</button>
         </div>
         
+        <!-- Game Tab - Primary tab for game controls -->
+        <div class="tab-content active" id="gameTab">
+          <div class="settings-section">
+            <h3>Game Actions</h3>
+            <div class="game-actions">
+              <button id="menuResumeBtn" class="game-action-btn primary">▶ Resume Game</button>
+              <button id="menuRestartBtn" class="game-action-btn">🔄 Restart Game</button>
+              <button id="menuSaveBtn" class="game-action-btn">💾 Save Game</button>
+              <button id="menuLoadBtn" class="game-action-btn">📂 Load Game</button>
+              <button id="menuExitBtn" class="game-action-btn danger">🚪 Return to Start Screen</button>
+            </div>
+          </div>
+          <div class="settings-section">
+            <h3>Quick Links</h3>
+            <div class="game-actions">
+              <button id="menuShopBtn" class="game-action-btn">🛒 Upgrades & Shop</button>
+              <button id="menuHangarBtn" class="game-action-btn">🚀 Ship Hangar</button>
+              <button id="menuLeaderboardBtn" class="game-action-btn">🏆 Leaderboard</button>
+            </div>
+          </div>
+        </div>
+        
         <!-- Equipment Class Tab -->
-        <div class="tab-content active" id="equipmentTab">
+        <div class="tab-content" id="equipmentTab">
           <div class="settings-section">
             <h3>Configure Equipment Loadout</h3>
             <p style="color: #94a3b8; font-size: 13px; margin-bottom: 16px;">

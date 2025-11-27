@@ -654,9 +654,16 @@
           const parsed = JSON.parse(raw);
           this.users = parsed.users || {};
           this.currentUser = parsed.currentUser || null;
+          // Validate that currentUser actually exists in users
+          if (this.currentUser && !this.users[this.currentUser]) {
+            console.warn('Current user not found in users, resetting');
+            this.currentUser = null;
+          }
         }
       } catch (err) {
         console.warn('Failed to load auth data', err);
+        this.users = {};
+        this.currentUser = null;
       }
     },
     
@@ -743,7 +750,9 @@
     },
     
     isLoggedIn() {
-      return this.currentUser !== null;
+      // Verify both that currentUser is set AND that the user exists in the users object
+      if (!this.currentUser) return false;
+      return !!this.users[this.currentUser];
     },
     
     getCurrentUsername() {
@@ -851,7 +860,7 @@
       ) + 1;
     },
     
-    async getEntries(difficulty = 'all', limit = 50) {
+    async getEntries(difficulty = 'all', limit = 100) {
       // Try to fetch from global leaderboard first
       if (this.useGlobal) {
         try {
@@ -4138,7 +4147,7 @@
     // Show loading state
     dom.leaderboardList.innerHTML = '<div class="leaderboard-loading">Loading scores...</div>';
     
-    const entries = await Leaderboard.getEntries(difficulty, 50);
+    const entries = await Leaderboard.getEntries(difficulty, 100);
     const currentUsername = Auth.getCurrentUsername();
     
     if (entries.length === 0) {
@@ -4147,8 +4156,8 @@
     }
     
     const sourceLabel = Leaderboard.useGlobal 
-      ? '<div style="text-align:center;color:#22c55e;font-size:12px;margin-bottom:8px;">🌍 Global Leaderboard</div>' 
-      : '<div style="text-align:center;color:#eab308;font-size:12px;margin-bottom:8px;">📱 Local Scores</div>';
+      ? '<div style="text-align:center;color:#22c55e;font-size:12px;margin-bottom:8px;">🌍 Global Leaderboard - Top 100</div>' 
+      : '<div style="text-align:center;color:#eab308;font-size:12px;margin-bottom:8px;">📱 Local Scores - Top 100</div>';
     
     dom.leaderboardList.innerHTML = sourceLabel + entries.map((entry, index) => {
       const rank = index + 1;
@@ -4395,6 +4404,7 @@
     });
     
     const tabMap = {
+      'game': 'gameTab',
       'equipment': 'equipmentTab',
       'upgrades': 'upgradesTab',
       'weapons': 'weaponsTab',
@@ -4826,6 +4836,47 @@
         const tabName = tab.dataset.tab;
         switchMenuTab(tabName);
       });
+    });
+    
+    // Game tab action buttons
+    document.getElementById('menuResumeBtn')?.addEventListener('click', () => {
+      closeUnifiedMenu();
+    });
+    
+    document.getElementById('menuRestartBtn')?.addEventListener('click', () => {
+      closeUnifiedMenu();
+      // Restart game from level 1
+      resetRuntimeState();
+      initShipSelection();
+      startLevel(1, true);
+    });
+    
+    document.getElementById('menuSaveBtn')?.addEventListener('click', () => {
+      saveGameSlot();
+    });
+    
+    document.getElementById('menuLoadBtn')?.addEventListener('click', () => {
+      loadGameSlot();
+    });
+    
+    document.getElementById('menuExitBtn')?.addEventListener('click', () => {
+      closeUnifiedMenu();
+      returnToMainMenu();
+    });
+    
+    document.getElementById('menuShopBtn')?.addEventListener('click', () => {
+      closeUnifiedMenu();
+      openShop();
+    });
+    
+    document.getElementById('menuHangarBtn')?.addEventListener('click', () => {
+      closeUnifiedMenu();
+      openHangar();
+    });
+    
+    document.getElementById('menuLeaderboardBtn')?.addEventListener('click', () => {
+      closeUnifiedMenu();
+      openLeaderboardModal();
     });
     
     // Equipment slot configuration
