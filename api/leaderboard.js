@@ -3,7 +3,7 @@
  * Supports both guest and authenticated users
  */
 
-const { kv } = require('@vercel/kv');
+const { kv } = require('./redis-client');
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
