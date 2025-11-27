@@ -47,6 +47,16 @@ describe('Game Configuration', () => {
       id: 'emberwing',
       name: 'Emberwing',
       stats: { hp: 0.9, speed: 1.08, boost: 1.1, ammo: 0.82, damage: 1.28, fireRate: 0.94, pickup: 1, ammoRegen: 0.95 }
+    },
+    {
+      id: 'spectre',
+      name: 'Spectre-9',
+      stats: { hp: 0.75, speed: 1.35, boost: 1.4, ammo: 0.85, damage: 0.88, fireRate: 0.85, pickup: 1.25, ammoRegen: 1.1 }
+    },
+    {
+      id: 'titan',
+      name: 'Titan Heavy',
+      stats: { hp: 1.6, speed: 0.72, boost: 0.78, ammo: 1.45, damage: 1.35, fireRate: 1.3, pickup: 0.8, ammoRegen: 0.75 }
     }
   ];
 
@@ -197,12 +207,18 @@ describe('Game Configuration', () => {
       { id: 'damage', name: 'Damage Amplifier', cat: 'Offense', base: 80, step: 40, max: 10 },
       { id: 'firerate', name: 'Fire Rate', cat: 'Offense', base: 100, step: 50, max: 8 },
       { id: 'multi', name: 'Multishot', cat: 'Offense', base: 150, step: 80, max: 4 },
+      { id: 'crit', name: 'Critical Strike', cat: 'Offense', base: 130, step: 65, max: 6 },
       { id: 'shield', name: 'Hull Plating', cat: 'Defense', base: 70, step: 35, max: 12 },
       { id: 'regen', name: 'Regenerator', cat: 'Defense', base: 120, step: 60, max: 6 },
       { id: 'field', name: 'Repulse Field', cat: 'Defense', base: 180, step: 90, max: 5 },
+      { id: 'armor', name: 'Reactive Armor', cat: 'Defense', base: 140, step: 70, max: 5 },
       { id: 'ammo', name: 'Ammo Regen', cat: 'Utility', base: 90, step: 45, max: 8 },
       { id: 'boost', name: 'Boost Speed', cat: 'Utility', base: 110, step: 55, max: 7 },
-      { id: 'magnet', name: 'Magnet Range', cat: 'Utility', base: 85, step: 42, max: 8 }
+      { id: 'magnet', name: 'Magnet Range', cat: 'Utility', base: 85, step: 42, max: 8 },
+      { id: 'luck', name: 'Fortune Module', cat: 'Utility', base: 100, step: 50, max: 6 },
+      { id: 'ultimate', name: 'Ultimate Charger', cat: 'Special', base: 160, step: 80, max: 5 },
+      { id: 'cooldown', name: 'System Coolant', cat: 'Special', base: 175, step: 88, max: 5 },
+      { id: 'pierce', name: 'Armor Piercing', cat: 'Special', base: 200, step: 100, max: 3 }
     ];
 
     test('should have upgrades in all categories', () => {
@@ -210,6 +226,7 @@ describe('Game Configuration', () => {
       expect(categories.has('Offense')).toBe(true);
       expect(categories.has('Defense')).toBe(true);
       expect(categories.has('Utility')).toBe(true);
+      expect(categories.has('Special')).toBe(true);
     });
 
     test('should have unique upgrade IDs', () => {
