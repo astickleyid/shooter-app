@@ -92,6 +92,148 @@ module.exports = async (req, res) => {
       });
     }
 
+    // Login
+    if (action === 'login' && req.method === 'POST') {
+      const { username, password } = req.body;
+
+      const userId = await kv.get(`user:username:${username.toLowerCase()}`);
+      if (!userId) {
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+
+      const user = await kv.get(`user:${userId}`);
+      const passwordHash = crypto.createHash('sha256').update(password).digest('hex');
+
+      if (user.passwordHash !== passwordHash) {
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+
+      user.lastActive = Date.now();
+      await kv.set(`user:${userId}`, user);
+
+      return res.status(200).json({
+        success: true,
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          profile: user.profile,
+          stats: user.stats,
+          friends: user.friends,
+          lastActive: user.lastActive
+        }
+      });
+    }
+
+    // Get profile
+    if (action === 'profile' && req.method === 'GET') {
+      const { userId, username } = req.query;
+
+      let user;
+      if (userId) {
+        user = await kv.get(`user:${userId}`);
+      } else if (username) {
+        const id = await kv.get(`user:username:${username.toLowerCase()}`);
+        if (id) user = await kv.get(`user:${id}`);
+      }
+
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      const { passwordHash, email, ...publicProfile } = user;
+
+      return res.status(200).json({
+        success: true,
+        user: publicProfile
+      });
+    }
+
+    // Update profile
+    if (action === 'update' && req.method === 'PUT') {
+      const { userId, updates } = req.body;
+
+      const user = await kv.get(`user:${userId}`);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      if (updates.profile) {
+        user.profile = { ...user.profile, ...updates.profile };
+      }
+      if (updates.settings) {
+        user.settings = { ...user.settings, ...updates.settings };
+      }
+
+      user.lastActive = Date.now();
+      await kv.set(`user:${userId}`, user);
+
+      return res.status(200).json({ success: true, user: user.profile });
+    }
+
+    // Update stats
+    if (action === 'stats' && req.method === 'POST') {
+      const { userId, score, level, kills, deaths, accuracy, duration } = req.body;
+
+      const user = await kv.get(`user:${userId}`);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      user.profile.gamesPlayed += 1;
+      user.profile.totalScore += score || 0;
+      user.profile.highScore = Math.max(user.profile.highScore, score || 0);
+
+      user.stats.kills += kills || 0;
+      user.stats.deaths += deaths || 0;
+      user.stats.playTime += duration || 0;
+      if (accuracy) {
+        user.stats.accuracy = Math.round(
+          (user.stats.accuracy * (user.profile.gamesPlayed - 1) + accuracy) / user.profile.gamesPlayed
+        );
+      }
+
+      const xpGain = Math.floor(score / 10);
+      user.profile.xp += xpGain;
+      user.profile.level = Math.floor(user.profile.xp / 100) + 1;
+
+      user.lastActive = Date.now();
+      await kv.set(`user:${userId}`, user);
+
+      return res.status(200).json({
+        success: true,
+        profile: user.profile,
+        stats: user.stats,
+        xpGain
+      });
+    }
+
+    // Search users
+    if (action === 'search' && req.method === 'GET') {
+      const { query, limit = 20 } = req.query;
+
+      const allUserIds = await kv.smembers('users:all');
+      const users = await Promise.all(
+        allUserIds.slice(0, 100).map(id => kv.get(`user:${id}`))
+      );
+
+      const filtered = users
+        .filter(u => u && u.username.toLowerCase().includes(query.toLowerCase()))
+        .slice(0, parseInt(limit))
+        .map(u => ({
+          id: u.id,
+          username: u.username,
+          profile: {
+            avatar: u.profile.avatar,
+            level: u.profile.level,
+            highScore: u.profile.highScore
+          },
+          lastActive: u.lastActive
+        }));
+
+      return res.status(200).json({ success: true, users: filtered });
+    }
+
     return res.status(400).json({ error: 'Invalid action' });
   } catch (error) {
     console.error('Fatal error:', error);
