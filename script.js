@@ -290,6 +290,65 @@
     { id: 'magnet', name: 'Magnet Range', desc: 'Increase pickup radius for coins and supplies.', cat: 'Utility', base: 85, step: 42, max: 8 }
   ];
 
+  // Adaptive difficulty - scales challenge based on player power
+  const getPlayerPowerLevel = () => {
+    let total = 0;
+    UPGRADES.forEach(u => {
+      total += Save.getUpgradeLevel(u.id);
+    });
+    return total;
+  };
+
+  const getMaxPossiblePower = () => {
+    return UPGRADES.reduce((sum, u) => sum + u.max, 0);
+  };
+
+  // Returns 0-1 scale of how powered up the player is
+  const getPowerRatio = () => {
+    const max = getMaxPossiblePower();
+    return max > 0 ? getPlayerPowerLevel() / max : 0;
+  };
+
+  // Adaptive scaling factors based on player power
+  const getAdaptiveScaling = () => {
+    const powerRatio = getPowerRatio();
+    const levelFactor = Math.min(level / 20, 1); // Cap at level 20 for scaling
+    const combinedFactor = (powerRatio * 0.6 + levelFactor * 0.4);
+    
+    return {
+      // Enemy damage scales up to bypass high defenses
+      enemyDamageMultiplier: 1 + combinedFactor * 1.5,
+      // Shield penetration increases (% of damage that bypasses shields)
+      shieldPenetration: Math.min(0.5, combinedFactor * 0.6),
+      // Repulse field becomes less effective at higher power levels
+      repulseEffectiveness: Math.max(0.3, 1 - combinedFactor * 0.7),
+      // Enemy speed increases slightly
+      enemySpeedBoost: 1 + combinedFactor * 0.4,
+      // Elite enemy spawn chance increases
+      eliteChance: Math.min(0.35, combinedFactor * 0.4),
+      // Boss spawn threshold (every N levels)
+      bossInterval: Math.max(3, 8 - Math.floor(powerRatio * 5)),
+      // Environment hazard intensity
+      hazardIntensity: combinedFactor
+    };
+  };
+
+  // Wave/Mission types for gameplay variety
+  const WAVE_TYPES = {
+    standard: { name: 'Standard', desc: 'Eliminate all enemies', enemyMultiplier: 1 },
+    swarm: { name: 'Swarm', desc: 'Survive the swarm!', enemyMultiplier: 2.5, spawnRateBoost: 2 },
+    elite: { name: 'Elite Strike', desc: 'Elite enemies inbound', eliteBoost: 3 },
+    boss: { name: 'Boss Wave', desc: 'Defeat the boss!', hasBoss: true },
+    survival: { name: 'Survival', desc: 'Survive for 60 seconds', timerBased: true, duration: 60000 },
+    hazard: { name: 'Hazard Zone', desc: 'Navigate the danger zone', hazards: true }
+  };
+
+  let currentWaveType = 'standard';
+  let waveTimer = 0;
+  let waveStartTime = 0;
+  let bossActive = false;
+  let bossEntity = null;
+
   const XP_PER_LEVEL = (lvl) => Math.floor(160 + Math.pow(lvl, 1.65) * 55);
 
   /* ====== DOM ====== */
@@ -956,6 +1015,13 @@
     tookDamageThisLevel = false;
     gameOverHandled = false;
     
+    // Wave system reset
+    currentWaveType = 'standard';
+    waveTimer = 0;
+    waveStartTime = 0;
+    bossActive = false;
+    bossEntity = null;
+    
     // Phase 1: Reset combo and kill streak
     comboCount = 0;
     comboTimer = 0;
@@ -1594,21 +1660,66 @@
   }
 
   class Enemy {
-    constructor(x, y, kind = 'chaser') {
+    constructor(x, y, kind = 'chaser', isElite = false, isBoss = false) {
       this.x = x;
       this.y = y;
       this.kind = kind;
+      this.isElite = isElite;
+      this.isBoss = isBoss;
       this.rot = 0;
       const diff = getDifficulty();
+      const adaptive = getAdaptiveScaling();
+      
+      // Base size scaling
       const sizeMap = { heavy: 1.45, swarmer: 0.9, drone: 0.75 };
-      this.size = BASE.ENEMY_SIZE * (sizeMap[kind] || 1);
+      let baseSize = BASE.ENEMY_SIZE * (sizeMap[kind] || 1);
+      if (isElite) baseSize *= 1.3;
+      if (isBoss) baseSize *= 2.5;
+      this.size = baseSize;
+      
+      // Speed scaling with adaptive difficulty
       const speedMap = { heavy: 0.85, swarmer: 1.45, drone: 1.2 };
-      this.speed = BASE.ENEMY_SPEED * (speedMap[kind] || 1.05) * diff.enemySpeed;
+      let baseSpeed = BASE.ENEMY_SPEED * (speedMap[kind] || 1.05) * diff.enemySpeed;
+      baseSpeed *= adaptive.enemySpeedBoost;
+      if (isElite) baseSpeed *= 1.15;
+      if (isBoss) baseSpeed *= 0.7; // Bosses are slower but more dangerous
+      this.speed = baseSpeed;
+      
+      // Health scaling
       const baseHealth = kind === 'heavy' ? 3 : 1;
-      this.health = Math.ceil(baseHealth * diff.enemyHealth);
-      this.maxHealth = this.health; // Phase 1: Track max health for health bar
+      let health = Math.ceil(baseHealth * diff.enemyHealth);
+      if (isElite) health *= 3;
+      if (isBoss) health *= 15 + level * 2; // Bosses scale heavily with level
+      this.health = health;
+      this.maxHealth = this.health;
+      
+      // Damage scaling with adaptive difficulty
+      this.baseDamage = BASE.ENEMY_DAMAGE * diff.enemyDamage * adaptive.enemyDamageMultiplier;
+      if (isElite) this.baseDamage *= 1.5;
+      if (isBoss) this.baseDamage *= 2;
+      
+      // Elite/Boss special abilities
+      this.shieldPenetration = adaptive.shieldPenetration;
+      if (isElite) this.shieldPenetration += 0.2;
+      if (isBoss) this.shieldPenetration += 0.35;
+      
+      // Can bypass repulse field partially
+      this.repulseResistance = 0;
+      if (isElite) this.repulseResistance = 0.5;
+      if (isBoss) this.repulseResistance = 0.8;
+      
+      // Boss special attack timers
+      this.lastSpecialAttack = 0;
+      this.specialAttackCooldown = 3000;
+      this.attackPhase = 0;
+      
+      // Shooting capability for ranged enemies
+      this.canShoot = isBoss || (isElite && Math.random() < 0.5);
+      this.lastShot = 0;
+      this.shotCooldown = isBoss ? 1500 : 2500;
+      
       this.animPhase = Math.random() * Math.PI * 2;
-      this.hitFlash = 0; // Phase A.2: Hit flash timer
+      this.hitFlash = 0;
     }
     draw(ctx) {
       ctx.save();
@@ -1621,6 +1732,49 @@
       const damaged = healthPct < 0.5;
       const criticalHealth = healthPct < 0.25;
       
+      // Elite/Boss visual indicators
+      if (this.isBoss) {
+        // Boss aura - pulsing red/purple glow
+        ctx.save();
+        const bossGlow = Math.sin(performance.now() / 150) * 0.3 + 0.7;
+        ctx.globalAlpha = 0.4 * bossGlow;
+        ctx.shadowColor = '#dc2626';
+        ctx.shadowBlur = 40;
+        ctx.fillStyle = '#7c3aed';
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size * 1.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+        
+        // Boss health bar above
+        ctx.save();
+        ctx.rotate(-this.rot); // Keep health bar level
+        const barWidth = this.size * 2.5;
+        const barHeight = 6;
+        const barY = -this.size * 1.8;
+        ctx.fillStyle = '#1f2937';
+        ctx.fillRect(-barWidth / 2, barY, barWidth, barHeight);
+        ctx.fillStyle = healthPct > 0.5 ? '#ef4444' : healthPct > 0.25 ? '#f97316' : '#dc2626';
+        ctx.fillRect(-barWidth / 2, barY, barWidth * healthPct, barHeight);
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(-barWidth / 2, barY, barWidth, barHeight);
+        ctx.restore();
+      } else if (this.isElite) {
+        // Elite indicator - golden crown-like glow
+        ctx.save();
+        const eliteGlow = Math.sin(performance.now() / 200) * 0.2 + 0.8;
+        ctx.globalAlpha = 0.5 * eliteGlow;
+        ctx.strokeStyle = '#fbbf24';
+        ctx.lineWidth = 3;
+        ctx.shadowColor = '#f59e0b';
+        ctx.shadowBlur = 15;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size * 1.3, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+      
       // Phase A.2: Hit flash effect overlay
       if (this.hitFlash > 0) {
         ctx.globalAlpha = this.hitFlash / 150;
@@ -1631,7 +1785,7 @@
       
       // Phase A.2: Aggro indicator - intensified glow
       const aggroIntensity = 12 + Math.sin(performance.now() / 200) * 6;
-      ctx.shadowColor = '#dc2626';
+      ctx.shadowColor = this.isBoss ? '#7c3aed' : this.isElite ? '#f59e0b' : '#dc2626';
       ctx.shadowBlur = aggroIntensity;
       
       if (this.kind === 'drone') {
@@ -1875,6 +2029,83 @@
       this.x += (nx / nm) * this.speed * (dt / 16.67);
       this.y += (ny / nm) * this.speed * (dt / 16.67);
       this.rot = Math.atan2(ny, nx);
+      
+      // Ranged attacks for elite and boss enemies
+      const now = performance.now();
+      if (this.canShoot && player && now - this.lastShot > this.shotCooldown) {
+        const shootDist = this.isBoss ? 400 : 250;
+        if (dist < shootDist && dist > this.size * 2) {
+          this.shootAtPlayer();
+          this.lastShot = now;
+        }
+      }
+      
+      // Boss special attacks
+      if (this.isBoss && now - this.lastSpecialAttack > this.specialAttackCooldown) {
+        this.performSpecialAttack(now);
+      }
+    }
+    
+    shootAtPlayer() {
+      if (!player) return;
+      const dx = player.x - this.x;
+      const dy = player.y - this.y;
+      const dist = Math.hypot(dx, dy) || 1;
+      const vel = { x: dx / dist, y: dy / dist };
+      const damage = this.baseDamage * 0.6;
+      const speed = this.isBoss ? BASE.BULLET_SPEED * 0.8 : BASE.BULLET_SPEED * 0.6;
+      const size = this.isBoss ? BASE.BULLET_SIZE * 1.5 : BASE.BULLET_SIZE * 1.2;
+      bullets.push(new Bullet(this.x, this.y, vel, damage, '#dc2626', speed, size, 0, true));
+      addParticles('muzzle', this.x, this.y, this.rot, 4);
+    }
+    
+    performSpecialAttack(now) {
+      if (!player) return;
+      this.lastSpecialAttack = now;
+      this.attackPhase = (this.attackPhase + 1) % 3;
+      
+      switch (this.attackPhase) {
+        case 0: // Radial burst - fires in all directions
+          for (let i = 0; i < 12; i++) {
+            const angle = (i / 12) * Math.PI * 2;
+            const vel = { x: Math.cos(angle), y: Math.sin(angle) };
+            const damage = this.baseDamage * 0.4;
+            bullets.push(new Bullet(this.x, this.y, vel, damage, '#7c3aed', BASE.BULLET_SPEED * 0.5, BASE.BULLET_SIZE * 1.3, 0, true));
+          }
+          addParticles('nova', this.x, this.y, 0, 20);
+          shakeScreen(5, 150);
+          addLogEntry('⚠️ Boss radial burst!', '#f97316');
+          break;
+          
+        case 1: { // Charge attack - dash towards player
+          const dx = player.x - this.x;
+          const dy = player.y - this.y;
+          const dist = Math.hypot(dx, dy) || 1;
+          this.x += (dx / dist) * 80;
+          this.y += (dy / dist) * 80;
+          addParticles('sparks', this.x, this.y, 0, 15);
+          shakeScreen(8, 200);
+          addLogEntry('⚠️ Boss charge attack!', '#ef4444');
+          break;
+        }
+          
+        case 2: // Summon minions
+          for (let i = 0; i < 3; i++) {
+            const angle = rand(0, Math.PI * 2);
+            const spawnDist = this.size * 2 + rand(20, 50);
+            const sx = this.x + Math.cos(angle) * spawnDist;
+            const sy = this.y + Math.sin(angle) * spawnDist;
+            enemies.push(new Enemy(sx, sy, 'swarmer', false, false));
+          }
+          addParticles('levelup', this.x, this.y, 0, 25);
+          addLogEntry('⚠️ Boss summoned minions!', '#a855f7');
+          break;
+      }
+    }
+    
+    // Get the actual damage this enemy deals (with penetration calculations)
+    getDamage() {
+      return this.baseDamage || BASE.ENEMY_DAMAGE;
     }
   }
 
@@ -1993,15 +2224,24 @@
     }
     spawn() {
       if (!player) return;
+      const adaptive = getAdaptiveScaling();
+      const waveType = WAVE_TYPES[currentWaveType] || WAVE_TYPES.standard;
+      
+      // Determine enemy type
       const roll = Math.random();
-      // Add basic drones (50%), reduce complex enemies for performance
       const kind = roll < 0.15 ? 'heavy' : roll < 0.35 ? 'swarmer' : roll < 0.55 ? 'chaser' : 'drone';
+      
+      // Determine if enemy is elite based on adaptive difficulty
+      let eliteChance = adaptive.eliteChance;
+      if (waveType.eliteBoost) eliteChance *= waveType.eliteBoost;
+      const isElite = Math.random() < eliteChance;
+      
       const dir = Math.atan2(player.y - this.y, player.x - this.x);
       const dist = 70;
       const jitter = rand(-40, 40);
       const x = this.x + Math.cos(dir) * dist + Math.cos(dir + Math.PI / 2) * jitter;
       const y = this.y + Math.sin(dir) * dist + Math.sin(dir + Math.PI / 2) * jitter;
-      enemies.push(new Enemy(x, y, kind));
+      enemies.push(new Enemy(x, y, kind, isElite, false));
       if (Math.random() < 0.4) this.resetPosition();
     }
     resetPosition() {
@@ -2272,6 +2512,8 @@
 
       const knock = stats.repulse;
       if (knock > 0) {
+        const adaptive = getAdaptiveScaling();
+        const repulseEffectiveness = adaptive.repulseEffectiveness;
         for (const enemy of enemies) {
           const dx = enemy.x - this.x;
           const dy = enemy.y - this.y;
@@ -2279,8 +2521,11 @@
           if (dist < this.size + 18 + stats.pickupR * 0.4) {
             const nx = dx / (dist || 1);
             const ny = dy / (dist || 1);
-            enemy.x += nx * knock;
-            enemy.y += ny * knock;
+            // Apply repulse resistance - elite/boss enemies resist the push
+            const resistance = enemy.repulseResistance || 0;
+            const effectiveKnock = knock * repulseEffectiveness * (1 - resistance);
+            enemy.x += nx * effectiveKnock;
+            enemy.y += ny * effectiveKnock;
           }
         }
       }
@@ -2426,13 +2671,29 @@
       this.addUltimateCharge(12);
     }
 
-    takeDamage(amount) {
+    takeDamage(amount, source = null) {
       const now = performance.now();
       if (now < this.invEnd) return;
+      
+      // Calculate shield penetration from enemy source
+      let penetration = 0;
+      if (source && typeof source === 'object') {
+        penetration = source.shieldPenetration || 0;
+      }
+      
       if (this.isDefenseActive(now)) {
         const absorb = this.defenseStats.absorb || 0;
-        const mitigated = amount * absorb;
+        // Penetration bypasses a portion of shield absorption
+        const effectiveAbsorb = absorb * (1 - penetration);
+        const mitigated = amount * effectiveAbsorb;
+        const penetratedDamage = amount * penetration;
         amount = Math.max(0, amount - mitigated);
+        
+        // Show penetration warning if significant
+        if (penetration > 0.1 && penetratedDamage > 0) {
+          addLogEntry('⚠️ Shield penetrated!', '#f97316');
+        }
+        
         if ((this.defenseStats.reflect || 0) > 0 && mitigated > 0) {
           applyRadialDamage(this.x, this.y, this.size * 4, mitigated * (this.defenseStats.reflect || 0.25), { knockback: 2, chargeMult: 0.2 });
         }
@@ -2672,22 +2933,54 @@
     const enemy = enemies[index];
     if (!enemy) return;
     
+    // Check if this was the boss
+    const wasBoss = enemy.isBoss;
+    const wasElite = enemy.isElite;
+    
     // Phase 1: Add to combo system
     addComboKill();
     
+    // Drop more coins for elite/boss
     dropCoin(enemy.x, enemy.y);
-    if (chance(0.22)) dropSupply(enemy.x, enemy.y);
+    if (wasElite) {
+      dropCoin(enemy.x + rand(-20, 20), enemy.y + rand(-20, 20));
+      dropCoin(enemy.x + rand(-20, 20), enemy.y + rand(-20, 20));
+    }
+    if (wasBoss) {
+      for (let i = 0; i < 10; i++) {
+        dropCoin(enemy.x + rand(-40, 40), enemy.y + rand(-40, 40));
+      }
+      dropSupply(enemy.x, enemy.y);
+      dropSupply(enemy.x + 30, enemy.y);
+      dropSupply(enemy.x - 30, enemy.y);
+    } else if (chance(wasElite ? 0.5 : 0.22)) {
+      dropSupply(enemy.x, enemy.y);
+    }
     
     // Phase A.4: Enhanced death effects based on enemy type
-    const deathColor = enemy.kind === 'drone' ? '#ef4444' : 
+    const deathColor = wasBoss ? '#7c3aed' :
+                       wasElite ? '#f59e0b' :
+                       enemy.kind === 'drone' ? '#ef4444' : 
                        enemy.kind === 'chaser' ? '#e879f9' :
                        enemy.kind === 'heavy' ? '#4ade80' : '#fb923c';
     
     // Phase A.4: Shockwave ring
-    addParticles('ring', enemy.x, enemy.y, 0, 1, deathColor);
+    addParticles('ring', enemy.x, enemy.y, 0, wasBoss ? 3 : 1, deathColor);
     
-    // Phase A.4: Type-specific particles
-    if (enemy.kind === 'heavy') {
+    // Enhanced effects for boss/elite
+    if (wasBoss) {
+      addParticles('debris', enemy.x, enemy.y, 0, 40);
+      addParticles('smoke', enemy.x, enemy.y, 0, 20);
+      addParticles('sparks', enemy.x, enemy.y, 0, 30);
+      addParticles('levelup', enemy.x, enemy.y, 0, 30);
+      shakeScreen(15, 500);
+      addLogEntry('💀 BOSS DESTROYED!', '#f59e0b');
+    } else if (wasElite) {
+      addParticles('debris', enemy.x, enemy.y, 0, 25);
+      addParticles('sparks', enemy.x, enemy.y, 0, 20);
+      shakeScreen(8, 250);
+      addLogEntry('⭐ Elite enemy destroyed!', '#f59e0b');
+    } else if (enemy.kind === 'heavy') {
       addParticles('debris', enemy.x, enemy.y, 0, 20);
       addParticles('smoke', enemy.x, enemy.y, 0, 8);
       addParticles('ring', enemy.x, enemy.y, 0, 2, '#15803d');
@@ -2701,19 +2994,39 @@
     }
     
     enemies.splice(index, 1);
+    
+    // Mark boss as dead
+    if (wasBoss && enemy === bossEntity) {
+      bossEntity = null;
+    }
+    
     enemiesKilled++;
-    const scoreGain = 15 + (comboCount > 1 ? comboCount * 2 : 0);
+    
+    // Score calculation with elite/boss bonuses
+    let scoreGain = 15 + (comboCount > 1 ? comboCount * 2 : 0);
+    if (wasElite) scoreGain *= 3;
+    if (wasBoss) scoreGain *= 20;
     score += scoreGain;
     
     // Phase 1: Show score as damage number
-    spawnDamageNumber(enemy.x, enemy.y - enemy.size, `+${scoreGain}`, false);
+    spawnDamageNumber(enemy.x, enemy.y - enemy.size, `+${scoreGain}`, wasBoss || wasElite);
     
-    addXP(30 + level * 4 + xpBonus);
+    // XP with bonuses
+    let xpGain = 30 + level * 4 + xpBonus;
+    if (wasElite) xpGain *= 2;
+    if (wasBoss) xpGain *= 10;
+    addXP(xpGain);
+    
     shakeScreen(3.4, 110);
-    if (player) player.addUltimateCharge(15 + level * 2);
     
-    // Check if all enemies eliminated
-    if (enemiesKilled >= enemiesToKill) {
+    // Ultimate charge with bonuses
+    let charge = 15 + level * 2;
+    if (wasElite) charge *= 2;
+    if (wasBoss) charge *= 5;
+    if (player) player.addUltimateCharge(charge);
+    
+    // Check if all enemies eliminated (only for non-boss waves)
+    if (enemiesKilled >= enemiesToKill && currentWaveType !== 'boss') {
       addLogEntry('All enemies eliminated!', '#4ade80');
     }
   };
@@ -2794,7 +3107,15 @@
   const updateHUD = () => {
     if (!dom.scoreValue || !player) return;
     dom.scoreValue.textContent = score.toLocaleString();
-    dom.levelValue.textContent = level;
+    
+    // Show level with wave type indicator
+    const waveType = WAVE_TYPES[currentWaveType];
+    let levelText = level.toString();
+    if (currentWaveType !== 'standard') {
+      levelText += ` (${waveType.name})`;
+    }
+    dom.levelValue.textContent = levelText;
+    
     dom.healthBar.style.width = `${(player.health / player.hpMax) * 100}%`;
     dom.ammoBar.style.width = `${(player.ammo / player.ammoMax) * 100}%`;
     if (dom.ultBar && dom.ultText) {
@@ -2819,6 +3140,21 @@
       const pct = needed > 0 ? Math.min(100, Math.round((pilotXP / needed) * 100)) : 0;
       dom.xpBar.style.width = `${pct}%`;
       dom.xpText.textContent = `${pct}%`;
+    }
+    
+    // Update wave timer for survival waves
+    const waveInfo = WAVE_TYPES[currentWaveType];
+    if (waveInfo && waveInfo.timerBased && waveStartTime > 0) {
+      const elapsed = performance.now() - waveStartTime;
+      const remaining = Math.max(0, (waveInfo.duration - elapsed) / 1000);
+      const waveTimerEl = document.getElementById('waveTimer');
+      if (waveTimerEl) {
+        waveTimerEl.textContent = `Survive: ${Math.ceil(remaining)}s`;
+        waveTimerEl.style.display = remaining > 0 ? 'block' : 'none';
+      }
+    } else {
+      const waveTimerEl = document.getElementById('waveTimer');
+      if (waveTimerEl) waveTimerEl.style.display = 'none';
     }
     
     // Update action log
@@ -3259,8 +3595,9 @@
       const dy = player.y - enemy.y;
       if (Math.hypot(dx, dy) < player.size + enemy.size) {
         enemies.splice(i, 1);
-        const enemyDamage = Math.ceil(BASE.ENEMY_DAMAGE * getDifficulty().enemyDamage);
-        player.takeDamage(enemyDamage);
+        // Use enemy's calculated damage with adaptive scaling
+        const enemyDamage = enemy.getDamage();
+        player.takeDamage(enemyDamage, enemy);
       }
     }
 
@@ -3274,11 +3611,32 @@
         const overlap = player.size + obstacle.r - dist + 0.5;
         player.x += nx * overlap;
         player.y += ny * overlap;
-        player.takeDamage(6);
+        player.takeDamage(6, null);
+      }
+    }
+    
+    // Handle enemy bullets hitting player
+    for (let i = bullets.length - 1; i >= 0; i--) {
+      const bullet = bullets[i];
+      if (!bullet.isEnemy) continue;
+      const dx = player.x - bullet.x;
+      const dy = player.y - bullet.y;
+      if (Math.hypot(dx, dy) < player.size + bullet.size) {
+        bullets.splice(i, 1);
+        // Enemy bullets inherit shield penetration from adaptive scaling
+        const adaptive = getAdaptiveScaling();
+        const source = { shieldPenetration: adaptive.shieldPenetration * 0.7 };
+        player.takeDamage(bullet.damage, source);
       }
     }
 
-    if (enemiesKilled >= enemiesToKill) advanceLevel();
+    // Check wave completion (handles boss waves, survival waves, etc.)
+    if (!checkWaveCompletion()) {
+      // Normal level advancement for standard/elite/swarm waves
+      if (enemiesKilled >= enemiesToKill && currentWaveType !== 'boss') {
+        advanceLevel();
+      }
+    }
   };
 
   const advanceLevel = () => {
@@ -3289,19 +3647,53 @@
     const completedLevel = level; // Store current level before incrementing
     level += 1;
     enemiesKilled = 0;
-    // Improved scaling: base 10 + 5.5 per level (more enemies per level)
+    
+    // Determine wave type based on level and player power
+    const adaptive = getAdaptiveScaling();
+    const bossLevel = level % adaptive.bossInterval === 0;
+    
+    if (bossLevel) {
+      currentWaveType = 'boss';
+      addLogEntry(`⚠️ BOSS WAVE INCOMING!`, '#dc2626');
+    } else if (level % 5 === 0 && getPowerRatio() > 0.3) {
+      // Every 5th level (non-boss), special wave type
+      const waveTypes = ['swarm', 'elite', 'survival', 'hazard'];
+      currentWaveType = waveTypes[Math.floor(Math.random() * waveTypes.length)];
+      const waveInfo = WAVE_TYPES[currentWaveType];
+      addLogEntry(`🎯 ${waveInfo.name}: ${waveInfo.desc}`, '#f59e0b');
+    } else {
+      currentWaveType = 'standard';
+    }
+    
+    const waveType = WAVE_TYPES[currentWaveType];
     const diff = getDifficulty();
-    enemiesToKill = Math.floor((10 + level * 5.5) * diff.enemiesToKill);
+    
+    // Calculate enemies to kill with wave type modifiers
+    let baseEnemies = Math.floor((10 + level * 5.5) * diff.enemiesToKill);
+    if (waveType.enemyMultiplier) baseEnemies = Math.floor(baseEnemies * waveType.enemyMultiplier);
+    enemiesToKill = baseEnemies;
+    
     enemies = [];
     bullets = [];
     coins = [];
     supplies = [];
     spawners = [];
     particles = [];
+    bossActive = false;
+    bossEntity = null;
+    waveStartTime = performance.now();
     
-    // Start countdown - previously 1 second for "LEVEL COMPLETE" + 3 second countdown (4 seconds total), now a single 3 second countdown
+    // Survival waves use timer instead of kill count
+    if (waveType.timerBased) {
+      waveTimer = waveType.duration || 60000;
+      enemiesToKill = 999999; // High number so kills don't trigger advance
+    } else {
+      waveTimer = 0;
+    }
+    
+    // Start countdown - 3 second countdown
     countdownActive = true;
-    countdownEnd = performance.now() + 3000; // 3 seconds total countdown
+    countdownEnd = performance.now() + 3000;
     countdownCompletedLevel = completedLevel;
     
     if (player) {
@@ -3314,12 +3706,65 @@
     queueTimedEffect(3000, () => {
       countdownActive = false;
       spawnObstacles();
-      createSpawners(Math.min(1 + Math.floor(level / 2), 5), true);  // Increased max spawners to 5
+      
+      // Spawn rate modifier for wave types
+      let spawnerCount = Math.min(1 + Math.floor(level / 2), 5);
+      if (waveType.spawnRateBoost) spawnerCount = Math.ceil(spawnerCount * waveType.spawnRateBoost);
+      createSpawners(spawnerCount, true);
+      
+      // Spawn boss for boss waves
+      if (currentWaveType === 'boss') {
+        spawnBoss();
+      }
+      
       recenterStars();
       lastTime = performance.now();
     });
     
     tookDamageThisLevel = false;
+  };
+
+  // Spawn a boss enemy
+  const spawnBoss = () => {
+    if (!player) return;
+    const pos = randomAround(player.x, player.y, viewRadius(0.6), viewRadius(0.9));
+    const bossKind = Math.random() < 0.5 ? 'heavy' : 'chaser';
+    bossEntity = new Enemy(pos.x, pos.y, bossKind, false, true);
+    enemies.push(bossEntity);
+    bossActive = true;
+    addLogEntry('💀 BOSS HAS ARRIVED!', '#dc2626');
+    shakeScreen(10, 400);
+  };
+
+  // Check if survival wave is complete
+  const checkWaveCompletion = () => {
+    const waveType = WAVE_TYPES[currentWaveType];
+    
+    if (waveType.timerBased && waveTimer > 0) {
+      const elapsed = performance.now() - waveStartTime;
+      if (elapsed >= waveType.duration) {
+        addLogEntry('✅ Survival complete!', '#4ade80');
+        advanceLevel();
+        return true;
+      }
+    }
+    
+    if (currentWaveType === 'boss') {
+      // Boss wave ends when boss is dead
+      if (bossActive && (!bossEntity || bossEntity.health <= 0)) {
+        addLogEntry('🎉 BOSS DEFEATED!', '#4ade80');
+        bossActive = false;
+        // Give bonus rewards
+        Save.addCredits(level * 50);
+        addXP(level * 100);
+        advanceLevel();
+        return true;
+      }
+      // Don't advance from normal kills in boss wave
+      return false;
+    }
+    
+    return false;
   };
 
   /* ====== RENDERING ====== */
