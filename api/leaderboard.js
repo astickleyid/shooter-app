@@ -16,8 +16,7 @@ try {
 // In-memory fallback for when KV is not available
 let memoryFallback = [];
 
-// Helper function to get leaderboard key
-const getLeaderboardKey = (difficulty) => `leaderboard:${difficulty}`;
+// Key for storing all entries in a sorted set
 const ALL_ENTRIES_KEY = 'leaderboard:all_entries';
 
 module.exports = async (req, res) => {
@@ -39,7 +38,9 @@ module.exports = async (req, res) => {
       if (kv) {
         // Use Vercel KV for persistent storage
         try {
-          // Fetch all entries from Redis sorted set (sorted by score descending)
+          // Fetch entries from Redis sorted set (sorted by score descending)
+          // Note: Filtering by difficulty is done client-side for simplicity
+          // A production system could use separate sorted sets per difficulty
           const rawEntries = await kv.zrange(ALL_ENTRIES_KEY, 0, -1, { rev: true });
           
           if (rawEntries && rawEntries.length > 0) {
@@ -86,8 +87,11 @@ module.exports = async (req, res) => {
         return res.status(400).json({ success: false, error: 'Invalid difficulty' });
       }
       
+      // Generate unique ID using substring instead of deprecated substr
+      const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+      
       const entry = {
-        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        id: uniqueId,
         username: String(username).slice(0, 30).trim(),
         score: Math.max(0, Math.floor(score)),
         level: Math.max(1, Math.floor(level || 1)),
@@ -100,12 +104,15 @@ module.exports = async (req, res) => {
       if (kv) {
         // Use Vercel KV for persistent storage
         try {
-          // Add entry to sorted set with score as the sort value
-          await kv.zadd(ALL_ENTRIES_KEY, { score: entry.score, member: JSON.stringify(entry) });
+          const entryJson = JSON.stringify(entry);
           
-          // Get rank (0-indexed, so add 1)
-          const rankResult = await kv.zrevrank(ALL_ENTRIES_KEY, JSON.stringify(entry));
-          rank = (rankResult !== null ? rankResult : 0) + 1;
+          // Add entry to sorted set with score as the sort value
+          await kv.zadd(ALL_ENTRIES_KEY, { score: entry.score, member: entryJson });
+          
+          // Get rank by counting entries with higher scores
+          // Using zcount is more reliable than zrevrank with JSON strings
+          const higherScores = await kv.zcount(ALL_ENTRIES_KEY, entry.score + 1, '+inf');
+          rank = higherScores + 1;
           
           // Trim to keep only top 1000 entries
           const count = await kv.zcard(ALL_ENTRIES_KEY);
