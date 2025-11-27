@@ -1412,9 +1412,10 @@
     for (const star of arr) {
       let alpha = clamp(star.s / 2.6, 0.2, 0.9) * (star.baseAlpha || 1);
       
-      // Apply twinkling effect
+      // Apply twinkling effect (phase advances based on star's speed)
       if (star.twinkle) {
-        star.twinklePhase += star.twinkleSpeed * 16;
+        // Advance twinkle phase (speed is calibrated for ~60fps)
+        star.twinklePhase += star.twinkleSpeed * 16.67;
         alpha *= 0.6 + 0.4 * Math.sin(star.twinklePhase);
       }
       
@@ -1503,6 +1504,32 @@
         star.y = cy + (Math.random() - 0.5) * margin * 2;
       }
     }
+  };
+
+  // Initialize all star layers for enhanced multi-layer starfield
+  const initStarLayers = () => {
+    // Layer 0: Nebula dust (slow, atmospheric)
+    starsNebula = makeNebulaDust(15);
+    // Layer 1: Deep space (extremely distant, subtle)
+    starsDeepSpace = makeEnhancedStars(200, {
+      colors: ['#6b7280', '#9ca3af', '#4b5563'],
+      minSize: 0.3,
+      maxSize: 0.8,
+      baseAlpha: 0.4,
+      twinkle: true
+    });
+    // Layer 2-4: Original star layers
+    starsFar = makeStars(120);
+    starsMid = makeStars(80);
+    starsNear = makeStars(50);
+    // Layer 5: Bright accent stars (close, vivid)
+    starsBright = makeEnhancedStars(25, {
+      colors: ['#ffffff', '#fef3c7', '#dbeafe', '#fce7f3', '#e0f2fe'],
+      minSize: 1.5,
+      maxSize: 3.0,
+      baseAlpha: 0.9,
+      twinkle: true
+    });
   };
 
   const randomAround = (cx, cy, min, max) => {
@@ -3780,29 +3807,7 @@
     spawnObstacles();
     createSpawners(Math.min(1 + Math.floor(level / 2), 5), resetScore);  // Increased max spawners to 5
     if (!starsFar) {
-      // Create enhanced multi-layer starfield
-      // Layer 0: Nebula dust (slow, atmospheric)
-      starsNebula = makeNebulaDust(15);
-      // Layer 1: Deep space (extremely distant, subtle)
-      starsDeepSpace = makeEnhancedStars(200, {
-        colors: ['#6b7280', '#9ca3af', '#4b5563'],
-        minSize: 0.3,
-        maxSize: 0.8,
-        baseAlpha: 0.4,
-        twinkle: true
-      });
-      // Layer 2-4: Original star layers
-      starsFar = makeStars(120);
-      starsMid = makeStars(80);
-      starsNear = makeStars(50);
-      // Layer 5: Bright accent stars (close, vivid)
-      starsBright = makeEnhancedStars(25, {
-        colors: ['#ffffff', '#fef3c7', '#dbeafe', '#fce7f3', '#e0f2fe'],
-        minSize: 1.5,
-        maxSize: 3.0,
-        baseAlpha: 0.9,
-        twinkle: true
-      });
+      initStarLayers();
     } else {
       recenterStars();
     }
@@ -4091,25 +4096,7 @@
         createSpawners(Math.min(1 + Math.floor(level / 2), 5), false);
         
         if (!starsFar) {
-          // Create enhanced multi-layer starfield
-          starsNebula = makeNebulaDust(15);
-          starsDeepSpace = makeEnhancedStars(200, {
-            colors: ['#6b7280', '#9ca3af', '#4b5563'],
-            minSize: 0.3,
-            maxSize: 0.8,
-            baseAlpha: 0.4,
-            twinkle: true
-          });
-          starsFar = makeStars(120);
-          starsMid = makeStars(80);
-          starsNear = makeStars(50);
-          starsBright = makeEnhancedStars(25, {
-            colors: ['#ffffff', '#fef3c7', '#dbeafe', '#fce7f3', '#e0f2fe'],
-            minSize: 1.5,
-            maxSize: 3.0,
-            baseAlpha: 0.9,
-            twinkle: true
-          });
+          initStarLayers();
         } else {
           recenterStars();
         }
