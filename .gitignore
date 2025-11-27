@@ -57,3 +57,4 @@ temp/
 Thumbs.db
 desktop.ini
 .vercel
+.env*.local
