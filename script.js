@@ -3987,8 +3987,9 @@
   };
 
   const showGameOverScreen = (finalScore, finalLevel, rank) => {
-    // Hide game container
-    dom.gameContainer.style.display = 'none';
+    // Note: Don't hide gameContainer - the gameOverModal is a child element
+    // inside gameContainer, so hiding the container would also hide the modal.
+    // The modal overlays on top of the game canvas with its own styling.
     
     // Show custom game over modal
     const gameOverModal = document.getElementById('gameOverModal');
