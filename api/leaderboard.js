@@ -75,26 +75,33 @@ module.exports = async (req, res) => {
       
       let entries = [];
       let storageType = 'file';
+      let kvSucceeded = false;
       
       if (kv) {
         // Use Vercel KV for persistent storage
         try {
           const rawEntries = await kv.zrange(ALL_ENTRIES_KEY, 0, -1, { rev: true });
           
-          if (rawEntries && rawEntries.length > 0) {
-            entries = rawEntries
-              .map(e => typeof e === 'string' ? JSON.parse(e) : e)
-              .filter(e => difficulty === 'all' || e.difficulty === difficulty)
-              .slice(0, parsedLimit);
+          // KV query succeeded (even if empty) - mark as successful
+          if (rawEntries !== null && rawEntries !== undefined) {
+            kvSucceeded = true;
             storageType = 'kv';
+            
+            if (rawEntries.length > 0) {
+              entries = rawEntries
+                .map(e => typeof e === 'string' ? JSON.parse(e) : e)
+                .filter(e => difficulty === 'all' || e.difficulty === difficulty)
+                .slice(0, parsedLimit);
+            }
           }
         } catch (kvError) {
           console.error('KV error:', kvError);
+          kvSucceeded = false;
         }
       }
       
-      // If KV didn't return data, use file-based storage
-      if (entries.length === 0) {
+      // Only fallback to file-based storage if KV failed (not just empty)
+      if (!kvSucceeded) {
         const allData = getMemoryData();
         entries = allData
           .filter(e => difficulty === 'all' || e.difficulty === difficulty)
@@ -110,6 +117,7 @@ module.exports = async (req, res) => {
         count: entries.length,
         debug: {
           kvAvailable: !!kv,
+          kvSucceeded,
           timestamp: Date.now()
         }
       });
