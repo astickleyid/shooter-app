@@ -3019,3 +3019,366 @@ html, body {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.1); }
 }
+
+/* ===== ENHANCED PROFILE STYLES ===== */
+
+/* Profile Title */
+.profile-title {
+  color: #facc15;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Prestige Badge */
+.prestige-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  color: #000;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 4px;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+/* Profile Sections */
+.profile-section {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(96, 165, 250, 0.2);
+}
+
+.profile-section h3 {
+  color: #e2e8f0;
+  font-size: 16px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Achievements Grid */
+.achievements-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 10px;
+}
+
+.achievement-item {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 10px;
+  padding: 12px 8px;
+  text-align: center;
+  transition: all 0.2s;
+}
+
+.achievement-item.unlocked {
+  border-color: #4ade80;
+  background: rgba(74, 222, 128, 0.1);
+}
+
+.achievement-item.locked {
+  opacity: 0.5;
+  filter: grayscale(1);
+}
+
+.achievement-item:hover {
+  transform: translateY(-2px);
+}
+
+.achievement-icon {
+  display: block;
+  font-size: 24px;
+  margin-bottom: 6px;
+}
+
+.achievement-name {
+  display: block;
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.achievement-item.unlocked .achievement-name {
+  color: #4ade80;
+}
+
+/* Prestige Progress */
+.prestige-info {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.prestige-level {
+  font-size: 18px;
+  color: #facc15;
+  font-weight: 700;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.prestige-star {
+  font-size: 24px;
+}
+
+.prestige-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.prestige-bar {
+  flex: 1;
+  height: 12px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid rgba(96, 165, 250, 0.2);
+}
+
+.prestige-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4ade80, #22c55e);
+  border-radius: 5px;
+  transition: width 0.3s ease;
+}
+
+.prestige-progress span {
+  font-size: 13px;
+  color: #94a3b8;
+  font-weight: 600;
+  min-width: 80px;
+}
+
+.btn-prestige {
+  width: 100%;
+  padding: 14px;
+  font-size: 16px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  color: #000;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.btn-prestige:hover {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(245, 158, 11, 0.4);
+}
+
+.prestige-warning {
+  margin-top: 12px;
+  font-size: 12px;
+  color: #f87171;
+  text-align: center;
+}
+
+.prestige-hint {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #60a5fa;
+  text-align: center;
+}
+
+/* Ships Grid */
+.ships-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 12px;
+}
+
+.ship-item {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 10px;
+  padding: 16px 12px;
+  text-align: center;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.ship-item.unlocked {
+  border-color: #60a5fa;
+}
+
+.ship-item.locked {
+  opacity: 0.5;
+}
+
+.ship-icon {
+  display: block;
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+
+.ship-name {
+  display: block;
+  font-size: 12px;
+  color: #e2e8f0;
+  font-weight: 600;
+}
+
+.ship-lock {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 12px;
+}
+
+/* Achievement Toast */
+.achievement-toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border: 2px solid #4ade80;
+  border-radius: 12px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 100000;
+  transform: translateX(120%);
+  transition: transform 0.3s ease;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.achievement-toast.show {
+  transform: translateX(0);
+}
+
+.achievement-toast-icon {
+  font-size: 32px;
+}
+
+.achievement-toast-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.achievement-toast-title {
+  font-size: 11px;
+  color: #4ade80;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.achievement-toast-name {
+  font-size: 16px;
+  color: #e2e8f0;
+  font-weight: 600;
+}
+
+/* Enhanced Profile Card */
+.enhanced-profile {
+  max-width: 750px;
+}
+
+/* Responsive */
+@media screen and (max-width: 600px) {
+  .achievements-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  
+  .achievement-item {
+    padding: 10px 6px;
+  }
+  
+  .achievement-icon {
+    font-size: 20px;
+  }
+  
+  .achievement-name {
+    font-size: 9px;
+  }
+  
+  .ships-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  .ship-icon {
+    font-size: 24px;
+  }
+  
+  .ship-name {
+    font-size: 10px;
+  }
+  
+  .achievement-toast {
+    right: 10px;
+    left: 10px;
+    transform: translateY(-120%);
+  }
+  
+  .achievement-toast.show {
+    transform: translateY(0);
+  }
+}
+
+/* Logged in button state */
+.footer-btn-logged-in {
+  background: rgba(74, 222, 128, 0.2);
+  border-color: rgba(74, 222, 128, 0.4);
+  color: #4ade80;
+}
+
+.footer-btn-logged-in:hover {
+  background: rgba(74, 222, 128, 0.3);
+  border-color: #4ade80;
+}
+
+/* Small notification badge for icons */
+.notification-badge-small {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #ef4444;
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Social auth form */
+#socialAuthForm input {
+  width: 100%;
+  padding: 14px;
+  margin-bottom: 16px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 8px;
+  color: #e2e8f0;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+#socialAuthForm input:focus {
+  outline: none;
+  border-color: #60a5fa;
+  background: rgba(15, 23, 42, 0.8);
+}
