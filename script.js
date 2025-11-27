@@ -2740,13 +2740,22 @@
         this.rings = [];
         const ringCount = rand(3, 6);
         for (let i = 0; i < ringCount; i++) {
+          const ringOpacity = rand(0.2, 0.5);
+          let ringColor;
+          if (this.planetConfig?.ringColors) {
+            ringColor = this.planetConfig.ringColors[i % this.planetConfig.ringColors.length];
+          } else {
+            // Generate a complete RGBA color for default rings
+            const r = Math.floor(rand(180, 220));
+            const g = Math.floor(rand(160, 200));
+            const b = Math.floor(rand(140, 180));
+            ringColor = `rgba(${r}, ${g}, ${b}, ${ringOpacity})`;
+          }
           this.rings.push({
             innerRadius: this.size * (1.25 + i * 0.12),
             outerRadius: this.size * (1.32 + i * 0.12),
-            opacity: rand(0.2, 0.5),
-            color: this.planetConfig?.ringColors 
-              ? this.planetConfig.ringColors[i % this.planetConfig.ringColors.length]
-              : `rgba(${rand(180, 220)}, ${rand(160, 200)}, ${rand(140, 180)}, `
+            opacity: ringOpacity,
+            color: ringColor
           });
         }
         this.ringTilt = rand(0.1, 0.35);
@@ -2951,7 +2960,8 @@
       // Lava flows
       for (const flow of this.lavaFlows) {
         const pulse = 0.7 + 0.3 * Math.sin(this.time * 0.003 + flow.pulseOffset);
-        const lavaColor = this.planetConfig.lavaColors[Math.floor(Math.random() * 3)];
+        const lavaColors = this.planetConfig.lavaColors;
+        const lavaColor = lavaColors[Math.floor(Math.random() * lavaColors.length)];
         
         ctx.strokeStyle = lavaColor;
         ctx.lineWidth = flow.width * pulse;
@@ -3116,12 +3126,7 @@
       for (const ring of this.rings) {
         const midRadius = (ring.innerRadius + ring.outerRadius) / 2;
         ctx.lineWidth = ring.outerRadius - ring.innerRadius;
-        
-        if (typeof ring.color === 'string' && ring.color.endsWith('(')) {
-          ctx.strokeStyle = ring.color + ring.opacity + ')';
-        } else {
-          ctx.strokeStyle = ring.color;
-        }
+        ctx.strokeStyle = ring.color;
         ctx.globalAlpha = ring.opacity;
         
         ctx.beginPath();
