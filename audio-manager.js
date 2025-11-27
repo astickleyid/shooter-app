@@ -220,24 +220,32 @@ const AudioManager = (() => {
     const gainNode = audioCtx.createGain();
     
     osc.type = type;
-    osc.frequency.setValueAtTime(frequency, audioCtx.currentTime);
     osc.detune.setValueAtTime(detune, audioCtx.currentTime);
     
-    // Pitch envelope
+    // Pitch envelope - use pitchEnvelope if provided, otherwise use frequency
     if (pitchEnvelope) {
       osc.frequency.setValueAtTime(pitchEnvelope.start, audioCtx.currentTime);
       osc.frequency.exponentialRampToValueAtTime(
         Math.max(20, pitchEnvelope.end),
         audioCtx.currentTime + duration
       );
+    } else {
+      osc.frequency.setValueAtTime(frequency, audioCtx.currentTime);
     }
     
-    // Volume envelope (ADSR)
+    // Volume envelope (ADSR) - simplified for short sound effects
+    // Attack -> Decay -> Sustain (held) -> Release
     const now = audioCtx.currentTime;
+    const sustainLevel = volume * sustain;
+    const sustainEnd = now + duration - release;
+    
     gainNode.gain.setValueAtTime(0, now);
     gainNode.gain.linearRampToValueAtTime(volume, now + attack);
-    gainNode.gain.linearRampToValueAtTime(volume * sustain, now + attack + decay);
-    gainNode.gain.setValueAtTime(volume * sustain, now + duration - release);
+    gainNode.gain.linearRampToValueAtTime(sustainLevel, now + attack + decay);
+    // Hold sustain level until release begins (no discontinuity)
+    if (sustainEnd > now + attack + decay) {
+      gainNode.gain.linearRampToValueAtTime(sustainLevel, sustainEnd);
+    }
     gainNode.gain.linearRampToValueAtTime(0, now + duration);
     
     osc.connect(gainNode);
