@@ -19,7 +19,7 @@ function hashPassword(password) {
 
 // Helper: Generate user ID
 function generateUserId() {
-  return 'u_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  return 'u_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
 }
 
 module.exports = async(req, res) {

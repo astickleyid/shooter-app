@@ -53,7 +53,7 @@ module.exports = async(req, res) {
 
       // Create notification
       const notification = {
-        id: `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
         type: 'friend_request',
         fromUserId,
         fromUsername: fromUser.username,
@@ -94,7 +94,7 @@ module.exports = async(req, res) {
 
       // Notification
       const notification = {
-        id: `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
         type: 'friend_accepted',
         fromUserId: userId,
         fromUsername: user.username,

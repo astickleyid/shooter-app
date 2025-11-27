@@ -33,7 +33,7 @@ module.exports = async(req, res) {
       }
 
       const activity = {
-        id: `act_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        id: `act_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
         userId,
         username: user.username,
         avatar: user.profile.avatar,
