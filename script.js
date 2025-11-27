@@ -736,6 +736,8 @@
   let starsBright = null;        // Occasional bright stars with subtle twinkle
   let particles = [];
   let obstacles = [];
+  let hazards = [];          // Environmental hazards (black holes, portals, etc.)
+  let celestialBodies = [];  // Background celestial objects (moons, planets)
   let timedEffects = [];
   let score = 0;
   let level = 1;
@@ -1324,6 +1326,8 @@
     spawners = [];
     particles = [];
     obstacles = [];
+    hazards = [];
+    celestialBodies = [];
     timedEffects = [];
     starsFar = starsMid = starsNear = null;
     starsDeepSpace = starsBright = null;
@@ -1982,6 +1986,1013 @@
       if (roll < 0.25) variant = 'iron';
       else if (roll > 0.75) variant = 'ember';
       obstacles.push(new Asteroid(pos.x, pos.y, r, variant));
+    }
+  };
+
+  /* ====== ENVIRONMENTAL HAZARDS ====== */
+  
+  // Black Hole - Gravitational pull that damages and slows entities
+  class BlackHole {
+    constructor(x, y, size = 80) {
+      this.x = x;
+      this.y = y;
+      this.size = size;
+      this.pullRadius = size * 4;
+      this.damageRadius = size * 0.8;
+      this.pullStrength = 0.8;
+      this.damage = 8;
+      this.rotation = 0;
+      this.rotSpeed = 0.02;
+      this.pulsePhase = Math.random() * Math.PI * 2;
+      this.active = true;
+      this.lifetime = 30000 + rand(0, 20000); // 30-50 seconds
+      this.created = performance.now();
+      this.accretionParticles = [];
+      // Initialize accretion disk particles
+      for (let i = 0; i < 40; i++) {
+        this.accretionParticles.push({
+          angle: rand(0, Math.PI * 2),
+          dist: rand(this.size * 0.9, this.size * 2.5),
+          speed: rand(0.01, 0.04),
+          size: rand(1, 3),
+          alpha: rand(0.3, 0.8)
+        });
+      }
+    }
+    
+    draw(ctx) {
+      if (!this.active) return;
+      const pulse = Math.sin(performance.now() / 300 + this.pulsePhase) * 0.15 + 1;
+      
+      ctx.save();
+      ctx.translate(this.x, this.y);
+      
+      // Outer gravitational distortion effect
+      const gradient = ctx.createRadialGradient(0, 0, this.size * 0.3, 0, 0, this.pullRadius);
+      gradient.addColorStop(0, 'rgba(30, 0, 50, 0)');
+      gradient.addColorStop(0.4, 'rgba(60, 0, 100, 0.1)');
+      gradient.addColorStop(0.7, 'rgba(80, 20, 150, 0.05)');
+      gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(0, 0, this.pullRadius, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Accretion disk - rotating particle ring
+      ctx.save();
+      ctx.rotate(this.rotation);
+      for (const p of this.accretionParticles) {
+        const px = Math.cos(p.angle) * p.dist;
+        const py = Math.sin(p.angle) * p.dist * 0.3; // Elliptical for 3D effect
+        ctx.globalAlpha = p.alpha * pulse;
+        
+        // Color based on distance (hotter closer to center)
+        const heat = 1 - (p.dist - this.size) / (this.size * 1.5);
+        if (heat > 0.7) {
+          ctx.fillStyle = '#fff';
+        } else if (heat > 0.4) {
+          ctx.fillStyle = '#fde047';
+        } else {
+          ctx.fillStyle = '#f97316';
+        }
+        
+        ctx.beginPath();
+        ctx.arc(px, py, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+      
+      // Event horizon (black center)
+      const eventHorizon = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size * pulse);
+      eventHorizon.addColorStop(0, '#000000');
+      eventHorizon.addColorStop(0.7, '#0a0010');
+      eventHorizon.addColorStop(0.9, '#1a0030');
+      eventHorizon.addColorStop(1, 'rgba(50, 0, 80, 0.8)');
+      ctx.fillStyle = eventHorizon;
+      ctx.beginPath();
+      ctx.arc(0, 0, this.size * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Inner glow ring
+      ctx.strokeStyle = 'rgba(168, 85, 247, 0.6)';
+      ctx.lineWidth = 3;
+      ctx.shadowColor = '#a855f7';
+      ctx.shadowBlur = 20;
+      ctx.beginPath();
+      ctx.arc(0, 0, this.size * 0.9 * pulse, 0, Math.PI * 2);
+      ctx.stroke();
+      
+      // Core singularity glow
+      ctx.shadowColor = '#fff';
+      ctx.shadowBlur = 15;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.beginPath();
+      ctx.arc(0, 0, this.size * 0.15, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.restore();
+    }
+    
+    update(dt) {
+      if (!this.active) return;
+      
+      const step = dt / 16.67;
+      this.rotation += this.rotSpeed * step;
+      
+      // Update accretion disk particles
+      for (const p of this.accretionParticles) {
+        p.angle += p.speed * step;
+        // Particles slowly spiral inward
+        if (p.dist > this.size * 0.7) {
+          p.dist -= 0.05 * step;
+        }
+        // Respawn particles that got too close
+        if (p.dist < this.size * 0.7) {
+          p.dist = this.size * 2 + rand(0, this.size * 0.5);
+          p.angle = rand(0, Math.PI * 2);
+        }
+      }
+      
+      // Check lifetime
+      if (performance.now() - this.created > this.lifetime) {
+        this.active = false;
+        return;
+      }
+      
+      // Apply gravitational effects to player
+      if (player) {
+        const dx = this.x - player.x;
+        const dy = this.y - player.y;
+        const dist = Math.hypot(dx, dy);
+        
+        if (dist < this.pullRadius && dist > this.damageRadius) {
+          // Pull effect - stronger closer to center
+          const pullFactor = (1 - dist / this.pullRadius) * this.pullStrength;
+          player.x += (dx / dist) * pullFactor * step;
+          player.y += (dy / dist) * pullFactor * step;
+          
+          // Particle effect when being pulled
+          if (chance(0.1)) {
+            addParticles('sparks', player.x, player.y, Math.atan2(dy, dx), 2);
+          }
+        }
+        
+        // Damage zone
+        if (dist < this.damageRadius) {
+          player.takeDamage(this.damage * (dt / 1000), null);
+          shakeScreen(2, 50);
+        }
+      }
+      
+      // Pull enemies too
+      for (const enemy of enemies) {
+        const dx = this.x - enemy.x;
+        const dy = this.y - enemy.y;
+        const dist = Math.hypot(dx, dy);
+        
+        if (dist < this.pullRadius && dist > this.size * 0.5) {
+          const pullFactor = (1 - dist / this.pullRadius) * this.pullStrength * 0.5;
+          enemy.x += (dx / dist) * pullFactor * step;
+          enemy.y += (dy / dist) * pullFactor * step;
+        }
+        
+        // Destroy enemies that fall in
+        if (dist < this.size * 0.5) {
+          enemy.health = 0;
+        }
+      }
+      
+      // Pull bullets
+      for (const bullet of bullets) {
+        const dx = this.x - bullet.x;
+        const dy = this.y - bullet.y;
+        const dist = Math.hypot(dx, dy);
+        
+        if (dist < this.pullRadius) {
+          const pullFactor = (1 - dist / this.pullRadius) * this.pullStrength * 0.3;
+          bullet.vel.x += (dx / dist) * pullFactor * 0.02;
+          bullet.vel.y += (dy / dist) * pullFactor * 0.02;
+        }
+      }
+    }
+  }
+  
+  // Time Portal - Teleportation and time dilation effects
+  class TimePortal {
+    constructor(x, y, linkedPortal = null) {
+      this.x = x;
+      this.y = y;
+      this.size = 50;
+      this.portalRadius = 35;
+      this.linkedPortal = linkedPortal;
+      this.rotation = 0;
+      this.rotSpeed = 0.03;
+      this.active = true;
+      this.cooldown = 0; // Prevent rapid teleportation
+      this.lifetime = 25000 + rand(0, 15000);
+      this.created = performance.now();
+      this.color = linkedPortal ? '#06b6d4' : '#8b5cf6'; // Cyan for exit, purple for entry
+      this.pulsePhase = Math.random() * Math.PI * 2;
+      this.energyRings = [];
+      // Initialize energy rings
+      for (let i = 0; i < 3; i++) {
+        this.energyRings.push({
+          radius: this.size * (0.5 + i * 0.25),
+          rotation: rand(0, Math.PI * 2),
+          speed: rand(0.02, 0.05) * (i % 2 === 0 ? 1 : -1)
+        });
+      }
+    }
+    
+    draw(ctx) {
+      if (!this.active) return;
+      const pulse = Math.sin(performance.now() / 200 + this.pulsePhase) * 0.2 + 1;
+      
+      ctx.save();
+      ctx.translate(this.x, this.y);
+      
+      // Outer dimensional distortion
+      const gradient = ctx.createRadialGradient(0, 0, this.size * 0.2, 0, 0, this.size * 1.5);
+      gradient.addColorStop(0, this.color === '#8b5cf6' ? 'rgba(139, 92, 246, 0.4)' : 'rgba(6, 182, 212, 0.4)');
+      gradient.addColorStop(0.5, this.color === '#8b5cf6' ? 'rgba(139, 92, 246, 0.1)' : 'rgba(6, 182, 212, 0.1)');
+      gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(0, 0, this.size * 1.5, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Rotating energy rings
+      for (const ring of this.energyRings) {
+        ctx.save();
+        ctx.rotate(ring.rotation);
+        ctx.strokeStyle = this.color;
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 0.6 * pulse;
+        ctx.setLineDash([10, 5]);
+        ctx.beginPath();
+        ctx.arc(0, 0, ring.radius * pulse, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+      }
+      
+      // Portal center
+      const portalGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.portalRadius * pulse);
+      portalGradient.addColorStop(0, '#ffffff');
+      portalGradient.addColorStop(0.3, this.color);
+      portalGradient.addColorStop(0.7, this.color === '#8b5cf6' ? '#4c1d95' : '#164e63');
+      portalGradient.addColorStop(1, '#000000');
+      ctx.fillStyle = portalGradient;
+      ctx.shadowColor = this.color;
+      ctx.shadowBlur = 25;
+      ctx.beginPath();
+      ctx.arc(0, 0, this.portalRadius * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Swirling inner pattern
+      ctx.save();
+      ctx.rotate(this.rotation);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let i = 0; i < 3; i++) {
+        const angle = (i / 3) * Math.PI * 2;
+        const innerR = this.portalRadius * 0.2;
+        const outerR = this.portalRadius * 0.8;
+        ctx.moveTo(Math.cos(angle) * innerR, Math.sin(angle) * innerR);
+        // Spiral arm
+        for (let t = 0; t <= 1; t += 0.1) {
+          const spiralAngle = angle + t * Math.PI;
+          const r = innerR + (outerR - innerR) * t;
+          ctx.lineTo(Math.cos(spiralAngle) * r, Math.sin(spiralAngle) * r);
+        }
+      }
+      ctx.stroke();
+      ctx.restore();
+      
+      // Center glow
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowColor = '#fff';
+      ctx.shadowBlur = 15;
+      ctx.beginPath();
+      ctx.arc(0, 0, this.portalRadius * 0.15 * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.restore();
+    }
+    
+    update(dt) {
+      if (!this.active) return;
+      
+      const step = dt / 16.67;
+      this.rotation += this.rotSpeed * step;
+      
+      // Update energy rings
+      for (const ring of this.energyRings) {
+        ring.rotation += ring.speed * step;
+      }
+      
+      // Cooldown
+      if (this.cooldown > 0) {
+        this.cooldown -= dt;
+      }
+      
+      // Check lifetime
+      if (performance.now() - this.created > this.lifetime) {
+        this.active = false;
+        if (this.linkedPortal) this.linkedPortal.active = false;
+        return;
+      }
+      
+      // Check for player teleportation
+      if (player && this.linkedPortal && this.linkedPortal.active && this.cooldown <= 0) {
+        const dx = player.x - this.x;
+        const dy = player.y - this.y;
+        const dist = Math.hypot(dx, dy);
+        
+        if (dist < this.portalRadius) {
+          // Teleport player
+          player.x = this.linkedPortal.x;
+          player.y = this.linkedPortal.y;
+          
+          // Set cooldown on both portals
+          this.cooldown = 2000;
+          this.linkedPortal.cooldown = 2000;
+          
+          // Effects
+          addParticles('levelup', this.x, this.y, 0, 15);
+          addParticles('levelup', this.linkedPortal.x, this.linkedPortal.y, 0, 15);
+          shakeScreen(4, 150);
+          addLogEntry('⚡ Portal teleport!', '#8b5cf6');
+        }
+      }
+      
+      // Enemies can also be teleported
+      if (this.linkedPortal && this.linkedPortal.active && this.cooldown <= 0) {
+        for (const enemy of enemies) {
+          const dx = enemy.x - this.x;
+          const dy = enemy.y - this.y;
+          const dist = Math.hypot(dx, dy);
+          
+          if (dist < this.portalRadius && chance(0.3)) {
+            enemy.x = this.linkedPortal.x + rand(-50, 50);
+            enemy.y = this.linkedPortal.y + rand(-50, 50);
+            addParticles('sparks', this.linkedPortal.x, this.linkedPortal.y, 0, 5);
+          }
+        }
+      }
+    }
+  }
+  
+  // Nebula - Area effect that reduces visibility and applies status effects
+  class Nebula {
+    constructor(x, y, size = 200) {
+      this.x = x;
+      this.y = y;
+      this.size = size;
+      this.type = chance(0.5) ? 'toxic' : 'electric';
+      this.active = true;
+      this.lifetime = 35000 + rand(0, 20000);
+      this.created = performance.now();
+      this.pulsePhase = Math.random() * Math.PI * 2;
+      this.cloudParticles = [];
+      // Generate cloud particles
+      for (let i = 0; i < 60; i++) {
+        const angle = rand(0, Math.PI * 2);
+        const dist = rand(0, this.size * 0.9);
+        this.cloudParticles.push({
+          x: Math.cos(angle) * dist,
+          y: Math.sin(angle) * dist,
+          size: rand(20, 50),
+          alpha: rand(0.1, 0.4),
+          drift: rand(-0.3, 0.3)
+        });
+      }
+    }
+    
+    draw(ctx) {
+      if (!this.active) return;
+      const pulse = Math.sin(performance.now() / 400 + this.pulsePhase) * 0.1 + 1;
+      
+      ctx.save();
+      ctx.translate(this.x, this.y);
+      
+      // Base gradient
+      const baseColor = this.type === 'toxic' ? 'rgba(34, 197, 94,' : 'rgba(59, 130, 246,';
+      const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size * pulse);
+      gradient.addColorStop(0, baseColor + '0.3)');
+      gradient.addColorStop(0.5, baseColor + '0.15)');
+      gradient.addColorStop(1, baseColor + '0)');
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(0, 0, this.size * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Cloud particles
+      for (const p of this.cloudParticles) {
+        ctx.globalAlpha = p.alpha * pulse;
+        const cloudGradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size);
+        cloudGradient.addColorStop(0, this.type === 'toxic' ? 'rgba(74, 222, 128, 0.4)' : 'rgba(96, 165, 250, 0.4)');
+        cloudGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = cloudGradient;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      
+      // Lightning effects for electric type
+      if (this.type === 'electric' && chance(0.05)) {
+        ctx.strokeStyle = '#60a5fa';
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#3b82f6';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        let lx = rand(-this.size * 0.5, this.size * 0.5);
+        let ly = rand(-this.size * 0.5, this.size * 0.5);
+        ctx.moveTo(lx, ly);
+        for (let i = 0; i < 4; i++) {
+          lx += rand(-40, 40);
+          ly += rand(-40, 40);
+          ctx.lineTo(lx, ly);
+        }
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+      
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
+    
+    update(dt) {
+      if (!this.active) return;
+      
+      const step = dt / 16.67;
+      
+      // Drift cloud particles
+      for (const p of this.cloudParticles) {
+        p.x += p.drift * step;
+        p.y += p.drift * 0.5 * step;
+        // Wrap particles
+        const dist = Math.hypot(p.x, p.y);
+        if (dist > this.size) {
+          const angle = rand(0, Math.PI * 2);
+          p.x = Math.cos(angle) * this.size * 0.3;
+          p.y = Math.sin(angle) * this.size * 0.3;
+        }
+      }
+      
+      // Check lifetime
+      if (performance.now() - this.created > this.lifetime) {
+        this.active = false;
+        return;
+      }
+      
+      // Apply effects to player
+      if (player) {
+        const dx = player.x - this.x;
+        const dy = player.y - this.y;
+        const dist = Math.hypot(dx, dy);
+        
+        if (dist < this.size) {
+          if (this.type === 'toxic') {
+            // Toxic damage over time
+            player.takeDamage(2 * (dt / 1000), null);
+            if (chance(0.02)) {
+              addParticles('smoke', player.x, player.y, 0, 2);
+            }
+          } else {
+            // Electric - occasional shock damage
+            if (chance(0.01)) {
+              player.takeDamage(5, null);
+              addParticles('sparks', player.x, player.y, 0, 8);
+              shakeScreen(2, 50);
+            }
+          }
+        }
+      }
+      
+      // Apply effects to enemies
+      for (const enemy of enemies) {
+        const dx = enemy.x - this.x;
+        const dy = enemy.y - this.y;
+        const dist = Math.hypot(dx, dy);
+        
+        if (dist < this.size) {
+          if (this.type === 'toxic') {
+            enemy.health -= 1 * (dt / 1000);
+          } else if (chance(0.005)) {
+            enemy.health -= 3;
+            addParticles('sparks', enemy.x, enemy.y, 0, 3);
+          }
+        }
+      }
+    }
+  }
+  
+  // Celestial Body - Decorative background planets and moons
+  class CelestialBody {
+    constructor(x, y, type = 'moon') {
+      this.x = x;
+      this.y = y;
+      this.type = type;
+      this.size = type === 'planet' ? rand(150, 300) : rand(40, 100);
+      this.rotation = rand(0, Math.PI * 2);
+      this.rotSpeed = rand(-0.001, 0.001);
+      this.parallax = type === 'planet' ? 0.1 : 0.15; // Distant = less parallax
+      this.baseX = x;
+      this.baseY = y;
+      
+      // Generate surface features
+      this.craters = [];
+      this.color = this.generateColor();
+      const craterCount = type === 'planet' ? rand(5, 12) : rand(2, 6);
+      for (let i = 0; i < craterCount; i++) {
+        const angle = rand(0, Math.PI * 2);
+        const dist = rand(0, this.size * 0.7);
+        this.craters.push({
+          x: Math.cos(angle) * dist,
+          y: Math.sin(angle) * dist,
+          r: rand(this.size * 0.05, this.size * 0.15)
+        });
+      }
+      
+      // Rings for some planets
+      this.hasRings = type === 'planet' && chance(0.4);
+      this.ringColor = chance(0.5) ? 'rgba(200, 180, 150,' : 'rgba(180, 200, 220,';
+    }
+    
+    generateColor() {
+      const colors = {
+        moon: ['#9ca3af', '#6b7280', '#d1d5db', '#e5e7eb'],
+        planet: ['#92400e', '#0891b2', '#7c3aed', '#dc2626', '#059669', '#ca8a04']
+      };
+      const palette = colors[this.type];
+      return palette[Math.floor(Math.random() * palette.length)];
+    }
+    
+    draw(ctx) {
+      ctx.save();
+      
+      // Apply parallax based on camera position
+      // Since ctx is already translated by -camera, we need to add back camera offset
+      // and then apply our own reduced parallax
+      const parallaxOffset = 1 - this.parallax;
+      const px = this.baseX + camera.x * parallaxOffset;
+      const py = this.baseY + camera.y * parallaxOffset;
+      
+      ctx.translate(px, py);
+      ctx.rotate(this.rotation);
+      
+      // Shadow side gradient (3D effect)
+      const bodyGradient = ctx.createRadialGradient(
+        -this.size * 0.3, -this.size * 0.3, 0,
+        0, 0, this.size
+      );
+      bodyGradient.addColorStop(0, this.adjustBrightness(this.color, 1.3));
+      bodyGradient.addColorStop(0.5, this.color);
+      bodyGradient.addColorStop(1, this.adjustBrightness(this.color, 0.4));
+      
+      // Main body
+      ctx.fillStyle = bodyGradient;
+      ctx.beginPath();
+      ctx.arc(0, 0, this.size, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Atmosphere glow for planets
+      if (this.type === 'planet') {
+        ctx.globalAlpha = 0.2;
+        const atmosGradient = ctx.createRadialGradient(0, 0, this.size * 0.9, 0, 0, this.size * 1.15);
+        atmosGradient.addColorStop(0, 'rgba(255, 255, 255, 0)');
+        atmosGradient.addColorStop(0.7, this.color);
+        atmosGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        ctx.fillStyle = atmosGradient;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size * 1.15, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      
+      // Surface craters
+      ctx.globalAlpha = 0.4;
+      for (const crater of this.craters) {
+        const craterGrad = ctx.createRadialGradient(
+          crater.x, crater.y, 0,
+          crater.x, crater.y, crater.r
+        );
+        craterGrad.addColorStop(0, 'rgba(0, 0, 0, 0.4)');
+        craterGrad.addColorStop(0.7, 'rgba(0, 0, 0, 0.2)');
+        craterGrad.addColorStop(1, 'rgba(255, 255, 255, 0.1)');
+        ctx.fillStyle = craterGrad;
+        ctx.beginPath();
+        ctx.arc(crater.x, crater.y, crater.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      
+      // Rings for ringed planets
+      if (this.hasRings) {
+        ctx.save();
+        ctx.rotate(Math.PI * 0.15); // Slight tilt
+        ctx.scale(1, 0.3); // Flatten for 3D perspective
+        
+        // Ring layers
+        for (let i = 0; i < 3; i++) {
+          const innerR = this.size * (1.3 + i * 0.15);
+          const outerR = this.size * (1.4 + i * 0.15);
+          ctx.strokeStyle = this.ringColor + (0.4 - i * 0.1) + ')';
+          ctx.lineWidth = outerR - innerR;
+          ctx.beginPath();
+          ctx.arc(0, 0, (innerR + outerR) / 2, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+      
+      // Highlight
+      ctx.globalAlpha = 0.3;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(-this.size * 0.3, -this.size * 0.3, this.size * 0.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      
+      ctx.restore();
+    }
+    
+    adjustBrightness(hex, factor) {
+      // Convert hex to RGB and adjust brightness
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      const newR = Math.min(255, Math.floor(r * factor));
+      const newG = Math.min(255, Math.floor(g * factor));
+      const newB = Math.min(255, Math.floor(b * factor));
+      return `rgb(${newR}, ${newG}, ${newB})`;
+    }
+    
+    update(dt) {
+      this.rotation += this.rotSpeed * (dt / 16.67);
+    }
+  }
+  
+  // Asteroid Belt - Dense field of moving asteroids
+  class AsteroidBelt {
+    constructor(x, y, width = 400) {
+      this.x = x;
+      this.y = y;
+      this.width = width;
+      this.height = 100;
+      this.rotation = rand(0, Math.PI * 2);
+      this.active = true;
+      this.lifetime = 40000 + rand(0, 20000);
+      this.created = performance.now();
+      this.asteroids = [];
+      
+      // Generate belt asteroids
+      for (let i = 0; i < 25; i++) {
+        this.asteroids.push({
+          offset: rand(-this.width / 2, this.width / 2),
+          perpOffset: rand(-this.height / 2, this.height / 2),
+          size: rand(8, 25),
+          rot: rand(0, Math.PI * 2),
+          rotSpeed: rand(-0.03, 0.03),
+          speed: rand(0.3, 0.8) * (chance(0.5) ? 1 : -1),
+          variant: chance(0.3) ? 'iron' : chance(0.3) ? 'ember' : 'rock'
+        });
+      }
+    }
+    
+    draw(ctx) {
+      if (!this.active) return;
+      
+      ctx.save();
+      ctx.translate(this.x, this.y);
+      ctx.rotate(this.rotation);
+      
+      // Draw belt boundary indicator
+      ctx.globalAlpha = 0.1;
+      ctx.fillStyle = '#9ca3af';
+      ctx.fillRect(-this.width / 2, -this.height / 2, this.width, this.height);
+      ctx.globalAlpha = 1;
+      
+      // Draw asteroids
+      for (const a of this.asteroids) {
+        ctx.save();
+        ctx.translate(a.offset, a.perpOffset);
+        ctx.rotate(a.rot);
+        
+        let fill = '#1f2937';
+        let stroke = '#9ca3af';
+        if (a.variant === 'ember') {
+          fill = '#3b0d0d';
+          stroke = '#f87171';
+        } else if (a.variant === 'iron') {
+          fill = '#111827';
+          stroke = '#94a3b8';
+        }
+        
+        ctx.fillStyle = fill;
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = 1.5;
+        
+        // Simple polygon asteroid
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+          const angle = (i / 6) * Math.PI * 2;
+          const r = a.size * (0.7 + Math.sin(angle * 3 + a.rot) * 0.3);
+          if (i === 0) ctx.moveTo(Math.cos(angle) * r, Math.sin(angle) * r);
+          else ctx.lineTo(Math.cos(angle) * r, Math.sin(angle) * r);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        
+        ctx.restore();
+      }
+      
+      ctx.restore();
+    }
+    
+    update(dt) {
+      if (!this.active) return;
+      
+      const step = dt / 16.67;
+      
+      // Check lifetime
+      if (performance.now() - this.created > this.lifetime) {
+        this.active = false;
+        return;
+      }
+      
+      // Update asteroids
+      for (const a of this.asteroids) {
+        a.offset += a.speed * step;
+        a.rot += a.rotSpeed * step;
+        
+        // Wrap around
+        if (a.offset > this.width / 2) a.offset = -this.width / 2;
+        if (a.offset < -this.width / 2) a.offset = this.width / 2;
+      }
+      
+      // Collision with player
+      if (player) {
+        // Transform player position to belt space
+        const dx = player.x - this.x;
+        const dy = player.y - this.y;
+        const cos = Math.cos(-this.rotation);
+        const sin = Math.sin(-this.rotation);
+        const localX = dx * cos - dy * sin;
+        const localY = dx * sin + dy * cos;
+        
+        // Check if player is in belt area
+        if (Math.abs(localX) < this.width / 2 && Math.abs(localY) < this.height / 2) {
+          // Check individual asteroid collisions
+          for (const a of this.asteroids) {
+            const adx = localX - a.offset;
+            const ady = localY - a.perpOffset;
+            if (Math.hypot(adx, ady) < a.size + player.size) {
+              // Push player and deal damage
+              const pushDir = Math.atan2(dy, dx);
+              player.x += Math.cos(pushDir) * 3;
+              player.y += Math.sin(pushDir) * 3;
+              player.takeDamage(4, null);
+              addParticles('sparks', player.x, player.y, 0, 3);
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  // Solar Flare - Periodic damaging beam from off-screen
+  class SolarFlare {
+    constructor() {
+      this.active = true;
+      this.warning = true;
+      this.warningStart = performance.now();
+      this.warningDuration = 2000;
+      this.flareDuration = 1500;
+      this.flareStart = 0;
+      this.lifetime = this.warningDuration + this.flareDuration + 1000;
+      this.created = performance.now();
+      
+      // Random direction
+      this.angle = rand(0, Math.PI * 2);
+      this.width = 100;
+      this.damage = 15;
+    }
+    
+    draw(ctx) {
+      if (!this.active) return;
+      
+      const now = performance.now();
+      
+      if (this.warning) {
+        // Warning phase - show indicator
+        const progress = (now - this.warningStart) / this.warningDuration;
+        const flashAlpha = Math.sin(progress * Math.PI * 8) * 0.3 + 0.3;
+        
+        ctx.save();
+        if (player) {
+          ctx.translate(player.x, player.y);
+        }
+        ctx.rotate(this.angle);
+        
+        // Warning beam indicator
+        ctx.globalAlpha = flashAlpha;
+        ctx.fillStyle = '#fbbf24';
+        ctx.fillRect(-2000, -this.width / 2, 4000, this.width);
+        
+        // Warning text
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#fbbf24';
+        ctx.font = 'bold 24px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('⚠ SOLAR FLARE INCOMING ⚠', 0, -this.width - 20);
+        
+        ctx.restore();
+      } else {
+        // Flare phase - actual damage beam
+        const progress = (now - this.flareStart) / this.flareDuration;
+        const intensity = Math.sin(progress * Math.PI);
+        
+        ctx.save();
+        if (player) {
+          ctx.translate(player.x, player.y);
+        }
+        ctx.rotate(this.angle);
+        
+        // Main beam
+        const gradient = ctx.createLinearGradient(0, -this.width, 0, this.width);
+        gradient.addColorStop(0, 'rgba(251, 191, 36, 0)');
+        gradient.addColorStop(0.3, `rgba(251, 191, 36, ${intensity * 0.8})`);
+        gradient.addColorStop(0.5, `rgba(255, 255, 255, ${intensity})`);
+        gradient.addColorStop(0.7, `rgba(251, 191, 36, ${intensity * 0.8})`);
+        gradient.addColorStop(1, 'rgba(251, 191, 36, 0)');
+        
+        ctx.fillStyle = gradient;
+        ctx.fillRect(-2000, -this.width, 4000, this.width * 2);
+        
+        // Core beam
+        ctx.fillStyle = `rgba(255, 255, 255, ${intensity})`;
+        ctx.fillRect(-2000, -this.width * 0.2, 4000, this.width * 0.4);
+        
+        ctx.restore();
+      }
+    }
+    
+    update(dt) {
+      if (!this.active) return;
+      
+      const now = performance.now();
+      
+      // Check lifetime
+      if (now - this.created > this.lifetime) {
+        this.active = false;
+        return;
+      }
+      
+      // Transition from warning to flare
+      if (this.warning && now - this.warningStart > this.warningDuration) {
+        this.warning = false;
+        this.flareStart = now;
+        addLogEntry('☀️ SOLAR FLARE!', '#fbbf24');
+        shakeScreen(8, 500);
+      }
+      
+      // Apply damage during flare
+      if (!this.warning && player) {
+        const progress = (now - this.flareStart) / this.flareDuration;
+        if (progress < 1) {
+          // Check if player is in beam path
+          // Simplified: damage based on distance from beam center
+          const perpDist = this.getPerpendicularDistance(player.x, player.y);
+          if (perpDist < this.width) {
+            player.takeDamage(this.damage * (dt / 1000) * (1 - perpDist / this.width), null);
+          }
+        }
+      }
+    }
+    
+    getPerpendicularDistance(px, py) {
+      if (!player) return Infinity;
+      // Distance from player to the beam line
+      const dx = px - player.x;
+      const dy = py - player.y;
+      const cos = Math.cos(this.angle + Math.PI / 2);
+      const sin = Math.sin(this.angle + Math.PI / 2);
+      return Math.abs(dx * cos + dy * sin);
+    }
+  }
+  
+  // Spawn environmental hazards based on level and wave type
+  const spawnHazards = () => {
+    hazards = [];
+    celestialBodies = [];
+    if (!player) return;
+    
+    const waveType = WAVE_TYPES[currentWaveType];
+    const isHazardWave = waveType && waveType.hazards;
+    
+    // Always spawn some celestial bodies for visual interest (background decorations)
+    const planetCount = rand(1, 3);  // At least 1 planet
+    const moonCount = rand(2, 5);    // At least 2 moons
+    
+    // Spawn distant planets - closer range for visibility
+    for (let i = 0; i < planetCount; i++) {
+      const pos = randomAround(player.x, player.y, viewRadius(0.8), viewRadius(1.8));
+      celestialBodies.push(new CelestialBody(pos.x, pos.y, 'planet'));
+    }
+    
+    // Spawn moons - closer range for visibility
+    for (let i = 0; i < moonCount; i++) {
+      const pos = randomAround(player.x, player.y, viewRadius(0.6), viewRadius(1.5));
+      celestialBodies.push(new CelestialBody(pos.x, pos.y, 'moon'));
+    }
+    
+    // Hazards appear based on level and wave type
+    const hazardChance = isHazardWave ? 0.8 : 0.15 + level * 0.02;
+    
+    if (level >= 3 && (isHazardWave || chance(hazardChance))) {
+      // Black holes - dangerous gravitational hazard
+      if (level >= 5 && (isHazardWave || chance(0.3))) {
+        const blackHoleCount = isHazardWave ? rand(1, 3) : 1;
+        for (let i = 0; i < blackHoleCount; i++) {
+          const pos = randomAround(player.x, player.y, viewRadius(0.5), viewRadius(1.2));
+          const size = rand(50, 100) + level * 2;
+          hazards.push(new BlackHole(pos.x, pos.y, size));
+        }
+        addLogEntry('⚫ Black hole detected!', '#a855f7');
+      }
+      
+      // Time portals - teleportation hazard (come in pairs)
+      if (level >= 4 && (isHazardWave || chance(0.35))) {
+        const portalPairs = isHazardWave ? rand(1, 2) : 1;
+        for (let i = 0; i < portalPairs; i++) {
+          const pos1 = randomAround(player.x, player.y, viewRadius(0.4), viewRadius(0.8));
+          const pos2 = randomAround(player.x, player.y, viewRadius(0.6), viewRadius(1.1));
+          const portal1 = new TimePortal(pos1.x, pos1.y);
+          const portal2 = new TimePortal(pos2.x, pos2.y, portal1);
+          portal1.linkedPortal = portal2;
+          hazards.push(portal1);
+          hazards.push(portal2);
+        }
+        addLogEntry('🌀 Time portals opened!', '#8b5cf6');
+      }
+      
+      // Nebulae - area damage zones
+      if (level >= 3 && (isHazardWave || chance(0.4))) {
+        const nebulaCount = isHazardWave ? rand(1, 3) : 1;
+        for (let i = 0; i < nebulaCount; i++) {
+          const pos = randomAround(player.x, player.y, viewRadius(0.3), viewRadius(1));
+          const size = rand(150, 300) + level * 5;
+          hazards.push(new Nebula(pos.x, pos.y, size));
+        }
+        addLogEntry('☁️ Nebula cloud detected!', '#22c55e');
+      }
+      
+      // Asteroid belt - moving obstacle field
+      if (level >= 6 && (isHazardWave || chance(0.25))) {
+        const pos = randomAround(player.x, player.y, viewRadius(0.5), viewRadius(1));
+        const width = rand(300, 500) + level * 10;
+        hazards.push(new AsteroidBelt(pos.x, pos.y, width));
+        addLogEntry('🪨 Asteroid belt ahead!', '#9ca3af');
+      }
+      
+      // Solar flare - periodic beam attack (only in hazard waves or high levels)
+      if ((isHazardWave && chance(0.5)) || (level >= 10 && chance(0.15))) {
+        hazards.push(new SolarFlare());
+        addLogEntry('⚠️ Solar activity detected!', '#fbbf24');
+      }
+    }
+  };
+  
+  // Update all hazards
+  const updateHazards = (dt) => {
+    // Update celestial bodies
+    for (const body of celestialBodies) {
+      body.update(dt);
+    }
+    
+    // Update and clean up hazards
+    for (let i = hazards.length - 1; i >= 0; i--) {
+      hazards[i].update(dt);
+      if (!hazards[i].active) {
+        hazards.splice(i, 1);
+      }
+    }
+  };
+  
+  // Draw all environmental objects
+  const drawEnvironment = (ctx) => {
+    // Draw celestial bodies first (background)
+    for (const body of celestialBodies) {
+      body.draw(ctx);
+    }
+    
+    // Draw hazards
+    for (const hazard of hazards) {
+      hazard.draw(ctx);
     }
   };
 
@@ -4120,6 +5131,9 @@
 
     for (const obstacle of obstacles) obstacle.update(dt);
 
+    // Update environmental hazards
+    updateHazards(dt);
+
     for (let i = enemies.length - 1; i >= 0; i--) {
       const enemy = enemies[i];
       const dx = player.x - enemy.x;
@@ -4251,6 +5265,7 @@
     queueTimedEffect(3000, () => {
       countdownActive = false;
       spawnObstacles();
+      spawnHazards();  // Spawn environmental hazards
       
       // Spawn rate modifier for wave types
       let spawnerCount = Math.min(1 + Math.floor(level / 2), 5);
@@ -4346,6 +5361,10 @@
       // Bright prominent stars (rare)
       drawEnhancedStarsLayer(ctx, starsBright, 0.25);
     }
+    
+    // Draw celestial bodies and hazards (background layer)
+    drawEnvironment(ctx);
+    
     for (const obstacle of obstacles) obstacle.draw(ctx);
     if (!player) {
       ctx.restore();
@@ -4630,6 +5649,7 @@
     camera.x = player.x - dom.canvas.width / 2;
     camera.y = player.y - dom.canvas.height / 2;
     spawnObstacles();
+    spawnHazards();  // Spawn environmental hazards
     createSpawners(Math.min(1 + Math.floor(level / 2), 5), resetScore);  // Increased max spawners to 5
     if (!starsFar) {
       initStarLayers();
@@ -4918,6 +5938,7 @@
         camera.x = player.x - window.innerWidth / 2;
         camera.y = player.y - window.innerHeight / 2;
         spawnObstacles();
+        spawnHazards();  // Spawn environmental hazards
         createSpawners(Math.min(1 + Math.floor(level / 2), 5), false);
         
         if (!starsFar) {
