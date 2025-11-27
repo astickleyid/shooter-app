@@ -4867,7 +4867,7 @@
   /* ====== SHOP ====== */
   const renderShop = () => {
     dom.shopGrid.innerHTML = '';
-    ['Offense', 'Defense', 'Utility'].forEach((cat) => {
+    ['Offense', 'Defense', 'Utility', 'Special'].forEach((cat) => {
       const head = document.createElement('div');
       head.style.gridColumn = '1/-1';
       head.style.margin = '6px 0';
@@ -6572,7 +6572,7 @@
       const tempGrid = document.createElement('div');
       tempGrid.className = 'shopGrid';
       
-      ['Offense', 'Defense', 'Utility'].forEach((cat) => {
+      ['Offense', 'Defense', 'Utility', 'Special'].forEach((cat) => {
         const head = document.createElement('div');
         head.style.gridColumn = '1/-1';
         head.style.margin = '6px 0';
