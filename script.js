@@ -291,11 +291,73 @@
   ];
 
   // Adaptive difficulty - scales challenge based on player power
+  // Adaptive difficulty constants
+  const ADAPTIVE_CONSTANTS = {
+    // Scaling weights
+    POWER_WEIGHT: 0.6,
+    LEVEL_WEIGHT: 0.4,
+    MAX_LEVEL_FOR_SCALING: 20,
+    
+    // Enemy damage scaling
+    MAX_DAMAGE_MULTIPLIER: 1.5,
+    
+    // Shield penetration
+    MAX_SHIELD_PENETRATION: 0.5,
+    PENETRATION_SCALE: 0.6,
+    ELITE_PENETRATION_BONUS: 0.2,
+    BOSS_PENETRATION_BONUS: 0.35,
+    BULLET_PENETRATION_FACTOR: 0.7,
+    
+    // Repulse field
+    MIN_REPULSE_EFFECTIVENESS: 0.3,
+    REPULSE_SCALE: 0.7,
+    ELITE_REPULSE_RESISTANCE: 0.5,
+    BOSS_REPULSE_RESISTANCE: 0.8,
+    
+    // Enemy speed
+    MAX_SPEED_BOOST: 0.4,
+    
+    // Elite/Boss spawn rates
+    MAX_ELITE_CHANCE: 0.35,
+    ELITE_CHANCE_SCALE: 0.4,
+    MIN_BOSS_INTERVAL: 3,
+    MAX_BOSS_INTERVAL: 8,
+    
+    // Elite stats
+    ELITE_SIZE_MULT: 1.3,
+    ELITE_SPEED_MULT: 1.15,
+    ELITE_HEALTH_MULT: 3,
+    ELITE_DAMAGE_MULT: 1.5,
+    
+    // Boss stats
+    BOSS_SIZE_MULT: 2.5,
+    BOSS_SPEED_MULT: 0.7,
+    BOSS_BASE_HEALTH_MULT: 15,
+    BOSS_HEALTH_PER_LEVEL: 2,
+    BOSS_DAMAGE_MULT: 2,
+    
+    // Ranged attack scaling
+    RANGED_DAMAGE_MULT: 0.6,
+    BOSS_BULLET_SPEED_MULT: 0.8,
+    ELITE_BULLET_SPEED_MULT: 0.6
+  };
+
+  // Cached power calculations (invalidated when upgrades change)
+  let cachedPowerLevel = null;
+  let cachedPowerRatio = null;
+
+  const invalidatePowerCache = () => {
+    cachedPowerLevel = null;
+    cachedPowerRatio = null;
+  };
+
   const getPlayerPowerLevel = () => {
+    if (cachedPowerLevel !== null) return cachedPowerLevel;
     let total = 0;
     UPGRADES.forEach(u => {
       total += Save.getUpgradeLevel(u.id);
     });
+    cachedPowerLevel = total;
     return total;
   };
 
@@ -305,29 +367,31 @@
 
   // Returns 0-1 scale of how powered up the player is
   const getPowerRatio = () => {
+    if (cachedPowerRatio !== null) return cachedPowerRatio;
     const max = getMaxPossiblePower();
-    return max > 0 ? getPlayerPowerLevel() / max : 0;
+    cachedPowerRatio = max > 0 ? getPlayerPowerLevel() / max : 0;
+    return cachedPowerRatio;
   };
 
   // Adaptive scaling factors based on player power
   const getAdaptiveScaling = () => {
     const powerRatio = getPowerRatio();
-    const levelFactor = Math.min(level / 20, 1); // Cap at level 20 for scaling
-    const combinedFactor = (powerRatio * 0.6 + levelFactor * 0.4);
+    const levelFactor = Math.min(level / ADAPTIVE_CONSTANTS.MAX_LEVEL_FOR_SCALING, 1);
+    const combinedFactor = (powerRatio * ADAPTIVE_CONSTANTS.POWER_WEIGHT + levelFactor * ADAPTIVE_CONSTANTS.LEVEL_WEIGHT);
     
     return {
       // Enemy damage scales up to bypass high defenses
-      enemyDamageMultiplier: 1 + combinedFactor * 1.5,
+      enemyDamageMultiplier: 1 + combinedFactor * ADAPTIVE_CONSTANTS.MAX_DAMAGE_MULTIPLIER,
       // Shield penetration increases (% of damage that bypasses shields)
-      shieldPenetration: Math.min(0.5, combinedFactor * 0.6),
+      shieldPenetration: Math.min(ADAPTIVE_CONSTANTS.MAX_SHIELD_PENETRATION, combinedFactor * ADAPTIVE_CONSTANTS.PENETRATION_SCALE),
       // Repulse field becomes less effective at higher power levels
-      repulseEffectiveness: Math.max(0.3, 1 - combinedFactor * 0.7),
+      repulseEffectiveness: Math.max(ADAPTIVE_CONSTANTS.MIN_REPULSE_EFFECTIVENESS, 1 - combinedFactor * ADAPTIVE_CONSTANTS.REPULSE_SCALE),
       // Enemy speed increases slightly
-      enemySpeedBoost: 1 + combinedFactor * 0.4,
+      enemySpeedBoost: 1 + combinedFactor * ADAPTIVE_CONSTANTS.MAX_SPEED_BOOST,
       // Elite enemy spawn chance increases
-      eliteChance: Math.min(0.35, combinedFactor * 0.4),
+      eliteChance: Math.min(ADAPTIVE_CONSTANTS.MAX_ELITE_CHANCE, combinedFactor * ADAPTIVE_CONSTANTS.ELITE_CHANCE_SCALE),
       // Boss spawn threshold (every N levels)
-      bossInterval: Math.max(3, 8 - Math.floor(powerRatio * 5)),
+      bossInterval: Math.max(ADAPTIVE_CONSTANTS.MIN_BOSS_INTERVAL, ADAPTIVE_CONSTANTS.MAX_BOSS_INTERVAL - Math.floor(powerRatio * 5)),
       // Environment hazard intensity
       hazardIntensity: combinedFactor
     };
@@ -662,6 +726,7 @@
     levelUp(id) {
       this.data.upgrades[id] = (this.data.upgrades[id] || 0) + 1;
       this.save();
+      invalidatePowerCache(); // Invalidate cached power calculations
     },
     isUnlocked(type, id) {
       const bucket = this.data.armory.unlocked[type] || [];
@@ -1695,18 +1760,18 @@
       
       // Damage scaling with adaptive difficulty
       this.baseDamage = BASE.ENEMY_DAMAGE * diff.enemyDamage * adaptive.enemyDamageMultiplier;
-      if (isElite) this.baseDamage *= 1.5;
-      if (isBoss) this.baseDamage *= 2;
+      if (isElite) this.baseDamage *= ADAPTIVE_CONSTANTS.ELITE_DAMAGE_MULT;
+      if (isBoss) this.baseDamage *= ADAPTIVE_CONSTANTS.BOSS_DAMAGE_MULT;
       
       // Elite/Boss special abilities
       this.shieldPenetration = adaptive.shieldPenetration;
-      if (isElite) this.shieldPenetration += 0.2;
-      if (isBoss) this.shieldPenetration += 0.35;
+      if (isElite) this.shieldPenetration += ADAPTIVE_CONSTANTS.ELITE_PENETRATION_BONUS;
+      if (isBoss) this.shieldPenetration += ADAPTIVE_CONSTANTS.BOSS_PENETRATION_BONUS;
       
       // Can bypass repulse field partially
       this.repulseResistance = 0;
-      if (isElite) this.repulseResistance = 0.5;
-      if (isBoss) this.repulseResistance = 0.8;
+      if (isElite) this.repulseResistance = ADAPTIVE_CONSTANTS.ELITE_REPULSE_RESISTANCE;
+      if (isBoss) this.repulseResistance = ADAPTIVE_CONSTANTS.BOSS_REPULSE_RESISTANCE;
       
       // Boss special attack timers
       this.lastSpecialAttack = 0;
@@ -2052,8 +2117,10 @@
       const dy = player.y - this.y;
       const dist = Math.hypot(dx, dy) || 1;
       const vel = { x: dx / dist, y: dy / dist };
-      const damage = this.baseDamage * 0.6;
-      const speed = this.isBoss ? BASE.BULLET_SPEED * 0.8 : BASE.BULLET_SPEED * 0.6;
+      const damage = this.baseDamage * ADAPTIVE_CONSTANTS.RANGED_DAMAGE_MULT;
+      const speed = this.isBoss 
+        ? BASE.BULLET_SPEED * ADAPTIVE_CONSTANTS.BOSS_BULLET_SPEED_MULT 
+        : BASE.BULLET_SPEED * ADAPTIVE_CONSTANTS.ELITE_BULLET_SPEED_MULT;
       const size = this.isBoss ? BASE.BULLET_SIZE * 1.5 : BASE.BULLET_SIZE * 1.2;
       bullets.push(new Bullet(this.x, this.y, vel, damage, '#dc2626', speed, size, 0, true));
       addParticles('muzzle', this.x, this.y, this.rot, 4);
@@ -2675,11 +2742,8 @@
       const now = performance.now();
       if (now < this.invEnd) return;
       
-      // Calculate shield penetration from enemy source
-      let penetration = 0;
-      if (source && typeof source === 'object') {
-        penetration = source.shieldPenetration || 0;
-      }
+      // Calculate shield penetration from enemy source using optional chaining
+      const penetration = source?.shieldPenetration ?? 0;
       
       if (this.isDefenseActive(now)) {
         const absorb = this.defenseStats.absorb || 0;
@@ -3625,7 +3689,7 @@
         bullets.splice(i, 1);
         // Enemy bullets inherit shield penetration from adaptive scaling
         const adaptive = getAdaptiveScaling();
-        const source = { shieldPenetration: adaptive.shieldPenetration * 0.7 };
+        const source = { shieldPenetration: adaptive.shieldPenetration * ADAPTIVE_CONSTANTS.BULLET_PENETRATION_FACTOR };
         player.takeDamage(bullet.damage, source);
       }
     }
@@ -3750,8 +3814,9 @@
     }
     
     if (currentWaveType === 'boss') {
-      // Boss wave ends when boss is dead
-      if (bossActive && (!bossEntity || bossEntity.health <= 0)) {
+      // Boss wave ends when boss is dead (removed from enemies array)
+      // bossEntity is set to null when the boss dies in handleEnemyDeath
+      if (bossActive && !bossEntity) {
         addLogEntry('🎉 BOSS DEFEATED!', '#4ade80');
         bossActive = false;
         // Give bonus rewards
