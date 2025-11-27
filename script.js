@@ -371,6 +371,10 @@
   let starsFar = null;
   let starsMid = null;
   let starsNear = null;
+  // Enhanced star layers for premium visual depth
+  let starsDeepSpace = null;     // Extremely distant, subtle stars
+  let starsNebula = null;        // Faint colored nebula dust
+  let starsBright = null;        // Bright foreground accent stars
   let particles = [];
   let obstacles = [];
   let timedEffects = [];
@@ -940,6 +944,7 @@
     obstacles = [];
     timedEffects = [];
     starsFar = starsMid = starsNear = null;
+    starsDeepSpace = starsNebula = starsBright = null;
     score = 0;
     level = 1;
     enemiesToKill = 15;  // Increased from 10 for better pacing
@@ -1319,6 +1324,60 @@
     return arr;
   };
 
+  // Enhanced star maker with color and twinkle support
+  const makeEnhancedStars = (n, options = {}) => {
+    const arr = [];
+    const margin = viewRadius(1.6);
+    const cx = camera.x + window.innerWidth / 2;
+    const cy = camera.y + window.innerHeight / 2;
+    const colors = options.colors || ['#ffffff'];
+    const minSize = options.minSize || 0.4;
+    const maxSize = options.maxSize || 2.4;
+    const twinkle = options.twinkle || false;
+    
+    for (let i = 0; i < n; i++) {
+      arr.push({
+        x: cx + (Math.random() - 0.5) * margin * 2,
+        y: cy + (Math.random() - 0.5) * margin * 2,
+        s: Math.random() * (maxSize - minSize) + minSize,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        twinkle: twinkle,
+        twinklePhase: Math.random() * Math.PI * 2,
+        twinkleSpeed: 0.002 + Math.random() * 0.003,
+        baseAlpha: options.baseAlpha || 1
+      });
+    }
+    return arr;
+  };
+
+  // Create nebula dust particles - larger, colored, very faint
+  const makeNebulaDust = (n) => {
+    const arr = [];
+    const margin = viewRadius(2.0);
+    const cx = camera.x + window.innerWidth / 2;
+    const cy = camera.y + window.innerHeight / 2;
+    const nebulaColors = [
+      'rgba(138, 43, 226, 0.15)',   // Purple
+      'rgba(30, 144, 255, 0.12)',   // Dodger blue
+      'rgba(255, 20, 147, 0.10)',   // Deep pink
+      'rgba(0, 191, 255, 0.12)',    // Deep sky blue
+      'rgba(148, 0, 211, 0.10)',    // Dark violet
+      'rgba(72, 61, 139, 0.15)'     // Dark slate blue
+    ];
+    
+    for (let i = 0; i < n; i++) {
+      arr.push({
+        x: cx + (Math.random() - 0.5) * margin * 2,
+        y: cy + (Math.random() - 0.5) * margin * 2,
+        s: Math.random() * 60 + 30,
+        color: nebulaColors[Math.floor(Math.random() * nebulaColors.length)],
+        driftX: (Math.random() - 0.5) * 0.02,
+        driftY: (Math.random() - 0.5) * 0.02
+      });
+    }
+    return arr;
+  };
+
   const drawStarsLayer = (ctx, arr, speed) => {
     ctx.fillStyle = '#fff';
     for (const star of arr) {
@@ -1346,11 +1405,97 @@
     ctx.globalAlpha = 1;
   };
 
+  // Enhanced star layer drawing with color, twinkle, and glow support
+  const drawEnhancedStarsLayer = (ctx, arr, speed, options = {}) => {
+    const glow = options.glow || false;
+    
+    for (const star of arr) {
+      let alpha = clamp(star.s / 2.6, 0.2, 0.9) * (star.baseAlpha || 1);
+      
+      // Apply twinkling effect
+      if (star.twinkle) {
+        star.twinklePhase += star.twinkleSpeed * 16;
+        alpha *= 0.6 + 0.4 * Math.sin(star.twinklePhase);
+      }
+      
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = star.color || '#fff';
+      
+      // Draw glow for bright stars
+      if (glow && star.s > 1.5) {
+        ctx.shadowColor = star.color || '#fff';
+        ctx.shadowBlur = star.s * 2;
+      }
+      
+      ctx.fillRect(star.x, star.y, star.s, star.s);
+      
+      if (glow && star.s > 1.5) {
+        ctx.shadowBlur = 0;
+      }
+      
+      // Move star with parallax
+      star.x -= speed;
+      const margin = viewRadius(1.8);
+      if (star.x < camera.x - margin) {
+        star.x = camera.x + margin;
+        star.y = camera.y + (Math.random() - 0.5) * margin * 2;
+      }
+      if (star.x > camera.x + margin) {
+        star.x = camera.x - margin;
+        star.y = camera.y + (Math.random() - 0.5) * margin * 2;
+      }
+      if (star.y < camera.y - margin) {
+        star.y = camera.y + margin;
+        star.x = camera.x + (Math.random() - 0.5) * margin * 2;
+      }
+      if (star.y > camera.y + margin) {
+        star.y = camera.y - margin;
+        star.x = camera.x + (Math.random() - 0.5) * margin * 2;
+      }
+    }
+    ctx.globalAlpha = 1;
+  };
+
+  // Draw nebula dust layer (very slow moving, large blurred circles)
+  const drawNebulaLayer = (ctx, arr, speed) => {
+    for (const dust of arr) {
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = dust.color;
+      
+      ctx.beginPath();
+      ctx.arc(dust.x, dust.y, dust.s, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Very slow drift
+      dust.x -= speed + dust.driftX;
+      dust.y += dust.driftY;
+      
+      const margin = viewRadius(2.2);
+      if (dust.x < camera.x - margin) {
+        dust.x = camera.x + margin;
+        dust.y = camera.y + (Math.random() - 0.5) * margin * 2;
+      }
+      if (dust.x > camera.x + margin) {
+        dust.x = camera.x - margin;
+        dust.y = camera.y + (Math.random() - 0.5) * margin * 2;
+      }
+      if (dust.y < camera.y - margin) {
+        dust.y = camera.y + margin;
+        dust.x = camera.x + (Math.random() - 0.5) * margin * 2;
+      }
+      if (dust.y > camera.y + margin) {
+        dust.y = camera.y - margin;
+        dust.x = camera.x + (Math.random() - 0.5) * margin * 2;
+      }
+    }
+    ctx.globalAlpha = 1;
+  };
+
   const recenterStars = () => {
     const margin = viewRadius(1.6);
     const cx = camera.x + window.innerWidth / 2;
     const cy = camera.y + window.innerHeight / 2;
-    const bundles = [starsFar, starsMid, starsNear];
+    const bundles = [starsFar, starsMid, starsNear, starsDeepSpace, starsNebula, starsBright];
     for (const layer of bundles) {
       if (!layer) continue;
       for (const star of layer) {
@@ -3337,10 +3482,27 @@
     }
     ctx.save();
     ctx.translate(-camera.x + shakeX, -camera.y + shakeY);
+    
+    // Draw enhanced multi-layer starfield (back to front)
+    if (starsNebula) {
+      // Layer 0: Nebula dust (slowest, most distant)
+      drawNebulaLayer(ctx, starsNebula, 0.08);
+    }
+    if (starsDeepSpace) {
+      // Layer 1: Deep space stars (very faint, very slow)
+      drawEnhancedStarsLayer(ctx, starsDeepSpace, 0.12, { glow: false });
+    }
     if (starsFar) {
+      // Layer 2: Far stars (original)
       drawStarsLayer(ctx, starsFar, 0.3);
+      // Layer 3: Mid stars (original)
       drawStarsLayer(ctx, starsMid, 0.6);
+      // Layer 4: Near stars (original)
       drawStarsLayer(ctx, starsNear, 1.1);
+    }
+    if (starsBright) {
+      // Layer 5: Bright accent stars (closest, with glow and twinkle)
+      drawEnhancedStarsLayer(ctx, starsBright, 1.5, { glow: true });
     }
     for (const obstacle of obstacles) obstacle.draw(ctx);
     if (!player) {
@@ -3618,9 +3780,29 @@
     spawnObstacles();
     createSpawners(Math.min(1 + Math.floor(level / 2), 5), resetScore);  // Increased max spawners to 5
     if (!starsFar) {
+      // Create enhanced multi-layer starfield
+      // Layer 0: Nebula dust (slow, atmospheric)
+      starsNebula = makeNebulaDust(15);
+      // Layer 1: Deep space (extremely distant, subtle)
+      starsDeepSpace = makeEnhancedStars(200, {
+        colors: ['#6b7280', '#9ca3af', '#4b5563'],
+        minSize: 0.3,
+        maxSize: 0.8,
+        baseAlpha: 0.4,
+        twinkle: true
+      });
+      // Layer 2-4: Original star layers
       starsFar = makeStars(120);
       starsMid = makeStars(80);
       starsNear = makeStars(50);
+      // Layer 5: Bright accent stars (close, vivid)
+      starsBright = makeEnhancedStars(25, {
+        colors: ['#ffffff', '#fef3c7', '#dbeafe', '#fce7f3', '#e0f2fe'],
+        minSize: 1.5,
+        maxSize: 3.0,
+        baseAlpha: 0.9,
+        twinkle: true
+      });
     } else {
       recenterStars();
     }
@@ -3909,9 +4091,25 @@
         createSpawners(Math.min(1 + Math.floor(level / 2), 5), false);
         
         if (!starsFar) {
+          // Create enhanced multi-layer starfield
+          starsNebula = makeNebulaDust(15);
+          starsDeepSpace = makeEnhancedStars(200, {
+            colors: ['#6b7280', '#9ca3af', '#4b5563'],
+            minSize: 0.3,
+            maxSize: 0.8,
+            baseAlpha: 0.4,
+            twinkle: true
+          });
           starsFar = makeStars(120);
           starsMid = makeStars(80);
           starsNear = makeStars(50);
+          starsBright = makeEnhancedStars(25, {
+            colors: ['#ffffff', '#fef3c7', '#dbeafe', '#fce7f3', '#e0f2fe'],
+            minSize: 1.5,
+            maxSize: 3.0,
+            baseAlpha: 0.9,
+            twinkle: true
+          });
         } else {
           recenterStars();
         }
