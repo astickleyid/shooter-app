@@ -92,6 +92,64 @@ const circleCollision = (x1, y1, r1, x2, y2, r2) => {
   return dist <= r1 + r2;
 };
 
+/**
+ * Calculates the ground height at a given x position using linear interpolation
+ * @param {Array} terrainPoints - Array of {x, y} terrain points
+ * @param {number} x - X coordinate to get height at
+ * @param {number} defaultY - Default Y value if no terrain
+ * @returns {number} Ground Y coordinate at the given X
+ */
+const getTerrainHeightAt = (terrainPoints, x, defaultY = 0) => {
+  if (!terrainPoints || terrainPoints.length < 2) return defaultY;
+  
+  for (let i = 0; i < terrainPoints.length - 1; i++) {
+    const t1 = terrainPoints[i];
+    const t2 = terrainPoints[i + 1];
+    
+    if (x >= t1.x && x < t2.x) {
+      const t = (x - t1.x) / (t2.x - t1.x);
+      return t1.y + (t2.y - t1.y) * t;
+    }
+  }
+  
+  return defaultY;
+};
+
+/**
+ * Applies gravity to a velocity value
+ * @param {number} velocityY - Current vertical velocity
+ * @param {number} gravity - Gravity strength
+ * @param {number} maxFallSpeed - Maximum fall speed
+ * @param {number} dt - Delta time in ms
+ * @returns {number} New vertical velocity
+ */
+const applyGravity = (velocityY, gravity, maxFallSpeed, dt) => {
+  const newVelocity = velocityY + gravity * (dt / 16.67);
+  return Math.min(newVelocity, maxFallSpeed);
+};
+
+/**
+ * Checks if an entity is on ground
+ * @param {number} entityY - Entity Y position
+ * @param {number} entitySize - Entity size/radius
+ * @param {number} groundY - Ground Y position
+ * @returns {boolean} True if entity is on or below ground
+ */
+const isOnGround = (entityY, entitySize, groundY) => {
+  return entityY + entitySize >= groundY;
+};
+
+/**
+ * Planet configuration templates
+ */
+const PLANET_CONFIGS = {
+  terra: { gravity: 0.4, name: 'Terra Prime' },
+  mars: { gravity: 0.28, name: 'Crimson Dunes' },
+  ice: { gravity: 0.45, name: 'Glacial Expanse' },
+  volcanic: { gravity: 0.5, name: 'Inferno Core' },
+  moon: { gravity: 0.15, name: 'Lunar Surface' }
+};
+
 // Export for CommonJS (Node/Jest)
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
@@ -102,7 +160,11 @@ if (typeof module !== 'undefined' && module.exports) {
     calculateUpgradeCost,
     randomAround,
     distance,
-    circleCollision
+    circleCollision,
+    getTerrainHeightAt,
+    applyGravity,
+    isOnGround,
+    PLANET_CONFIGS
   };
 }
 
@@ -116,6 +178,10 @@ if (typeof window !== 'undefined') {
     calculateUpgradeCost,
     randomAround,
     distance,
-    circleCollision
+    circleCollision,
+    getTerrainHeightAt,
+    applyGravity,
+    isOnGround,
+    PLANET_CONFIGS
   };
 }
