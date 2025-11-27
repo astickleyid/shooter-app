@@ -265,6 +265,49 @@
     ultimate: Object.fromEntries(ARMORY.ultimate.map((w) => [w.id, w]))
   };
 
+  // Shared equipment icon paths and weapon info
+  const EQUIPMENT_ICONS = {
+    paths: {
+      'primary:pulse': 'assets/icons/primary-pulse.svg',
+      'primary:scatter': 'assets/icons/primary-pulse.svg',
+      'primary:rail': 'assets/icons/primary-pulse.svg',
+      'primary:ionburst': 'assets/icons/primary-pulse.svg',
+      'secondary:nova': 'assets/icons/secondary-nova.svg',
+      'secondary:cluster': 'assets/icons/secondary-cluster.svg',
+      'defense:aegis': 'assets/icons/defense-aegis.svg',
+      'defense:reflector': 'assets/icons/defense-reflector.svg',
+      'boost': 'assets/icons/boost-icon.svg',
+      'ultimate:voidstorm': 'assets/icons/ultimate-voidstorm.svg',
+      'ultimate:solarbeam': 'assets/icons/ultimate-solarbeam.svg'
+    },
+    info: {
+      'primary:pulse': { name: 'Pulse Blaster', desc: 'Standard pulse cannon' },
+      'primary:scatter': { name: 'Scatter Coil', desc: 'Tri-barrel scatter assembly' },
+      'primary:rail': { name: 'Rail Lance', desc: 'Accelerated rail slug' },
+      'primary:ionburst': { name: 'Ion Burst Array', desc: 'Ionized shard fan' },
+      'secondary:nova': { name: 'Nova Bomb', desc: 'Antimatter detonation' },
+      'secondary:cluster': { name: 'Cluster Barrage', desc: 'Micro warhead scatter' },
+      'defense:aegis': { name: 'Aegis Field', desc: 'Forward arc shield' },
+      'defense:reflector': { name: 'Reflector Veil', desc: 'Damage reflection' },
+      'boost': { name: 'Boost', desc: 'Speed burst' },
+      'ultimate:voidstorm': { name: 'Voidstorm Cascade', desc: 'Gravity well blast' },
+      'ultimate:solarbeam': { name: 'Solar Beam', desc: 'Orbital plasma sweep' }
+    },
+    getKey: (slotData) => {
+      if (!slotData) return 'boost';
+      return slotData.type === 'boost' ? 'boost' : `${slotData.type}:${slotData.id}`;
+    },
+    getPath: (slotData) => {
+      const key = EQUIPMENT_ICONS.getKey(slotData);
+      return EQUIPMENT_ICONS.paths[key] || 'assets/icons/boost-icon.svg';
+    },
+    getInfo: (slotData) => {
+      const key = EQUIPMENT_ICONS.getKey(slotData);
+      const info = EQUIPMENT_ICONS.info[key] || { name: slotData?.id || slotData?.type || 'Unknown', desc: '' };
+      return { ...info, icon: EQUIPMENT_ICONS.getPath(slotData) };
+    }
+  };
+
   const HANGAR_STATS = [
     { key: 'hp', label: 'Hull' },
     { key: 'speed', label: 'Speed' },
@@ -3280,21 +3323,6 @@
       }
     });
     
-    // Icon mapping for SVG files
-    const iconPaths = {
-      'primary:pulse': 'assets/icons/primary-pulse.svg',
-      'primary:scatter': 'assets/icons/primary-pulse.svg',
-      'primary:rail': 'assets/icons/primary-pulse.svg',
-      'primary:ionburst': 'assets/icons/primary-pulse.svg',
-      'secondary:nova': 'assets/icons/secondary-nova.svg',
-      'secondary:cluster': 'assets/icons/secondary-cluster.svg',
-      'defense:aegis': 'assets/icons/defense-aegis.svg',
-      'defense:reflector': 'assets/icons/defense-reflector.svg',
-      'boost': 'assets/icons/boost-icon.svg',
-      'ultimate:voidstorm': 'assets/icons/ultimate-voidstorm.svg',
-      'ultimate:solarbeam': 'assets/icons/ultimate-solarbeam.svg'
-    };
-    
     // Update slot labels and icons based on equipment class
     const equipClass = Save.data.armory.equipmentClass || defaultArmory().equipmentClass;
     Object.keys(equipClass).forEach((slotKey, index) => {
@@ -3304,15 +3332,7 @@
         const iconImg = slotElement.querySelector('.equip-icon');
         const labelSpan = slotElement.querySelector('.equip-label');
         
-        // Determine icon path based on type and id
-        let iconKey;
-        if (slotData.type === 'boost') {
-          iconKey = 'boost';
-        } else {
-          iconKey = `${slotData.type}:${slotData.id}`;
-        }
-        
-        const iconPath = iconPaths[iconKey] || 'assets/icons/boost-icon.svg';
+        const iconPath = EQUIPMENT_ICONS.getPath(slotData);
         
         if (iconImg && iconImg.tagName === 'IMG') {
           iconImg.src = iconPath;
@@ -3338,20 +3358,6 @@
     const radialMenu = document.getElementById('radialMenu');
     if (!radialMenu) return;
     
-    const iconPaths = {
-      'primary:pulse': 'assets/icons/primary-pulse.svg',
-      'primary:scatter': 'assets/icons/primary-pulse.svg',
-      'primary:rail': 'assets/icons/primary-pulse.svg',
-      'primary:ionburst': 'assets/icons/primary-pulse.svg',
-      'secondary:nova': 'assets/icons/secondary-nova.svg',
-      'secondary:cluster': 'assets/icons/secondary-cluster.svg',
-      'defense:aegis': 'assets/icons/defense-aegis.svg',
-      'defense:reflector': 'assets/icons/defense-reflector.svg',
-      'boost': 'assets/icons/boost-icon.svg',
-      'ultimate:voidstorm': 'assets/icons/ultimate-voidstorm.svg',
-      'ultimate:solarbeam': 'assets/icons/ultimate-solarbeam.svg'
-    };
-    
     const equipClass = Save.data.armory.equipmentClass || defaultArmory().equipmentClass;
     const radialItems = radialMenu.querySelectorAll('.radial-item');
     
@@ -3361,14 +3367,7 @@
         const iconImg = item.querySelector('img');
         const labelSpan = item.querySelector('span');
         
-        let iconKey;
-        if (slotData.type === 'boost') {
-          iconKey = 'boost';
-        } else {
-          iconKey = `${slotData.type}:${slotData.id}`;
-        }
-        
-        const iconPath = iconPaths[iconKey] || 'assets/icons/boost-icon.svg';
+        const iconPath = EQUIPMENT_ICONS.getPath(slotData);
         
         if (iconImg) {
           iconImg.src = iconPath;
@@ -5267,46 +5266,9 @@
   };
   
   // Get weapon info for preview
+  // Get weapon info for preview (uses shared EQUIPMENT_ICONS)
   const getWeaponInfo = (slotData) => {
-    const iconPaths = {
-      'primary:pulse': 'assets/icons/primary-pulse.svg',
-      'primary:scatter': 'assets/icons/primary-pulse.svg',
-      'primary:rail': 'assets/icons/primary-pulse.svg',
-      'primary:ionburst': 'assets/icons/primary-pulse.svg',
-      'secondary:nova': 'assets/icons/secondary-nova.svg',
-      'secondary:cluster': 'assets/icons/secondary-cluster.svg',
-      'defense:aegis': 'assets/icons/defense-aegis.svg',
-      'defense:reflector': 'assets/icons/defense-reflector.svg',
-      'boost': 'assets/icons/boost-icon.svg',
-      'ultimate:voidstorm': 'assets/icons/ultimate-voidstorm.svg',
-      'ultimate:solarbeam': 'assets/icons/ultimate-solarbeam.svg'
-    };
-    
-    const weaponNames = {
-      'primary:pulse': { name: 'Pulse Blaster', desc: 'Standard pulse cannon' },
-      'primary:scatter': { name: 'Scatter Coil', desc: 'Tri-barrel scatter assembly' },
-      'primary:rail': { name: 'Rail Lance', desc: 'Accelerated rail slug' },
-      'primary:ionburst': { name: 'Ion Burst Array', desc: 'Ionized shard fan' },
-      'secondary:nova': { name: 'Nova Bomb', desc: 'Antimatter detonation' },
-      'secondary:cluster': { name: 'Cluster Barrage', desc: 'Micro warhead scatter' },
-      'defense:aegis': { name: 'Aegis Field', desc: 'Forward arc shield' },
-      'defense:reflector': { name: 'Reflector Veil', desc: 'Damage reflection' },
-      'boost': { name: 'Boost', desc: 'Speed burst' },
-      'ultimate:voidstorm': { name: 'Voidstorm Cascade', desc: 'Gravity well blast' },
-      'ultimate:solarbeam': { name: 'Solar Beam', desc: 'Orbital plasma sweep' }
-    };
-    
-    let key;
-    if (slotData.type === 'boost') {
-      key = 'boost';
-    } else {
-      key = `${slotData.type}:${slotData.id}`;
-    }
-    
-    const info = weaponNames[key] || { name: slotData.id || slotData.type, desc: '' };
-    const icon = iconPaths[key] || 'assets/icons/boost-icon.svg';
-    
-    return { ...info, icon };
+    return EQUIPMENT_ICONS.getInfo(slotData);
   };
   
   // Open radial quick-select menu
