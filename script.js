@@ -1560,7 +1560,9 @@
       // Remove after 4 seconds
       setTimeout(() => {
         toast.classList.remove('show');
-        setTimeout(() => toast.remove(), 300);
+        setTimeout(() => {
+          if (toast.parentNode) toast.remove();
+        }, 300);
       }, 4000);
     },
     
@@ -6549,10 +6551,11 @@
     Save.addCredits(Math.floor(score / 25));
     
     // Update game stats for achievements
+    // Note: Elite enemy tracking to be implemented in future update
     Auth.updateGameStats({
       kills: totalKillsThisRun,
       bossKills: bossActive ? 0 : (bossEntity ? 1 : 0),
-      eliteKills: 0, // Would need to track elites separately
+      eliteKills: 0,
       playTime: performance.now() - (waveStartTime || performance.now()),
       flawlessLevel: !tookDamageThisLevel
     });

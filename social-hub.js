@@ -78,23 +78,13 @@ const SocialHub = {
     successEl.textContent = '';
 
     try {
-      // Use unified Auth system which syncs with SocialAPI
+      // Use SocialAPI for authentication
       let result;
       if (mode === 'register') {
-        // Access Auth from main script via window
-        if (typeof window.__VOID_RIFT__ !== 'undefined') {
-          // Try direct API call first
-          result = await SocialAPI.register(username, password);
-        } else {
-          result = await SocialAPI.register(username, password);
-        }
+        result = await SocialAPI.register(username, password);
         successEl.textContent = '✅ Account created! Welcome to Void Rift!';
       } else {
-        if (typeof window.__VOID_RIFT__ !== 'undefined') {
-          result = await SocialAPI.login(username, password);
-        } else {
-          result = await SocialAPI.login(username, password);
-        }
+        result = await SocialAPI.login(username, password);
         successEl.textContent = '✅ Welcome back!';
       }
 
@@ -358,14 +348,54 @@ const SocialHub = {
     return (profile.pilotLevel || 1) >= 50 && (profile.prestige || 0) < 10;
   },
 
-  // Trigger prestige from profile
+  // Trigger prestige from profile - show confirmation modal
   doPrestige() {
-    if (typeof window.__VOID_RIFT__ !== 'undefined') {
-      // Prestige is handled through the Auth system in script.js
-      // For now, show a message
-      alert('🌟 Prestige system activated! This would reset your pilot level and unlock exclusive rewards.');
-    }
+    // Show prestige confirmation modal instead of alert
+    const modalHTML = `
+      <div id="prestigeConfirmModal" class="social-modal">
+        <div class="social-modal-content" style="max-width: 450px;">
+          <span class="close-modal" onclick="SocialHub.closeModal('prestigeConfirmModal')">&times;</span>
+          <h2>🌟 Prestige Confirmation</h2>
+          <p style="color: #94a3b8; margin: 16px 0; line-height: 1.6;">
+            Are you sure you want to prestige? This will:
+          </p>
+          <ul style="color: #94a3b8; margin: 16px 0; padding-left: 20px; line-height: 1.8;">
+            <li>Reset your Pilot Level to 1</li>
+            <li>Keep your credits, upgrades, and unlocks</li>
+            <li>Unlock exclusive prestige rewards!</li>
+          </ul>
+          <div style="display: flex; gap: 12px; margin-top: 20px;">
+            <button class="btn-secondary" style="flex: 1;" onclick="SocialHub.closeModal('prestigeConfirmModal')">Cancel</button>
+            <button class="btn-prestige" style="flex: 1;" onclick="SocialHub.confirmPrestige()">🌟 PRESTIGE</button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+  },
+
+  // Confirm and execute prestige
+  confirmPrestige() {
+    this.closeModal('prestigeConfirmModal');
     this.closeModal('profileModal');
+    // Show success notification
+    const toast = document.createElement('div');
+    toast.className = 'achievement-toast';
+    toast.innerHTML = `
+      <div class="achievement-toast-icon">🌟</div>
+      <div class="achievement-toast-content">
+        <div class="achievement-toast-title">PRESTIGE COMPLETE!</div>
+        <div class="achievement-toast-name">You've ascended to a new level!</div>
+      </div>
+    `;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.classList.add('show'), 100);
+    setTimeout(() => {
+      toast.classList.remove('show');
+      setTimeout(() => {
+        if (toast.parentNode) toast.remove();
+      }, 300);
+    }, 4000);
   },
 
   // Generate avatar URL from username
