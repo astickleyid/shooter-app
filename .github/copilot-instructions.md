@@ -4,6 +4,16 @@
 
 VOID RIFT is a browser-based twin-stick shooter built with vanilla HTML, CSS, and JavaScript. The game runs entirely in the browser with no build step required for the frontend.
 
+## Technology Stack
+
+- **Frontend**: Vanilla HTML5, CSS3, JavaScript (ES2022)
+- **Backend API**: Vercel Serverless Functions
+- **Database**: Vercel KV (Redis)
+- **Testing**: Jest 30.x with jsdom
+- **Linting**: ESLint ^8.57.0
+- **Node.js**: 14.0.0+
+- **Python**: 3.x (for development server)
+
 ## Key Commands
 
 ```bash
@@ -59,6 +69,8 @@ shooter-app/
 - Test files use the pattern `*.test.js`
 - Tests are written using Jest
 - Run `npx jest` before submitting changes
+- Test in multiple browsers (Chrome, Firefox, Safari, Edge)
+- Test on mobile devices or emulators for touch controls
 
 ## Commit Message Guidelines
 
@@ -73,11 +85,21 @@ Follow conventional commits format:
 - `test:` Adding or updating tests
 - `chore:` Maintenance tasks
 
+## Git Workflow
+
+1. Create a new branch for your feature: `git checkout -b feature/your-feature-name`
+2. Make changes and test thoroughly
+3. Lint your code: `npm run lint:fix`
+4. Commit with a clear message following conventional commits
+5. Push your branch and create a pull request
+
 ## Files to Avoid Modifying
 
 - `package-lock.json` (auto-generated)
 - Files in `node_modules/` (dependencies)
 - `.git/` directory
+- `vercel.json` (deployment configuration)
+- Files in `api/` directory (unless specifically working on backend)
 
 ## Security Considerations
 
@@ -85,6 +107,7 @@ Follow conventional commits format:
 - Sanitize user inputs
 - Use Web Crypto API for cryptographic operations
 - Do not commit secrets or API keys
+- Use SHA-256 for password hashing via `src/utils/crypto.js`
 
 ## Browser Compatibility
 
