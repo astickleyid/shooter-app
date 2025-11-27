@@ -38,23 +38,23 @@
     
     <div class="start-nav">
       <button id="openShopFromStart" class="nav-btn">
-        <span class="nav-icon">⚡</span>
+        <img class="nav-icon" src="assets/icons/icon-upgrades.svg" alt="" width="20" height="20"/>
         <span class="nav-label">Upgrades</span>
       </button>
       <button id="settingsButton" class="nav-btn">
-        <span class="nav-icon">🚀</span>
+        <img class="nav-icon" src="assets/icons/icon-hangar.svg" alt="" width="20" height="20"/>
         <span class="nav-label">Hangar</span>
       </button>
       <button id="leaderboardButton" class="nav-btn">
-        <span class="nav-icon">🏆</span>
+        <img class="nav-icon" src="assets/icons/icon-trophy.svg" alt="" width="20" height="20"/>
         <span class="nav-label">Rankings</span>
       </button>
     </div>
     
     <div class="start-footer">
-      <button id="profileButton" class="footer-btn" onclick="SocialHub.showProfile()">👤</button>
-      <button id="friendsButton" class="footer-btn" onclick="SocialHub.showFriendsList()">👥</button>
-      <button id="activityButton" class="footer-btn" onclick="SocialHub.showActivityFeed()">📰</button>
+      <button id="profileButton" class="footer-btn" onclick="SocialHub.showProfile()"><img src="assets/icons/icon-profile.svg" alt="Profile" width="16" height="16"/></button>
+      <button id="friendsButton" class="footer-btn" onclick="SocialHub.showFriendsList()"><img src="assets/icons/icon-friends.svg" alt="Friends" width="16" height="16"/></button>
+      <button id="activityButton" class="footer-btn" onclick="SocialHub.showActivityFeed()"><img src="assets/icons/icon-activity.svg" alt="Activity" width="16" height="16"/></button>
       <span class="footer-divider"></span>
       <button id="loginButton" class="footer-btn footer-btn-text" onclick="SocialHub.showAuthModal('login')">Login</button>
     </div>
@@ -225,17 +225,17 @@
     <div id="pauseMenuModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="pauseMenuTitle">
       <div class="modal-content pause-menu">
         <div class="modal-header">
-          <h2 id="pauseMenuTitle">⏸ Game Paused</h2>
+          <h2 id="pauseMenuTitle"><img src="assets/icons/icon-pause.svg" alt="" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"/> Game Paused</h2>
         </div>
         <div class="pause-menu-content">
-          <button id="resumeGameBtn" class="pause-menu-btn primary" aria-label="Resume Game">▶ Resume Game</button>
-          <button id="restartGameBtn" class="pause-menu-btn" aria-label="Restart Game">🔄 Restart Game</button>
-          <button id="saveGameBtn" class="pause-menu-btn" aria-label="Save Game">💾 Save Game</button>
-          <button id="loadGameBtn" class="pause-menu-btn" aria-label="Load Game">📂 Load Game</button>
-          <button id="pauseShopBtn" class="pause-menu-btn" aria-label="Upgrades Shop">🛒 Upgrades & Shop</button>
-          <button id="pauseHangarBtn" class="pause-menu-btn" aria-label="Ship Hangar">🚀 Ship Hangar</button>
-          <button id="pauseLeaderboardBtn" class="pause-menu-btn" aria-label="Leaderboard">🏆 Leaderboard</button>
-          <button id="exitToMenuBtn" class="pause-menu-btn danger" aria-label="Exit to Main Menu">🚪 Exit to Main Menu</button>
+          <button id="resumeGameBtn" class="pause-menu-btn primary" aria-label="Resume Game"><img src="assets/icons/icon-play.svg" alt="" width="20" height="20"/> Resume Game</button>
+          <button id="restartGameBtn" class="pause-menu-btn" aria-label="Restart Game"><img src="assets/icons/icon-restart.svg" alt="" width="20" height="20"/> Restart Game</button>
+          <button id="saveGameBtn" class="pause-menu-btn" aria-label="Save Game"><img src="assets/icons/icon-save.svg" alt="" width="20" height="20"/> Save Game</button>
+          <button id="loadGameBtn" class="pause-menu-btn" aria-label="Load Game"><img src="assets/icons/icon-load.svg" alt="" width="20" height="20"/> Load Game</button>
+          <button id="pauseShopBtn" class="pause-menu-btn" aria-label="Upgrades Shop"><img src="assets/icons/icon-shop.svg" alt="" width="20" height="20"/> Upgrades & Shop</button>
+          <button id="pauseHangarBtn" class="pause-menu-btn" aria-label="Ship Hangar"><img src="assets/icons/icon-hangar.svg" alt="" width="20" height="20"/> Ship Hangar</button>
+          <button id="pauseLeaderboardBtn" class="pause-menu-btn" aria-label="Leaderboard"><img src="assets/icons/icon-trophy.svg" alt="" width="20" height="20"/> Leaderboard</button>
+          <button id="exitToMenuBtn" class="pause-menu-btn danger" aria-label="Exit to Main Menu"><img src="assets/icons/icon-exit.svg" alt="" width="20" height="20"/> Exit to Main Menu</button>
           <div id="pauseMenuMessage" class="pause-menu-message"></div>
         </div>
       </div>
@@ -245,7 +245,7 @@
     <div id="gameOverModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="gameOverTitle">
       <div class="modal-content game-over-screen">
         <div class="game-over-header">
-          <h1 id="gameOverTitle">💀 GAME OVER</h1>
+          <h1 id="gameOverTitle"><img src="assets/icons/icon-gameover.svg" alt="" width="40" height="40" style="vertical-align: middle; margin-right: 12px;"/> GAME OVER</h1>
         </div>
         <div class="game-over-stats">
           <div class="stat-item">
@@ -261,16 +261,16 @@
             <span id="gameOverRank" class="stat-value rank-badge">#1</span>
           </div>
           <div id="gameOverLoginPrompt" class="login-prompt" style="display: none;">
-            <p>🔓 Login to save your score to the leaderboard!</p>
+            <p><img src="assets/icons/icon-unlock.svg" alt="" width="16" height="16" style="vertical-align: middle; margin-right: 6px;"/> Login to save your score to the leaderboard!</p>
           </div>
         </div>
         <div class="game-over-actions">
-          <button id="gameOverRestartBtn" class="game-over-btn primary">🔄 Play Again</button>
-          <button id="gameOverShopBtn" class="game-over-btn">🛒 Upgrades & Shop</button>
-          <button id="gameOverHangarBtn" class="game-over-btn">🚀 Ship Hangar</button>
-          <button id="gameOverLeaderboardBtn" class="game-over-btn">🏆 Leaderboard</button>
-          <button id="gameOverLoginBtn" class="game-over-btn" style="display: none;">🔑 Login</button>
-          <button id="gameOverMenuBtn" class="game-over-btn secondary">🏠 Main Menu</button>
+          <button id="gameOverRestartBtn" class="game-over-btn primary"><img src="assets/icons/icon-restart.svg" alt="" width="20" height="20"/> Play Again</button>
+          <button id="gameOverShopBtn" class="game-over-btn"><img src="assets/icons/icon-shop.svg" alt="" width="20" height="20"/> Upgrades & Shop</button>
+          <button id="gameOverHangarBtn" class="game-over-btn"><img src="assets/icons/icon-hangar.svg" alt="" width="20" height="20"/> Ship Hangar</button>
+          <button id="gameOverLeaderboardBtn" class="game-over-btn"><img src="assets/icons/icon-trophy.svg" alt="" width="20" height="20"/> Leaderboard</button>
+          <button id="gameOverLoginBtn" class="game-over-btn" style="display: none;"><img src="assets/icons/icon-login.svg" alt="" width="20" height="20"/> Login</button>
+          <button id="gameOverMenuBtn" class="game-over-btn secondary"><img src="assets/icons/icon-home.svg" alt="" width="20" height="20"/> Main Menu</button>
         </div>
       </div>
     </div>
@@ -297,19 +297,19 @@
           <div class="settings-section">
             <h3>Game Actions</h3>
             <div class="game-actions">
-              <button id="menuResumeBtn" class="game-action-btn primary">▶ Resume Game</button>
-              <button id="menuRestartBtn" class="game-action-btn">🔄 Restart Game</button>
-              <button id="menuSaveBtn" class="game-action-btn">💾 Save Game</button>
-              <button id="menuLoadBtn" class="game-action-btn">📂 Load Game</button>
-              <button id="menuExitBtn" class="game-action-btn danger">🚪 Return to Start Screen</button>
+              <button id="menuResumeBtn" class="game-action-btn primary"><img src="assets/icons/icon-play.svg" alt="" width="20" height="20"/> Resume Game</button>
+              <button id="menuRestartBtn" class="game-action-btn"><img src="assets/icons/icon-restart.svg" alt="" width="20" height="20"/> Restart Game</button>
+              <button id="menuSaveBtn" class="game-action-btn"><img src="assets/icons/icon-save.svg" alt="" width="20" height="20"/> Save Game</button>
+              <button id="menuLoadBtn" class="game-action-btn"><img src="assets/icons/icon-load.svg" alt="" width="20" height="20"/> Load Game</button>
+              <button id="menuExitBtn" class="game-action-btn danger"><img src="assets/icons/icon-exit.svg" alt="" width="20" height="20"/> Return to Start Screen</button>
             </div>
           </div>
           <div class="settings-section">
             <h3>Quick Links</h3>
             <div class="game-actions">
-              <button id="menuShopBtn" class="game-action-btn">🛒 Upgrades & Shop</button>
-              <button id="menuHangarBtn" class="game-action-btn">🚀 Ship Hangar</button>
-              <button id="menuLeaderboardBtn" class="game-action-btn">🏆 Leaderboard</button>
+              <button id="menuShopBtn" class="game-action-btn"><img src="assets/icons/icon-shop.svg" alt="" width="20" height="20"/> Upgrades & Shop</button>
+              <button id="menuHangarBtn" class="game-action-btn"><img src="assets/icons/icon-hangar.svg" alt="" width="20" height="20"/> Ship Hangar</button>
+              <button id="menuLeaderboardBtn" class="game-action-btn"><img src="assets/icons/icon-trophy.svg" alt="" width="20" height="20"/> Leaderboard</button>
             </div>
           </div>
         </div>
@@ -368,7 +368,7 @@
             </div>
             
             <p style="color: #60a5fa; font-size: 12px; margin-top: 12px;">
-              💡 Tap anywhere on screen (not joysticks) to cycle equipment: 2 taps = slot 2, 3 taps = slot 3, etc.
+              <img src="assets/icons/icon-tip.svg" alt="" width="14" height="14" style="vertical-align: middle; margin-right: 4px;"/> Tap anywhere on screen (not joysticks) to cycle equipment: 2 taps = slot 2, 3 taps = slot 3, etc.
             </p>
           </div>
         </div>

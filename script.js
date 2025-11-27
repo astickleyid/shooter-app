@@ -1046,51 +1046,51 @@
 
   const ACHIEVEMENTS = [
     // Combat achievements
-    { id: 'first_blood', name: 'First Blood', desc: 'Kill your first enemy', icon: '🎯', category: 'combat', requirement: { kills: 1 } },
-    { id: 'centurion', name: 'Centurion', desc: 'Kill 100 enemies in total', icon: '⚔️', category: 'combat', requirement: { totalKills: 100 } },
-    { id: 'slayer', name: 'Slayer', desc: 'Kill 1000 enemies in total', icon: '💀', category: 'combat', requirement: { totalKills: 1000 } },
-    { id: 'boss_hunter', name: 'Boss Hunter', desc: 'Defeat your first boss', icon: '👹', category: 'combat', requirement: { bossKills: 1 } },
-    { id: 'elite_destroyer', name: 'Elite Destroyer', desc: 'Kill 50 elite enemies', icon: '💎', category: 'combat', requirement: { eliteKills: 50 } },
+    { id: 'first_blood', name: 'First Blood', desc: 'Kill your first enemy', icon: 'assets/icons/achievement-target.svg', category: 'combat', requirement: { kills: 1 } },
+    { id: 'centurion', name: 'Centurion', desc: 'Kill 100 enemies in total', icon: 'assets/icons/achievement-sword.svg', category: 'combat', requirement: { totalKills: 100 } },
+    { id: 'slayer', name: 'Slayer', desc: 'Kill 1000 enemies in total', icon: 'assets/icons/achievement-skull.svg', category: 'combat', requirement: { totalKills: 1000 } },
+    { id: 'boss_hunter', name: 'Boss Hunter', desc: 'Defeat your first boss', icon: 'assets/icons/achievement-boss.svg', category: 'combat', requirement: { bossKills: 1 } },
+    { id: 'elite_destroyer', name: 'Elite Destroyer', desc: 'Kill 50 elite enemies', icon: 'assets/icons/achievement-diamond.svg', category: 'combat', requirement: { eliteKills: 50 } },
     
     // Survival achievements
-    { id: 'survivor', name: 'Survivor', desc: 'Reach level 5', icon: '🛡️', category: 'survival', requirement: { level: 5 } },
-    { id: 'veteran', name: 'Veteran', desc: 'Reach level 10', icon: '⭐', category: 'survival', requirement: { level: 10 } },
-    { id: 'champion', name: 'Champion', desc: 'Reach level 20', icon: '🏆', category: 'survival', requirement: { level: 20 } },
-    { id: 'legend', name: 'Legend', desc: 'Reach level 30', icon: '👑', category: 'survival', requirement: { level: 30 } },
-    { id: 'flawless', name: 'Flawless Victory', desc: 'Complete a level without taking damage', icon: '✨', category: 'survival', requirement: { flawlessLevel: 1 } },
+    { id: 'survivor', name: 'Survivor', desc: 'Reach level 5', icon: 'assets/icons/achievement-shield.svg', category: 'survival', requirement: { level: 5 } },
+    { id: 'veteran', name: 'Veteran', desc: 'Reach level 10', icon: 'assets/icons/achievement-star.svg', category: 'survival', requirement: { level: 10 } },
+    { id: 'champion', name: 'Champion', desc: 'Reach level 20', icon: 'assets/icons/icon-trophy.svg', category: 'survival', requirement: { level: 20 } },
+    { id: 'legend', name: 'Legend', desc: 'Reach level 30', icon: 'assets/icons/achievement-crown.svg', category: 'survival', requirement: { level: 30 } },
+    { id: 'flawless', name: 'Flawless Victory', desc: 'Complete a level without taking damage', icon: 'assets/icons/achievement-sparkle.svg', category: 'survival', requirement: { flawlessLevel: 1 } },
     
     // Score achievements
-    { id: 'scorer', name: 'Point Scorer', desc: 'Score 10,000 points', icon: '📊', category: 'score', requirement: { score: 10000 } },
-    { id: 'high_roller', name: 'High Roller', desc: 'Score 50,000 points', icon: '💰', category: 'score', requirement: { score: 50000 } },
-    { id: 'millionaire', name: 'Millionaire', desc: 'Score 100,000 points', icon: '💎', category: 'score', requirement: { score: 100000 } },
+    { id: 'scorer', name: 'Point Scorer', desc: 'Score 10,000 points', icon: 'assets/icons/achievement-chart.svg', category: 'score', requirement: { score: 10000 } },
+    { id: 'high_roller', name: 'High Roller', desc: 'Score 50,000 points', icon: 'assets/icons/achievement-coin.svg', category: 'score', requirement: { score: 50000 } },
+    { id: 'millionaire', name: 'Millionaire', desc: 'Score 100,000 points', icon: 'assets/icons/achievement-diamond.svg', category: 'score', requirement: { score: 100000 } },
     
     // Pilot achievements  
-    { id: 'pilot_10', name: 'Experienced Pilot', desc: 'Reach Pilot Level 10', icon: '🎖️', category: 'pilot', requirement: { pilotLevel: 10 } },
-    { id: 'pilot_25', name: 'Ace Pilot', desc: 'Reach Pilot Level 25', icon: '🏅', category: 'pilot', requirement: { pilotLevel: 25 } },
-    { id: 'pilot_50', name: 'Master Pilot', desc: 'Reach Pilot Level 50', icon: '🥇', category: 'pilot', requirement: { pilotLevel: 50 } },
+    { id: 'pilot_10', name: 'Experienced Pilot', desc: 'Reach Pilot Level 10', icon: 'assets/icons/achievement-medal.svg', category: 'pilot', requirement: { pilotLevel: 10 } },
+    { id: 'pilot_25', name: 'Ace Pilot', desc: 'Reach Pilot Level 25', icon: 'assets/icons/achievement-badge.svg', category: 'pilot', requirement: { pilotLevel: 25 } },
+    { id: 'pilot_50', name: 'Master Pilot', desc: 'Reach Pilot Level 50', icon: 'assets/icons/achievement-gold.svg', category: 'pilot', requirement: { pilotLevel: 50 } },
     
     // Prestige achievements
-    { id: 'prestige_1', name: 'Ascended', desc: 'Reach Prestige 1', icon: '🌟', category: 'prestige', requirement: { prestige: 1 } },
-    { id: 'prestige_5', name: 'Transcendent', desc: 'Reach Prestige 5', icon: '💫', category: 'prestige', requirement: { prestige: 5 } },
-    { id: 'prestige_10', name: 'Immortal', desc: 'Reach Prestige 10 (Max)', icon: '🔱', category: 'prestige', requirement: { prestige: 10 } },
+    { id: 'prestige_1', name: 'Ascended', desc: 'Reach Prestige 1', icon: 'assets/icons/achievement-prestige.svg', category: 'prestige', requirement: { prestige: 1 } },
+    { id: 'prestige_5', name: 'Transcendent', desc: 'Reach Prestige 5', icon: 'assets/icons/achievement-cosmic.svg', category: 'prestige', requirement: { prestige: 5 } },
+    { id: 'prestige_10', name: 'Immortal', desc: 'Reach Prestige 10 (Max)', icon: 'assets/icons/achievement-trident.svg', category: 'prestige', requirement: { prestige: 10 } },
     
     // Special achievements
-    { id: 'collector', name: 'Collector', desc: 'Unlock 5 different weapons', icon: '🗃️', category: 'special', requirement: { unlockedWeapons: 5 } },
-    { id: 'arsenal', name: 'Arsenal Master', desc: 'Unlock all weapons', icon: '🎒', category: 'special', requirement: { unlockedWeapons: 20 } },
-    { id: 'ship_collector', name: 'Ship Collector', desc: 'Unlock 3 different ships', icon: '🚀', category: 'special', requirement: { unlockedShips: 3 } },
-    { id: 'wealthy', name: 'Wealthy', desc: 'Accumulate 10,000 credits', icon: '💵', category: 'special', requirement: { credits: 10000 } },
-    { id: 'upgrader', name: 'Upgrader', desc: 'Purchase 10 upgrades', icon: '⬆️', category: 'special', requirement: { totalUpgrades: 10 } }
+    { id: 'collector', name: 'Collector', desc: 'Unlock 5 different weapons', icon: 'assets/icons/achievement-collection.svg', category: 'special', requirement: { unlockedWeapons: 5 } },
+    { id: 'arsenal', name: 'Arsenal Master', desc: 'Unlock all weapons', icon: 'assets/icons/achievement-arsenal.svg', category: 'special', requirement: { unlockedWeapons: 20 } },
+    { id: 'ship_collector', name: 'Ship Collector', desc: 'Unlock 3 different ships', icon: 'assets/icons/icon-hangar.svg', category: 'special', requirement: { unlockedShips: 3 } },
+    { id: 'wealthy', name: 'Wealthy', desc: 'Accumulate 10,000 credits', icon: 'assets/icons/achievement-money.svg', category: 'special', requirement: { credits: 10000 } },
+    { id: 'upgrader', name: 'Upgrader', desc: 'Purchase 10 upgrades', icon: 'assets/icons/achievement-upgrade.svg', category: 'special', requirement: { totalUpgrades: 10 } }
   ];
 
   // Achievement categories for UI grouping (used by profile renderer)
   // eslint-disable-next-line no-unused-vars
   const ACHIEVEMENT_CATEGORIES = {
-    combat: { name: 'Combat', icon: '⚔️' },
-    survival: { name: 'Survival', icon: '🛡️' },
-    score: { name: 'Score', icon: '📊' },
-    pilot: { name: 'Pilot', icon: '🎖️' },
-    prestige: { name: 'Prestige', icon: '🌟' },
-    special: { name: 'Special', icon: '✨' }
+    combat: { name: 'Combat', icon: 'assets/icons/achievement-sword.svg' },
+    survival: { name: 'Survival', icon: 'assets/icons/achievement-shield.svg' },
+    score: { name: 'Score', icon: 'assets/icons/achievement-chart.svg' },
+    pilot: { name: 'Pilot', icon: 'assets/icons/achievement-medal.svg' },
+    prestige: { name: 'Prestige', icon: 'assets/icons/achievement-prestige.svg' },
+    special: { name: 'Special', icon: 'assets/icons/achievement-sparkle.svg' }
   };
 
   /**

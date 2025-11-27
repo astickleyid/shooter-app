@@ -17,7 +17,7 @@ const SocialHub = {
       <div id="socialAuthModal" class="social-modal">
         <div class="social-modal-content">
           <span class="close-modal" onclick="SocialHub.closeModal('socialAuthModal')">&times;</span>
-          <h2>${mode === 'login' ? '🎮 Player Login' : '✨ Create Account'}</h2>
+          <h2>${mode === 'login' ? '<img src="assets/icons/icon-gamepad.svg" alt="" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"/> Player Login' : '<img src="assets/icons/achievement-sparkle.svg" alt="" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"/> Create Account'}</h2>
           <p style="color: #94a3b8; font-size: 14px; margin-bottom: 16px; text-align: center;">
             One account for all features: Leaderboards, Social Hub, Profile & more!
           </p>
@@ -224,17 +224,17 @@ const SocialHub = {
 
             ${isOwnProfile ? `
               <div class="profile-section">
-                <h3>🏆 Achievements (${achievements.length}/${this.getTotalAchievements()})</h3>
+                <h3><img src="assets/icons/icon-trophy.svg" alt="" width="18" height="18" style="vertical-align: middle; margin-right: 6px;"/> Achievements (${achievements.length}/${this.getTotalAchievements()})</h3>
                 <div class="achievements-grid">
                   ${this.renderAchievements(achievements)}
                 </div>
               </div>
 
               <div class="profile-section">
-                <h3>🌟 Prestige Progress</h3>
+                <h3><img src="assets/icons/achievement-prestige.svg" alt="" width="18" height="18" style="vertical-align: middle; margin-right: 6px;"/> Prestige Progress</h3>
                 <div class="prestige-info">
                   <div class="prestige-level">
-                    ${prestige > 0 ? `<span class="prestige-star">⭐</span> Prestige ${prestige}` : 'Not Yet Prestiged'}
+                    ${prestige > 0 ? `<img src="assets/icons/achievement-star.svg" alt="" width="20" height="20" style="vertical-align: middle; margin-right: 4px;"/> Prestige ${prestige}` : 'Not Yet Prestiged'}
                   </div>
                   <div class="prestige-progress">
                     <div class="prestige-bar">
@@ -244,7 +244,7 @@ const SocialHub = {
                   </div>
                   ${this.canPrestige(localProfile) ? `
                     <button class="btn-prestige" onclick="SocialHub.doPrestige()">
-                      🌟 PRESTIGE NOW
+                      <img src="assets/icons/achievement-prestige.svg" alt="" width="18" height="18" style="vertical-align: middle; margin-right: 4px;"/> PRESTIGE NOW
                     </button>
                     <p class="prestige-warning">Warning: Prestige resets your pilot level to 1, but unlocks exclusive rewards!</p>
                   ` : `
@@ -254,7 +254,7 @@ const SocialHub = {
               </div>
 
               <div class="profile-section">
-                <h3>🚀 Ships & Equipment</h3>
+                <h3><img src="assets/icons/icon-hangar.svg" alt="" width="18" height="18" style="vertical-align: middle; margin-right: 6px;"/> Ships & Equipment</h3>
                 <div class="ships-grid">
                   ${this.renderUnlockedShips(localProfile)}
                 </div>
@@ -277,10 +277,10 @@ const SocialHub = {
             ${isOwnProfile ? `
               <div class="profile-actions">
                 <button class="btn-secondary" onclick="SocialHub.showEditProfile()">
-                  ✏️ Edit Profile
+                  Edit Profile
                 </button>
                 <button class="btn-secondary" onclick="SocialHub.logout()">
-                  🚪 Logout
+                  <img src="assets/icons/icon-logout.svg" alt="" width="16" height="16" style="vertical-align: middle; margin-right: 4px;"/> Logout
                 </button>
               </div>
             ` : ''}
@@ -355,7 +355,7 @@ const SocialHub = {
       <div id="prestigeConfirmModal" class="social-modal">
         <div class="social-modal-content" style="max-width: 450px;">
           <span class="close-modal" onclick="SocialHub.closeModal('prestigeConfirmModal')">&times;</span>
-          <h2>🌟 Prestige Confirmation</h2>
+          <h2><img src="assets/icons/achievement-prestige.svg" alt="" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"/> Prestige Confirmation</h2>
           <p style="color: #94a3b8; margin: 16px 0; line-height: 1.6;">
             Are you sure you want to prestige? This will:
           </p>
@@ -366,7 +366,7 @@ const SocialHub = {
           </ul>
           <div style="display: flex; gap: 12px; margin-top: 20px;">
             <button class="btn-secondary" style="flex: 1;" onclick="SocialHub.closeModal('prestigeConfirmModal')">Cancel</button>
-            <button class="btn-prestige" style="flex: 1;" onclick="SocialHub.confirmPrestige()">🌟 PRESTIGE</button>
+            <button class="btn-prestige" style="flex: 1;" onclick="SocialHub.confirmPrestige()"><img src="assets/icons/achievement-prestige.svg" alt="" width="16" height="16" style="vertical-align: middle; margin-right: 4px;"/> PRESTIGE</button>
           </div>
         </div>
       </div>
@@ -382,7 +382,7 @@ const SocialHub = {
     const toast = document.createElement('div');
     toast.className = 'achievement-toast';
     toast.innerHTML = `
-      <div class="achievement-toast-icon">🌟</div>
+      <div class="achievement-toast-icon"><img src="assets/icons/achievement-prestige.svg" alt="" width="32" height="32"/></div>
       <div class="achievement-toast-content">
         <div class="achievement-toast-title">PRESTIGE COMPLETE!</div>
         <div class="achievement-toast-name">You've ascended to a new level!</div>
