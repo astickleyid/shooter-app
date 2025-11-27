@@ -8,6 +8,10 @@
     "ecmaVersion": 2022,
     "sourceType": "script"
   },
+  "globals": {
+    "GlobalLeaderboard": "readonly",
+    "SocialHub": "readonly"
+  },
   "rules": {
     "no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
     "no-console": ["warn", { "allow": ["warn", "error"] }],

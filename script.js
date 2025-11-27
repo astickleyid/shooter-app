@@ -1,4 +1,4 @@
-/* global AudioManager */
+/* global AudioManager, MusicRadio */
 (() => {
   /* ====== UTILS ====== */
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -8106,7 +8106,7 @@
     });
     
     // Listen for radio state changes
-    window.addEventListener('radioStateChange', (e) => {
+    window.addEventListener('radioStateChange', () => {
       updateRadioUI();
     });
     
