@@ -2742,21 +2742,28 @@
         for (let i = 0; i < ringCount; i++) {
           const ringOpacity = rand(0.2, 0.5);
           let ringColor;
+          let ring;
           if (this.planetConfig?.ringColors) {
             ringColor = this.planetConfig.ringColors[i % this.planetConfig.ringColors.length];
+            ring = {
+              innerRadius: this.size * (1.25 + i * 0.12),
+              outerRadius: this.size * (1.32 + i * 0.12),
+              color: ringColor
+            };
           } else {
             // Generate a complete RGBA color for default rings
             const r = Math.floor(rand(180, 220));
             const g = Math.floor(rand(160, 200));
             const b = Math.floor(rand(140, 180));
             ringColor = `rgba(${r}, ${g}, ${b}, ${ringOpacity})`;
+            ring = {
+              innerRadius: this.size * (1.25 + i * 0.12),
+              outerRadius: this.size * (1.32 + i * 0.12),
+              opacity: ringOpacity,
+              color: ringColor
+            };
           }
-          this.rings.push({
-            innerRadius: this.size * (1.25 + i * 0.12),
-            outerRadius: this.size * (1.32 + i * 0.12),
-            opacity: ringOpacity,
-            color: ringColor
-          });
+          this.rings.push(ring);
         }
         this.ringTilt = rand(0.1, 0.35);
       }
