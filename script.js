@@ -2990,7 +2990,7 @@
         ctx.stroke();
         ctx.shadowBlur = 0;
       }
-      ctx.globalAlpha = 1;
+      
       
       // Add some volcanic craters
       ctx.globalAlpha = 0.5;
