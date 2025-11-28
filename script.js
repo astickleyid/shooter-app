@@ -947,6 +947,48 @@
   let levelUpAnimationStart = 0;
   const LEVEL_UP_DURATION = 2000; // ms
 
+  // Kill Streak Pop-up System - Stylish centered notifications
+  let killStreakPopup = null;
+  const KILL_STREAK_POPUP_DURATION = 2500; // ms
+
+  // Visual constants for combo and kill streak displays
+  const COMBO_VISUAL_CONFIG = {
+    PANEL_WIDTH_RATIO: 0.5,          // Max panel width as ratio of canvas width
+    PANEL_MAX_WIDTH: 200,            // Max panel width in pixels
+    FONT_SIZE_RATIO: 0.08,           // Font size as ratio of canvas width
+    FONT_SIZE_MAX: 36,               // Max font size in pixels
+    TIER_THRESHOLDS: [5, 10, 20, 50] // Combo counts for tier upgrades
+  };
+
+  const KILL_STREAK_VISUAL_CONFIG = {
+    PANEL_WIDTH_RATIO: 0.75,         // Max panel width as ratio of canvas width
+    PANEL_MAX_WIDTH: 280,            // Max panel width in pixels
+    SHAKE_BASE_INTENSITY: 6,         // Base screen shake intensity
+    SHAKE_MILESTONE_DIVISOR: 25,     // Divides milestone for additional shake
+    SHAKE_BASE_DURATION: 200,        // Base screen shake duration in ms
+    SHAKE_DURATION_MULTIPLIER: 2,    // Multiplier for milestone-based duration
+    PARTICLE_BASE_COUNT: 30          // Base particle count for celebration
+  };
+
+  // Calculate tier level from a count value with given thresholds
+  const getTierFromCount = (count, thresholds) => {
+    let tier = 1;
+    for (let i = 0; i < thresholds.length; i++) {
+      if (count >= thresholds[i]) tier = i + 2;
+    }
+    return tier;
+  };
+
+  // Kill streak popup data structure
+  const createKillStreakPopup = (milestone, message) => {
+    killStreakPopup = {
+      milestone,
+      message,
+      startTime: performance.now(),
+      tier: getTierFromCount(milestone, [10, 25, 50, 100])
+    };
+  };
+
   const addLogEntry = (message, color = '#fff') => {
     actionLog.push({
       message,
@@ -2030,9 +2072,13 @@
           100: 'LEGENDARY!',
           200: 'GODLIKE!'
         };
+        // Create stylish kill streak popup instead of just log entry
+        createKillStreakPopup(milestone, messages[milestone]);
         addLogEntry(`🔥 ${messages[milestone]} (${milestone} kills)`, '#f97316');
-        shakeScreen(6, 200);
-        addParticles('levelup', player.x, player.y, 0, 30);
+        const shakeIntensity = KILL_STREAK_VISUAL_CONFIG.SHAKE_BASE_INTENSITY + Math.floor(milestone / KILL_STREAK_VISUAL_CONFIG.SHAKE_MILESTONE_DIVISOR);
+        const shakeDuration = KILL_STREAK_VISUAL_CONFIG.SHAKE_BASE_DURATION + milestone * KILL_STREAK_VISUAL_CONFIG.SHAKE_DURATION_MULTIPLIER;
+        shakeScreen(shakeIntensity, shakeDuration);
+        addParticles('levelup', player.x, player.y, 0, KILL_STREAK_VISUAL_CONFIG.PARTICLE_BASE_COUNT + milestone);
         
         // Play combo milestone sound
         if (typeof AudioManager !== 'undefined') {
@@ -6622,33 +6668,107 @@
       ctx.restore();
     }
     
-    // Phase 1: Draw combo counter
+    // Phase 1: Draw combo counter - Enhanced stylish design with mobile-safe positioning
     const now = performance.now();
     if (comboCount > 1 && now < comboTimer) {
       ctx.save();
       const comboAge = now - (comboTimer - COMBO_TIMEOUT);
-      const scale = Math.min(1, comboAge / 150);
-      const pulse = Math.sin(now / 100) * 0.1 + 1;
+      const appearScale = Math.min(1, comboAge / 150);
+      const pulse = Math.sin(now / 100) * 0.08 + 1;
+      const shake = comboCount >= 10 ? Math.sin(now / 30) * 2 : 0;
       
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
-      const x = canvas.width / 2;
-      const y = 80;
       
-      // Shadow
-      ctx.shadowColor = '#000';
-      ctx.shadowBlur = 10;
+      // Use window dimensions for proper positioning (canvas has DPR transform applied)
+      const screenWidth = window.innerWidth;
+      const screenHeight = window.innerHeight;
       
-      // Combo text
-      ctx.font = `bold ${Math.floor(32 * scale * pulse)}px Arial`;
-      const comboColor = comboCount >= 20 ? '#a855f7' : comboCount >= 10 ? '#f97316' : comboCount >= 5 ? '#fbbf24' : '#4ade80';
-      ctx.fillStyle = comboColor;
-      ctx.fillText(`${comboCount}x COMBO`, x, y);
+      // Position calculation - ensure it stays within screen bounds on mobile
+      // Place it in the upper portion of the screen but with safe margins
+      const minY = 70; // Account for HUD panel
+      const maxY = screenHeight * 0.25; // Don't go too low
+      const baseY = Math.max(minY, Math.min(maxY, screenHeight * 0.12));
+      const x = screenWidth / 2 + shake;
+      const y = baseY;
       
-      // Multiplier info
-      ctx.font = '16px Arial';
+      // Get tier-based styling using shared helper
+      const tier = getTierFromCount(comboCount, COMBO_VISUAL_CONFIG.TIER_THRESHOLDS);
+      const tierColors = {
+        1: { main: '#4ade80', glow: '#22c55e', bg: 'rgba(34, 197, 94, 0.15)' },
+        2: { main: '#fbbf24', glow: '#f59e0b', bg: 'rgba(251, 191, 36, 0.15)' },
+        3: { main: '#f97316', glow: '#ea580c', bg: 'rgba(249, 115, 22, 0.15)' },
+        4: { main: '#a855f7', glow: '#9333ea', bg: 'rgba(168, 85, 247, 0.15)' },
+        5: { main: '#ec4899', glow: '#db2777', bg: 'rgba(236, 72, 153, 0.15)' }
+      };
+      const colors = tierColors[tier];
+      
+      // Background panel with rounded corners - responsive width
+      const panelWidth = Math.min(COMBO_VISUAL_CONFIG.PANEL_MAX_WIDTH, screenWidth * COMBO_VISUAL_CONFIG.PANEL_WIDTH_RATIO);
+      const panelHeight = 70;
+      const panelX = x - panelWidth / 2;
+      const panelY = y - 8;
+      
+      // Panel background with gradient
+      const bgGradient = ctx.createLinearGradient(panelX, panelY, panelX, panelY + panelHeight);
+      bgGradient.addColorStop(0, 'rgba(15, 23, 42, 0.9)');
+      bgGradient.addColorStop(1, 'rgba(15, 23, 42, 0.7)');
+      ctx.fillStyle = bgGradient;
+      ctx.beginPath();
+      ctx.roundRect(panelX, panelY, panelWidth, panelHeight, 10);
+      ctx.fill();
+      
+      // Glowing border
+      ctx.strokeStyle = colors.main;
+      ctx.lineWidth = 2;
+      ctx.shadowColor = colors.glow;
+      ctx.shadowBlur = 15;
+      ctx.beginPath();
+      ctx.roundRect(panelX, panelY, panelWidth, panelHeight, 10);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      
+      // Accent line at top of panel
+      ctx.strokeStyle = colors.main;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(panelX + 10, panelY);
+      ctx.lineTo(panelX + panelWidth - 10, panelY);
+      ctx.stroke();
+      
+      // "COMBO" label
+      ctx.font = '10px Arial, sans-serif';
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText('COMBO', x, y + 2);
+      
+      // Big combo number with glow
+      const fontSize = Math.floor(Math.min(COMBO_VISUAL_CONFIG.FONT_SIZE_MAX, screenWidth * COMBO_VISUAL_CONFIG.FONT_SIZE_RATIO) * appearScale * pulse);
+      ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+      ctx.shadowColor = colors.glow;
+      ctx.shadowBlur = 20;
+      ctx.fillStyle = colors.main;
+      ctx.fillText(`${comboCount}x`, x, y + 14);
+      ctx.shadowBlur = 0;
+      
+      // XP bonus with icon-like styling
+      ctx.font = 'bold 13px Arial, sans-serif';
       ctx.fillStyle = '#fff';
-      ctx.fillText(`+${Math.floor(comboCount * 10)}% XP`, x, y + 40);
+      ctx.fillText(`+${Math.floor(comboCount * 10)}% XP`, x, y + 48);
+      
+      // Decorative particles for high combos
+      if (tier >= 3) {
+        ctx.fillStyle = `${colors.main}88`;
+        const particleCount = tier * 2;
+        for (let i = 0; i < particleCount; i++) {
+          const angle = (i / particleCount) * Math.PI * 2 + (now / 500);
+          const dist = panelWidth / 2 + 10 + Math.sin(now / 300 + i) * 5;
+          const px = x + Math.cos(angle) * dist;
+          const py = y + panelHeight / 2 + Math.sin(angle) * (panelHeight / 2 + 5);
+          ctx.beginPath();
+          ctx.arc(px, py, 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
       
       ctx.restore();
     }
@@ -6697,55 +6817,346 @@
       }
     }
     
-    // Draw countdown
+    // Draw kill streak popup - Stylish centered notification with mobile-safe positioning
+    if (killStreakPopup) {
+      const elapsed = now - killStreakPopup.startTime;
+      if (elapsed > KILL_STREAK_POPUP_DURATION) {
+        killStreakPopup = null;
+      } else {
+        ctx.save();
+        const progress = elapsed / KILL_STREAK_POPUP_DURATION;
+        
+        // Animation phases: appear (0-0.2), hold (0.2-0.7), fade out (0.7-1.0)
+        let alpha, scale, yOffset;
+        if (progress < 0.15) {
+          // Zoom in with bounce
+          const t = progress / 0.15;
+          scale = 0.3 + t * 0.9; // Overshoot to 1.2 then settle
+          alpha = t;
+          yOffset = (1 - t) * 50;
+        } else if (progress < 0.25) {
+          // Bounce settle
+          const t = (progress - 0.15) / 0.1;
+          scale = 1.2 - t * 0.2;
+          alpha = 1;
+          yOffset = 0;
+        } else if (progress < 0.75) {
+          // Hold steady
+          scale = 1;
+          alpha = 1;
+          yOffset = 0;
+        } else {
+          // Fade out and slide up
+          const t = (progress - 0.75) / 0.25;
+          scale = 1 - t * 0.2;
+          alpha = 1 - t;
+          yOffset = t * -30;
+        }
+        
+        // Use window dimensions for proper positioning (canvas has DPR transform applied)
+        const screenWidth = window.innerWidth;
+        const screenHeight = window.innerHeight;
+        
+        // Center position - ensure it stays within screen bounds on mobile
+        const centerX = screenWidth / 2;
+        // Position in upper-middle portion of screen, safe from HUD
+        const baseY = Math.max(screenHeight * 0.25, 120);
+        const centerY = Math.min(baseY, screenHeight * 0.4) + yOffset;
+        
+        // Tier-based styling
+        const tierStyles = {
+          1: { main: '#f97316', glow: '#ea580c', accent: '#fbbf24', name: 'KILL STREAK' },
+          2: { main: '#ef4444', glow: '#dc2626', accent: '#f97316', name: 'RAMPAGE' },
+          3: { main: '#a855f7', glow: '#9333ea', accent: '#ec4899', name: 'DOMINATING' },
+          4: { main: '#ec4899', glow: '#db2777', accent: '#f472b6', name: 'UNSTOPPABLE' },
+          5: { main: '#facc15', glow: '#eab308', accent: '#fef08a', name: 'LEGENDARY' }
+        };
+        const style = tierStyles[killStreakPopup.tier] || tierStyles[1];
+        
+        // Background panel - responsive sizing using config
+        const panelWidth = Math.min(KILL_STREAK_VISUAL_CONFIG.PANEL_MAX_WIDTH, screenWidth * KILL_STREAK_VISUAL_CONFIG.PANEL_WIDTH_RATIO);
+        const panelHeight = 90;
+        
+        // Outer glow
+        ctx.shadowColor = style.glow;
+        ctx.shadowBlur = 40 * alpha;
+        
+        // Panel background with gradient
+        const bgGradient = ctx.createLinearGradient(
+          centerX - panelWidth / 2, centerY - panelHeight / 2,
+          centerX + panelWidth / 2, centerY + panelHeight / 2
+        );
+        bgGradient.addColorStop(0, `rgba(15, 23, 42, ${0.95 * alpha})`);
+        bgGradient.addColorStop(0.5, `rgba(30, 41, 59, ${0.9 * alpha})`);
+        bgGradient.addColorStop(1, `rgba(15, 23, 42, ${0.95 * alpha})`);
+        
+        ctx.fillStyle = bgGradient;
+        ctx.beginPath();
+        ctx.roundRect(
+          centerX - (panelWidth * scale) / 2,
+          centerY - (panelHeight * scale) / 2,
+          panelWidth * scale,
+          panelHeight * scale,
+          12
+        );
+        ctx.fill();
+        
+        // Animated border with glow
+        ctx.strokeStyle = style.main;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        
+        // Top accent bar
+        ctx.fillStyle = style.main;
+        const accentWidth = (panelWidth - 40) * scale;
+        ctx.beginPath();
+        ctx.roundRect(centerX - accentWidth / 2, centerY - (panelHeight * scale) / 2 - 2, accentWidth, 4, 2);
+        ctx.fill();
+        
+        // Fire emoji with glow for high tiers
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        if (killStreakPopup.tier >= 3) {
+          ctx.font = `${Math.floor(24 * scale)}px Arial, sans-serif`;
+          ctx.fillText('🔥', centerX - (panelWidth * scale) / 2 + 30, centerY - 8);
+          ctx.fillText('🔥', centerX + (panelWidth * scale) / 2 - 30, centerY - 8);
+        }
+        
+        // Main message text
+        ctx.font = `bold ${Math.floor(28 * scale)}px Arial, sans-serif`;
+        ctx.shadowColor = style.glow;
+        ctx.shadowBlur = 20 * alpha;
+        ctx.fillStyle = style.main;
+        ctx.globalAlpha = alpha;
+        ctx.fillText(killStreakPopup.message.toUpperCase(), centerX, centerY - 12);
+        ctx.shadowBlur = 0;
+        
+        // Kill count
+        ctx.font = `bold ${Math.floor(18 * scale)}px Arial, sans-serif`;
+        ctx.fillStyle = '#fff';
+        ctx.fillText(`${killStreakPopup.milestone} KILLS`, centerX, centerY + 20);
+        
+        // Animated particles around the panel for higher tiers
+        if (killStreakPopup.tier >= 2 && alpha > 0.5) {
+          ctx.fillStyle = `${style.accent}`;
+          const particleCount = killStreakPopup.tier * 4;
+          for (let i = 0; i < particleCount; i++) {
+            const angle = (i / particleCount) * Math.PI * 2 + (now / 400);
+            const radiusX = (panelWidth * scale) / 2 + 20;
+            const radiusY = (panelHeight * scale) / 2 + 15;
+            const px = centerX + Math.cos(angle) * radiusX;
+            const py = centerY + Math.sin(angle) * radiusY;
+            const size = 2 + Math.sin(now / 150 + i * 0.5) * 1.5;
+            ctx.beginPath();
+            ctx.arc(px, py, size, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        
+        ctx.globalAlpha = 1;
+        ctx.restore();
+      }
+    }
+    
+    // Draw countdown - Enhanced stylish design
     if (countdownActive) {
       const timeRemaining = countdownEnd - performance.now();
+      const now = performance.now();
       
       ctx.save();
-      ctx.fillStyle = 'rgba(0,0,0,0.85)';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Use window dimensions for proper positioning (canvas has DPR transform applied)
+      const screenWidth = window.innerWidth;
+      const screenHeight = window.innerHeight;
+      
+      // Animated gradient background with radial pulse effect
+      const pulsePhase = Math.sin(now / 300) * 0.1;
+      const gradientCenterY = screenHeight * (0.4 + pulsePhase * 0.05);
+      const gradient = ctx.createRadialGradient(
+        screenWidth / 2, gradientCenterY, 0,
+        screenWidth / 2, gradientCenterY, Math.max(screenWidth, screenHeight) * 0.8
+      );
+      gradient.addColorStop(0, 'rgba(15, 23, 42, 0.92)');
+      gradient.addColorStop(0.4, 'rgba(15, 23, 42, 0.95)');
+      gradient.addColorStop(1, 'rgba(0, 0, 0, 0.98)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, screenWidth, screenHeight);
+      
+      // Animated scan lines effect
+      ctx.fillStyle = 'rgba(74, 222, 128, 0.03)';
+      const scanLineOffset = (now / 20) % 8;
+      for (let y = scanLineOffset; y < screenHeight; y += 8) {
+        ctx.fillRect(0, y, screenWidth, 1);
+      }
+      
+      // Glowing corner accent lines
+      ctx.strokeStyle = 'rgba(74, 222, 128, 0.3)';
+      ctx.lineWidth = 2;
+      const cornerSize = 40;
+      
+      // Top-left corner
+      ctx.beginPath();
+      ctx.moveTo(20, 20 + cornerSize);
+      ctx.lineTo(20, 20);
+      ctx.lineTo(20 + cornerSize, 20);
+      ctx.stroke();
+      
+      // Top-right corner
+      ctx.beginPath();
+      ctx.moveTo(screenWidth - 20 - cornerSize, 20);
+      ctx.lineTo(screenWidth - 20, 20);
+      ctx.lineTo(screenWidth - 20, 20 + cornerSize);
+      ctx.stroke();
+      
+      // Bottom-left corner
+      ctx.beginPath();
+      ctx.moveTo(20, screenHeight - 20 - cornerSize);
+      ctx.lineTo(20, screenHeight - 20);
+      ctx.lineTo(20 + cornerSize, screenHeight - 20);
+      ctx.stroke();
+      
+      // Bottom-right corner
+      ctx.beginPath();
+      ctx.moveTo(screenWidth - 20 - cornerSize, screenHeight - 20);
+      ctx.lineTo(screenWidth - 20, screenHeight - 20);
+      ctx.lineTo(screenWidth - 20, screenHeight - 20 - cornerSize);
+      ctx.stroke();
+      
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       
-      // Use window dimensions for proper centering across all screen sizes
-      const centerX = window.innerWidth / 2;
-      const centerY = window.innerHeight / 2;
+      // Center coordinates for text and elements
+      const centerX = screenWidth / 2;
+      const centerY = screenHeight / 2;
       
       // First 0.5 seconds: Show "LEVEL COMPLETE"
       if (timeRemaining > 2500) {
-        ctx.font = 'bold 48px Arial';
-        ctx.fillStyle = '#4ade80';
+        const appearPhase = Math.min(1, (3000 - timeRemaining) / 400);
+        const bounceScale = 1 + Math.sin(appearPhase * Math.PI) * 0.1;
+        
+        // Decorative line above
+        const lineWidth = 200 * appearPhase;
+        ctx.strokeStyle = `rgba(74, 222, 128, ${0.6 * appearPhase})`;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(centerX - lineWidth / 2, centerY - 100);
+        ctx.lineTo(centerX + lineWidth / 2, centerY - 100);
+        ctx.stroke();
+        
+        // "LEVEL COMPLETE" text with glow
+        ctx.font = `bold ${Math.floor(48 * bounceScale)}px Arial, sans-serif`;
         ctx.shadowColor = '#4ade80';
-        ctx.shadowBlur = 25;
-        ctx.fillText('LEVEL COMPLETE', centerX, centerY - 60);
+        ctx.shadowBlur = 40;
+        ctx.fillStyle = '#4ade80';
+        ctx.fillText('LEVEL COMPLETE', centerX, centerY - 50);
+        ctx.shadowBlur = 20;
+        ctx.fillText('LEVEL COMPLETE', centerX, centerY - 50);
         ctx.shadowBlur = 0;
         
-        ctx.font = 'bold 32px Arial';
-        ctx.fillStyle = '#fff';
-        ctx.fillText(`Level ${countdownCompletedLevel}`, centerX, centerY);
+        // Level number badge
+        const badgeWidth = 160;
+        const badgeHeight = 50;
+        ctx.fillStyle = 'rgba(74, 222, 128, 0.15)';
+        ctx.beginPath();
+        ctx.roundRect(centerX - badgeWidth / 2, centerY - 5, badgeWidth, badgeHeight, 8);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(74, 222, 128, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
         
-        ctx.font = '20px Arial';
+        ctx.font = 'bold 28px Arial, sans-serif';
+        ctx.fillStyle = '#fff';
+        ctx.fillText(`Level ${countdownCompletedLevel}`, centerX, centerY + 20);
+        
+        // "Get Ready" with animated dots
+        const dotCount = Math.floor((now / 400) % 4);
+        const dots = '.'.repeat(dotCount);
+        ctx.font = '18px Arial, sans-serif';
         ctx.fillStyle = '#94a3b8';
-        ctx.fillText('Get Ready...', centerX, centerY + 50);
+        ctx.fillText(`Get Ready${dots}`, centerX, centerY + 70);
+        
+        // Decorative line below
+        ctx.strokeStyle = `rgba(74, 222, 128, ${0.4 * appearPhase})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(centerX - lineWidth / 2, centerY + 100);
+        ctx.lineTo(centerX + lineWidth / 2, centerY + 100);
+        ctx.stroke();
       } 
       // Remaining time: Show countdown and next level
       else if (timeRemaining > 0) {
         const countdown = Math.ceil(timeRemaining / 1000);
+        const countdownFraction = (timeRemaining / 1000) % 1;
+        const pulseScale = 1 + (1 - countdownFraction) * 0.15;
+        const pulseOpacity = 0.3 + countdownFraction * 0.7;
         
-        ctx.font = 'bold 36px Arial';
+        // "LEVEL X" header with accent
+        ctx.font = 'bold 32px Arial, sans-serif';
         ctx.fillStyle = '#60a5fa';
-        ctx.fillText(`LEVEL ${level}`, centerX, centerY - 80);
-        
-        ctx.font = 'bold 120px Arial';
-        ctx.fillStyle = '#4ade80';
-        ctx.shadowColor = '#4ade80';
-        ctx.shadowBlur = 30;
-        ctx.fillText(countdown, centerX, centerY + 20);
+        ctx.shadowColor = '#60a5fa';
+        ctx.shadowBlur = 15;
+        ctx.fillText(`LEVEL ${level}`, centerX, centerY - 100);
         ctx.shadowBlur = 0;
         
-        ctx.font = '18px Arial';
-        ctx.fillStyle = '#94a3b8';
-        ctx.fillText('Starting in...', centerX, centerY - 40);
+        // Small accent line under header
+        ctx.strokeStyle = 'rgba(96, 165, 250, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(centerX - 60, centerY - 75);
+        ctx.lineTo(centerX + 60, centerY - 75);
+        ctx.stroke();
+        
+        // "Starting in..." subtext
+        ctx.font = '16px Arial, sans-serif';
+        ctx.fillStyle = '#64748b';
+        ctx.fillText('Starting in', centerX, centerY - 50);
+        
+        // Countdown circle ring
+        const ringRadius = 70;
+        ctx.strokeStyle = 'rgba(74, 222, 128, 0.2)';
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY + 20, ringRadius, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // Animated progress ring
+        const progressAngle = (1 - countdownFraction) * Math.PI * 2;
+        ctx.strokeStyle = '#4ade80';
+        ctx.lineWidth = 6;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.arc(centerX, centerY + 20, ringRadius, -Math.PI / 2, -Math.PI / 2 + progressAngle);
+        ctx.stroke();
+        ctx.lineCap = 'butt';
+        
+        // Pulsing glow circle behind number
+        ctx.beginPath();
+        ctx.arc(centerX, centerY + 20, 50 * pulseScale, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(74, 222, 128, ${0.1 * pulseOpacity})`;
+        ctx.fill();
+        
+        // Big countdown number
+        ctx.font = `bold ${Math.floor(90 * pulseScale)}px Arial, sans-serif`;
+        ctx.fillStyle = '#4ade80';
+        ctx.shadowColor = '#4ade80';
+        ctx.shadowBlur = 30 * pulseOpacity;
+        ctx.fillText(countdown, centerX, centerY + 30);
+        ctx.shadowBlur = 0;
+        
+        // Small decorative particles around the ring
+        ctx.fillStyle = 'rgba(74, 222, 128, 0.6)';
+        const particleCount = 8;
+        for (let i = 0; i < particleCount; i++) {
+          const angle = (i / particleCount) * Math.PI * 2 + (now / 2000);
+          const px = centerX + Math.cos(angle) * (ringRadius + 15);
+          const py = centerY + 20 + Math.sin(angle) * (ringRadius + 15);
+          const particleSize = 2 + Math.sin(now / 200 + i) * 1;
+          ctx.beginPath();
+          ctx.arc(px, py, particleSize, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
       
       ctx.restore();
