@@ -6680,12 +6680,16 @@
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
       
+      // Use window dimensions for proper positioning (canvas has DPR transform applied)
+      const screenWidth = window.innerWidth;
+      const screenHeight = window.innerHeight;
+      
       // Position calculation - ensure it stays within screen bounds on mobile
       // Place it in the upper portion of the screen but with safe margins
       const minY = 70; // Account for HUD panel
-      const maxY = canvas.height * 0.25; // Don't go too low
-      const baseY = Math.max(minY, Math.min(maxY, canvas.height * 0.12));
-      const x = canvas.width / 2 + shake;
+      const maxY = screenHeight * 0.25; // Don't go too low
+      const baseY = Math.max(minY, Math.min(maxY, screenHeight * 0.12));
+      const x = screenWidth / 2 + shake;
       const y = baseY;
       
       // Get tier-based styling using shared helper
@@ -6700,7 +6704,7 @@
       const colors = tierColors[tier];
       
       // Background panel with rounded corners - responsive width
-      const panelWidth = Math.min(COMBO_VISUAL_CONFIG.PANEL_MAX_WIDTH, canvas.width * COMBO_VISUAL_CONFIG.PANEL_WIDTH_RATIO);
+      const panelWidth = Math.min(COMBO_VISUAL_CONFIG.PANEL_MAX_WIDTH, screenWidth * COMBO_VISUAL_CONFIG.PANEL_WIDTH_RATIO);
       const panelHeight = 70;
       const panelX = x - panelWidth / 2;
       const panelY = y - 8;
@@ -6738,7 +6742,7 @@
       ctx.fillText('COMBO', x, y + 2);
       
       // Big combo number with glow
-      const fontSize = Math.floor(Math.min(COMBO_VISUAL_CONFIG.FONT_SIZE_MAX, canvas.width * COMBO_VISUAL_CONFIG.FONT_SIZE_RATIO) * appearScale * pulse);
+      const fontSize = Math.floor(Math.min(COMBO_VISUAL_CONFIG.FONT_SIZE_MAX, screenWidth * COMBO_VISUAL_CONFIG.FONT_SIZE_RATIO) * appearScale * pulse);
       ctx.font = `bold ${fontSize}px Arial, sans-serif`;
       ctx.shadowColor = colors.glow;
       ctx.shadowBlur = 20;
@@ -6849,11 +6853,15 @@
           yOffset = t * -30;
         }
         
+        // Use window dimensions for proper positioning (canvas has DPR transform applied)
+        const screenWidth = window.innerWidth;
+        const screenHeight = window.innerHeight;
+        
         // Center position - ensure it stays within screen bounds on mobile
-        const centerX = canvas.width / 2;
+        const centerX = screenWidth / 2;
         // Position in upper-middle portion of screen, safe from HUD
-        const baseY = Math.max(canvas.height * 0.25, 120);
-        const centerY = Math.min(baseY, canvas.height * 0.4) + yOffset;
+        const baseY = Math.max(screenHeight * 0.25, 120);
+        const centerY = Math.min(baseY, screenHeight * 0.4) + yOffset;
         
         // Tier-based styling
         const tierStyles = {
@@ -6866,7 +6874,7 @@
         const style = tierStyles[killStreakPopup.tier] || tierStyles[1];
         
         // Background panel - responsive sizing using config
-        const panelWidth = Math.min(KILL_STREAK_VISUAL_CONFIG.PANEL_MAX_WIDTH, canvas.width * KILL_STREAK_VISUAL_CONFIG.PANEL_WIDTH_RATIO);
+        const panelWidth = Math.min(KILL_STREAK_VISUAL_CONFIG.PANEL_MAX_WIDTH, screenWidth * KILL_STREAK_VISUAL_CONFIG.PANEL_WIDTH_RATIO);
         const panelHeight = 90;
         
         // Outer glow
@@ -6959,24 +6967,28 @@
       
       ctx.save();
       
+      // Use window dimensions for proper positioning (canvas has DPR transform applied)
+      const screenWidth = window.innerWidth;
+      const screenHeight = window.innerHeight;
+      
       // Animated gradient background with radial pulse effect
       const pulsePhase = Math.sin(now / 300) * 0.1;
-      const gradientCenterY = canvas.height * (0.4 + pulsePhase * 0.05);
+      const gradientCenterY = screenHeight * (0.4 + pulsePhase * 0.05);
       const gradient = ctx.createRadialGradient(
-        canvas.width / 2, gradientCenterY, 0,
-        canvas.width / 2, gradientCenterY, Math.max(canvas.width, canvas.height) * 0.8
+        screenWidth / 2, gradientCenterY, 0,
+        screenWidth / 2, gradientCenterY, Math.max(screenWidth, screenHeight) * 0.8
       );
       gradient.addColorStop(0, 'rgba(15, 23, 42, 0.92)');
       gradient.addColorStop(0.4, 'rgba(15, 23, 42, 0.95)');
       gradient.addColorStop(1, 'rgba(0, 0, 0, 0.98)');
       ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, screenWidth, screenHeight);
       
       // Animated scan lines effect
       ctx.fillStyle = 'rgba(74, 222, 128, 0.03)';
       const scanLineOffset = (now / 20) % 8;
-      for (let y = scanLineOffset; y < canvas.height; y += 8) {
-        ctx.fillRect(0, y, canvas.width, 1);
+      for (let y = scanLineOffset; y < screenHeight; y += 8) {
+        ctx.fillRect(0, y, screenWidth, 1);
       }
       
       // Glowing corner accent lines
@@ -6993,31 +7005,31 @@
       
       // Top-right corner
       ctx.beginPath();
-      ctx.moveTo(canvas.width - 20 - cornerSize, 20);
-      ctx.lineTo(canvas.width - 20, 20);
-      ctx.lineTo(canvas.width - 20, 20 + cornerSize);
+      ctx.moveTo(screenWidth - 20 - cornerSize, 20);
+      ctx.lineTo(screenWidth - 20, 20);
+      ctx.lineTo(screenWidth - 20, 20 + cornerSize);
       ctx.stroke();
       
       // Bottom-left corner
       ctx.beginPath();
-      ctx.moveTo(20, canvas.height - 20 - cornerSize);
-      ctx.lineTo(20, canvas.height - 20);
-      ctx.lineTo(20 + cornerSize, canvas.height - 20);
+      ctx.moveTo(20, screenHeight - 20 - cornerSize);
+      ctx.lineTo(20, screenHeight - 20);
+      ctx.lineTo(20 + cornerSize, screenHeight - 20);
       ctx.stroke();
       
       // Bottom-right corner
       ctx.beginPath();
-      ctx.moveTo(canvas.width - 20 - cornerSize, canvas.height - 20);
-      ctx.lineTo(canvas.width - 20, canvas.height - 20);
-      ctx.lineTo(canvas.width - 20, canvas.height - 20 - cornerSize);
+      ctx.moveTo(screenWidth - 20 - cornerSize, screenHeight - 20);
+      ctx.lineTo(screenWidth - 20, screenHeight - 20);
+      ctx.lineTo(screenWidth - 20, screenHeight - 20 - cornerSize);
       ctx.stroke();
       
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       
-      // Responsive centering for all screen sizes
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 2;
+      // Center coordinates for text and elements
+      const centerX = screenWidth / 2;
+      const centerY = screenHeight / 2;
       
       // First 0.5 seconds: Show "LEVEL COMPLETE"
       if (timeRemaining > 2500) {
