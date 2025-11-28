@@ -6342,7 +6342,6 @@
   };
   
   // Get current game mode configuration
-  const getGameMode = () => GAME_MODES[currentGameMode] || GAME_MODES.classic;
   
   // Update mode description text
   const updateModeDescription = (modeId) => {
