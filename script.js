@@ -3119,36 +3119,92 @@
       this.x = x;
       this.y = y;
       this.type = type;
-      this.size = type === 'planet' ? rand(150, 300) : rand(40, 100);
+      // Smaller, less intrusive sizes
+      this.size = type === 'planet' ? rand(80, 150) : rand(25, 60);
       this.rotation = rand(0, Math.PI * 2);
-      this.rotSpeed = rand(-0.001, 0.001);
-      this.parallax = type === 'planet' ? 0.1 : 0.15; // Distant = less parallax
+      this.rotSpeed = rand(-0.0005, 0.0005);
+      this.parallax = type === 'planet' ? 0.05 : 0.08; // More distant feel
       this.baseX = x;
       this.baseY = y;
       
+      // Determine if this is a gas giant or solid planet
+      this.isGasGiant = type === 'planet' && chance(0.4);
+      
       // Generate surface features
       this.craters = [];
+      this.surfaceNoise = []; // For rough texture
+      this.gasParticles = []; // For gas giant glow effect
       this.color = this.generateColor();
-      const craterCount = type === 'planet' ? rand(5, 12) : rand(2, 6);
-      for (let i = 0; i < craterCount; i++) {
-        const angle = rand(0, Math.PI * 2);
-        const dist = rand(0, this.size * 0.7);
-        this.craters.push({
-          x: Math.cos(angle) * dist,
-          y: Math.sin(angle) * dist,
-          r: rand(this.size * 0.05, this.size * 0.15)
-        });
+      this.secondaryColor = this.generateSecondaryColor();
+      
+      if (this.isGasGiant) {
+        // Gas giants have swirling particle bands instead of craters
+        this.generateGasParticles();
+      } else {
+        // Solid planets/moons have craters and rough surface
+        const craterCount = type === 'planet' ? rand(8, 18) : rand(4, 10);
+        for (let i = 0; i < craterCount; i++) {
+          const angle = rand(0, Math.PI * 2);
+          const dist = rand(0, this.size * 0.8);
+          this.craters.push({
+            x: Math.cos(angle) * dist,
+            y: Math.sin(angle) * dist,
+            r: rand(this.size * 0.03, this.size * 0.12),
+            depth: rand(0.3, 0.7) // Crater depth variation
+          });
+        }
+        // Add surface roughness noise points
+        for (let i = 0; i < 20; i++) {
+          const angle = rand(0, Math.PI * 2);
+          const dist = rand(0, this.size * 0.9);
+          this.surfaceNoise.push({
+            x: Math.cos(angle) * dist,
+            y: Math.sin(angle) * dist,
+            r: rand(2, 6),
+            dark: chance(0.5)
+          });
+        }
       }
       
-      // Rings for some planets
-      this.hasRings = type === 'planet' && chance(0.4);
-      this.ringColor = chance(0.5) ? 'rgba(200, 180, 150,' : 'rgba(180, 200, 220,';
+      // Rings for some planets (less common)
+      this.hasRings = type === 'planet' && !this.isGasGiant && chance(0.25);
+      this.ringColor = 'rgba(120, 110, 100,'; // More muted ring color
+    }
+    
+    generateGasParticles() {
+      // Create swirling gas bands/particles for gas giants
+      const bandCount = rand(4, 7);
+      for (let band = 0; band < bandCount; band++) {
+        const bandY = -this.size * 0.8 + (band / bandCount) * this.size * 1.6;
+        const particlesInBand = rand(8, 15);
+        for (let i = 0; i < particlesInBand; i++) {
+          this.gasParticles.push({
+            x: rand(-this.size * 0.9, this.size * 0.9),
+            y: bandY + rand(-this.size * 0.1, this.size * 0.1),
+            r: rand(3, 12),
+            speed: rand(0.1, 0.4) * (band % 2 === 0 ? 1 : -1),
+            alpha: rand(0.1, 0.4)
+          });
+        }
+      }
     }
     
     generateColor() {
       const colors = {
-        moon: ['#9ca3af', '#6b7280', '#d1d5db', '#e5e7eb'],
-        planet: ['#92400e', '#0891b2', '#7c3aed', '#dc2626', '#059669', '#ca8a04']
+        // Muted, realistic moon colors
+        moon: ['#4a4a4a', '#3d3d3d', '#555555', '#484848', '#525252'],
+        // Muted, realistic planet colors - darker, less saturated
+        planet: ['#3d2817', '#1a3a3a', '#2d2040', '#4a2020', '#1a3020', '#3a3520']
+      };
+      const palette = colors[this.type];
+      return palette[Math.floor(Math.random() * palette.length)];
+    }
+    
+    generateSecondaryColor() {
+      // Slightly lighter variant for bands/details
+      const colors = {
+        moon: ['#5a5a5a', '#4d4d4d', '#656565'],
+        planet: ['#4d3827', '#2a4a4a', '#3d3050', '#5a3030', '#2a4030', '#4a4530']
       };
       const palette = colors[this.type];
       return palette[Math.floor(Math.random() * palette.length)];
@@ -3158,8 +3214,6 @@
       ctx.save();
       
       // Apply parallax based on camera position
-      // Since ctx is already translated by -camera, we need to add back camera offset
-      // and then apply our own reduced parallax
       const parallaxOffset = 1 - this.parallax;
       const px = this.baseX + camera.x * parallaxOffset;
       const py = this.baseY + camera.y * parallaxOffset;
@@ -3167,14 +3221,94 @@
       ctx.translate(px, py);
       ctx.rotate(this.rotation);
       
-      // Shadow side gradient (3D effect)
+      // Lower overall opacity for background feel
+      ctx.globalAlpha = this.type === 'planet' ? 0.6 : 0.5;
+      
+      if (this.isGasGiant) {
+        this.drawGasGiant(ctx);
+      } else {
+        this.drawSolidBody(ctx);
+      }
+      
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
+    
+    drawGasGiant(ctx) {
+      // Subtle outer glow
+      const glowGradient = ctx.createRadialGradient(0, 0, this.size * 0.7, 0, 0, this.size * 1.3);
+      glowGradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
+      glowGradient.addColorStop(0.6, this.adjustBrightness(this.color, 0.3, 0.2));
+      glowGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = glowGradient;
+      ctx.beginPath();
+      ctx.arc(0, 0, this.size * 1.3, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Main body - very dim base
       const bodyGradient = ctx.createRadialGradient(
-        -this.size * 0.3, -this.size * 0.3, 0,
+        -this.size * 0.2, -this.size * 0.2, 0,
         0, 0, this.size
       );
-      bodyGradient.addColorStop(0, this.adjustBrightness(this.color, 1.3));
-      bodyGradient.addColorStop(0.5, this.color);
-      bodyGradient.addColorStop(1, this.adjustBrightness(this.color, 0.4));
+      bodyGradient.addColorStop(0, this.adjustBrightness(this.color, 0.6));
+      bodyGradient.addColorStop(0.5, this.adjustBrightness(this.color, 0.4));
+      bodyGradient.addColorStop(1, this.adjustBrightness(this.color, 0.2));
+      
+      ctx.fillStyle = bodyGradient;
+      ctx.beginPath();
+      ctx.arc(0, 0, this.size, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Draw gas bands with clip
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(0, 0, this.size * 0.98, 0, Math.PI * 2);
+      ctx.clip();
+      
+      // Horizontal gas bands
+      for (let i = 0; i < 5; i++) {
+        const bandY = -this.size * 0.8 + i * this.size * 0.4;
+        const bandHeight = this.size * 0.15;
+        ctx.fillStyle = i % 2 === 0 
+          ? this.adjustBrightness(this.secondaryColor, 0.5, 0.25)
+          : this.adjustBrightness(this.color, 0.7, 0.2);
+        ctx.fillRect(-this.size, bandY, this.size * 2, bandHeight);
+      }
+      
+      // Draw swirling particles for gaseous effect
+      for (const particle of this.gasParticles) {
+        ctx.globalAlpha = particle.alpha * 0.5;
+        const particleGrad = ctx.createRadialGradient(
+          particle.x, particle.y, 0,
+          particle.x, particle.y, particle.r
+        );
+        particleGrad.addColorStop(0, this.adjustBrightness(this.secondaryColor, 0.8, 0.4));
+        particleGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = particleGrad;
+        ctx.beginPath();
+        ctx.arc(particle.x, particle.y, particle.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+      
+      // Subtle edge highlight
+      ctx.globalAlpha = 0.1;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(0, 0, this.size * 0.98, -Math.PI * 0.3, Math.PI * 0.3);
+      ctx.stroke();
+    }
+    
+    drawSolidBody(ctx) {
+      // Shadow side gradient (3D effect) - more muted
+      const bodyGradient = ctx.createRadialGradient(
+        -this.size * 0.25, -this.size * 0.25, 0,
+        0, 0, this.size
+      );
+      bodyGradient.addColorStop(0, this.adjustBrightness(this.color, 0.8));
+      bodyGradient.addColorStop(0.4, this.adjustBrightness(this.color, 0.5));
+      bodyGradient.addColorStop(1, this.adjustBrightness(this.color, 0.15));
       
       // Main body
       ctx.fillStyle = bodyGradient;
@@ -3182,48 +3316,52 @@
       ctx.arc(0, 0, this.size, 0, Math.PI * 2);
       ctx.fill();
       
-      // Atmosphere glow for planets
-      if (this.type === 'planet') {
-        ctx.globalAlpha = 0.2;
-        const atmosGradient = ctx.createRadialGradient(0, 0, this.size * 0.9, 0, 0, this.size * 1.15);
-        atmosGradient.addColorStop(0, 'rgba(255, 255, 255, 0)');
-        atmosGradient.addColorStop(0.7, this.color);
-        atmosGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-        ctx.fillStyle = atmosGradient;
+      // Surface roughness noise
+      for (const noise of this.surfaceNoise) {
+        ctx.globalAlpha = 0.3;
+        ctx.fillStyle = noise.dark ? 'rgba(0, 0, 0, 0.4)' : 'rgba(255, 255, 255, 0.1)';
         ctx.beginPath();
-        ctx.arc(0, 0, this.size * 1.15, 0, Math.PI * 2);
+        ctx.arc(noise.x, noise.y, noise.r, 0, Math.PI * 2);
         ctx.fill();
-        ctx.globalAlpha = 1;
       }
       
-      // Surface craters
-      ctx.globalAlpha = 0.4;
+      // Surface craters with raised rim effect
       for (const crater of this.craters) {
+        // Crater shadow (depth)
+        ctx.globalAlpha = crater.depth * 0.5;
         const craterGrad = ctx.createRadialGradient(
-          crater.x, crater.y, 0,
+          crater.x + crater.r * 0.2, crater.y + crater.r * 0.2, 0,
           crater.x, crater.y, crater.r
         );
-        craterGrad.addColorStop(0, 'rgba(0, 0, 0, 0.4)');
-        craterGrad.addColorStop(0.7, 'rgba(0, 0, 0, 0.2)');
-        craterGrad.addColorStop(1, 'rgba(255, 255, 255, 0.1)');
+        craterGrad.addColorStop(0, 'rgba(0, 0, 0, 0.6)');
+        craterGrad.addColorStop(0.6, 'rgba(0, 0, 0, 0.3)');
+        craterGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = craterGrad;
         ctx.beginPath();
         ctx.arc(crater.x, crater.y, crater.r, 0, Math.PI * 2);
         ctx.fill();
+        
+        // Crater rim highlight (raised edge)
+        ctx.globalAlpha = 0.15;
+        ctx.strokeStyle = '#888888';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(crater.x - crater.r * 0.15, crater.y - crater.r * 0.15, crater.r * 0.9, 0, Math.PI * 2);
+        ctx.stroke();
       }
       ctx.globalAlpha = 1;
       
-      // Rings for ringed planets
+      // Rings for ringed planets (muted)
       if (this.hasRings) {
         ctx.save();
-        ctx.rotate(Math.PI * 0.15); // Slight tilt
-        ctx.scale(1, 0.3); // Flatten for 3D perspective
+        ctx.rotate(Math.PI * 0.15);
+        ctx.scale(1, 0.3);
+        ctx.globalAlpha = 0.25;
         
-        // Ring layers
         for (let i = 0; i < 3; i++) {
-          const innerR = this.size * (1.3 + i * 0.15);
-          const outerR = this.size * (1.4 + i * 0.15);
-          ctx.strokeStyle = this.ringColor + (0.4 - i * 0.1) + ')';
+          const innerR = this.size * (1.25 + i * 0.12);
+          const outerR = this.size * (1.32 + i * 0.12);
+          ctx.strokeStyle = this.ringColor + (0.3 - i * 0.08) + ')';
           ctx.lineWidth = outerR - innerR;
           ctx.beginPath();
           ctx.arc(0, 0, (innerR + outerR) / 2, 0, Math.PI * 2);
@@ -3232,30 +3370,44 @@
         ctx.restore();
       }
       
-      // Highlight
-      ctx.globalAlpha = 0.3;
-      ctx.fillStyle = '#ffffff';
+      // Very subtle highlight
+      ctx.globalAlpha = 0.12;
+      ctx.fillStyle = '#888888';
       ctx.beginPath();
-      ctx.arc(-this.size * 0.3, -this.size * 0.3, this.size * 0.2, 0, Math.PI * 2);
+      ctx.arc(-this.size * 0.3, -this.size * 0.3, this.size * 0.15, 0, Math.PI * 2);
       ctx.fill();
-      ctx.globalAlpha = 1;
-      
-      ctx.restore();
     }
     
-    adjustBrightness(hex, factor) {
+    adjustBrightness(hex, factor, alpha = 1) {
       // Convert hex to RGB and adjust brightness
+      // Handle both hex (#rrggbb) and rgba strings
+      if (hex.startsWith('rgb')) {
+        return hex; // Return as-is for rgba
+      }
       const r = parseInt(hex.slice(1, 3), 16);
       const g = parseInt(hex.slice(3, 5), 16);
       const b = parseInt(hex.slice(5, 7), 16);
       const newR = Math.min(255, Math.floor(r * factor));
       const newG = Math.min(255, Math.floor(g * factor));
       const newB = Math.min(255, Math.floor(b * factor));
+      if (alpha < 1) {
+        return `rgba(${newR}, ${newG}, ${newB}, ${alpha})`;
+      }
       return `rgb(${newR}, ${newG}, ${newB})`;
     }
     
     update(dt) {
       this.rotation += this.rotSpeed * (dt / 16.67);
+      
+      // Update gas particle positions for animation
+      if (this.isGasGiant) {
+        for (const particle of this.gasParticles) {
+          particle.x += particle.speed * (dt / 16.67);
+          // Wrap around
+          if (particle.x > this.size * 0.95) particle.x = -this.size * 0.95;
+          if (particle.x < -this.size * 0.95) particle.x = this.size * 0.95;
+        }
+      }
     }
   }
   
