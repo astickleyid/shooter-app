@@ -1052,6 +1052,11 @@
       defense: 'aegis',
       ultimate: 'voidstorm'
     },
+    // Single equipment button assignment
+    equipmentButton: {
+      type: 'secondary', // Can be: secondary, defense, or ultimate
+      id: 'nova'
+    },
     // Equipment class system: 4 configurable slots
     equipmentClass: {
       slot1: { type: 'primary', id: 'pulse' }, // Required: primary weapon
@@ -6410,10 +6415,104 @@
     return card;
   };
 
+  const createEquipmentButtonSelector = () => {
+    const container = document.createElement('div');
+    container.style.cssText = 'grid-column: 1 / -1; padding: 20px; background: rgba(0,0,0,0.6); border-radius: 12px; border: 2px solid rgba(74,222,128,0.3);';
+    
+    const title = document.createElement('h3');
+    title.textContent = 'Equipment Button Assignment';
+    title.style.cssText = 'margin: 0 0 12px 0; color: #86efac; font-size: 16px; text-transform: uppercase; letter-spacing: 0.05em;';
+    container.appendChild(title);
+    
+    const desc = document.createElement('p');
+    desc.textContent = 'Select which ability the in-game equipment button activates';
+    desc.style.cssText = 'margin: 0 0 16px 0; color: #9ca3af; font-size: 13px;';
+    container.appendChild(desc);
+    
+    const buttonGrid = document.createElement('div');
+    buttonGrid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;';
+    
+    const currentBtn = Save.data.armory.equipmentButton || { type: 'secondary', id: 'nova' };
+    const categories = [
+      { type: 'secondary', label: 'Secondary', items: ARMORY.secondary },
+      { type: 'defense', label: 'Defense', items: ARMORY.defense },
+      { type: 'ultimate', label: 'Ultimate', items: ARMORY.ultimate }
+    ];
+    
+    categories.forEach(cat => {
+      cat.items.forEach(item => {
+        if (!Save.isUnlocked(cat.type, item.id)) return;
+        const isSelected = currentBtn.type === cat.type && currentBtn.id === item.id;
+        
+        const btn = document.createElement('button');
+        btn.textContent = item.name;
+        btn.style.cssText = `
+          padding: 12px 16px;
+          border-radius: 8px;
+          border: 2px solid ${isSelected ? '#4ade80' : 'rgba(74,222,128,0.3)'};
+          background: ${isSelected ? 'rgba(74,222,128,0.2)' : 'rgba(0,0,0,0.4)'};
+          color: ${isSelected ? '#4ade80' : '#d1d5db'};
+          cursor: pointer;
+          transition: all 0.2s ease;
+          font-weight: ${isSelected ? '700' : '600'};
+          font-size: 14px;
+        `;
+        
+        btn.addEventListener('mouseenter', () => {
+          if (!isSelected) {
+            btn.style.background = 'rgba(74,222,128,0.1)';
+            btn.style.borderColor = 'rgba(74,222,128,0.5)';
+          }
+        });
+        
+        btn.addEventListener('mouseleave', () => {
+          if (!isSelected) {
+            btn.style.background = 'rgba(0,0,0,0.4)';
+            btn.style.borderColor = 'rgba(74,222,128,0.3)';
+          }
+        });
+        
+        btn.addEventListener('click', () => {
+          Save.data.armory.equipmentButton = { type: cat.type, id: item.id };
+          Save.save();
+          updateEquipmentButtonIcon();
+          renderHangar();
+        });
+        
+        buttonGrid.appendChild(btn);
+      });
+    });
+    
+    container.appendChild(buttonGrid);
+    return container;
+  };
+
+  const updateEquipmentButtonIcon = () => {
+    const mainIcon = document.getElementById('mainEquipIcon');
+    if (!mainIcon) return;
+    
+    const btnConfig = Save.data.armory.equipmentButton || { type: 'secondary', id: 'nova' };
+    const iconMap = {
+      'nova': 'secondary-nova.svg',
+      'seeker': 'secondary-seeker.svg',
+      'minefield': 'secondary-minefield.svg',
+      'aegis': 'defense-aegis.svg',
+      'shield': 'defense-shield.svg',
+      'bulwark': 'defense-bulwark.svg',
+      'voidstorm': 'ultimate-singularity.svg',
+      'bombardment': 'ultimate-bombardment.svg'
+    };
+    
+    const iconFile = iconMap[btnConfig.id] || 'secondary-nova.svg';
+    mainIcon.src = `assets/icons/${iconFile}`;
+  };
+
   const renderHangar = () => {
     dom.hangarGrid.innerHTML = '';
     dom.hangarGrid.appendChild(createSectionHeader('Starfighters'));
     SHIP_TEMPLATES.forEach((ship) => dom.hangarGrid.appendChild(createShipCard(ship)));
+    dom.hangarGrid.appendChild(createSectionHeader('Equipment Button'));
+    dom.hangarGrid.appendChild(createEquipmentButtonSelector());
     dom.hangarGrid.appendChild(createSectionHeader('Primary Weapons'));
     ARMORY.primary.forEach((item) => dom.hangarGrid.appendChild(createArmoryCard('primary', item)));
     dom.hangarGrid.appendChild(createSectionHeader('Secondary Systems'));
@@ -8917,17 +9016,37 @@
     const mainBtn = document.getElementById('equipMainBtn');
     if (!mainBtn) return;
     
-    // Simple tap to use equipment
+    // Initialize icon
+    updateEquipmentButtonIcon();
+    
+    const triggerConfiguredEquipment = () => {
+      if (!player) return;
+      const btnConfig = Save.data.armory.equipmentButton || { type: 'secondary', id: 'nova' };
+      
+      // Trigger the configured equipment type
+      switch(btnConfig.type) {
+        case 'secondary':
+          triggerSecondary();
+          break;
+        case 'defense':
+          player.triggerDefense();
+          break;
+        case 'ultimate':
+          player.triggerUltimate();
+          break;
+      }
+      triggerHapticFeedback('equip');
+    };
+    
+    // Simple tap to use configured equipment
     mainBtn.addEventListener('click', (e) => {
       e.preventDefault();
-      triggerSecondary();
-      triggerHapticFeedback('equip');
+      triggerConfiguredEquipment();
     });
     
     mainBtn.addEventListener('touchstart', (e) => {
       e.preventDefault();
-      triggerSecondary();
-      triggerHapticFeedback('equip');
+      triggerConfiguredEquipment();
     }, { passive: false });
   };
 
