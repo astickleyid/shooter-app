@@ -6153,11 +6153,25 @@
   /* ====== SHOP ====== */
   const renderShop = () => {
     dom.shopGrid.innerHTML = '';
+    
+    // Equipment Section - Secondary & Ultimate selection
+    dom.shopGrid.appendChild(createSectionHeader('Equipment Loadout'));
+    dom.shopGrid.appendChild(createEquipmentButtonSelector());
+    
+    // Secondary Weapons with visuals
+    dom.shopGrid.appendChild(createSectionHeader('Secondary Weapons'));
+    ARMORY.secondary.forEach((item) => dom.shopGrid.appendChild(createArmoryCard('secondary', item)));
+    
+    // Ultimate Abilities with visuals
+    dom.shopGrid.appendChild(createSectionHeader('Ultimate Abilities'));
+    ARMORY.ultimate.forEach((item) => dom.shopGrid.appendChild(createArmoryCard('ultimate', item)));
+    
+    // Passive Upgrades (existing system)
     ['Offense', 'Defense', 'Utility', 'Special'].forEach((cat) => {
       const head = document.createElement('div');
       head.style.gridColumn = '1/-1';
       head.style.margin = '6px 0';
-      head.innerHTML = `<div style="opacity:.8;border-bottom:1px solid #1f2937;padding:6px 2px;font-weight:900;color:#9ca3af">${cat}</div>`;
+      head.innerHTML = `<div style="opacity:.8;border-bottom:1px solid #1f2937;padding:6px 2px;font-weight:900;color:#9ca3af">${cat} Upgrades</div>`;
       dom.shopGrid.appendChild(head);
       for (const upgrade of UPGRADES.filter((x) => x.cat === cat)) {
         const lvl = Save.getUpgradeLevel(upgrade.id);
@@ -6417,26 +6431,44 @@
 
   const createEquipmentButtonSelector = () => {
     const container = document.createElement('div');
-    container.style.cssText = 'grid-column: 1 / -1; padding: 20px; background: rgba(0,0,0,0.6); border-radius: 12px; border: 2px solid rgba(74,222,128,0.3);';
+    container.style.cssText = 'grid-column: 1 / -1; padding: 20px; background: rgba(0,0,0,0.7); backdrop-filter: blur(10px); border-radius: 12px; border: 2px solid rgba(74,222,128,0.4); margin-bottom: 12px;';
     
     const title = document.createElement('h3');
-    title.textContent = 'Equipment Button Assignment';
-    title.style.cssText = 'margin: 0 0 12px 0; color: #86efac; font-size: 16px; text-transform: uppercase; letter-spacing: 0.05em;';
+    title.textContent = 'Equipment Button';
+    title.style.cssText = 'margin: 0 0 8px 0; color: #86efac; font-size: 18px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.06em;';
     container.appendChild(title);
     
     const desc = document.createElement('p');
-    desc.textContent = 'Select which ability the in-game equipment button activates';
-    desc.style.cssText = 'margin: 0 0 16px 0; color: #9ca3af; font-size: 13px;';
+    desc.textContent = 'Select Secondary weapon or Ultimate ability for your equipment button';
+    desc.style.cssText = 'margin: 0 0 20px 0; color: #cbd5e1; font-size: 14px; line-height: 1.5;';
     container.appendChild(desc);
     
-    const buttonGrid = document.createElement('div');
-    buttonGrid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;';
-    
+    // Current selection display
     const currentBtn = Save.data.armory.equipmentButton || { type: 'secondary', id: 'nova' };
+    const currentItem = ARMORY_MAP[currentBtn.type]?.[currentBtn.id];
+    
+    if (currentItem) {
+      const currentDisplay = document.createElement('div');
+      currentDisplay.style.cssText = 'padding: 16px; background: rgba(74,222,128,0.15); border: 2px solid rgba(74,222,128,0.5); border-radius: 10px; margin-bottom: 20px;';
+      currentDisplay.innerHTML = `
+        <div style="color: #4ade80; font-weight: 700; font-size: 14px; margin-bottom: 4px;">CURRENTLY EQUIPPED</div>
+        <div style="color: #e2e8f0; font-size: 16px; font-weight: 600;">${currentItem.name}</div>
+        <div style="color: #9ca3af; font-size: 13px; margin-top: 4px;">${currentItem.desc}</div>
+      `;
+      container.appendChild(currentDisplay);
+    }
+    
+    const label = document.createElement('div');
+    label.textContent = 'Choose from unlocked abilities:';
+    label.style.cssText = 'margin-bottom: 12px; color: #9ca3af; font-size: 13px; font-weight: 600;';
+    container.appendChild(label);
+    
+    const buttonGrid = document.createElement('div');
+    buttonGrid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px;';
+    
     const categories = [
-      { type: 'secondary', label: 'Secondary', items: ARMORY.secondary },
-      { type: 'defense', label: 'Defense', items: ARMORY.defense },
-      { type: 'ultimate', label: 'Ultimate', items: ARMORY.ultimate }
+      { type: 'secondary', items: ARMORY.secondary },
+      { type: 'ultimate', items: ARMORY.ultimate }
     ];
     
     categories.forEach(cat => {
@@ -6447,28 +6479,33 @@
         const btn = document.createElement('button');
         btn.textContent = item.name;
         btn.style.cssText = `
-          padding: 12px 16px;
-          border-radius: 8px;
-          border: 2px solid ${isSelected ? '#4ade80' : 'rgba(74,222,128,0.3)'};
-          background: ${isSelected ? 'rgba(74,222,128,0.2)' : 'rgba(0,0,0,0.4)'};
-          color: ${isSelected ? '#4ade80' : '#d1d5db'};
+          padding: 14px 18px;
+          border-radius: 10px;
+          border: 2px solid ${isSelected ? '#4ade80' : 'rgba(74,222,128,0.25)'};
+          background: ${isSelected ? 'rgba(74,222,128,0.2)' : 'rgba(0,0,0,0.5)'};
+          backdrop-filter: blur(5px);
+          color: ${isSelected ? '#4ade80' : '#cbd5e1'};
           cursor: pointer;
           transition: all 0.2s ease;
-          font-weight: ${isSelected ? '700' : '600'};
-          font-size: 14px;
+          font-weight: ${isSelected ? '800' : '600'};
+          font-size: 13px;
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
         `;
         
         btn.addEventListener('mouseenter', () => {
           if (!isSelected) {
-            btn.style.background = 'rgba(74,222,128,0.1)';
+            btn.style.background = 'rgba(74,222,128,0.15)';
             btn.style.borderColor = 'rgba(74,222,128,0.5)';
+            btn.style.color = '#e2e8f0';
           }
         });
         
         btn.addEventListener('mouseleave', () => {
           if (!isSelected) {
-            btn.style.background = 'rgba(0,0,0,0.4)';
-            btn.style.borderColor = 'rgba(74,222,128,0.3)';
+            btn.style.background = 'rgba(0,0,0,0.5)';
+            btn.style.borderColor = 'rgba(74,222,128,0.25)';
+            btn.style.color = '#cbd5e1';
           }
         });
         
@@ -6476,7 +6513,7 @@
           Save.data.armory.equipmentButton = { type: cat.type, id: item.id };
           Save.save();
           updateEquipmentButtonIcon();
-          renderHangar();
+          renderShop();
         });
         
         buttonGrid.appendChild(btn);
@@ -6511,16 +6548,8 @@
     dom.hangarGrid.innerHTML = '';
     dom.hangarGrid.appendChild(createSectionHeader('Starfighters'));
     SHIP_TEMPLATES.forEach((ship) => dom.hangarGrid.appendChild(createShipCard(ship)));
-    dom.hangarGrid.appendChild(createSectionHeader('Equipment Button'));
-    dom.hangarGrid.appendChild(createEquipmentButtonSelector());
     dom.hangarGrid.appendChild(createSectionHeader('Primary Weapons'));
     ARMORY.primary.forEach((item) => dom.hangarGrid.appendChild(createArmoryCard('primary', item)));
-    dom.hangarGrid.appendChild(createSectionHeader('Secondary Systems'));
-    ARMORY.secondary.forEach((item) => dom.hangarGrid.appendChild(createArmoryCard('secondary', item)));
-    dom.hangarGrid.appendChild(createSectionHeader('Defense Matrix'));
-    ARMORY.defense.forEach((item) => dom.hangarGrid.appendChild(createArmoryCard('defense', item)));
-    dom.hangarGrid.appendChild(createSectionHeader('Ultimate Arsenal'));
-    ARMORY.ultimate.forEach((item) => dom.hangarGrid.appendChild(createArmoryCard('ultimate', item)));
   };
 
   const openHangar = () => {
