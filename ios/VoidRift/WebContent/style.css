@@ -543,7 +543,7 @@ html, body {
 /* Single button equipment dock - RIGHT above red joystick */
 #equipmentIndicator {
   position: fixed;
-  bottom: 135px;
+  bottom: 195px;
   right: 30px;
   z-index: 100;
 }
