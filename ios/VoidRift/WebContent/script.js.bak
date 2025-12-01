@@ -7437,9 +7437,17 @@
     resetRuntimeState();
     currentDifficulty = Save.data.difficulty || 'normal';  // Load saved difficulty
     
-    // Always use space mode (planetary mode removed)
-    currentGameMode = 'space';
-    currentPlanet = null;
+    // Get selected game mode and planet
+    const modeSelect = document.getElementById('gameModeSelect');
+    const planetSelect = document.getElementById('planetSelect');
+    
+    currentGameMode = modeSelect?.value || 'space';
+    
+    if (currentGameMode === 'planetary' && planetSelect) {
+      currentPlanet = PLANETS[planetSelect.value] || PLANETS.terra;
+    } else {
+      currentPlanet = null;
+    }
     
     initShipSelection();
     dom.startScreen.style.display = 'none';

@@ -1,0 +1,8 @@
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Medal/Pilot icon -->
+  <circle cx="12" cy="8" r="6" fill="#f97316" stroke="#ea580c" stroke-width="1"/>
+  <circle cx="12" cy="8" r="3.5" fill="#fdba74"/>
+  <path d="M12 8l1 2h-2l1-2z" fill="#ea580c"/>
+  <path d="M9 14l-2 8 5-3 5 3-2-8" fill="#dc2626"/>
+  <path d="M9 14h6" stroke="#f97316" stroke-width="1"/>
+</svg>

@@ -11,14 +11,17 @@
   <title>VOID RIFT</title>
   <!-- Link external styles -->
   <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="ios-fixes.css" />
 </head>
 <body>
   <!-- START SCREEN -->
   <div id="startScreen">
     <div class="start-header">
-      <div id="gameTitle"><span class="title-accent">VOID</span><span class="title-accent">RIFT</span></div>
+      <div id="gameTitle">VOID<span class="title-accent">RIFT</span></div>
       <div class="title-tagline">CREATED BY AUSTIN STICKLEY</div>
     </div>
+    
+    <canvas id="startGraphicCanvas"></canvas>
     
     <div class="start-main">
       <button id="startButton" class="startButton-primary">
@@ -33,28 +36,28 @@
         </select>
       </div>
       
-
+      <!-- Game Mode removed - Space Combat only -->
     </div>
     
     <div class="start-nav">
       <button id="openShopFromStart" class="nav-btn">
-        <img class="nav-icon" src="assets/icons/icon-upgrades.svg" alt="" width="20" height="20"/>
+        <img class="nav-icon" src="icons/icon-upgrades.svg" alt="" width="20" height="20"/>
         <span class="nav-label">Upgrades</span>
       </button>
       <button id="settingsButton" class="nav-btn">
-        <img class="nav-icon" src="assets/icons/icon-hangar.svg" alt="" width="20" height="20"/>
+        <img class="nav-icon" src="icons/icon-hangar.svg" alt="" width="20" height="20"/>
         <span class="nav-label">Hangar</span>
       </button>
       <button id="leaderboardButton" class="nav-btn">
-        <img class="nav-icon" src="assets/icons/icon-trophy.svg" alt="" width="20" height="20"/>
+        <img class="nav-icon" src="icons/icon-trophy.svg" alt="" width="20" height="20"/>
         <span class="nav-label">Rankings</span>
       </button>
     </div>
     
     <div class="start-footer">
-      <button id="profileButton" class="footer-btn" onclick="SocialHub.showProfile()"><img src="assets/icons/icon-profile.svg" alt="Profile" width="16" height="16"/></button>
-      <button id="friendsButton" class="footer-btn" onclick="SocialHub.showFriendsList()"><img src="assets/icons/icon-friends.svg" alt="Friends" width="16" height="16"/></button>
-      <button id="activityButton" class="footer-btn" onclick="SocialHub.showActivityFeed()"><img src="assets/icons/icon-activity.svg" alt="Activity" width="16" height="16"/></button>
+      <button id="profileButton" class="footer-btn" onclick="SocialHub.showProfile()"><img src="icons/icon-profile.svg" alt="Profile" width="16" height="16"/></button>
+      <button id="friendsButton" class="footer-btn" onclick="SocialHub.showFriendsList()"><img src="icons/icon-friends.svg" alt="Friends" width="16" height="16"/></button>
+      <button id="activityButton" class="footer-btn" onclick="SocialHub.showActivityFeed()"><img src="icons/icon-activity.svg" alt="Activity" width="16" height="16"/></button>
       <span class="footer-divider"></span>
       <button id="loginButton" class="footer-btn footer-btn-text" onclick="SocialHub.showAuthModal('login')">Login</button>
     </div>
@@ -152,22 +155,22 @@
     <!-- EQUIPMENT SLOT INDICATOR - Secondary Weapons Dock -->
     <div id="equipmentIndicator" role="toolbar" aria-label="Equipment slots">
       <div class="equip-slot active" data-slot="0" tabindex="0" role="button" aria-pressed="true" aria-label="Primary weapon slot">
-        <img class="equip-icon" src="assets/icons/primary-pulse.svg" alt="Primary" width="24" height="24"/>
+        <img class="equip-icon" src="icons/primary-pulse.svg" alt="Primary" width="24" height="24"/>
         <span class="equip-label">Primary</span>
         <span class="equip-key">1</span>
       </div>
       <div class="equip-slot" data-slot="1" tabindex="0" role="button" aria-pressed="false" aria-label="Secondary slot 2">
-        <img class="equip-icon" src="assets/icons/defense-aegis.svg" alt="Defense" width="24" height="24"/>
+        <img class="equip-icon" src="icons/defense-aegis.svg" alt="Defense" width="24" height="24"/>
         <span class="equip-label">Slot 2</span>
         <span class="equip-key">2</span>
       </div>
       <div class="equip-slot" data-slot="2" tabindex="0" role="button" aria-pressed="false" aria-label="Secondary slot 3">
-        <img class="equip-icon" src="assets/icons/secondary-nova.svg" alt="Secondary" width="24" height="24"/>
+        <img class="equip-icon" src="icons/secondary-nova.svg" alt="Secondary" width="24" height="24"/>
         <span class="equip-label">Slot 3</span>
         <span class="equip-key">3</span>
       </div>
       <div class="equip-slot" data-slot="3" tabindex="0" role="button" aria-pressed="false" aria-label="Secondary slot 4">
-        <img class="equip-icon" src="assets/icons/boost-icon.svg" alt="Boost" width="24" height="24"/>
+        <img class="equip-icon" src="icons/boost-icon.svg" alt="Boost" width="24" height="24"/>
         <span class="equip-label">Slot 4</span>
         <span class="equip-key">4</span>
       </div>
@@ -179,19 +182,19 @@
         <span>DROP</span>
       </div>
       <div class="radial-item" data-slot="0" role="menuitem" tabindex="-1">
-        <img src="assets/icons/primary-pulse.svg" alt="Primary" width="32" height="32"/>
+        <img src="icons/primary-pulse.svg" alt="Primary" width="32" height="32"/>
         <span>Primary</span>
       </div>
       <div class="radial-item" data-slot="1" role="menuitem" tabindex="-1">
-        <img src="assets/icons/defense-aegis.svg" alt="Slot 2" width="32" height="32"/>
+        <img src="icons/defense-aegis.svg" alt="Slot 2" width="32" height="32"/>
         <span>Slot 2</span>
       </div>
       <div class="radial-item" data-slot="2" role="menuitem" tabindex="-1">
-        <img src="assets/icons/secondary-nova.svg" alt="Slot 3" width="32" height="32"/>
+        <img src="icons/secondary-nova.svg" alt="Slot 3" width="32" height="32"/>
         <span>Slot 3</span>
       </div>
       <div class="radial-item" data-slot="3" role="menuitem" tabindex="-1">
-        <img src="assets/icons/boost-icon.svg" alt="Slot 4" width="32" height="32"/>
+        <img src="icons/boost-icon.svg" alt="Slot 4" width="32" height="32"/>
         <span>Slot 4</span>
       </div>
     </div>
@@ -225,17 +228,17 @@
     <div id="pauseMenuModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="pauseMenuTitle">
       <div class="modal-content pause-menu">
         <div class="modal-header">
-          <h2 id="pauseMenuTitle"><img src="assets/icons/icon-pause.svg" alt="" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"/> Game Paused</h2>
+          <h2 id="pauseMenuTitle"><img src="icons/icon-pause.svg" alt="" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"/> Game Paused</h2>
         </div>
         <div class="pause-menu-content">
-          <button id="resumeGameBtn" class="pause-menu-btn primary" aria-label="Resume Game"><img src="assets/icons/icon-play.svg" alt="" width="20" height="20"/> Resume Game</button>
-          <button id="restartGameBtn" class="pause-menu-btn" aria-label="Restart Game"><img src="assets/icons/icon-restart.svg" alt="" width="20" height="20"/> Restart Game</button>
-          <button id="saveGameBtn" class="pause-menu-btn" aria-label="Save Game"><img src="assets/icons/icon-save.svg" alt="" width="20" height="20"/> Save Game</button>
-          <button id="loadGameBtn" class="pause-menu-btn" aria-label="Load Game"><img src="assets/icons/icon-load.svg" alt="" width="20" height="20"/> Load Game</button>
-          <button id="pauseShopBtn" class="pause-menu-btn" aria-label="Upgrades Shop"><img src="assets/icons/icon-shop.svg" alt="" width="20" height="20"/> Upgrades & Shop</button>
-          <button id="pauseHangarBtn" class="pause-menu-btn" aria-label="Ship Hangar"><img src="assets/icons/icon-hangar.svg" alt="" width="20" height="20"/> Ship Hangar</button>
-          <button id="pauseLeaderboardBtn" class="pause-menu-btn" aria-label="Leaderboard"><img src="assets/icons/icon-trophy.svg" alt="" width="20" height="20"/> Leaderboard</button>
-          <button id="exitToMenuBtn" class="pause-menu-btn danger" aria-label="Exit to Main Menu"><img src="assets/icons/icon-exit.svg" alt="" width="20" height="20"/> Exit to Main Menu</button>
+          <button id="resumeGameBtn" class="pause-menu-btn primary" aria-label="Resume Game"><img src="icons/icon-play.svg" alt="" width="20" height="20"/> Resume Game</button>
+          <button id="restartGameBtn" class="pause-menu-btn" aria-label="Restart Game"><img src="icons/icon-restart.svg" alt="" width="20" height="20"/> Restart Game</button>
+          <button id="saveGameBtn" class="pause-menu-btn" aria-label="Save Game"><img src="icons/icon-save.svg" alt="" width="20" height="20"/> Save Game</button>
+          <button id="loadGameBtn" class="pause-menu-btn" aria-label="Load Game"><img src="icons/icon-load.svg" alt="" width="20" height="20"/> Load Game</button>
+          <button id="pauseShopBtn" class="pause-menu-btn" aria-label="Upgrades Shop"><img src="icons/icon-shop.svg" alt="" width="20" height="20"/> Upgrades & Shop</button>
+          <button id="pauseHangarBtn" class="pause-menu-btn" aria-label="Ship Hangar"><img src="icons/icon-hangar.svg" alt="" width="20" height="20"/> Ship Hangar</button>
+          <button id="pauseLeaderboardBtn" class="pause-menu-btn" aria-label="Leaderboard"><img src="icons/icon-trophy.svg" alt="" width="20" height="20"/> Leaderboard</button>
+          <button id="exitToMenuBtn" class="pause-menu-btn danger" aria-label="Exit to Main Menu"><img src="icons/icon-exit.svg" alt="" width="20" height="20"/> Exit to Main Menu</button>
           <div id="pauseMenuMessage" class="pause-menu-message"></div>
         </div>
       </div>
@@ -245,7 +248,7 @@
     <div id="gameOverModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="gameOverTitle">
       <div class="modal-content game-over-screen">
         <div class="game-over-header">
-          <h1 id="gameOverTitle"><img src="assets/icons/icon-gameover.svg" alt="" width="40" height="40" style="vertical-align: middle; margin-right: 12px;"/> GAME OVER</h1>
+          <h1 id="gameOverTitle"><img src="icons/icon-gameover.svg" alt="" width="40" height="40" style="vertical-align: middle; margin-right: 12px;"/> GAME OVER</h1>
         </div>
         <div class="game-over-stats">
           <div class="stat-item">
@@ -261,16 +264,16 @@
             <span id="gameOverRank" class="stat-value rank-badge">#1</span>
           </div>
           <div id="gameOverLoginPrompt" class="login-prompt" style="display: none;">
-            <p><img src="assets/icons/icon-unlock.svg" alt="" width="16" height="16" style="vertical-align: middle; margin-right: 6px;"/> Login to save your score to the leaderboard!</p>
+            <p><img src="icons/icon-unlock.svg" alt="" width="16" height="16" style="vertical-align: middle; margin-right: 6px;"/> Login to save your score to the leaderboard!</p>
           </div>
         </div>
         <div class="game-over-actions">
-          <button id="gameOverRestartBtn" class="game-over-btn primary"><img src="assets/icons/icon-restart.svg" alt="" width="20" height="20"/> Play Again</button>
-          <button id="gameOverShopBtn" class="game-over-btn"><img src="assets/icons/icon-shop.svg" alt="" width="20" height="20"/> Upgrades & Shop</button>
-          <button id="gameOverHangarBtn" class="game-over-btn"><img src="assets/icons/icon-hangar.svg" alt="" width="20" height="20"/> Ship Hangar</button>
-          <button id="gameOverLeaderboardBtn" class="game-over-btn"><img src="assets/icons/icon-trophy.svg" alt="" width="20" height="20"/> Leaderboard</button>
-          <button id="gameOverLoginBtn" class="game-over-btn" style="display: none;"><img src="assets/icons/icon-login.svg" alt="" width="20" height="20"/> Login</button>
-          <button id="gameOverMenuBtn" class="game-over-btn secondary"><img src="assets/icons/icon-home.svg" alt="" width="20" height="20"/> Main Menu</button>
+          <button id="gameOverRestartBtn" class="game-over-btn primary"><img src="icons/icon-restart.svg" alt="" width="20" height="20"/> Play Again</button>
+          <button id="gameOverShopBtn" class="game-over-btn"><img src="icons/icon-shop.svg" alt="" width="20" height="20"/> Upgrades & Shop</button>
+          <button id="gameOverHangarBtn" class="game-over-btn"><img src="icons/icon-hangar.svg" alt="" width="20" height="20"/> Ship Hangar</button>
+          <button id="gameOverLeaderboardBtn" class="game-over-btn"><img src="icons/icon-trophy.svg" alt="" width="20" height="20"/> Leaderboard</button>
+          <button id="gameOverLoginBtn" class="game-over-btn" style="display: none;"><img src="icons/icon-login.svg" alt="" width="20" height="20"/> Login</button>
+          <button id="gameOverMenuBtn" class="game-over-btn secondary"><img src="icons/icon-home.svg" alt="" width="20" height="20"/> Main Menu</button>
         </div>
       </div>
     </div>
@@ -297,19 +300,19 @@
           <div class="settings-section">
             <h3>Game Actions</h3>
             <div class="game-actions">
-              <button id="menuResumeBtn" class="game-action-btn primary"><img src="assets/icons/icon-play.svg" alt="" width="20" height="20"/> Resume Game</button>
-              <button id="menuRestartBtn" class="game-action-btn"><img src="assets/icons/icon-restart.svg" alt="" width="20" height="20"/> Restart Game</button>
-              <button id="menuSaveBtn" class="game-action-btn"><img src="assets/icons/icon-save.svg" alt="" width="20" height="20"/> Save Game</button>
-              <button id="menuLoadBtn" class="game-action-btn"><img src="assets/icons/icon-load.svg" alt="" width="20" height="20"/> Load Game</button>
-              <button id="menuExitBtn" class="game-action-btn danger"><img src="assets/icons/icon-exit.svg" alt="" width="20" height="20"/> Return to Start Screen</button>
+              <button id="menuResumeBtn" class="game-action-btn primary"><img src="icons/icon-play.svg" alt="" width="20" height="20"/> Resume Game</button>
+              <button id="menuRestartBtn" class="game-action-btn"><img src="icons/icon-restart.svg" alt="" width="20" height="20"/> Restart Game</button>
+              <button id="menuSaveBtn" class="game-action-btn"><img src="icons/icon-save.svg" alt="" width="20" height="20"/> Save Game</button>
+              <button id="menuLoadBtn" class="game-action-btn"><img src="icons/icon-load.svg" alt="" width="20" height="20"/> Load Game</button>
+              <button id="menuExitBtn" class="game-action-btn danger"><img src="icons/icon-exit.svg" alt="" width="20" height="20"/> Return to Start Screen</button>
             </div>
           </div>
           <div class="settings-section">
             <h3>Quick Links</h3>
             <div class="game-actions">
-              <button id="menuShopBtn" class="game-action-btn"><img src="assets/icons/icon-shop.svg" alt="" width="20" height="20"/> Upgrades & Shop</button>
-              <button id="menuHangarBtn" class="game-action-btn"><img src="assets/icons/icon-hangar.svg" alt="" width="20" height="20"/> Ship Hangar</button>
-              <button id="menuLeaderboardBtn" class="game-action-btn"><img src="assets/icons/icon-trophy.svg" alt="" width="20" height="20"/> Leaderboard</button>
+              <button id="menuShopBtn" class="game-action-btn"><img src="icons/icon-shop.svg" alt="" width="20" height="20"/> Upgrades & Shop</button>
+              <button id="menuHangarBtn" class="game-action-btn"><img src="icons/icon-hangar.svg" alt="" width="20" height="20"/> Ship Hangar</button>
+              <button id="menuLeaderboardBtn" class="game-action-btn"><img src="icons/icon-trophy.svg" alt="" width="20" height="20"/> Leaderboard</button>
             </div>
           </div>
         </div>
@@ -368,7 +371,7 @@
             </div>
             
             <p style="color: #60a5fa; font-size: 12px; margin-top: 12px;">
-              <img src="assets/icons/icon-tip.svg" alt="" width="14" height="14" style="vertical-align: middle; margin-right: 4px;"/> Tap anywhere on screen (not joysticks) to cycle equipment: 2 taps = slot 2, 3 taps = slot 3, etc.
+              <img src="icons/icon-tip.svg" alt="" width="14" height="14" style="vertical-align: middle; margin-right: 4px;"/> Tap anywhere on screen (not joysticks) to cycle equipment: 2 taps = slot 2, 3 taps = slot 3, etc.
             </p>
           </div>
         </div>
@@ -501,6 +504,7 @@
   </div>
 
   <!-- Include external scripts -->
+  <script src="icon-fix.js"></script>
   <script src="backend-api.js"></script>
   <script src="social-api.js"></script>
   <script src="social-hub.js"></script>

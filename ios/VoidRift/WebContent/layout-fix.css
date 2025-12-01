@@ -1,0 +1,380 @@
+/* ============================================
+   LAYOUT FIX - Home Screen Balance & Polish
+   ============================================ */
+
+/* Remove preview canvas completely */
+#startGraphicCanvas {
+  display: none !important;
+}
+
+/* ====== BALANCED HOME SCREEN LAYOUT ====== */
+
+#startScreen {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: space-evenly !important;
+  height: 100vh !important;
+  padding: 32px 20px !important;
+  gap: 0 !important;
+}
+
+/* ====== TITLE SECTION ====== */
+
+.start-header {
+  text-align: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  flex-shrink: 0 !important;
+}
+
+#gameTitle {
+  font-size: 72px !important;
+  font-weight: 900 !important;
+  letter-spacing: 12px !important;
+  color: #4ade80 !important;
+  text-shadow: 
+    0 0 10px rgba(74, 222, 128, 0.8),
+    0 0 20px rgba(74, 222, 128, 0.6),
+    0 0 30px rgba(74, 222, 128, 0.4),
+    0 0 40px rgba(74, 222, 128, 0.3),
+    0 0 60px rgba(74, 222, 128, 0.2) !important;
+  animation: neonPulse 2s infinite alternate !important;
+  margin: 0 0 16px 0 !important;
+  padding: 0 !important;
+  line-height: 1 !important;
+}
+
+/* Remove any span styling differences */
+#gameTitle span,
+#gameTitle .title-accent {
+  color: inherit !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  letter-spacing: inherit !important;
+  text-shadow: inherit !important;
+}
+
+.title-tagline {
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  letter-spacing: 3px !important;
+  color: rgba(255, 255, 255, 0.5) !important;
+  text-transform: uppercase !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* ====== MAIN ACTION SECTION ====== */
+
+.start-main {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 20px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  flex-shrink: 0 !important;
+}
+
+#startButton,
+.startButton-primary {
+  font-size: 24px !important;
+  font-weight: 700 !important;
+  letter-spacing: 4px !important;
+  padding: 16px 48px !important;
+  background: rgba(74, 222, 128, 0.1) !important;
+  border: 2px solid rgba(74, 222, 128, 0.6) !important;
+  color: #4ade80 !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  transition: all 0.3s ease !important;
+  animation: buttonPulse 2s infinite alternate !important;
+  box-shadow: 
+    0 0 15px rgba(74, 222, 128, 0.3),
+    inset 0 0 10px rgba(74, 222, 128, 0.1) !important;
+  margin: 0 !important;
+}
+
+#startButton:hover,
+.startButton-primary:hover {
+  transform: scale(1.05) !important;
+  background: rgba(74, 222, 128, 0.2) !important;
+  border-color: #4ade80 !important;
+  box-shadow: 
+    0 0 25px rgba(74, 222, 128, 0.5),
+    inset 0 0 15px rgba(74, 222, 128, 0.2) !important;
+}
+
+.btn-icon {
+  display: inline-block !important;
+  margin-right: 8px !important;
+}
+
+.difficulty-inline {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.difficultyDropdown {
+  font-size: 14px !important;
+  padding: 10px 20px !important;
+  background: rgba(10, 10, 15, 0.8) !important;
+  border: 1px solid rgba(74, 222, 128, 0.3) !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+.difficultyDropdown:hover {
+  border-color: rgba(74, 222, 128, 0.5) !important;
+  background: rgba(10, 10, 15, 0.9) !important;
+}
+
+/* ====== NAVIGATION SECTION ====== */
+
+.start-nav {
+  display: flex !important;
+  gap: 16px !important;
+  justify-content: center !important;
+  flex-wrap: wrap !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  flex-shrink: 0 !important;
+}
+
+.nav-btn {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 16px 20px !important;
+  background: rgba(10, 10, 15, 0.6) !important;
+  border: 1px solid rgba(74, 222, 128, 0.2) !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  transition: all 0.3s ease !important;
+  backdrop-filter: blur(10px) !important;
+  min-width: 100px !important;
+}
+
+.nav-btn:hover {
+  background: rgba(10, 10, 15, 0.8) !important;
+  border-color: rgba(74, 222, 128, 0.4) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 12px rgba(74, 222, 128, 0.2) !important;
+}
+
+.nav-icon {
+  width: 24px !important;
+  height: 24px !important;
+  filter: brightness(0) saturate(100%) invert(80%) sepia(27%) saturate(1088%) hue-rotate(76deg) brightness(94%) contrast(91%) !important;
+}
+
+.nav-label {
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 1px !important;
+  color: rgba(255, 255, 255, 0.8) !important;
+  text-transform: uppercase !important;
+}
+
+/* ====== FOOTER SECTION ====== */
+
+.start-footer {
+  display: flex !important;
+  gap: 12px !important;
+  justify-content: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  flex-shrink: 0 !important;
+}
+
+.footer-btn {
+  width: 48px !important;
+  height: 48px !important;
+  padding: 12px !important;
+  background: rgba(10, 10, 15, 0.5) !important;
+  border: 1px solid rgba(74, 222, 128, 0.15) !important;
+  border-radius: 50% !important;
+  cursor: pointer !important;
+  transition: all 0.3s ease !important;
+  backdrop-filter: blur(8px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.footer-btn:hover {
+  background: rgba(10, 10, 15, 0.7) !important;
+  border-color: rgba(74, 222, 128, 0.3) !important;
+  transform: scale(1.1) !important;
+}
+
+.footer-btn img {
+  width: 20px !important;
+  height: 20px !important;
+  filter: brightness(0) saturate(100%) invert(80%) sepia(27%) saturate(1088%) hue-rotate(76deg) brightness(94%) contrast(91%) !important;
+}
+
+/* ====== RESPONSIVE LAYOUT ====== */
+
+@media (max-width: 768px) {
+  #startScreen {
+    padding: 24px 16px !important;
+    justify-content: space-around !important;
+  }
+  
+  #gameTitle {
+    font-size: 48px !important;
+    letter-spacing: 8px !important;
+  }
+  
+  .title-tagline {
+    font-size: 11px !important;
+    letter-spacing: 2px !important;
+  }
+  
+  #startButton,
+  .startButton-primary {
+    font-size: 18px !important;
+    padding: 14px 36px !important;
+  }
+  
+  .nav-btn {
+    padding: 12px 16px !important;
+    min-width: 80px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  #startScreen {
+    padding: 20px 12px !important;
+  }
+  
+  #gameTitle {
+    font-size: 36px !important;
+    letter-spacing: 6px !important;
+  }
+  
+  .title-tagline {
+    font-size: 10px !important;
+    letter-spacing: 1.5px !important;
+  }
+  
+  #startButton,
+  .startButton-primary {
+    font-size: 16px !important;
+    padding: 12px 28px !important;
+    letter-spacing: 3px !important;
+  }
+  
+  .start-nav {
+    gap: 12px !important;
+  }
+  
+  .nav-btn {
+    padding: 10px 12px !important;
+    min-width: 70px !important;
+    gap: 6px !important;
+  }
+  
+  .nav-icon {
+    width: 20px !important;
+    height: 20px !important;
+  }
+  
+  .nav-label {
+    font-size: 10px !important;
+  }
+  
+  .footer-btn {
+    width: 40px !important;
+    height: 40px !important;
+    padding: 10px !important;
+  }
+  
+  .footer-btn img {
+    width: 16px !important;
+    height: 16px !important;
+  }
+}
+
+/* ====== ORIENTATION SUPPORT ====== */
+
+@media (orientation: landscape) and (max-height: 600px) {
+  #startScreen {
+    padding: 16px !important;
+    justify-content: space-around !important;
+  }
+  
+  #gameTitle {
+    font-size: 42px !important;
+    letter-spacing: 8px !important;
+    margin: 0 0 8px 0 !important;
+  }
+  
+  .title-tagline {
+    font-size: 11px !important;
+    margin: 0 0 8px 0 !important;
+  }
+  
+  .start-main {
+    gap: 12px !important;
+  }
+  
+  #startButton,
+  .startButton-primary {
+    font-size: 18px !important;
+    padding: 10px 32px !important;
+  }
+  
+  .start-nav {
+    gap: 12px !important;
+  }
+  
+  .nav-btn {
+    padding: 10px 14px !important;
+  }
+}
+
+/* ====== ANIMATIONS ====== */
+
+@keyframes neonPulse {
+  0% {
+    text-shadow: 
+      0 0 10px rgba(74, 222, 128, 0.8),
+      0 0 20px rgba(74, 222, 128, 0.6),
+      0 0 30px rgba(74, 222, 128, 0.4),
+      0 0 40px rgba(74, 222, 128, 0.3),
+      0 0 60px rgba(74, 222, 128, 0.2);
+  }
+  100% {
+    text-shadow: 
+      0 0 15px rgba(74, 222, 128, 1),
+      0 0 25px rgba(74, 222, 128, 0.8),
+      0 0 35px rgba(74, 222, 128, 0.6),
+      0 0 45px rgba(74, 222, 128, 0.4),
+      0 0 70px rgba(74, 222, 128, 0.3);
+  }
+}
+
+@keyframes buttonPulse {
+  0% {
+    box-shadow: 
+      0 0 15px rgba(74, 222, 128, 0.3),
+      inset 0 0 10px rgba(74, 222, 128, 0.1);
+  }
+  100% {
+    box-shadow: 
+      0 0 20px rgba(74, 222, 128, 0.5),
+      inset 0 0 15px rgba(74, 222, 128, 0.15);
+  }
+}
+
+/* ====== ENSURE NO OVERFLOW ====== */
+
+#startScreen * {
+  box-sizing: border-box !important;
+}

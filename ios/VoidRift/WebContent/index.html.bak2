@@ -11,14 +11,17 @@
   <title>VOID RIFT</title>
   <!-- Link external styles -->
   <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="ios-fixes.css" />
 </head>
 <body>
   <!-- START SCREEN -->
   <div id="startScreen">
     <div class="start-header">
-      <div id="gameTitle"><span class="title-accent">VOID</span><span class="title-accent">RIFT</span></div>
+      <div id="gameTitle">VOID<span class="title-accent">RIFT</span></div>
       <div class="title-tagline">CREATED BY AUSTIN STICKLEY</div>
     </div>
+    
+    <canvas id="startGraphicCanvas"></canvas>
     
     <div class="start-main">
       <button id="startButton" class="startButton-primary">
@@ -33,7 +36,7 @@
         </select>
       </div>
       
-
+      <!-- Game Mode removed - Space Combat only -->
     </div>
     
     <div class="start-nav">
@@ -501,6 +504,7 @@
   </div>
 
   <!-- Include external scripts -->
+  <script src="icon-fix.js"></script>
   <script src="backend-api.js"></script>
   <script src="social-api.js"></script>
   <script src="social-hub.js"></script>

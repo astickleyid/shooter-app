@@ -21,12 +21,12 @@ html, body {
 #startScreen {
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse at 50% 30%, #0a0a0a 0%, #000000 100%);
+  background: radial-gradient(ellipse at 50% 30%, #0d1117 0%, #010409 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 20px;
+  gap: 16px;
   z-index: 20;
   padding: 16px;
 }
@@ -54,7 +54,7 @@ html, body {
 .title-tagline {
   font-size: 12px;
   font-weight: 600;
-  color: #6b7280;
+  color: #64748b;
   letter-spacing: 0.35em;
   margin-top: 6px;
   text-transform: uppercase;
@@ -83,20 +83,20 @@ html, body {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  padding: 18px 64px;
-  font-size: 20px;
-  font-weight: 900;
+  padding: 14px 48px;
+  font-size: 16px;
+  font-weight: 800;
   background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
-  color: #000000;
-  border: 2px solid #22c55e;
+  color: #022c22;
+  border: none;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 0 30px rgba(74, 222, 128, 0.5), 0 4px 20px rgba(74, 222, 128, 0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+  box-shadow: 0 4px 20px rgba(74, 222, 128, 0.4), inset 0 1px 0 rgba(255,255,255,0.2);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   position: relative;
-  min-width: 260px;
+  min-width: 220px;
 }
 
 .startButton-primary .btn-icon {
@@ -105,7 +105,7 @@ html, body {
 
 .startButton-primary:hover {
   background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-  box-shadow: 0 0 40px rgba(74, 222, 128, 0.7), 0 6px 30px rgba(74, 222, 128, 0.4), inset 0 1px 0 rgba(255,255,255,0.3);
+  box-shadow: 0 6px 30px rgba(74, 222, 128, 0.6), inset 0 1px 0 rgba(255,255,255,0.3);
   transform: translateY(-2px);
 }
 
@@ -164,7 +164,7 @@ html, body {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: #6b7280;
+  color: #64748b;
   font-weight: 600;
 }
 
@@ -189,14 +189,14 @@ html, body {
 
 .gameModeDropdown:hover,
 .planetDropdown:hover {
-  border-color: rgba(74, 222, 128, 0.6);
+  border-color: rgba(59, 130, 246, 0.6);
   background: rgba(30, 41, 59, 0.9);
 }
 
 .gameModeDropdown:focus,
 .planetDropdown:focus {
-  border-color: #4ade80;
-  box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.25);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
 }
 
 .planet-select-section {
@@ -227,20 +227,19 @@ html, body {
   align-items: center;
   gap: 4px;
   padding: 12px 20px;
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(74, 222, 128, 0.3);
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(100, 116, 139, 0.25);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
   min-width: 80px;
-  backdrop-filter: blur(10px);
 }
 
 .nav-btn:hover {
-  background: rgba(74, 222, 128, 0.1);
-  border-color: #4ade80;
+  background: rgba(30, 41, 59, 0.8);
+  border-color: rgba(96, 165, 250, 0.5);
   transform: translateY(-2px);
-  box-shadow: 0 0 20px rgba(74, 222, 128, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .nav-btn:active {
@@ -255,13 +254,13 @@ html, body {
 .nav-label {
   font-size: 12px;
   font-weight: 700;
-  color: #6b7280;
+  color: #94a3b8;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
 .nav-btn:hover .nav-label {
-  color: #4ade80;
+  color: #e2e8f0;
 }
 
 /* Footer with social icons */
@@ -280,22 +279,20 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(74, 222, 128, 0.25);
+  background: transparent;
+  border: 1px solid rgba(100, 116, 139, 0.2);
   border-radius: 50%;
   cursor: pointer;
   font-size: 14px;
   transition: all 0.2s ease;
-  color: #6b7280;
-  backdrop-filter: blur(5px);
+  color: #64748b;
 }
 
 .footer-btn:hover {
-  background: rgba(74, 222, 128, 0.15);
-  border-color: #4ade80;
-  color: #4ade80;
+  background: rgba(30, 41, 59, 0.6);
+  border-color: rgba(96, 165, 250, 0.4);
+  color: #e2e8f0;
   transform: scale(1.1);
-  box-shadow: 0 0 15px rgba(74, 222, 128, 0.3);
 }
 
 .footer-btn-text {
@@ -368,9 +365,9 @@ html, body {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 .menuSecondary:hover {
-  background: rgba(74, 222, 128, 0.2);
-  border-color: rgba(74, 222, 128, 0.6);
-  box-shadow: 0 6px 20px rgba(74, 222, 128, 0.3);
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.6);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.3);
   color: #fff;
 }
 
@@ -451,7 +448,7 @@ html, body {
 }
 
 #xpBar {
-  background: #4ade80;
+  background: #38bdf8;
 }
 
 .ui-bar-container.xp {
@@ -570,14 +567,14 @@ html, body {
 
 .equip-slot:hover {
   opacity: 0.85;
-  border-color: rgba(134, 239, 172,0.5);
+  border-color: rgba(96,165,250,0.5);
   transform: scale(1.05);
 }
 
 .equip-slot:focus {
   outline: none;
-  border-color: #86efac;
-  box-shadow: 0 0 0 2px rgba(134, 239, 172,0.3);
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 2px rgba(96,165,250,0.3);
 }
 
 .equip-slot.active {
@@ -624,7 +621,7 @@ html, body {
   position: absolute;
   top: -4px;
   right: -4px;
-  background: rgba(74, 222, 128,0.9);
+  background: rgba(59,130,246,0.9);
   color: #fff;
   font-size: 9px;
   font-weight: 800;
@@ -672,7 +669,7 @@ html, body {
   width: 56px;
   height: 56px;
   background: rgba(15,23,42,0.95);
-  border: 2px solid rgba(74, 222, 128,0.5);
+  border: 2px solid rgba(59,130,246,0.5);
   border-radius: 50%;
   display: flex;
   flex-direction: column;
@@ -691,10 +688,10 @@ html, body {
 
 .radial-item:hover,
 .radial-item.hovered {
-  background: rgba(74, 222, 128,0.4);
-  border-color: #86efac;
+  background: rgba(59,130,246,0.4);
+  border-color: #60a5fa;
   transform: scale(1.15);
-  box-shadow: 0 0 16px rgba(74, 222, 128,0.6);
+  box-shadow: 0 0 16px rgba(59,130,246,0.6);
 }
 
 .radial-item:nth-child(2):hover,
@@ -930,9 +927,9 @@ html, body {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  border: 2px solid rgba(134, 239, 172,0.5);
+  border: 2px solid rgba(96,165,250,0.5);
   background: rgba(15,23,42,0.9);
-  color: #86efac;
+  color: #60a5fa;
   font-size: 24px;
   font-weight: 700;
   cursor: pointer;
@@ -946,9 +943,9 @@ html, body {
 
 #unifiedMenuButton:active {
   transform: scale(0.92);
-  background: rgba(74, 222, 128,0.8);
+  background: rgba(59,130,246,0.8);
   color: #fff;
-  box-shadow: 0 0 16px rgba(74, 222, 128,0.6);
+  box-shadow: 0 0 16px rgba(59,130,246,0.6);
 }
 
 /* Settings button (legacy) - hide if unified menu is present */
@@ -974,7 +971,7 @@ html, body {
 
 .settingsButton:active {
   transform: scale(0.9);
-  background: rgba(74, 222, 128,0.7);
+  background: rgba(59,130,246,0.7);
   color: #fff;
 }
 
@@ -996,7 +993,7 @@ html, body {
 
 .modal-content {
   background: linear-gradient(145deg, #0f172a, #1e293b);
-  border: 2px solid rgba(74, 222, 128,0.4);
+  border: 2px solid rgba(59,130,246,0.4);
   border-radius: 16px;
   width: min(450px, 92vw);
   max-height: 85vh;
@@ -1014,7 +1011,7 @@ html, body {
   display: flex;
   gap: 4px;
   padding: 12px 16px 0;
-  border-bottom: 2px solid rgba(74, 222, 128,0.2);
+  border-bottom: 2px solid rgba(59,130,246,0.2);
   overflow-x: auto;
 }
 
@@ -1033,13 +1030,13 @@ html, body {
 
 .menu-tab:hover {
   color: #e2e8f0;
-  background: rgba(74, 222, 128,0.1);
+  background: rgba(59,130,246,0.1);
 }
 
 .menu-tab.active {
-  color: #86efac;
-  border-bottom-color: #4ade80;
-  background: rgba(74, 222, 128,0.15);
+  color: #60a5fa;
+  border-bottom-color: #3b82f6;
+  background: rgba(59,130,246,0.15);
 }
 
 /* Tab Content */
@@ -1079,7 +1076,7 @@ html, body {
 .equipment-select {
   background: rgba(30,41,59,0.9);
   color: #e2e8f0;
-  border: 1px solid rgba(74, 222, 128,0.4);
+  border: 1px solid rgba(59,130,246,0.4);
   border-radius: 6px;
   padding: 10px 12px;
   font-size: 14px;
@@ -1089,8 +1086,8 @@ html, body {
 
 .equipment-select:focus {
   outline: none;
-  border-color: #4ade80;
-  box-shadow: 0 0 0 2px rgba(74, 222, 128,0.2);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59,130,246,0.2);
 }
 
 /* Game Tab Action Buttons */
@@ -1118,10 +1115,10 @@ html, body {
 }
 
 .game-action-btn:hover {
-  background: rgba(74, 222, 128,0.3);
-  border-color: #86efac;
+  background: rgba(59,130,246,0.3);
+  border-color: #60a5fa;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(74, 222, 128,0.4);
+  box-shadow: 0 4px 12px rgba(59,130,246,0.4);
 }
 
 .game-action-btn:active {
@@ -1158,17 +1155,17 @@ html, body {
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
-  border-bottom: 2px solid rgba(74, 222, 128,0.3);
+  border-bottom: 2px solid rgba(59,130,246,0.3);
   background: rgba(15, 23, 42, 0.5);
 }
 
 .modal-header h2 {
   font-size: 24px;
   font-weight: 900;
-  color: #86efac;
+  color: #60a5fa;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  text-shadow: 0 0 10px rgba(134, 239, 172, 0.3);
+  text-shadow: 0 0 10px rgba(96, 165, 250, 0.3);
 }
 
 .closeBtn {
@@ -1200,7 +1197,7 @@ html, body {
 
 .settings-section {
   padding: 16px 20px;
-  border-bottom: 1px solid rgba(74, 222, 128,0.1);
+  border-bottom: 1px solid rgba(59,130,246,0.1);
 }
 
 .settings-section:last-of-type {
@@ -1232,20 +1229,20 @@ html, body {
 .settings-section input[type="range"] {
   width: 140px;
   margin: 0 10px;
-  accent-color: #4ade80;
+  accent-color: #3b82f6;
 }
 
 .settings-section label span:last-child {
   min-width: 45px;
   text-align: right;
-  color: #86efac;
+  color: #60a5fa;
   font-weight: 600;
 }
 
 .settings-section select {
   background: rgba(30,41,59,0.9);
   color: #e2e8f0;
-  border: 1px solid rgba(74, 222, 128,0.4);
+  border: 1px solid rgba(59,130,246,0.4);
   border-radius: 6px;
   padding: 6px 10px;
   font-size: 14px;
@@ -1255,8 +1252,8 @@ html, body {
 
 .settings-section select:focus {
   outline: none;
-  border-color: #4ade80;
-  box-shadow: 0 0 0 2px rgba(74, 222, 128,0.2);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59,130,246,0.2);
 }
 
 .checkbox-label {
@@ -1267,7 +1264,7 @@ html, body {
 .checkbox-label input[type="checkbox"] {
   width: 20px;
   height: 20px;
-  accent-color: #4ade80;
+  accent-color: #3b82f6;
   cursor: pointer;
 }
 
@@ -1277,7 +1274,7 @@ html, body {
   justify-content: space-between;
   gap: 12px;
   background: rgba(15, 23, 42, 0.3);
-  border-top: 1px solid rgba(74, 222, 128, 0.2);
+  border-top: 1px solid rgba(59, 130, 246, 0.2);
 }
 
 .primaryBtn,
@@ -1294,15 +1291,15 @@ html, body {
 }
 
 .primaryBtn {
-  background: linear-gradient(135deg, #4ade80, #22c55e);
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
   color: #fff;
   flex: 1;
-  box-shadow: 0 4px 12px rgba(74, 222, 128, 0.4);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
 }
 
 .primaryBtn:hover {
-  background: linear-gradient(135deg, #22c55e, #16a34a);
-  box-shadow: 0 6px 20px rgba(74, 222, 128,0.6);
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  box-shadow: 0 6px 20px rgba(59,130,246,0.6);
   transform: translateY(-2px);
 }
 
@@ -1318,11 +1315,11 @@ html, body {
 }
 
 .secondaryBtn:hover {
-  background: rgba(74, 222, 128, 0.2);
-  border-color: #4ade80;
+  background: rgba(59, 130, 246, 0.2);
+  border-color: #3b82f6;
   color: #fff;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(74, 222, 128, 0.3);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
 .fullscreenBtn {
@@ -1333,7 +1330,7 @@ html, body {
   font-size: 14px;
   cursor: pointer;
   transition: all 0.2s ease;
-  background: linear-gradient(135deg, #4ade80, #22c55e);
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
   color: #fff;
   border: none;
   margin-top: 8px;
@@ -1556,7 +1553,7 @@ html, body {
 
 #shopCard {
   background: linear-gradient(145deg, #0f172a, #1e293b);
-  border: 2px solid rgba(74, 222, 128,0.4);
+  border: 2px solid rgba(59,130,246,0.4);
   border-radius: 16px;
   width: min(880px, 95vw);
   max-height: 90vh;
@@ -1571,7 +1568,7 @@ html, body {
   align-items: center;
   padding: 20px 24px;
   background: rgba(15, 23, 42, 0.5);
-  border-bottom: 2px solid rgba(74, 222, 128,0.3);
+  border-bottom: 2px solid rgba(59,130,246,0.3);
   position: sticky;
   top: 0;
   z-index: 10;
@@ -1580,10 +1577,10 @@ html, body {
 #shopTitle {
   font-weight: 900;
   font-size: 24px;
-  color: #86efac;
+  color: #60a5fa;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  text-shadow: 0 0 10px rgba(134, 239, 172, 0.3);
+  text-shadow: 0 0 10px rgba(96, 165, 250, 0.3);
 }
 
 #closeShop {
@@ -1620,11 +1617,11 @@ html, body {
 }
 
 #openHangarFromShop.secondaryBtn:hover {
-  background: rgba(74, 222, 128, 0.2);
-  border-color: #4ade80;
+  background: rgba(59, 130, 246, 0.2);
+  border-color: #3b82f6;
   color: #fff;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(74, 222, 128, 0.3);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
 .shopHeaderActions {
@@ -1663,7 +1660,7 @@ html, body {
 }
 
 .item:hover {
-  border-color: rgba(74, 222, 128, 0.5);
+  border-color: rgba(59, 130, 246, 0.5);
   transform: translateY(-2px);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
 }
@@ -1690,7 +1687,7 @@ html, body {
 
 #hangarCard {
   background: linear-gradient(145deg, #0f172a, #1e293b);
-  border: 2px solid rgba(74, 222, 128,0.4);
+  border: 2px solid rgba(59,130,246,0.4);
   border-radius: 16px;
   width: min(1000px, 100%);
   max-height: calc(100vh - 60px);
@@ -1706,16 +1703,16 @@ html, body {
   align-items: center;
   justify-content: space-between;
   background: rgba(15, 23, 42, 0.5);
-  border-bottom: 2px solid rgba(74, 222, 128,0.3);
+  border-bottom: 2px solid rgba(59,130,246,0.3);
 }
 
 #hangarTitle {
   font-weight: 900;
   font-size: 24px;
   letter-spacing: 0.06em;
-  color: #86efac;
+  color: #60a5fa;
   text-transform: uppercase;
-  text-shadow: 0 0 10px rgba(134, 239, 172, 0.3);
+  text-shadow: 0 0 10px rgba(96, 165, 250, 0.3);
 }
 
 #closeHangar {
@@ -1753,12 +1750,12 @@ html, body {
 }
 
 #hangarGrid::-webkit-scrollbar-thumb {
-  background: rgba(74, 222, 128, 0.5);
+  background: rgba(59, 130, 246, 0.5);
   border-radius: 4px;
 }
 
 #hangarGrid::-webkit-scrollbar-thumb:hover {
-  background: rgba(74, 222, 128, 0.7);
+  background: rgba(59, 130, 246, 0.7);
 }
 
 .hangarSectionHeader {
@@ -1767,16 +1764,16 @@ html, body {
   letter-spacing: 0.08em;
   font-size: 14px;
   text-transform: uppercase;
-  color: #86efac;
+  color: #60a5fa;
   margin-top: 20px;
   margin-bottom: 8px;
-  border-bottom: 2px solid rgba(74, 222, 128,0.3);
+  border-bottom: 2px solid rgba(59,130,246,0.3);
   padding-bottom: 6px;
 }
 
 .hangarShip {
   background: rgba(15, 23, 42, 0.9);
-  border: 2px solid rgba(74, 222, 128,0.35);
+  border: 2px solid rgba(59,130,246,0.35);
   border-radius: 14px;
   padding: 16px;
   display: flex;
@@ -1788,8 +1785,8 @@ html, body {
 
 .hangarShip:hover {
   transform: translateY(-4px);
-  box-shadow: 0 12px 28px rgba(74, 222, 128, 0.3);
-  border-color: rgba(74, 222, 128, 0.6);
+  box-shadow: 0 12px 28px rgba(59, 130, 246, 0.3);
+  border-color: rgba(59, 130, 246, 0.6);
 }
 
 .hangarShip.selected {
@@ -1803,9 +1800,9 @@ html, body {
   height: 140px;
   display: block;
   border-radius: 12px;
-  background: radial-gradient(circle at center, rgba(74, 222, 128,0.3), rgba(15,23,42,0.95));
-  border: 2px solid rgba(74, 222, 128,0.4);
-  box-shadow: inset 0 0 30px rgba(74, 222, 128, 0.2);
+  background: radial-gradient(circle at center, rgba(59,130,246,0.3), rgba(15,23,42,0.95));
+  border: 2px solid rgba(59,130,246,0.4);
+  box-shadow: inset 0 0 30px rgba(59, 130, 246, 0.2);
 }
 
 .shipMeta h3 {
@@ -1837,12 +1834,12 @@ html, body {
 }
 
 .shipStats strong {
-  color: #bbf7d0;
+  color: #bfdbfe;
 }
 
 .hangarShip button {
   align-self: stretch;
-  background: linear-gradient(135deg, #4ade80, #22c55e);
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
   color: #fff;
   border: none;
   border-radius: 10px;
@@ -1853,12 +1850,12 @@ html, body {
   letter-spacing: 0.05em;
   font-size: 13px;
   transition: all 0.25s ease;
-  box-shadow: 0 4px 12px rgba(74, 222, 128, 0.4);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
 }
 
 .hangarShip button:hover:not(:disabled) {
-  background: linear-gradient(135deg, #22c55e, #16a34a);
-  box-shadow: 0 6px 20px rgba(74, 222, 128, 0.6);
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
   transform: translateY(-2px);
 }
 
@@ -1880,7 +1877,7 @@ html, body {
 
 .weaponPreview {
   height: 110px;
-  border-color: rgba(74, 222, 128,0.45);
+  border-color: rgba(59,130,246,0.45);
 }
 
 .item p {
@@ -1892,7 +1889,7 @@ html, body {
 
 .tags {
   font-size: 11px;
-  color: #86efac;
+  color: #60a5fa;
   margin: 8px 0;
   font-weight: 700;
   text-transform: uppercase;
@@ -1905,7 +1902,7 @@ html, body {
   align-items: center;
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid rgba(74, 222, 128, 0.2);
+  border-top: 1px solid rgba(59, 130, 246, 0.2);
 }
 
 .btnBuy {
@@ -1935,7 +1932,7 @@ html, body {
 
 .btnBuy[disabled] {
   background: rgba(30, 41, 59, 0.6);
-  color: #6b7280;
+  color: #64748b;
   cursor: not-allowed;
   box-shadow: none;
   border: 2px solid rgba(148, 163, 184, 0.2);
@@ -1945,7 +1942,7 @@ html, body {
 .pause-menu {
   width: min(400px, 90vw);
   background: linear-gradient(145deg, #1e293b, #0f172a);
-  border: 2px solid rgba(134, 239, 172,0.6);
+  border: 2px solid rgba(96,165,250,0.6);
 }
 
 .pause-menu-content {
@@ -1973,10 +1970,10 @@ html, body {
 }
 
 .pause-menu-btn:hover {
-  background: rgba(74, 222, 128,0.3);
-  border-color: #86efac;
+  background: rgba(59,130,246,0.3);
+  border-color: #60a5fa;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(74, 222, 128,0.4);
+  box-shadow: 0 4px 12px rgba(59,130,246,0.4);
 }
 
 .pause-menu-btn:active {
@@ -2037,9 +2034,9 @@ html, body {
 }
 
 .pause-menu-message.info {
-  background: rgba(74, 222, 128,0.2);
-  color: #86efac;
-  border: 1px solid rgba(74, 222, 128,0.4);
+  background: rgba(59,130,246,0.2);
+  color: #60a5fa;
+  border: 1px solid rgba(59,130,246,0.4);
 }
 
 /* Game Over Screen */
@@ -2086,7 +2083,7 @@ html, body {
 }
 
 .stat-item:hover {
-  border-color: rgba(134, 239, 172,0.5);
+  border-color: rgba(96,165,250,0.5);
   transform: translateX(4px);
 }
 
@@ -2117,10 +2114,10 @@ html, body {
 .login-prompt {
   text-align: center;
   padding: 16px;
-  background: rgba(74, 222, 128,0.15);
-  border: 2px solid rgba(74, 222, 128,0.3);
+  background: rgba(59,130,246,0.15);
+  border: 2px solid rgba(59,130,246,0.3);
   border-radius: 12px;
-  color: #86efac;
+  color: #60a5fa;
   font-weight: 600;
 }
 
@@ -2157,10 +2154,10 @@ html, body {
 }
 
 .game-over-btn:hover {
-  background: rgba(74, 222, 128,0.3);
-  border-color: #86efac;
+  background: rgba(59,130,246,0.3);
+  border-color: #60a5fa;
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(74, 222, 128,0.4);
+  box-shadow: 0 6px 16px rgba(59,130,246,0.4);
 }
 
 .game-over-btn:active {
@@ -2222,7 +2219,7 @@ html, body {
 .auth-input {
   background: rgba(15, 23, 42, 0.95);
   color: #f1f5f9;
-  border: 2px solid rgba(74, 222, 128,0.4);
+  border: 2px solid rgba(59,130,246,0.4);
   border-radius: 10px;
   padding: 14px 16px;
   font-size: 15px;
@@ -2233,13 +2230,13 @@ html, body {
 }
 
 .auth-input:focus {
-  border-color: #4ade80;
-  box-shadow: 0 0 0 3px rgba(74, 222, 128,0.2), 0 4px 12px rgba(0, 0, 0, 0.3);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.2), 0 4px 12px rgba(0, 0, 0, 0.3);
   background: rgba(15, 23, 42, 1);
 }
 
 .auth-input::placeholder {
-  color: #6b7280;
+  color: #64748b;
 }
 
 .auth-error {
@@ -2271,13 +2268,13 @@ html, body {
   background: rgba(15, 23, 42, 0.8);
   border-radius: 12px;
   gap: 16px;
-  border: 2px solid rgba(74, 222, 128, 0.3);
+  border: 2px solid rgba(59, 130, 246, 0.3);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .leaderboard-user-info span {
   font-weight: 700;
-  color: #86efac;
+  color: #60a5fa;
   font-size: 15px;
 }
 
@@ -2303,17 +2300,17 @@ html, body {
 }
 
 .filter-btn:hover {
-  background: rgba(74, 222, 128,0.2);
-  border-color: #4ade80;
+  background: rgba(59,130,246,0.2);
+  border-color: #3b82f6;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(74, 222, 128, 0.3);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
 .filter-btn.active {
-  background: linear-gradient(135deg, #4ade80, #22c55e);
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
   color: #fff;
-  border-color: #4ade80;
-  box-shadow: 0 4px 16px rgba(74, 222, 128, 0.5);
+  border-color: #3b82f6;
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.5);
 }
 
 .leaderboard-list {
@@ -2335,12 +2332,12 @@ html, body {
 }
 
 .leaderboard-list::-webkit-scrollbar-thumb {
-  background: rgba(74, 222, 128, 0.5);
+  background: rgba(59, 130, 246, 0.5);
   border-radius: 4px;
 }
 
 .leaderboard-list::-webkit-scrollbar-thumb:hover {
-  background: rgba(74, 222, 128, 0.7);
+  background: rgba(59, 130, 246, 0.7);
 }
 
 .leaderboard-entry {
@@ -2357,7 +2354,7 @@ html, body {
 
 .leaderboard-entry:hover {
   background: rgba(30,41,59,0.9);
-  border-color: rgba(74, 222, 128, 0.5);
+  border-color: rgba(59, 130, 246, 0.5);
   transform: translateX(4px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
@@ -2371,7 +2368,7 @@ html, body {
 .leaderboard-rank {
   font-size: 20px;
   font-weight: 900;
-  color: #86efac;
+  color: #60a5fa;
   text-align: center;
   min-width: 50px;
 }
@@ -2416,7 +2413,7 @@ html, body {
 .leaderboard-empty {
   text-align: center;
   padding: 60px 20px;
-  color: #6b7280;
+  color: #64748b;
   font-size: 15px;
   font-style: italic;
 }
@@ -2424,7 +2421,7 @@ html, body {
 .leaderboard-loading {
   text-align: center;
   padding: 60px 20px;
-  color: #86efac;
+  color: #60a5fa;
   font-size: 15px;
   animation: pulse 1.5s ease-in-out infinite;
 }
@@ -2456,7 +2453,7 @@ html, body {
 
 .social-modal-content {
   background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-  border: 2px solid rgba(134, 239, 172, 0.3);
+  border: 2px solid rgba(96, 165, 250, 0.3);
   border-radius: 16px;
   padding: 32px;
   max-width: 600px;
@@ -2494,7 +2491,7 @@ html, body {
   flex: 1;
   padding: 12px;
   background: rgba(30, 41, 59, 0.5);
-  border: 1px solid rgba(134, 239, 172, 0.2);
+  border: 1px solid rgba(96, 165, 250, 0.2);
   border-radius: 8px;
   color: #94a3b8;
   font-size: 14px;
@@ -2504,14 +2501,14 @@ html, body {
 }
 
 .auth-tab.active {
-  background: rgba(134, 239, 172, 0.2);
-  border-color: #86efac;
-  color: #86efac;
+  background: rgba(96, 165, 250, 0.2);
+  border-color: #60a5fa;
+  color: #60a5fa;
 }
 
 .auth-tab:hover:not(.active) {
-  background: rgba(134, 239, 172, 0.1);
-  border-color: rgba(134, 239, 172, 0.3);
+  background: rgba(96, 165, 250, 0.1);
+  border-color: rgba(96, 165, 250, 0.3);
 }
 
 #authForm input {
@@ -2519,7 +2516,7 @@ html, body {
   padding: 14px;
   margin-bottom: 16px;
   background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(134, 239, 172, 0.2);
+  border: 1px solid rgba(96, 165, 250, 0.2);
   border-radius: 8px;
   color: #e2e8f0;
   font-size: 14px;
@@ -2528,7 +2525,7 @@ html, body {
 
 #authForm input:focus {
   outline: none;
-  border-color: #86efac;
+  border-color: #60a5fa;
   background: rgba(15, 23, 42, 0.8);
 }
 
@@ -2561,15 +2558,15 @@ html, body {
   align-items: start;
   margin-bottom: 32px;
   padding-bottom: 24px;
-  border-bottom: 2px solid rgba(134, 239, 172, 0.2);
+  border-bottom: 2px solid rgba(96, 165, 250, 0.2);
 }
 
 .profile-avatar-large {
   width: 120px;
   height: 120px;
   border-radius: 50%;
-  border: 4px solid rgba(134, 239, 172, 0.4);
-  box-shadow: 0 0 30px rgba(134, 239, 172, 0.3);
+  border: 4px solid rgba(96, 165, 250, 0.4);
+  box-shadow: 0 0 30px rgba(96, 165, 250, 0.3);
 }
 
 .profile-info h2 {
@@ -2590,7 +2587,7 @@ html, body {
 }
 
 .profile-level {
-  color: #86efac;
+  color: #60a5fa;
   font-size: 16px;
   margin: 8px 0;
   font-weight: 600;
@@ -2612,7 +2609,7 @@ html, body {
 
 .stat-card {
   background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(134, 239, 172, 0.2);
+  border: 1px solid rgba(96, 165, 250, 0.2);
   border-radius: 12px;
   padding: 20px;
   text-align: center;
@@ -2620,7 +2617,7 @@ html, body {
 }
 
 .stat-card:hover {
-  border-color: #86efac;
+  border-color: #60a5fa;
   background: rgba(15, 23, 42, 0.8);
   transform: translateY(-2px);
 }
@@ -2628,7 +2625,7 @@ html, body {
 .stat-value {
   font-size: 28px;
   font-weight: 700;
-  color: #86efac;
+  color: #60a5fa;
   margin-bottom: 8px;
 }
 
@@ -2649,7 +2646,7 @@ html, body {
 .friend-requests {
   margin-bottom: 32px;
   padding-bottom: 24px;
-  border-bottom: 2px solid rgba(134, 239, 172, 0.2);
+  border-bottom: 2px solid rgba(96, 165, 250, 0.2);
 }
 
 .friend-requests h3,
@@ -2666,7 +2663,7 @@ html, body {
   gap: 16px;
   padding: 16px;
   background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(134, 239, 172, 0.2);
+  border: 1px solid rgba(96, 165, 250, 0.2);
   border-radius: 12px;
   margin-bottom: 12px;
   transition: all 0.2s;
@@ -2677,7 +2674,7 @@ html, body {
 }
 
 .friend-card:hover {
-  border-color: #86efac;
+  border-color: #60a5fa;
   background: rgba(15, 23, 42, 0.8);
   transform: translateX(4px);
 }
@@ -2686,7 +2683,7 @@ html, body {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  border: 2px solid rgba(134, 239, 172, 0.3);
+  border: 2px solid rgba(96, 165, 250, 0.3);
 }
 
 .friend-info {
@@ -2719,7 +2716,7 @@ html, body {
 }
 
 .friend-status.offline {
-  color: #6b7280;
+  color: #64748b;
 }
 
 .friend-actions {
@@ -2738,7 +2735,7 @@ html, body {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #4ade80 0%, #16a34a 100%);
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
   color: white;
   padding: 14px 28px;
   font-size: 15px;
@@ -2751,9 +2748,9 @@ html, body {
 }
 
 .btn-primary:hover {
-  background: linear-gradient(135deg, #22c55e 0%, #1e40af 100%);
+  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(74, 222, 128, 0.4);
+  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
 }
 
 .btn-secondary {
@@ -2784,7 +2781,7 @@ html, body {
   width: 100%;
   padding: 14px 16px;
   background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(134, 239, 172, 0.2);
+  border: 1px solid rgba(96, 165, 250, 0.2);
   border-radius: 10px;
   color: #e2e8f0;
   font-size: 14px;
@@ -2793,7 +2790,7 @@ html, body {
 
 #friendSearchInput:focus {
   outline: none;
-  border-color: #86efac;
+  border-color: #60a5fa;
   background: rgba(15, 23, 42, 0.8);
 }
 
@@ -2803,7 +2800,7 @@ html, body {
   left: 0;
   right: 0;
   background: #0f172a;
-  border: 1px solid rgba(134, 239, 172, 0.3);
+  border: 1px solid rgba(96, 165, 250, 0.3);
   border-radius: 10px;
   margin-top: 8px;
   max-height: 300px;
@@ -2819,7 +2816,7 @@ html, body {
   padding: 12px 16px;
   cursor: pointer;
   transition: all 0.2s;
-  border-bottom: 1px solid rgba(134, 239, 172, 0.1);
+  border-bottom: 1px solid rgba(96, 165, 250, 0.1);
 }
 
 .search-result-item:last-child {
@@ -2827,14 +2824,14 @@ html, body {
 }
 
 .search-result-item:hover {
-  background: rgba(134, 239, 172, 0.1);
+  background: rgba(96, 165, 250, 0.1);
 }
 
 .search-avatar {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  border: 2px solid rgba(134, 239, 172, 0.3);
+  border: 2px solid rgba(96, 165, 250, 0.3);
 }
 
 .search-level {
@@ -2846,7 +2843,7 @@ html, body {
 .search-no-results {
   padding: 20px;
   text-align: center;
-  color: #6b7280;
+  color: #64748b;
   font-size: 13px;
 }
 
@@ -2854,7 +2851,7 @@ html, body {
 .no-activity {
   text-align: center;
   padding: 40px 20px;
-  color: #6b7280;
+  color: #64748b;
   font-size: 14px;
 }
 
@@ -2869,7 +2866,7 @@ html, body {
   gap: 16px;
   padding: 16px;
   background: rgba(15, 23, 42, 0.4);
-  border: 1px solid rgba(134, 239, 172, 0.15);
+  border: 1px solid rgba(96, 165, 250, 0.15);
   border-radius: 12px;
   margin-bottom: 12px;
   transition: all 0.2s;
@@ -2877,14 +2874,14 @@ html, body {
 
 .activity-card:hover {
   background: rgba(15, 23, 42, 0.6);
-  border-color: rgba(134, 239, 172, 0.3);
+  border-color: rgba(96, 165, 250, 0.3);
 }
 
 .activity-avatar {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  border: 2px solid rgba(134, 239, 172, 0.3);
+  border: 2px solid rgba(96, 165, 250, 0.3);
   flex-shrink: 0;
 }
 
@@ -2896,12 +2893,12 @@ html, body {
 }
 
 .activity-content strong {
-  color: #86efac;
+  color: #60a5fa;
   font-weight: 600;
 }
 
 .activity-time {
-  color: #6b7280;
+  color: #64748b;
   font-size: 12px;
   margin-top: 4px;
 }
@@ -2911,7 +2908,7 @@ html, body {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  border: 2px solid rgba(134, 239, 172, 0.5);
+  border: 2px solid rgba(96, 165, 250, 0.5);
   margin-right: 8px;
   vertical-align: middle;
 }
@@ -2969,33 +2966,33 @@ html, body {
 .social-modal-content::-webkit-scrollbar-thumb,
 .activity-feed::-webkit-scrollbar-thumb,
 .search-results-dropdown::-webkit-scrollbar-thumb {
-  background: rgba(134, 239, 172, 0.3);
+  background: rgba(96, 165, 250, 0.3);
   border-radius: 10px;
 }
 
 .social-modal-content::-webkit-scrollbar-thumb:hover,
 .activity-feed::-webkit-scrollbar-thumb:hover,
 .search-results-dropdown::-webkit-scrollbar-thumb:hover {
-  background: rgba(134, 239, 172, 0.5);
+  background: rgba(96, 165, 250, 0.5);
 }
 
 /* Social Menu Row - Updated for footer design */
 .social-menu-row {
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 1px solid rgba(134, 239, 172, 0.2);
+  border-top: 1px solid rgba(96, 165, 250, 0.2);
 }
 
 .menuTertiary {
   background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(134, 239, 172, 0.3);
+  border: 1px solid rgba(96, 165, 250, 0.3);
 }
 
 .menuTertiary:hover {
-  background: rgba(74, 222, 128, 0.2);
-  border-color: #86efac;
+  background: rgba(59, 130, 246, 0.2);
+  border-color: #60a5fa;
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(134, 239, 172, 0.3);
+  box-shadow: 0 6px 20px rgba(96, 165, 250, 0.3);
 }
 
 /* Responsive adjustments for start screen */
@@ -3116,7 +3113,7 @@ html, body {
 .profile-section {
   margin-top: 24px;
   padding-top: 24px;
-  border-top: 1px solid rgba(134, 239, 172, 0.2);
+  border-top: 1px solid rgba(96, 165, 250, 0.2);
 }
 
 .profile-section h3 {
@@ -3137,7 +3134,7 @@ html, body {
 
 .achievement-item {
   background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(134, 239, 172, 0.2);
+  border: 1px solid rgba(96, 165, 250, 0.2);
   border-radius: 10px;
   padding: 12px 8px;
   text-align: center;
@@ -3180,7 +3177,7 @@ html, body {
 /* Prestige Progress */
 .prestige-info {
   background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(134, 239, 172, 0.2);
+  border: 1px solid rgba(96, 165, 250, 0.2);
   border-radius: 12px;
   padding: 20px;
 }
@@ -3212,7 +3209,7 @@ html, body {
   background: rgba(0, 0, 0, 0.4);
   border-radius: 6px;
   overflow: hidden;
-  border: 1px solid rgba(134, 239, 172, 0.2);
+  border: 1px solid rgba(96, 165, 250, 0.2);
 }
 
 .prestige-fill {
@@ -3260,7 +3257,7 @@ html, body {
 .prestige-hint {
   margin-top: 8px;
   font-size: 13px;
-  color: #86efac;
+  color: #60a5fa;
   text-align: center;
 }
 
@@ -3273,7 +3270,7 @@ html, body {
 
 .ship-item {
   background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(134, 239, 172, 0.2);
+  border: 1px solid rgba(96, 165, 250, 0.2);
   border-radius: 10px;
   padding: 16px 12px;
   text-align: center;
@@ -3282,7 +3279,7 @@ html, body {
 }
 
 .ship-item.unlocked {
-  border-color: #86efac;
+  border-color: #60a5fa;
 }
 
 .ship-item.locked {
@@ -3437,7 +3434,7 @@ html, body {
   padding: 14px;
   margin-bottom: 16px;
   background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(134, 239, 172, 0.2);
+  border: 1px solid rgba(96, 165, 250, 0.2);
   border-radius: 8px;
   color: #e2e8f0;
   font-size: 14px;
@@ -3446,6 +3443,6 @@ html, body {
 
 #socialAuthForm input:focus {
   outline: none;
-  border-color: #86efac;
+  border-color: #60a5fa;
   background: rgba(15, 23, 42, 0.8);
 }

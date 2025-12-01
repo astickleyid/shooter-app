@@ -1,0 +1,8 @@
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Crown/Legend icon -->
+  <path d="M4 17l2-9 4 4 2-6 2 6 4-4 2 9H4z" fill="#fbbf24" stroke="#f59e0b" stroke-width="1"/>
+  <rect x="4" y="17" width="16" height="3" rx="1" fill="#f59e0b"/>
+  <circle cx="6" cy="8" r="2" fill="#fde68a"/>
+  <circle cx="12" cy="5" r="2" fill="#fde68a"/>
+  <circle cx="18" cy="8" r="2" fill="#fde68a"/>
+</svg>

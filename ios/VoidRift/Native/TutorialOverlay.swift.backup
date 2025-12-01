@@ -1,0 +1,285 @@
+import UIKit
+
+protocol TutorialOverlayDelegate: AnyObject {
+    func tutorialDidComplete()
+    func tutorialDidSkip()
+}
+
+class TutorialOverlay: UIView {
+    
+    weak var delegate: TutorialOverlayDelegate?
+    
+    private var currentStep = 0
+    private var tutorialSteps: [TutorialStep] = []
+    
+    // Interactive overlay components
+    private let dimView = UIView()
+    private let spotlightView = UIView()
+    private let contentView = UIView()
+    private let titleLabel = UILabel()
+    private let messageLabel = UILabel()
+    private let nextButton = UIButton(type: .system)
+    private let skipButton = UIButton(type: .system)
+    private let arrowView = ArrowView()
+    private let stepIndicator = UILabel()
+    private let pulseView = UIView()
+    
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        setupViews()
+        setupSteps()
+    }
+    
+    required init?(coder: NSObject) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    private func setupViews() {
+        // Dim background
+        dimView.frame = bounds
+        dimView.backgroundColor = UIColor.black.withAlphaComponent(0.85)
+        addSubview(dimView)
+        
+        // Content container
+        contentView.backgroundColor = UIColor(white: 0.15, alpha: 0.95)
+        contentView.layer.cornerRadius = 20
+        contentView.layer.borderWidth = 2
+        contentView.layer.borderColor = UIColor(red: 0.29, green: 0.97, blue: 0.50, alpha: 1.0).cgColor
+        addSubview(contentView)
+        
+        // Title
+        titleLabel.font = UIFont.boldSystemFont(ofSize: 24)
+        titleLabel.textColor = UIColor(red: 0.29, green: 0.97, blue: 0.50, alpha: 1.0)
+        titleLabel.textAlignment = .center
+        titleLabel.numberOfLines = 0
+        contentView.addSubview(titleLabel)
+        
+        // Message
+        messageLabel.font = UIFont.systemFont(ofSize: 16)
+        messageLabel.textColor = .white
+        messageLabel.textAlignment = .center
+        messageLabel.numberOfLines = 0
+        contentView.addSubview(messageLabel)
+        
+        // Step indicator
+        stepIndicator.font = UIFont.systemFont(ofSize: 14)
+        stepIndicator.textColor = UIColor.white.withAlphaComponent(0.7)
+        stepIndicator.textAlignment = .center
+        contentView.addSubview(stepIndicator)
+        
+        // Next button
+        nextButton.setTitle("Next", for: .normal)
+        nextButton.titleLabel?.font = UIFont.boldSystemFont(ofSize: 18)
+        nextButton.setTitleColor(.white, for: .normal)
+        nextButton.backgroundColor = UIColor(red: 0.29, green: 0.97, blue: 0.50, alpha: 1.0)
+        nextButton.layer.cornerRadius = 10
+        nextButton.addTarget(self, action: #selector(nextTapped), for: .touchUpInside)
+        contentView.addSubview(nextButton)
+        
+        // Skip button
+        skipButton.setTitle("Skip Tutorial", for: .normal)
+        skipButton.titleLabel?.font = UIFont.systemFont(ofSize: 14)
+        skipButton.setTitleColor(UIColor.white.withAlphaComponent(0.6), for: .normal)
+        skipButton.addTarget(self, action: #selector(skipTapped), for: .touchUpInside)
+        contentView.addSubview(skipButton)
+        
+        // Arrow indicator
+        arrowImageView.contentMode = .scaleAspectFit
+        arrowImageView.tintColor = UIColor(red: 0.29, green: 0.97, blue: 0.50, alpha: 1.0)
+        addSubview(arrowImageView)
+        
+        layoutViews()
+    }
+    
+    private func layoutViews() {
+        let padding: CGFloat = 20
+        let contentWidth: CGFloat = min(bounds.width - 40, 400)
+        let contentHeight: CGFloat = 300
+        
+        contentView.frame = CGRect(
+            x: (bounds.width - contentWidth) / 2,
+            y: (bounds.height - contentHeight) / 2,
+            width: contentWidth,
+            height: contentHeight
+        )
+        
+        stepIndicator.frame = CGRect(x: padding, y: padding, width: contentWidth - 2 * padding, height: 20)
+        titleLabel.frame = CGRect(x: padding, y: 50, width: contentWidth - 2 * padding, height: 60)
+        messageLabel.frame = CGRect(x: padding, y: 120, width: contentWidth - 2 * padding, height: 100)
+        nextButton.frame = CGRect(x: padding, y: contentHeight - 100, width: contentWidth - 2 * padding, height: 44)
+        skipButton.frame = CGRect(x: padding, y: contentHeight - 45, width: contentWidth - 2 * padding, height: 30)
+    }
+    
+    private func setupSteps() {
+        tutorialSteps = [
+            TutorialStep(
+                title: "Welcome to Void Rift!",
+                message: "Let's learn the basics to become a space ace pilot. This quick tutorial will show you everything you need to know.",
+                arrowPosition: nil
+            ),
+            TutorialStep(
+                title: "Movement Controls",
+                message: "Use the LEFT joystick (bottom-left) to move your ship around. Practice moving in all directions!",
+                arrowPosition: CGPoint(x: 100, y: bounds.height - 100)
+            ),
+            TutorialStep(
+                title: "Shooting Controls",
+                message: "Use the RIGHT joystick (bottom-right) to aim and shoot. Hold it in any direction to fire continuously!",
+                arrowPosition: CGPoint(x: bounds.width - 100, y: bounds.height - 100)
+            ),
+            TutorialStep(
+                title: "Health Meter",
+                message: "Keep an eye on your health bar (top-left). When it reaches zero, it's game over!",
+                arrowPosition: CGPoint(x: 80, y: 60)
+            ),
+            TutorialStep(
+                title: "Score & Level",
+                message: "Your score and current level are shown at the top-center. Destroy enemies to level up!",
+                arrowPosition: CGPoint(x: bounds.width / 2, y: 60)
+            ),
+            TutorialStep(
+                title: "Pause Menu",
+                message: "Tap the pause button (top-right) to pause the game, access settings, or view controls.",
+                arrowPosition: CGPoint(x: bounds.width - 60, y: 60)
+            ),
+            TutorialStep(
+                title: "Weapon Upgrades",
+                message: "Collect power-ups and visit the shop to upgrade your weapons. Try different combinations for maximum firepower!",
+                arrowPosition: nil
+            ),
+            TutorialStep(
+                title: "Control Settings",
+                message: "You can customize controls, sensitivity, and display options in the settings menu anytime.",
+                arrowPosition: nil
+            ),
+            TutorialStep(
+                title: "You're Ready!",
+                message: "You now know everything to dominate the void! Remember: practice makes perfect. Good luck, pilot!",
+                arrowPosition: nil
+            )
+        ]
+    }
+    
+    func start() {
+        currentStep = 0
+        showStep(currentStep)
+        
+        // Animate in
+        alpha = 0
+        UIView.animate(withDuration: 0.3) {
+            self.alpha = 1
+        }
+    }
+    
+    private func showStep(_ step: Int) {
+        guard step < tutorialSteps.count else {
+            complete()
+            return
+        }
+        
+        let tutorialStep = tutorialSteps[step]
+        
+        titleLabel.text = tutorialStep.title
+        messageLabel.text = tutorialStep.message
+        stepIndicator.text = "Step \(step + 1) of \(tutorialSteps.count)"
+        
+        // Update button text for last step
+        if step == tutorialSteps.count - 1 {
+            nextButton.setTitle("Let's Go!", for: .normal)
+        } else {
+            nextButton.setTitle("Next", for: .normal)
+        }
+        
+        // Show/hide arrow
+        if let arrowPos = tutorialStep.arrowPosition {
+            showArrow(at: arrowPos, pointingTo: tutorialStep.arrowDirection)
+        } else {
+            arrowImageView.isHidden = true
+        }
+        
+        // Animate transition
+        contentView.transform = CGAffineTransform(scaleX: 0.9, y: 0.9)
+        contentView.alpha = 0
+        UIView.animate(withDuration: 0.3, delay: 0, options: .curveEaseOut) {
+            self.contentView.transform = .identity
+            self.contentView.alpha = 1
+        }
+    }
+    
+    private func showArrow(at position: CGPoint, pointingTo direction: ArrowDirection) {
+        arrowImageView.isHidden = false
+        
+        // Create simple arrow using transform
+        arrowImageView.frame = CGRect(x: 0, y: 0, width: 40, height: 40)
+        arrowImageView.center = position
+        
+        // You can add custom arrow image here
+        // For now using a simple indicator
+        arrowImageView.backgroundColor = UIColor(red: 0.29, green: 0.97, blue: 0.50, alpha: 0.8)
+        arrowImageView.layer.cornerRadius = 20
+        
+        // Pulsing animation
+        let pulse = CABasicAnimation(keyPath: "transform.scale")
+        pulse.duration = 1.0
+        pulse.fromValue = 1.0
+        pulse.toValue = 1.2
+        pulse.autoreverses = true
+        pulse.repeatCount = .infinity
+        arrowImageView.layer.add(pulse, forKey: "pulse")
+    }
+    
+    @objc private func nextTapped() {
+        currentStep += 1
+        showStep(currentStep)
+        
+        // Haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.impactOccurred()
+    }
+    
+    @objc private func skipTapped() {
+        let alert = UIAlertController(
+            title: "Skip Tutorial?",
+            message: "Are you sure you want to skip the tutorial? You can always access help from the settings menu.",
+            preferredStyle: .alert
+        )
+        
+        alert.addAction(UIAlertAction(title: "Continue Tutorial", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Skip", style: .destructive) { [weak self] _ in
+            self?.skip()
+        })
+        
+        if let presenting = window?.rootViewController {
+            presenting.present(alert, animated: true)
+        }
+    }
+    
+    private func complete() {
+        UIView.animate(withDuration: 0.3, animations: {
+            self.alpha = 0
+        }) { _ in
+            self.delegate?.tutorialDidComplete()
+        }
+    }
+    
+    private func skip() {
+        UIView.animate(withDuration: 0.3, animations: {
+            self.alpha = 0
+        }) { _ in
+            self.delegate?.tutorialDidSkip()
+        }
+    }
+}
+
+// MARK: - Tutorial Step Model
+
+struct TutorialStep {
+    let title: String
+    let message: String
+    let arrowPosition: CGPoint?
+    var arrowDirection: ArrowDirection = .down
+}
+
+enum ArrowDirection {
+    case up, down, left, right
+}

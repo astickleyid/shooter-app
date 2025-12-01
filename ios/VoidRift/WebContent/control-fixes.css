@@ -1,0 +1,276 @@
+/* ====================================== */
+/* VOID RIFT - CONTROL POSITIONING FIXES */
+/* ====================================== */
+
+/* Fix secondary weapon button positioning - bottom right corner */
+#equipmentIndicator {
+  position: fixed !important;
+  bottom: 100px !important;
+  right: 20px !important;
+  left: auto !important;
+  top: auto !important;
+  z-index: 150 !important;
+  pointer-events: all !important;
+}
+
+/* Ensure button stays visible and properly sized */
+.equip-slot[data-slot="secondary"] {
+  width: 50px !important;
+  height: 50px !important;
+  background: rgba(10, 10, 15, 0.85) !important;
+  backdrop-filter: blur(20px) !important;
+  border: 2px solid rgba(74, 222, 128, 0.3) !important;
+  border-radius: 50% !important;
+  padding: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+  pointer-events: all !important;
+}
+
+.equip-slot[data-slot="secondary"]:active {
+  transform: scale(1.15) !important;
+  border-color: rgba(74, 222, 128, 0.6) !important;
+  box-shadow: 
+    0 6px 20px rgba(0, 0, 0, 0.7),
+    0 0 30px rgba(74, 222, 128, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Hide label and hint text - keep compact */
+.equip-slot .equip-label,
+.equip-slot .equip-hint {
+  display: none !important;
+}
+
+/* Icon sizing */
+.equip-slot .equip-icon {
+  width: 28px !important;
+  height: 28px !important;
+  filter: drop-shadow(0 0 4px rgba(74, 222, 128, 0.4)) !important;
+}
+
+/* Radial menu positioning and visibility */
+#radialMenu {
+  position: fixed !important;
+  bottom: 100px !important;
+  right: 80px !important;
+  width: auto !important;
+  height: auto !important;
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 12px !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  z-index: 160 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: scale(0.5) translateX(40px) !important;
+  transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55) !important;
+}
+
+/* Radial menu visible state */
+#radialMenu.active {
+  opacity: 1 !important;
+  pointer-events: all !important;
+  transform: scale(1) translateX(0) !important;
+}
+
+/* Radial menu items */
+.radial-item {
+  width: 44px !important;
+  height: 44px !important;
+  background: rgba(10, 10, 15, 0.9) !important;
+  backdrop-filter: blur(20px) !important;
+  border: 2px solid rgba(74, 222, 128, 0.2) !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+.radial-item:hover,
+.radial-item.active {
+  border-color: rgba(74, 222, 128, 0.6) !important;
+  background: rgba(74, 222, 128, 0.15) !important;
+  transform: scale(1.1) !important;
+  box-shadow: 
+    0 6px 16px rgba(0, 0, 0, 0.7),
+    0 0 20px rgba(74, 222, 128, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+.radial-item img {
+  width: 24px !important;
+  height: 24px !important;
+  filter: drop-shadow(0 0 4px rgba(74, 222, 128, 0.3)) !important;
+}
+
+/* Landscape mode adjustments */
+@media (orientation: landscape) and (max-height: 600px) {
+  #equipmentIndicator {
+    bottom: 80px !important;
+    right: 20px !important;
+  }
+  
+  #radialMenu {
+    bottom: 80px !important;
+    right: 80px !important;
+  }
+}
+
+/* Portrait mode - ensure doesn't overlap with joysticks */
+@media (orientation: portrait) {
+  #equipmentIndicator {
+    bottom: 120px !important;
+    right: 20px !important;
+  }
+  
+  #radialMenu {
+    bottom: 120px !important;
+    right: 80px !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    transform: scale(0.5) translateY(-40px) !important;
+  }
+  
+  #radialMenu.active {
+    transform: scale(1) translateY(0) !important;
+  }
+}
+
+/* Small screens */
+@media (max-width: 480px) {
+  #equipmentIndicator {
+    bottom: 100px !important;
+    right: 15px !important;
+  }
+  
+  .equip-slot[data-slot="secondary"] {
+    width: 46px !important;
+    height: 46px !important;
+  }
+  
+  .equip-slot .equip-icon {
+    width: 26px !important;
+    height: 26px !important;
+  }
+  
+  #radialMenu {
+    bottom: 100px !important;
+    right: 70px !important;
+    gap: 8px !important;
+  }
+  
+  .radial-item {
+    width: 40px !important;
+    height: 40px !important;
+  }
+  
+  .radial-item img {
+    width: 22px !important;
+    height: 22px !important;
+  }
+}
+
+/* Joystick z-index and visibility fixes */
+#mobileControls {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  pointer-events: none !important;
+  z-index: 100 !important;
+}
+
+.touchZone {
+  position: absolute !important;
+  pointer-events: all !important;
+  touch-action: none !important;
+  z-index: 100 !important;
+}
+
+#leftTouchZone {
+  top: 0 !important;
+  left: 0 !important;
+  width: 50% !important;
+  height: 100% !important;
+}
+
+#rightTouchZone {
+  top: 0 !important;
+  right: 0 !important;
+  width: 50% !important;
+  height: 100% !important;
+}
+
+/* Joystick bases */
+.joystickBase {
+  position: absolute !important;
+  width: 110px !important;
+  height: 110px !important;
+  background: radial-gradient(circle, rgba(74, 222, 128, 0.08) 0%, rgba(74, 222, 128, 0.03) 50%, transparent 100%) !important;
+  border: 2px solid rgba(74, 222, 128, 0.2) !important;
+  border-radius: 50% !important;
+  pointer-events: none !important;
+  z-index: 101 !important;
+  transition: opacity 0.2s ease !important;
+}
+
+/* Move joystick - fixed position bottom-left */
+#joystickMoveBase {
+  bottom: 40px !important;
+  left: 40px !important;
+  opacity: 0.7 !important;
+}
+
+/* Shoot joystick - floating, starts hidden */
+#joystickShootBase {
+  opacity: 0 !important;
+  transform: translate(-50%, -50%) !important;
+  pointer-events: none !important;
+}
+
+#joystickShootBase.active {
+  opacity: 0.7 !important;
+}
+
+/* Joystick sticks */
+.joystickStick {
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  width: 45px !important;
+  height: 45px !important;
+  background: radial-gradient(circle, rgba(74, 222, 128, 0.8) 0%, rgba(74, 222, 128, 0.5) 60%, rgba(74, 222, 128, 0.3) 100%) !important;
+  border: 2px solid rgba(74, 222, 128, 0.6) !important;
+  border-radius: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.5),
+    0 0 20px rgba(74, 222, 128, 0.4),
+    inset 0 2px 4px rgba(255, 255, 255, 0.2) !important;
+  pointer-events: none !important;
+  z-index: 102 !important;
+}
+
+/* Floating joystick behavior */
+.joystickBase.floating {
+  opacity: 0 !important;
+}
+
+.joystickBase.floating.active {
+  opacity: 0.7 !important;
+}

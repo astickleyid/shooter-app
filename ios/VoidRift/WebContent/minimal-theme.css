@@ -1,0 +1,682 @@
+/* ====================================== */
+/* VOID RIFT - MINIMAL GLASSY DARK THEME */
+/* ====================================== */
+
+/* Complete override - Minimal, refined, glassy aesthetic */
+/* Pure black with subtle green accents, transparency, and depth */
+
+/* ====== ROOT VARIABLES ====== */
+:root {
+  --bg-black: rgba(0, 0, 0, 0.95);
+  --bg-glass: rgba(10, 10, 15, 0.6);
+  --bg-glass-hover: rgba(15, 15, 20, 0.7);
+  --glass-border: rgba(74, 222, 128, 0.15);
+  --glass-glow: rgba(74, 222, 128, 0.1);
+  --green-primary: #4ade80;
+  --green-dim: rgba(74, 222, 128, 0.6);
+  --text-primary: rgba(255, 255, 255, 0.9);
+  --text-secondary: rgba(255, 255, 255, 0.5);
+  --text-dim: rgba(255, 255, 255, 0.3);
+}
+
+/* ====== REMOVE ALL BLUE ====== */
+* {
+  color: var(--text-primary) !important;
+}
+
+/* Override any remaining blue */
+[style*="blue"],
+[style*="#3b82"],
+[style*="#2563"],
+[style*="#60a5"],
+[style*="#38bd"],
+[style*="#0ea5"],
+[class*="blue"] {
+  color: var(--text-primary) !important;
+  border-color: var(--glass-border) !important;
+  background: transparent !important;
+}
+
+/* ====== BUTTONS - MINIMAL GLASSY STYLE ====== */
+
+button,
+.btn,
+.primaryBtn,
+.secondaryBtn,
+.game-action-btn,
+.nav-btn,
+.pause-menu-btn,
+.game-over-btn,
+.modal-btn,
+input[type="submit"],
+input[type="button"] {
+  /* Glassy black background */
+  background: var(--bg-glass) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  
+  /* Subtle outline only */
+  border: 1px solid var(--glass-border) !important;
+  border-radius: 6px !important;
+  
+  /* Minimal text */
+  color: var(--text-primary) !important;
+  font-weight: 400 !important;
+  font-size: 14px !important;
+  letter-spacing: 0.02em !important;
+  
+  /* Slim padding */
+  padding: 8px 16px !important;
+  
+  /* Subtle shadow */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3),
+              inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+  
+  /* Smooth transitions */
+  transition: all 0.2s ease !important;
+  
+  /* Remove aggressive styling */
+  text-shadow: none !important;
+}
+
+/* Button hover - subtle glow */
+button:hover,
+.btn:hover {
+  background: var(--bg-glass-hover) !important;
+  border-color: var(--green-dim) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4),
+              0 0 20px var(--glass-glow),
+              inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Button active/focus */
+button:active,
+button:focus {
+  background: rgba(5, 5, 10, 0.8) !important;
+  border-color: var(--green-dim) !important;
+  outline: none !important;
+}
+
+/* Disabled buttons */
+button:disabled {
+  opacity: 0.3 !important;
+  cursor: not-allowed !important;
+}
+
+/* ====== MODALS & PANELS - GLASSY BLACK ====== */
+
+.modal-content,
+.pause-menu,
+.game-over-content,
+#messageBox,
+#shopCard,
+#hangarCard,
+#settingsModal .modal-content,
+#leaderboardModal .modal-content,
+#authModal .modal-content {
+  /* Pure black glassy background */
+  background: var(--bg-black) !important;
+  backdrop-filter: blur(30px) !important;
+  -webkit-backdrop-filter: blur(30px) !important;
+  
+  /* Minimal border */
+  border: 1px solid var(--glass-border) !important;
+  border-radius: 12px !important;
+  
+  /* Subtle depth */
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8),
+              inset 0 1px 0 rgba(255, 255, 255, 0.03) !important;
+  
+  /* Clean padding */
+  padding: 20px !important;
+}
+
+/* Modal backgrounds */
+.modal-backdrop,
+#shopModal,
+#hangarModal,
+#pauseMenu,
+#gameOver,
+#settingsModal,
+#leaderboardModal {
+  background: rgba(0, 0, 0, 0.85) !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+/* ====== HEADERS - MINIMAL ====== */
+
+.modal-header,
+#hangarHeader,
+#shopHeader,
+.pause-menu-header {
+  background: transparent !important;
+  border-bottom: 1px solid var(--glass-border) !important;
+  padding: 12px 0 !important;
+  margin-bottom: 16px !important;
+}
+
+h1, h2, h3, h4, h5, h6,
+.title,
+.modal-title,
+#hangarTitle,
+#shopTitle,
+.pause-menu-title {
+  color: var(--text-primary) !important;
+  font-weight: 300 !important;
+  letter-spacing: 0.1em !important;
+  text-transform: uppercase !important;
+  font-size: 18px !important;
+  text-shadow: none !important;
+  margin: 0 !important;
+}
+
+/* ====== TEXT - CLEAN & MINIMAL ====== */
+
+p, span, div, label, td, th {
+  color: var(--text-secondary) !important;
+  font-weight: 300 !important;
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+}
+
+/* Accent text */
+.accent,
+.stat-value,
+.price,
+.level-number {
+  color: var(--green-primary) !important;
+}
+
+/* Dim text */
+.subtitle,
+.description,
+.hint {
+  color: var(--text-dim) !important;
+  font-size: 12px !important;
+}
+
+/* ====== INPUTS - GLASSY MINIMAL ====== */
+
+input,
+select,
+textarea {
+  background: var(--bg-glass) !important;
+  backdrop-filter: blur(15px) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: 4px !important;
+  color: var(--text-primary) !important;
+  padding: 8px 12px !important;
+  font-size: 13px !important;
+  font-weight: 300 !important;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--green-dim) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px var(--glass-glow) !important;
+}
+
+/* ====== CARDS & CONTAINERS ====== */
+
+.card,
+.shop-item,
+.hangar-card,
+.ship-card,
+.weapon-card,
+.achievement-card,
+.leaderboard-entry {
+  background: var(--bg-glass) !important;
+  backdrop-filter: blur(15px) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: 8px !important;
+  padding: 12px !important;
+  margin: 8px 0 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+.card:hover,
+.shop-item:hover,
+.hangar-card:hover {
+  border-color: var(--green-dim) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4),
+              0 0 20px var(--glass-glow) !important;
+}
+
+/* ====== NAVIGATION - SLIM & MINIMAL ====== */
+
+.nav-btn,
+.tab-btn {
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 0 !important;
+  padding: 8px 12px !important;
+  color: var(--text-secondary) !important;
+  font-size: 13px !important;
+  box-shadow: none !important;
+}
+
+.nav-btn:hover,
+.tab-btn:hover {
+  color: var(--text-primary) !important;
+  border-bottom-color: var(--glass-border) !important;
+  background: transparent !important;
+}
+
+.nav-btn.active,
+.tab-btn.active {
+  color: var(--green-primary) !important;
+  border-bottom-color: var(--green-primary) !important;
+  background: transparent !important;
+}
+
+/* ====== PROGRESS BARS - MINIMAL ====== */
+
+.progress-bar,
+.health-bar,
+.xp-bar,
+.stat-bar {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: 2px !important;
+  height: 4px !important;
+  overflow: hidden !important;
+}
+
+.progress-bar-fill,
+.health-bar-fill,
+.xp-bar-fill {
+  background: var(--green-primary) !important;
+  box-shadow: 0 0 8px var(--glass-glow) !important;
+  height: 100% !important;
+}
+
+/* ====== SCROLLBARS - MINIMAL ====== */
+
+::-webkit-scrollbar {
+  width: 6px !important;
+  height: 6px !important;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--glass-border) !important;
+  border-radius: 3px !important;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--green-dim) !important;
+}
+
+/* ====== TABLES - CLEAN ====== */
+
+table {
+  border-collapse: collapse !important;
+  width: 100% !important;
+}
+
+th {
+  color: var(--text-secondary) !important;
+  font-weight: 300 !important;
+  font-size: 11px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  padding: 8px !important;
+  border-bottom: 1px solid var(--glass-border) !important;
+}
+
+td {
+  padding: 10px 8px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03) !important;
+}
+
+tr:hover {
+  background: var(--bg-glass) !important;
+}
+
+/* ====== BADGES & TAGS - SUBTLE ====== */
+
+.badge,
+.tag,
+.pill {
+  background: var(--bg-glass) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: 12px !important;
+  padding: 2px 8px !important;
+  font-size: 11px !important;
+  color: var(--text-primary) !important;
+  display: inline-block !important;
+}
+
+/* ====== TOOLTIPS - GLASSY ====== */
+
+.tooltip,
+[data-tooltip]:after {
+  background: var(--bg-black) !important;
+  backdrop-filter: blur(20px) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: 4px !important;
+  padding: 6px 10px !important;
+  font-size: 12px !important;
+  color: var(--text-primary) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* ====== NOTIFICATIONS - MINIMAL ====== */
+
+.notification,
+.achievement-notification,
+.toast {
+  background: var(--bg-black) !important;
+  backdrop-filter: blur(25px) !important;
+  border: 1px solid var(--green-dim) !important;
+  border-radius: 8px !important;
+  padding: 12px 16px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6),
+              0 0 20px var(--glass-glow) !important;
+}
+
+.notification-title {
+  color: var(--green-primary) !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  margin-bottom: 4px !important;
+}
+
+.notification-text {
+  color: var(--text-secondary) !important;
+  font-size: 12px !important;
+}
+
+/* ====== ICONS - SUBTLE ====== */
+
+.icon,
+img.icon,
+svg.icon {
+  opacity: 0.6 !important;
+  transition: opacity 0.2s ease !important;
+}
+
+.icon:hover,
+img.icon:hover {
+  opacity: 1 !important;
+}
+
+/* ====== DIVIDERS ====== */
+
+hr,
+.divider {
+  border: none !important;
+  border-top: 1px solid var(--glass-border) !important;
+  margin: 16px 0 !important;
+}
+
+/* ====== OVERLAYS ====== */
+
+.overlay {
+  background: rgba(0, 0, 0, 0.8) !important;
+  backdrop-filter: blur(5px) !important;
+}
+
+/* ====== REMOVE ALL LARGE GREEN BUTTONS ====== */
+
+/* No giant colored buttons */
+button {
+  background: var(--bg-glass) !important;
+  color: var(--text-primary) !important;
+}
+
+/* No green backgrounds on buttons */
+.primaryBtn {
+  background: var(--bg-glass) !important;
+}
+
+/* ====== START SCREEN - MINIMAL ====== */
+
+.start-screen {
+  background: transparent !important;
+}
+
+.start-screen button {
+  min-width: 200px !important;
+  background: var(--bg-glass) !important;
+}
+
+/* ====== HANGAR - CLEAN PREVIEWS ====== */
+
+#hangarGrid canvas,
+canvas.preview {
+  background: rgba(5, 5, 10, 0.4) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: 6px !important;
+  display: block !important;
+  visibility: visible !important;
+}
+
+/* ====== SHOP GRID - MINIMAL ====== */
+
+#shopGrid,
+#hangarGrid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)) !important;
+  gap: 12px !important;
+  padding: 16px !important;
+}
+
+/* ====== STATS DISPLAY - REFINED ====== */
+
+.stat-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  padding: 6px 0 !important;
+  font-size: 12px !important;
+}
+
+.stat-label {
+  color: var(--text-dim) !important;
+}
+
+.stat-value {
+  color: var(--green-primary) !important;
+  font-weight: 400 !important;
+}
+
+/* ====== REMOVE TEXT SHADOWS ====== */
+
+* {
+  text-shadow: none !important;
+}
+
+/* Only minimal glow on specific titles */
+h1, .main-title {
+  text-shadow: 0 0 30px rgba(74, 222, 128, 0.15) !important;
+}
+
+/* ====== FOOTER - MINIMAL ====== */
+
+.modal-footer {
+  border-top: 1px solid var(--glass-border) !important;
+  padding-top: 12px !important;
+  margin-top: 16px !important;
+  background: transparent !important;
+}
+
+/* ====== CLOSE BUTTONS - X STYLE ====== */
+
+.close-btn,
+[id*="close"],
+[class*="close"] {
+  background: transparent !important;
+  border: none !important;
+  color: var(--text-dim) !important;
+  font-size: 20px !important;
+  padding: 4px 8px !important;
+  line-height: 1 !important;
+}
+
+.close-btn:hover {
+  color: var(--text-primary) !important;
+  background: var(--bg-glass) !important;
+}
+
+/* ====== SELECTIONS - SUBTLE HIGHLIGHT ====== */
+
+::selection {
+  background: var(--green-dim) !important;
+  color: var(--bg-black) !important;
+}
+
+/* ====== LINKS - MINIMAL ====== */
+
+a {
+  color: var(--text-primary) !important;
+  text-decoration: none !important;
+  border-bottom: 1px solid transparent !important;
+  transition: border-color 0.2s ease !important;
+}
+
+a:hover {
+  border-bottom-color: var(--green-dim) !important;
+}
+
+/* ====== RESPONSIVE - MAINTAIN MINIMAL ====== */
+
+@media (max-width: 768px) {
+  button, .btn {
+    padding: 6px 12px !important;
+    font-size: 13px !important;
+  }
+  
+  h1, h2, .title {
+    font-size: 16px !important;
+  }
+  
+  .modal-content {
+    padding: 16px !important;
+    border-radius: 8px !important;
+  }
+}
+
+/* ====== FINAL OVERRIDES - ENSURE MINIMAL THEME ====== */
+
+/* Remove any remaining blue */
+*[style*="color: rgb(59"],
+*[style*="color: rgb(37"],
+*[style*="color: rgb(96"],
+*[style*="color: rgb(56"],
+*[style*="background: rgb(59"],
+*[style*="background: rgb(37"],
+*[style*="background: rgb(96"],
+*[style*="background: rgb(56"] {
+  color: var(--text-primary) !important;
+  background: var(--bg-glass) !important;
+  border-color: var(--glass-border) !important;
+}
+
+/* Ensure glassy effect on all major components */
+.modal-content,
+.card,
+button,
+input,
+select {
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+}
+
+/* ====== SECONDARY WEAPON - SINGLE BUTTON ====== */
+
+#equipmentIndicator {
+  position: fixed !important;
+  right: 20px !important;
+  bottom: 140px !important;
+  z-index: 10 !important;
+}
+
+.equip-slot[data-slot="secondary"] {
+  background: var(--bg-glass) !important;
+  backdrop-filter: blur(20px) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: 8px !important;
+  padding: 10px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 4px !important;
+  min-width: 60px !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.equip-slot[data-slot="secondary"]:active {
+  background: var(--bg-glass-hover) !important;
+  border-color: var(--green-dim) !important;
+  transform: scale(0.95) !important;
+}
+
+.equip-icon {
+  width: 28px !important;
+  height: 28px !important;
+  opacity: 0.8 !important;
+}
+
+.equip-label {
+  font-size: 10px !important;
+  color: var(--text-dim) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+}
+
+.equip-hint {
+  font-size: 9px !important;
+  color: var(--text-dim) !important;
+  opacity: 0.5 !important;
+}
+
+/* Radial menu for weapon selection */
+#radialMenu {
+  position: fixed !important;
+  right: 20px !important;
+  bottom: 140px !important;
+  z-index: 100 !important;
+  background: var(--bg-black) !important;
+  backdrop-filter: blur(30px) !important;
+  border: 1px solid var(--green-dim) !important;
+  border-radius: 12px !important;
+  padding: 12px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8),
+              0 0 40px var(--glass-glow) !important;
+}
+
+.radial-item {
+  background: var(--bg-glass) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: 6px !important;
+  padding: 8px !important;
+  margin: 4px 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.radial-item:hover {
+  border-color: var(--green-dim) !important;
+  background: var(--bg-glass-hover) !important;
+}
+
+.radial-item img {
+  width: 24px !important;
+  height: 24px !important;
+}
+
+.radial-item span {
+  font-size: 12px !important;
+  color: var(--text-primary) !important;
+}
+

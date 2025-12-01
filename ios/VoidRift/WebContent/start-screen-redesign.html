@@ -1,0 +1,179 @@
+<!-- ====================================== -->
+<!-- VOID RIFT - RESTRUCTURED START SCREEN -->
+<!-- ====================================== -->
+
+<!-- START SCREEN - MINIMAL (Not Logged In) -->
+<div id="startScreenMinimal" class="start-screen-minimal">
+  <div class="start-header">
+    <div id="gameTitle">VOID RIFT</div>
+    <div class="title-tagline">CREATED BY AUSTIN STICKLEY</div>
+  </div>
+  
+  <div class="start-main-minimal">
+    <button id="startGameQuick" class="btn-primary btn-large">
+      <span class="btn-icon">▶</span> START GAME
+    </button>
+    
+    <button id="tutorialButton" class="btn-secondary">
+      <span class="btn-icon">📖</span> TUTORIAL
+    </button>
+    
+    <button id="controlsButton" class="btn-secondary">
+      <span class="btn-icon">⚙️</span> CONTROLS & SETTINGS
+    </button>
+    
+    <button id="leaderboardButtonGuest" class="btn-secondary">
+      <span class="btn-icon">🏆</span> LEADERBOARDS
+    </button>
+    
+    <button id="loginButtonMain" class="btn-accent">
+      <span class="btn-icon">👤</span> LOGIN / SIGN UP
+    </button>
+  </div>
+  
+  <div class="start-footer-minimal">
+    <span class="version-text">v1.0.0</span>
+  </div>
+</div>
+
+<!-- START SCREEN - FULL (Logged In) -->
+<div id="startScreenFull" class="start-screen-full" style="display: none;">
+  <div class="start-header">
+    <div id="gameTitleFull">VOID RIFT</div>
+    <div class="title-tagline">CREATED BY AUSTIN STICKLEY</div>
+  </div>
+  
+  <!-- Player Profile Section -->
+  <div class="player-profile">
+    <div class="profile-avatar" id="playerAvatar">
+      <img src="icons/icon-profile.svg" alt="Player" width="48" height="48"/>
+    </div>
+    <div class="profile-info">
+      <div class="profile-name" id="playerName">Player</div>
+      <div class="profile-stats">
+        <span class="stat-item">Lv. <span id="playerLevel">1</span></span>
+        <span class="stat-divider">•</span>
+        <span class="stat-item"><span id="playerScore">0</span> pts</span>
+      </div>
+    </div>
+    <button id="logoutButton" class="btn-icon-only" title="Logout">
+      <span>⏏</span>
+    </button>
+  </div>
+  
+  <div class="start-main-full">
+    <!-- Main Action -->
+    <button id="continueCampaign" class="btn-primary btn-large">
+      <span class="btn-icon">▶</span> CONTINUE CAMPAIGN
+    </button>
+    
+    <button id="startGameNew" class="btn-secondary">
+      <span class="btn-icon">🔄</span> NEW GAME
+    </button>
+    
+    <!-- Feature Grid -->
+    <div class="feature-grid">
+      <button id="hangarButton" class="feature-btn">
+        <img class="feature-icon" src="icons/icon-hangar.svg" alt="" width="32" height="32"/>
+        <span class="feature-label">HANGAR</span>
+        <span class="feature-desc">Ships & Loadouts</span>
+      </button>
+      
+      <button id="armoryButton" class="feature-btn">
+        <img class="feature-icon" src="icons/icon-upgrades.svg" alt="" width="32" height="32"/>
+        <span class="feature-label">ARMORY</span>
+        <span class="feature-desc">Weapons & Upgrades</span>
+      </button>
+      
+      <button id="storeButton" class="feature-btn">
+        <img class="feature-icon" src="icons/icon-store.svg" alt="" width="32" height="32"/>
+        <span class="feature-label">STORE</span>
+        <span class="feature-desc">Purchase Items</span>
+      </button>
+      
+      <button id="achievementsButton" class="feature-btn">
+        <img class="feature-icon" src="icons/icon-trophy.svg" alt="" width="32" height="32"/>
+        <span class="feature-label">ACHIEVEMENTS</span>
+        <span class="feature-desc">View Progress</span>
+      </button>
+      
+      <button id="leaderboardButtonAuth" class="feature-btn">
+        <img class="feature-icon" src="icons/icon-rankings.svg" alt="" width="32" height="32"/>
+        <span class="feature-label">LEADERBOARDS</span>
+        <span class="feature-desc">Global Rankings</span>
+      </button>
+      
+      <button id="settingsButtonFull" class="feature-btn">
+        <img class="feature-icon" src="icons/icon-settings.svg" alt="" width="32" height="32"/>
+        <span class="feature-label">SETTINGS</span>
+        <span class="feature-desc">Controls & Options</span>
+      </button>
+    </div>
+  </div>
+  
+  <div class="start-footer-full">
+    <button id="tutorialButtonFull" class="footer-link">Tutorial</button>
+    <span class="footer-divider">•</span>
+    <button id="profileButtonFull" class="footer-link">Profile</button>
+    <span class="footer-divider">•</span>
+    <span class="version-text">v1.0.0</span>
+  </div>
+</div>
+
+<!-- TUTORIAL OVERLAY (Interactive In-Game) -->
+<div id="tutorialOverlay" class="tutorial-overlay" style="display: none;">
+  <div class="tutorial-panel">
+    <div class="tutorial-content">
+      <div class="tutorial-step" id="tutorialStep1">
+        <div class="tutorial-title">Welcome to Void Rift!</div>
+        <div class="tutorial-text">Use the <strong>left joystick</strong> to move your ship.</div>
+        <div class="tutorial-highlight tutorial-highlight-left"></div>
+      </div>
+      
+      <div class="tutorial-step" id="tutorialStep2" style="display: none;">
+        <div class="tutorial-title">Combat Controls</div>
+        <div class="tutorial-text">Use the <strong>right joystick</strong> to aim and shoot.</div>
+        <div class="tutorial-highlight tutorial-highlight-right"></div>
+      </div>
+      
+      <div class="tutorial-step" id="tutorialStep3" style="display: none;">
+        <div class="tutorial-title">Health & Status</div>
+        <div class="tutorial-text">Your <strong>health meter</strong> is displayed here. Don't let it reach zero!</div>
+        <div class="tutorial-arrow tutorial-arrow-health"></div>
+      </div>
+      
+      <div class="tutorial-step" id="tutorialStep4" style="display: none;">
+        <div class="tutorial-title">Score Tracking</div>
+        <div class="tutorial-text">Your <strong>score</strong> increases as you defeat enemies.</div>
+        <div class="tutorial-arrow tutorial-arrow-score"></div>
+      </div>
+      
+      <div class="tutorial-step" id="tutorialStep5" style="display: none;">
+        <div class="tutorial-title">Secondary Weapons</div>
+        <div class="tutorial-text"><strong>Hold</strong> this button to change secondary weapons.</div>
+        <div class="tutorial-arrow tutorial-arrow-secondary"></div>
+      </div>
+      
+      <div class="tutorial-step" id="tutorialStep6" style="display: none;">
+        <div class="tutorial-title">Pause Menu</div>
+        <div class="tutorial-text">Tap the <strong>pause button</strong> to access game options.</div>
+        <div class="tutorial-arrow tutorial-arrow-pause"></div>
+      </div>
+      
+      <div class="tutorial-step" id="tutorialStep7" style="display: none;">
+        <div class="tutorial-title">Collect Rewards</div>
+        <div class="tutorial-text">Pick up <strong>coins and power-ups</strong> dropped by enemies!</div>
+      </div>
+      
+      <div class="tutorial-step" id="tutorialComplete" style="display: none;">
+        <div class="tutorial-title">Ready to Fight!</div>
+        <div class="tutorial-text">You're all set! Good luck, pilot.</div>
+      </div>
+    </div>
+    
+    <div class="tutorial-actions">
+      <button id="tutorialSkip" class="btn-secondary-small">SKIP</button>
+      <button id="tutorialNext" class="btn-primary-small">NEXT</button>
+    </div>
+  </div>
+</div>

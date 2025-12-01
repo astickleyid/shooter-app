@@ -1,0 +1,7 @@
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Gold Medal/Master icon -->
+  <circle cx="12" cy="9" r="7" fill="#fbbf24" stroke="#f59e0b" stroke-width="1.5"/>
+  <circle cx="12" cy="9" r="4" fill="#fde68a"/>
+  <text x="12" y="12" text-anchor="middle" font-size="7" font-weight="bold" fill="#92400e">1</text>
+  <path d="M8 16v6l4-2 4 2v-6" fill="#dc2626"/>
+</svg>

@@ -1,0 +1,10 @@
+<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Reflector Veil - Hexagonal mirror shield -->
+  <polygon points="24,4 40,14 40,34 24,44 8,34 8,14" fill="none" stroke="#a855f7" stroke-width="2"/>
+  <polygon points="24,10 34,17 34,31 24,38 14,31 14,17" fill="#7c3aed" fill-opacity="0.35"/>
+  <!-- Reflection lines -->
+  <path d="M14 20L34 28" stroke="#c4b5fd" stroke-width="1.5"/>
+  <path d="M14 28L34 20" stroke="#c4b5fd" stroke-width="1.5"/>
+  <!-- Center glow -->
+  <circle cx="24" cy="24" r="4" fill="#ddd6fe"/>
+</svg>

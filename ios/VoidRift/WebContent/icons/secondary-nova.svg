@@ -1,0 +1,15 @@
+<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Nova Bomb - Explosive circle with energy rays -->
+  <circle cx="24" cy="24" r="10" fill="#f97316" stroke="#fbbf24" stroke-width="2"/>
+  <circle cx="24" cy="24" r="5" fill="#fde047"/>
+  <!-- Energy rays -->
+  <path d="M24 8L26 14L24 12L22 14Z" fill="#f97316"/>
+  <path d="M24 40L26 34L24 36L22 34Z" fill="#f97316"/>
+  <path d="M8 24L14 22L12 24L14 26Z" fill="#f97316"/>
+  <path d="M40 24L34 22L36 24L34 26Z" fill="#f97316"/>
+  <!-- Diagonal rays -->
+  <path d="M12 12L17 16L15 15L16 17Z" fill="#f97316"/>
+  <path d="M36 12L31 16L33 15L32 17Z" fill="#f97316"/>
+  <path d="M12 36L17 32L15 33L16 31Z" fill="#f97316"/>
+  <path d="M36 36L31 32L33 33L32 31Z" fill="#f97316"/>
+</svg>

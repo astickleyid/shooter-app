@@ -1,0 +1,12 @@
+<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Solar Beam - Powerful beam weapon icon -->
+  <circle cx="24" cy="12" r="8" fill="#facc15" stroke="#fbbf24" stroke-width="2"/>
+  <!-- Beam rays -->
+  <path d="M20 20L14 44" stroke="#fde047" stroke-width="3"/>
+  <path d="M24 20L24 44" stroke="#fef08a" stroke-width="4"/>
+  <path d="M28 20L34 44" stroke="#fde047" stroke-width="3"/>
+  <!-- Sun core -->
+  <circle cx="24" cy="12" r="4" fill="#fef9c3"/>
+  <!-- Heat shimmer -->
+  <path d="M16 28L18 26M30 32L32 30M18 36L20 34M28 38L30 36" stroke="#fcd34d" stroke-width="1"/>
+</svg>

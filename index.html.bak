@@ -16,9 +16,11 @@
   <!-- START SCREEN -->
   <div id="startScreen">
     <div class="start-header">
-      <div id="gameTitle"><span class="title-accent">VOID</span><span class="title-accent">RIFT</span></div>
-      <div class="title-tagline">CREATED BY AUSTIN STICKLEY</div>
+      <div id="gameTitle">VOID<span class="title-accent">RIFT</span></div>
+      <div class="title-tagline">TWIN-STICK SHOOTER</div>
     </div>
+    
+    <canvas id="startGraphicCanvas"></canvas>
     
     <div class="start-main">
       <button id="startButton" class="startButton-primary">
@@ -33,7 +35,24 @@
         </select>
       </div>
       
-
+      <div class="game-mode-section">
+        <label class="mode-label">Game Mode</label>
+        <select id="gameModeSelect" class="gameModeDropdown">
+          <option value="space" selected>🚀 Space Combat</option>
+          <option value="planetary">🌍 Planetary Assault</option>
+        </select>
+      </div>
+      
+      <div id="planetSelectContainer" class="planet-select-section" style="display: none;">
+        <label class="mode-label">Select Planet</label>
+        <select id="planetSelect" class="planetDropdown">
+          <option value="terra">🌎 Terra Prime - Earth-like</option>
+          <option value="mars">🔴 Crimson Dunes - Mars</option>
+          <option value="ice">❄️ Glacial Expanse - Ice World</option>
+          <option value="volcanic">🌋 Inferno Core - Volcanic</option>
+          <option value="moon">🌑 Lunar Surface - Low Gravity</option>
+        </select>
+      </div>
     </div>
     
     <div class="start-nav">
