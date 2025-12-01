@@ -540,18 +540,6 @@ html, body {
 }
 
 /* Equipment Slot Indicator - Secondary Weapons Dock */
-#equipmentIndicator {
-  position: absolute;
-  top: 50%;
-  right: 8px;
-  transform: translateY(-50%);
-  z-index: 4;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  pointer-events: auto;
-}
-
 /* Single button equipment dock - RIGHT above red joystick */
 #equipmentIndicator {
   position: fixed;
