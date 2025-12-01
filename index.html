@@ -151,23 +151,27 @@
     
     <!-- EQUIPMENT SLOT INDICATOR - Single Expandable Button -->
     <div id="equipmentIndicator" role="toolbar" aria-label="Equipment dock">
-      <!-- Main button shows currently selected ability -->
+      <!-- Main button shows currently selected secondary/ability -->
       <div class="equip-main-button" id="equipMainBtn" tabindex="0" role="button" aria-label="Equipment menu">
         <img class="equip-icon" id="mainEquipIcon" src="assets/icons/secondary-nova.svg" alt="Current" width="32" height="32"/>
       </div>
       
-      <!-- Expandable slots (top, left, bottom) -->
-      <div class="equip-slot slot-0" data-slot="0" tabindex="0" role="button" aria-label="Slot 1">
-        <img class="equip-icon" src="assets/icons/secondary-nova.svg" alt="Slot 1" width="28" height="28"/>
+      <!-- Expandable slots -->
+      <!-- TOP: Primary Weapon (fixed, cannot be changed in dock) -->
+      <div class="equip-slot slot-0 primary-fixed" data-slot="primary" tabindex="0" role="button" aria-label="Primary Weapon" aria-disabled="true">
+        <img class="equip-icon" src="assets/icons/primary-pulse.svg" alt="Primary" width="28" height="28"/>
+      </div>
+      
+      <!-- LEFT: Secondary Weapon (slot 1) -->
+      <div class="equip-slot slot-1" data-slot="0" tabindex="0" role="button" aria-label="Secondary">
+        <img class="equip-icon" src="assets/icons/secondary-nova.svg" alt="Secondary" width="28" height="28"/>
         <span class="equip-key">1</span>
       </div>
-      <div class="equip-slot slot-1" data-slot="1" tabindex="0" role="button" aria-label="Slot 2">
-        <img class="equip-icon" src="assets/icons/defense-aegis.svg" alt="Slot 2" width="28" height="28"/>
+      
+      <!-- BOTTOM: Defense/Ultimate (slot 2) -->
+      <div class="equip-slot slot-2" data-slot="1" tabindex="0" role="button" aria-label="Defense">
+        <img class="equip-icon" src="assets/icons/defense-aegis.svg" alt="Defense" width="28" height="28"/>
         <span class="equip-key">2</span>
-      </div>
-      <div class="equip-slot slot-2" data-slot="2" tabindex="0" role="button" aria-label="Slot 3">
-        <img class="equip-icon" src="assets/icons/ultimate-singularity.svg" alt="Slot 3" width="28" height="28"/>
-        <span class="equip-key">3</span>
       </div>
     </div>
     

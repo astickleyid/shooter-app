@@ -8918,9 +8918,10 @@
     if (!equipIndicator) return;
     
     const mainBtn = document.getElementById('equipMainBtn');
-    const slots = equipIndicator.querySelectorAll('.equip-slot');
+    // Only select non-primary slots
+    const slots = equipIndicator.querySelectorAll('.equip-slot:not(.primary-fixed)');
     let isExpanded = false;
-    let currentActiveSlot = 0; // Default to first slot
+    let currentActiveSlot = 0; // Default to first selectable slot (secondary)
     
     // Toggle expansion on long press
     let longPressTimer = null;
@@ -8928,7 +8929,10 @@
     const toggleExpansion = () => {
       isExpanded = !isExpanded;
       if (mainBtn) mainBtn.classList.toggle('expanded', isExpanded);
-      slots.forEach(slot => slot.classList.toggle('visible', isExpanded));
+      // Show all slots including primary when expanded
+      equipIndicator.querySelectorAll('.equip-slot').forEach(slot => {
+        slot.classList.toggle('visible', isExpanded);
+      });
       triggerHapticFeedback(isExpanded ? 'open' : 'close');
     };
     
@@ -8943,8 +8947,8 @@
         mainIcon.src = selectedIcon.src;
       }
       
-      // Switch to this equipment slot
-      switchEquipmentSlot(index);
+      // Switch to this equipment slot (0=secondary, 1=defense/ultimate)
+      switchEquipmentSlot(index + 1); // +1 because slot 0 is primary in game logic
       triggerHapticFeedback('equip');
     };
     
@@ -8978,7 +8982,7 @@
       });
     }
     
-    // Slot selection handlers
+    // Slot selection handlers (only for selectable slots)
     slots.forEach((slot, index) => {
       slot.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -8996,9 +9000,9 @@
       }
     });
     
-    // Keyboard support
+    // Keyboard support (1 and 2 for the two selectable slots)
     document.addEventListener('keydown', (e) => {
-      if (e.key >= '1' && e.key <= '3') {
+      if (e.key >= '1' && e.key <= '2') {
         const slotIndex = parseInt(e.key) - 1;
         if (slotIndex < slots.length) {
           selectSlot(slotIndex);
@@ -9006,7 +9010,7 @@
       }
     });
     
-    // Initialize first slot as active
+    // Initialize first selectable slot (secondary) as active
     selectSlot(0);
   };
 

@@ -41,10 +41,15 @@ class GameViewController: UIViewController {
         config.mediaTypesRequiringUserActionForPlayback = []
         
         // Performance optimizations
-        config.preferences.javaScriptEnabled = true
+        // Note: `javaScriptEnabled` is deprecated. Control content JavaScript per-navigation via WKWebpagePreferences.
         config.preferences.javaScriptCanOpenWindowsAutomatically = false
         
         webView = WKWebView(frame: view.bounds, configuration: config)
+        // Enable content JavaScript using WKWebpagePreferences (per navigation basis)
+        if #available(iOS 14.0, *) {
+            webView.configuration.defaultWebpagePreferences.allowsContentJavaScript = true
+        }
+        
         webView.scrollView.isScrollEnabled = false
         webView.scrollView.bounces = false
         webView.isOpaque = false
