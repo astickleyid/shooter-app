@@ -552,10 +552,10 @@ html, body {
   pointer-events: auto;
 }
 
-/* Single button equipment dock - positioned above red joystick */
+/* Single button equipment dock - RIGHT above red joystick */
 #equipmentIndicator {
   position: fixed;
-  bottom: 210px;
+  bottom: 200px;
   right: 30px;
   z-index: 100;
 }
