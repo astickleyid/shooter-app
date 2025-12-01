@@ -8917,56 +8917,97 @@
     const equipIndicator = document.getElementById('equipmentIndicator');
     if (!equipIndicator) return;
     
+    const mainBtn = document.getElementById('equipMainBtn');
     const slots = equipIndicator.querySelectorAll('.equip-slot');
+    let isExpanded = false;
+    let currentActiveSlot = 0; // Default to first slot
     
-    slots.forEach((slot, index) => {
-      // Pointer events for unified touch/mouse handling
-      slot.addEventListener('pointerdown', (e) => handleEquipSlotPointerDown(e, index));
-      slot.addEventListener('click', (e) => handleEquipSlotClick(e, index));
+    // Toggle expansion on long press
+    let longPressTimer = null;
+    
+    const toggleExpansion = () => {
+      isExpanded = !isExpanded;
+      if (mainBtn) mainBtn.classList.toggle('expanded', isExpanded);
+      slots.forEach(slot => slot.classList.toggle('visible', isExpanded));
+      triggerHapticFeedback(isExpanded ? 'open' : 'close');
+    };
+    
+    const selectSlot = (index) => {
+      currentActiveSlot = index;
+      slots.forEach((s, i) => s.classList.toggle('active', i === index));
       
-      // Focus handling for keyboard navigation
-      slot.addEventListener('focus', () => {
-        equipmentInteractionState.keyboardFocusIndex = index;
-        showWeaponPreview(index);
+      // Update main button icon
+      const selectedIcon = slots[index]?.querySelector('.equip-icon');
+      const mainIcon = document.getElementById('mainEquipIcon');
+      if (selectedIcon && mainIcon) {
+        mainIcon.src = selectedIcon.src;
+      }
+      
+      // Switch to this equipment slot
+      switchEquipmentSlot(index);
+      triggerHapticFeedback('equip');
+    };
+    
+    // Main button handlers
+    if (mainBtn) {
+      // Tap to use current slot, hold to expand
+      mainBtn.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        longPressTimer = setTimeout(() => {
+          toggleExpansion();
+          longPressTimer = null;
+        }, 400);
       });
       
-      slot.addEventListener('blur', () => {
-        hideWeaponPreview();
-        slot.classList.remove('preview');
-      });
-    });
-    
-    // Global pointer move/up handlers
-    document.addEventListener('pointermove', handleEquipSlotPointerMove);
-    document.addEventListener('pointerup', handleEquipSlotPointerUp);
-    document.addEventListener('pointercancel', handleEquipSlotPointerCancel);
-    
-    // Radial menu item click handlers
-    const radialMenu = document.getElementById('radialMenu');
-    if (radialMenu) {
-      const radialItems = radialMenu.querySelectorAll('.radial-item');
-      radialItems.forEach((item, index) => {
-        item.addEventListener('click', (e) => {
-          e.stopPropagation();
-          closeRadialMenu(index);
-        });
-        
-        item.addEventListener('pointerenter', () => {
-          item.classList.add('hovered');
-        });
-        
-        item.addEventListener('pointerleave', () => {
-          item.classList.remove('hovered');
-        });
+      mainBtn.addEventListener('pointerup', (e) => {
+        if (longPressTimer) {
+          clearTimeout(longPressTimer);
+          longPressTimer = null;
+          // Quick tap - trigger current equipment
+          if (!isExpanded) {
+            triggerSecondary();
+          }
+        }
       });
       
-      // Close radial menu when clicking outside
-      radialMenu.addEventListener('click', (e) => {
-        if (e.target === radialMenu || e.target.classList.contains('radial-center')) {
-          closeRadialMenu();
+      mainBtn.addEventListener('pointercancel', () => {
+        if (longPressTimer) {
+          clearTimeout(longPressTimer);
+          longPressTimer = null;
         }
       });
     }
+    
+    // Slot selection handlers
+    slots.forEach((slot, index) => {
+      slot.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectSlot(index);
+        toggleExpansion(); // Close after selection
+      });
+      
+      slot.addEventListener('pointerdown', (e) => e.stopPropagation());
+    });
+    
+    // Close on tap outside
+    document.addEventListener('pointerdown', (e) => {
+      if (isExpanded && !equipIndicator.contains(e.target)) {
+        toggleExpansion();
+      }
+    });
+    
+    // Keyboard support
+    document.addEventListener('keydown', (e) => {
+      if (e.key >= '1' && e.key <= '3') {
+        const slotIndex = parseInt(e.key) - 1;
+        if (slotIndex < slots.length) {
+          selectSlot(slotIndex);
+        }
+      }
+    });
+    
+    // Initialize first slot as active
+    selectSlot(0);
   };
 
   /* ====== INPUT ====== */
