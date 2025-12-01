@@ -25,16 +25,18 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 20px;
+  justify-content: flex-start;
+  padding-top: 60px;
+  gap: 32px;
   z-index: 20;
-  padding: 16px;
+  padding-left: 16px;
+  padding-right: 16px;
 }
 
 /* Header with title and tagline */
 .start-header {
   text-align: center;
-  margin-bottom: 4px;
+  margin-bottom: 16px;
 }
 
 #gameTitle {
@@ -74,8 +76,8 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  margin: 8px 0;
+  gap: 16px;
+  margin: 20px 0;
 }
 
 .startButton-primary {
@@ -217,8 +219,8 @@ html, body {
 /* Navigation buttons row */
 .start-nav {
   display: flex;
-  gap: 8px;
-  margin-top: 4px;
+  gap: 12px;
+  margin-top: 16px;
 }
 
 .nav-btn {
@@ -268,9 +270,9 @@ html, body {
 .start-footer {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-top: 12px;
-  padding-top: 12px;
+  gap: 8px;
+  margin-top: 24px;
+  padding-top: 16px;
   border-top: 1px solid rgba(100, 116, 139, 0.15);
 }
 
@@ -550,128 +552,42 @@ html, body {
   pointer-events: auto;
 }
 
-/* New single button equipment dock */
+/* Single button equipment dock - positioned above red joystick */
 #equipmentIndicator {
   position: fixed;
-  bottom: 80px;
-  right: 20px;
+  bottom: 210px;
+  right: 30px;
   z-index: 100;
 }
 
+/* Single equipment button - simple and functional */
 .equip-main-button {
-  width: 64px;
-  height: 64px;
+  width: 72px;
+  height: 72px;
   border-radius: 50%;
-  background: rgba(0,0,0,0.8);
+  background: rgba(0,0,0,0.85);
   backdrop-filter: blur(10px);
-  border: 2px solid rgba(74,222,128,0.5);
+  border: 3px solid rgba(74,222,128,0.6);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.6), 0 0 20px rgba(74,222,128,0.3);
+  transition: all 0.15s ease;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.7), 0 0 20px rgba(74,222,128,0.4);
   position: relative;
 }
 
 .equip-main-button:active {
-  transform: scale(0.95);
-}
-
-.equip-main-button.expanded {
-  border-color: #4ade80;
-  box-shadow: 0 4px 20px rgba(74,222,128,0.5);
-}
-
-.equip-slot {
-  position: absolute;
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  background: rgba(0,0,0,0.85);
-  backdrop-filter: blur(8px);
-  border: 1.5px solid rgba(74,222,128,0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  opacity: 0;
-  transform: scale(0);
-  pointer-events: none;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-}
-
-.equip-slot.visible {
-  opacity: 1;
-  transform: scale(1);
-  pointer-events: auto;
-}
-
-.equip-slot.slot-0 {
-  top: -60px;
-  left: 6px;
-}
-
-.equip-slot.slot-1 {
-  left: -60px;
-  top: 6px;
-}
-
-.equip-slot.slot-2 {
-  bottom: -60px;
-  left: 6px;
-}
-
-.equip-slot:hover {
-  border-color: #4ade80;
-  box-shadow: 0 4px 16px rgba(74,222,128,0.4);
-  transform: scale(1.1);
-}
-
-.equip-slot.active {
-  border-color: #22c55e;
-  background: rgba(74,222,128,0.2);
-  box-shadow: 0 0 20px rgba(74,222,128,0.6);
+  transform: scale(0.92);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.6);
 }
 
 .equip-icon {
-  width: 28px;
-  height: 28px;
+  width: 38px;
+  height: 38px;
   object-fit: contain;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.8));
   transition: transform 0.15s ease;
-}
-
-.equip-main-button .equip-icon {
-  width: 32px;
-  height: 32px;
-}
-
-.equip-slot:hover .equip-icon {
-  transform: scale(1.1);
-}
-
-.equip-label {
-  display: none;
-}
-
-.equip-key {
-  position: absolute;
-  top: -2px;
-  right: -2px;
-  background: rgba(74, 222, 128,0.9);
-  color: #000;
-  font-size: 10px;
-  font-weight: 900;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.5);
-  border: 1px solid #000;
 }
 
 /* Radial Quick-Select Menu */
@@ -2094,13 +2010,13 @@ html, body {
 }
 
 .pause-menu-btn.danger {
-  background: rgba(127,29,29,0.8);
+  background: rgba(0,0,0,0.5);
   border-color: rgba(239,68,68,0.5);
   color: #fca5a5;
 }
 
 .pause-menu-btn.danger:hover {
-  background: rgba(185,28,28,0.9);
+  background: rgba(239,68,68,0.2);
   border-color: #ef4444;
   color: #fff;
   box-shadow: 0 4px 12px rgba(239,68,68,0.4);

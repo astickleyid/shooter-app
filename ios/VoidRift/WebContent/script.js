@@ -8914,100 +8914,21 @@
   
   // Initialize equipment dock event listeners
   const initEquipmentDockListeners = () => {
-    const equipIndicator = document.getElementById('equipmentIndicator');
-    if (!equipIndicator) return;
-    
     const mainBtn = document.getElementById('equipMainBtn');
-    const slots = equipIndicator.querySelectorAll('.equip-slot');
-    let isExpanded = false;
-    let currentActiveSlot = 0; // Default to first slot
+    if (!mainBtn) return;
     
-    // Toggle expansion on long press
-    let longPressTimer = null;
-    
-    const toggleExpansion = () => {
-      isExpanded = !isExpanded;
-      if (mainBtn) mainBtn.classList.toggle('expanded', isExpanded);
-      slots.forEach(slot => slot.classList.toggle('visible', isExpanded));
-      triggerHapticFeedback(isExpanded ? 'open' : 'close');
-    };
-    
-    const selectSlot = (index) => {
-      currentActiveSlot = index;
-      slots.forEach((s, i) => s.classList.toggle('active', i === index));
-      
-      // Update main button icon
-      const selectedIcon = slots[index]?.querySelector('.equip-icon');
-      const mainIcon = document.getElementById('mainEquipIcon');
-      if (selectedIcon && mainIcon) {
-        mainIcon.src = selectedIcon.src;
-      }
-      
-      // Switch to this equipment slot
-      switchEquipmentSlot(index);
+    // Simple tap to use equipment
+    mainBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      triggerSecondary();
       triggerHapticFeedback('equip');
-    };
-    
-    // Main button handlers
-    if (mainBtn) {
-      // Tap to use current slot, hold to expand
-      mainBtn.addEventListener('pointerdown', (e) => {
-        e.preventDefault();
-        longPressTimer = setTimeout(() => {
-          toggleExpansion();
-          longPressTimer = null;
-        }, 400);
-      });
-      
-      mainBtn.addEventListener('pointerup', (e) => {
-        if (longPressTimer) {
-          clearTimeout(longPressTimer);
-          longPressTimer = null;
-          // Quick tap - trigger current equipment
-          if (!isExpanded) {
-            triggerSecondary();
-          }
-        }
-      });
-      
-      mainBtn.addEventListener('pointercancel', () => {
-        if (longPressTimer) {
-          clearTimeout(longPressTimer);
-          longPressTimer = null;
-        }
-      });
-    }
-    
-    // Slot selection handlers
-    slots.forEach((slot, index) => {
-      slot.addEventListener('click', (e) => {
-        e.stopPropagation();
-        selectSlot(index);
-        toggleExpansion(); // Close after selection
-      });
-      
-      slot.addEventListener('pointerdown', (e) => e.stopPropagation());
     });
     
-    // Close on tap outside
-    document.addEventListener('pointerdown', (e) => {
-      if (isExpanded && !equipIndicator.contains(e.target)) {
-        toggleExpansion();
-      }
-    });
-    
-    // Keyboard support
-    document.addEventListener('keydown', (e) => {
-      if (e.key >= '1' && e.key <= '3') {
-        const slotIndex = parseInt(e.key) - 1;
-        if (slotIndex < slots.length) {
-          selectSlot(slotIndex);
-        }
-      }
-    });
-    
-    // Initialize first slot as active
-    selectSlot(0);
+    mainBtn.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      triggerSecondary();
+      triggerHapticFeedback('equip');
+    }, { passive: false });
   };
 
   /* ====== INPUT ====== */

@@ -149,29 +149,10 @@
     <!-- ACTION LOG -->
     <div id="actionLog"></div>
     
-    <!-- EQUIPMENT SLOT INDICATOR - Single Expandable Button -->
-    <div id="equipmentIndicator" role="toolbar" aria-label="Equipment dock">
-      <!-- Main button shows currently selected secondary/ability -->
-      <div class="equip-main-button" id="equipMainBtn" tabindex="0" role="button" aria-label="Equipment menu">
-        <img class="equip-icon" id="mainEquipIcon" src="assets/icons/secondary-nova.svg" alt="Current" width="32" height="32"/>
-      </div>
-      
-      <!-- Expandable slots -->
-      <!-- TOP: Primary Weapon (fixed, cannot be changed in dock) -->
-      <div class="equip-slot slot-0 primary-fixed" data-slot="primary" tabindex="0" role="button" aria-label="Primary Weapon" aria-disabled="true">
-        <img class="equip-icon" src="assets/icons/primary-pulse.svg" alt="Primary" width="28" height="28"/>
-      </div>
-      
-      <!-- LEFT: Secondary Weapon (slot 1) -->
-      <div class="equip-slot slot-1" data-slot="0" tabindex="0" role="button" aria-label="Secondary">
-        <img class="equip-icon" src="assets/icons/secondary-nova.svg" alt="Secondary" width="28" height="28"/>
-        <span class="equip-key">1</span>
-      </div>
-      
-      <!-- BOTTOM: Defense/Ultimate (slot 2) -->
-      <div class="equip-slot slot-2" data-slot="1" tabindex="0" role="button" aria-label="Defense">
-        <img class="equip-icon" src="assets/icons/defense-aegis.svg" alt="Defense" width="28" height="28"/>
-        <span class="equip-key">2</span>
+    <!-- EQUIPMENT BUTTON - Single button, configured in menu -->
+    <div id="equipmentIndicator">
+      <div class="equip-main-button" id="equipMainBtn" tabindex="0" role="button" aria-label="Use equipment">
+        <img class="equip-icon" id="mainEquipIcon" src="assets/icons/secondary-nova.svg" alt="Equipment" width="38" height="38"/>
       </div>
     </div>
     
