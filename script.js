@@ -6242,6 +6242,8 @@
     if (Save.data.selectedShip === ship.id) card.classList.add('selected');
     const preview = document.createElement('canvas');
     preview.className = 'shipPreview';
+    preview.width = 280;
+    preview.height = 140;
     card.appendChild(preview);
     const meta = document.createElement('div');
     meta.className = 'shipMeta';
@@ -6273,7 +6275,14 @@
       });
     }
     card.appendChild(btn);
-    requestAnimationFrame(() => drawShip(preview.getContext('2d'), ship.id, 14 * (ship.scale || 1)));
+    requestAnimationFrame(() => {
+      const ctx = preview.getContext('2d');
+      ctx.clearRect(0, 0, preview.width, preview.height);
+      ctx.save();
+      ctx.translate(preview.width / 2, preview.height / 2);
+      drawShip(ctx, ship.id, 18 * (ship.scale || 1));
+      ctx.restore();
+    });
     return card;
   };
 
