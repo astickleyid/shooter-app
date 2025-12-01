@@ -6249,15 +6249,53 @@
     meta.className = 'shipMeta';
     meta.innerHTML = `<h3>${ship.name}</h3><p>${ship.desc}</p>`;
     card.appendChild(meta);
+    
+    // Create visual stat bars
     const statsWrap = document.createElement('div');
     statsWrap.className = 'shipStats';
+    
+    // Base ship (Vanguard) has all stats at 1.0
+    const baseShip = SHIP_TEMPLATES[0];
+    
     for (const stat of HANGAR_STATS) {
       const mult = ship.stats && ship.stats[stat.key];
       if (mult === undefined) continue;
-      const span = document.createElement('span');
-      span.innerHTML = `<strong>${stat.label}</strong> ${formatMultiplier(mult, !!stat.invert)}`;
-      statsWrap.appendChild(span);
+      
+      const baseMult = baseShip.stats[stat.key] || 1;
+      const inverted = !!stat.invert;
+      
+      // Calculate percentage (0-200%, where 100% is baseline)
+      let percentage = inverted ? (baseMult / mult) * 100 : (mult / baseMult) * 100;
+      percentage = Math.min(200, Math.max(0, percentage));
+      
+      const statRow = document.createElement('div');
+      statRow.className = 'stat-row';
+      
+      const label = document.createElement('div');
+      label.className = 'stat-label';
+      label.innerHTML = `<strong>${stat.label}</strong><span>${formatMultiplier(mult, inverted)}</span>`;
+      
+      const barContainer = document.createElement('div');
+      barContainer.className = 'stat-bar-container';
+      
+      const barFill = document.createElement('div');
+      barFill.className = 'stat-bar-fill';
+      
+      // Color coding based on performance
+      if (percentage < 85) {
+        barFill.classList.add('stat-low');
+      } else if (percentage > 115) {
+        barFill.classList.add('stat-high');
+      }
+      
+      barFill.style.width = `${percentage / 2}%`; // Scale to 0-100% for display
+      
+      barContainer.appendChild(barFill);
+      statRow.appendChild(label);
+      statRow.appendChild(barContainer);
+      statsWrap.appendChild(statRow);
     }
+    
     card.appendChild(statsWrap);
     const btn = document.createElement('button');
     if (Save.data.selectedShip === ship.id) {
@@ -6275,12 +6313,32 @@
       });
     }
     card.appendChild(btn);
+    
+    // Draw space background with ship
     requestAnimationFrame(() => {
       const ctx = preview.getContext('2d');
-      ctx.clearRect(0, 0, preview.width, preview.height);
+      const width = preview.width;
+      const height = preview.height;
+      
+      // Space background
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, width, height);
+      
+      // Stars
+      ctx.fillStyle = '#fff';
+      for (let i = 0; i < 40; i++) {
+        const x = Math.random() * width;
+        const y = Math.random() * height;
+        const size = Math.random() * 1.5 + 0.5;
+        ctx.globalAlpha = Math.random() * 0.5 + 0.5;
+        ctx.fillRect(x, y, size, size);
+      }
+      ctx.globalAlpha = 1;
+      
+      // Draw ship centered
       ctx.save();
-      ctx.translate(preview.width / 2, preview.height / 2);
-      drawShip(ctx, ship.id, 18 * (ship.scale || 1));
+      ctx.translate(width / 2, height / 2);
+      drawShip(ctx, ship.id, 20 * (ship.scale || 1));
       ctx.restore();
     });
     return card;
