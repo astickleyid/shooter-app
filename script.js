@@ -5575,195 +5575,888 @@
     const isBoosting = state.isBoosting || false;
     const isDefenseActive = state.isDefenseActive || false;
     
-    // Phase A: Damage visualization
+    // Damage visualization
     const damageLevel = 1 - healthPct;
     const isDamaged = healthPct < 0.7;
     
-    // Phase A: Base glow layer
-    if (isBoosting || isDefenseActive) {
-      ctx.save();
-      ctx.globalAlpha = 0.3;
-      ctx.shadowColor = isBoosting ? thruster : (colors.primary || '#0ea5e9');
-      ctx.shadowBlur = 25;
-      ctx.fillStyle = isBoosting ? thruster : (colors.primary || '#0ea5e9');
-      ctx.beginPath();
-      if (shape === 'needle') {
-        ctx.moveTo(size * 1.28, 0);
-        ctx.lineTo(-size * 0.45, -size * 0.42);
-        ctx.lineTo(-size * 0.95, -size * 0.08);
-        ctx.lineTo(-size * 0.95, size * 0.08);
-        ctx.lineTo(-size * 0.45, size * 0.42);
-      } else if (shape === 'bastion') {
-        ctx.moveTo(size * 1.05, 0);
-        ctx.lineTo(size * 0.42, -size * 1.05);
-        ctx.lineTo(-size * 0.58, -size * 0.9);
-        ctx.lineTo(-size * 1.05, -size * 0.28);
-        ctx.lineTo(-size * 1.05, size * 0.28);
-        ctx.lineTo(-size * 0.58, size * 0.9);
-      } else if (shape === 'razor') {
-        ctx.moveTo(size * 1.25, 0);
-        ctx.lineTo(size * 0.42, -size * 0.72);
-        ctx.lineTo(-size * 0.82, -size * 0.38);
-        ctx.lineTo(-size * 0.28, 0);
-        ctx.lineTo(-size * 0.82, size * 0.38);
-        ctx.lineTo(size * 0.42, size * 0.72);
-      } else {
-        ctx.moveTo(size * 1.15, 0);
-        ctx.lineTo(-size * 0.94, -size * 0.82);
-        ctx.lineTo(-size * 0.22, 0);
-        ctx.lineTo(-size * 0.94, size * 0.82);
+    // Helper to darken colors for shadows/depth
+    const darken = (color, amt = 0.3) => {
+      const hex = color.replace('#', '');
+      const r = Math.max(0, parseInt(hex.slice(0, 2), 16) * (1 - amt));
+      const g = Math.max(0, parseInt(hex.slice(2, 4), 16) * (1 - amt));
+      const b = Math.max(0, parseInt(hex.slice(4, 6), 16) * (1 - amt));
+      return `rgb(${Math.floor(r)},${Math.floor(g)},${Math.floor(b)})`;
+    };
+    
+    // Ship-specific detailed rendering
+    if (shape === 'spear') {
+      // VANGUARD MK.I - Classic fighter jet inspired design
+      // Twin-engine strike craft with swept wings and central fuselage
+      
+      // Boost/defense glow effect
+      if (isBoosting || isDefenseActive) {
+        ctx.save();
+        ctx.globalAlpha = 0.35;
+        ctx.shadowColor = isBoosting ? thruster : primary;
+        ctx.shadowBlur = 30;
+        ctx.fillStyle = isBoosting ? thruster : primary;
+        ctx.beginPath();
+        ctx.moveTo(size * 1.3, 0);
+        ctx.lineTo(size * 0.2, -size * 0.25);
+        ctx.lineTo(-size * 0.3, -size * 0.9);
+        ctx.lineTo(-size * 0.9, -size * 0.7);
+        ctx.lineTo(-size * 0.7, -size * 0.2);
+        ctx.lineTo(-size * 0.9, 0);
+        ctx.lineTo(-size * 0.7, size * 0.2);
+        ctx.lineTo(-size * 0.9, size * 0.7);
+        ctx.lineTo(-size * 0.3, size * 0.9);
+        ctx.lineTo(size * 0.2, size * 0.25);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
       }
+      
+      // Main swept wings (bottom layer)
+      ctx.fillStyle = darken(primary, 0.2);
+      ctx.beginPath();
+      ctx.moveTo(-size * 0.1, -size * 0.2);
+      ctx.lineTo(-size * 0.35, -size * 0.95);
+      ctx.lineTo(-size * 0.85, -size * 0.75);
+      ctx.lineTo(-size * 0.55, -size * 0.15);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(-size * 0.1, size * 0.2);
+      ctx.lineTo(-size * 0.35, size * 0.95);
+      ctx.lineTo(-size * 0.85, size * 0.75);
+      ctx.lineTo(-size * 0.55, size * 0.15);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Wing tip weapons pods
+      ctx.fillStyle = accent;
+      ctx.beginPath();
+      ctx.ellipse(-size * 0.45, -size * 0.88, size * 0.12, size * 0.06, -0.3, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.45, size * 0.88, size * 0.12, size * 0.06, 0.3, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Engine nacelles on wings
+      ctx.fillStyle = darken(primary, 0.35);
+      ctx.beginPath();
+      ctx.ellipse(-size * 0.7, -size * 0.55, size * 0.18, size * 0.1, -0.2, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.7, size * 0.55, size * 0.18, size * 0.1, 0.2, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Main fuselage body
+      ctx.fillStyle = primary;
+      ctx.strokeStyle = trim;
+      ctx.lineWidth = Math.max(1.5, size * 0.08);
+      ctx.shadowColor = primary;
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.moveTo(size * 1.3, 0);
+      ctx.quadraticCurveTo(size * 0.8, -size * 0.15, size * 0.3, -size * 0.22);
+      ctx.lineTo(-size * 0.5, -size * 0.18);
+      ctx.lineTo(-size * 0.75, -size * 0.12);
+      ctx.lineTo(-size * 0.85, 0);
+      ctx.lineTo(-size * 0.75, size * 0.12);
+      ctx.lineTo(-size * 0.5, size * 0.18);
+      ctx.lineTo(size * 0.3, size * 0.22);
+      ctx.quadraticCurveTo(size * 0.8, size * 0.15, size * 1.3, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      
+      // Dorsal ridge/spine detail
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = size * 0.06;
+      ctx.beginPath();
+      ctx.moveTo(size * 0.9, 0);
+      ctx.lineTo(-size * 0.6, 0);
+      ctx.stroke();
+      
+      // Panel lines
+      ctx.strokeStyle = darken(primary, 0.25);
+      ctx.lineWidth = size * 0.02;
+      ctx.beginPath();
+      ctx.moveTo(size * 0.4, -size * 0.18);
+      ctx.lineTo(size * 0.1, -size * 0.2);
+      ctx.moveTo(size * 0.4, size * 0.18);
+      ctx.lineTo(size * 0.1, size * 0.2);
+      ctx.moveTo(-size * 0.2, -size * 0.15);
+      ctx.lineTo(-size * 0.2, size * 0.15);
+      ctx.stroke();
+      
+      // Canopy (elongated fighter style)
+      ctx.save();
+      ctx.shadowColor = canopy;
+      ctx.shadowBlur = 10;
+      ctx.fillStyle = canopy;
+      ctx.globalAlpha = 0.9;
+      ctx.beginPath();
+      ctx.moveTo(size * 0.65, 0);
+      ctx.quadraticCurveTo(size * 0.5, -size * 0.12, size * 0.2, -size * 0.1);
+      ctx.lineTo(size * 0.1, 0);
+      ctx.lineTo(size * 0.2, size * 0.1);
+      ctx.quadraticCurveTo(size * 0.5, size * 0.12, size * 0.65, 0);
+      ctx.fill();
+      ctx.restore();
+      
+      // Canopy frame
+      ctx.strokeStyle = trim;
+      ctx.lineWidth = size * 0.03;
+      ctx.beginPath();
+      ctx.moveTo(size * 0.4, -size * 0.08);
+      ctx.lineTo(size * 0.4, size * 0.08);
+      ctx.stroke();
+      
+      // Engine exhausts with glow
+      const enginePulse = Math.sin(now / 100) * 0.15 + 0.85;
+      ctx.save();
+      ctx.shadowColor = thruster;
+      ctx.shadowBlur = 18;
+      ctx.fillStyle = thruster;
+      ctx.globalAlpha = enginePulse;
+      // Twin main engines
+      ctx.beginPath();
+      ctx.ellipse(-size * 0.72, -size * 0.55, size * 0.12, size * 0.08, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.72, size * 0.55, size * 0.12, size * 0.08, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Central engine
+      ctx.beginPath();
+      ctx.ellipse(-size * 0.88, 0, size * 0.1, size * 0.06, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      
+      // Weapon barrels at nose
+      ctx.fillStyle = darken(trim, 0.3);
+      ctx.beginPath();
+      ctx.rect(size * 1.0, -size * 0.04, size * 0.2, size * 0.02);
+      ctx.rect(size * 1.0, size * 0.02, size * 0.2, size * 0.02);
+      ctx.fill();
+
+    } else if (shape === 'needle') {
+      // PHANTOM-X - Sleek stealth interceptor with angular surfaces
+      // Inspired by SR-71 Blackbird / F-117 Nighthawk
+      
+      if (isBoosting || isDefenseActive) {
+        ctx.save();
+        ctx.globalAlpha = 0.35;
+        ctx.shadowColor = isBoosting ? thruster : primary;
+        ctx.shadowBlur = 28;
+        ctx.fillStyle = isBoosting ? thruster : primary;
+        ctx.beginPath();
+        ctx.moveTo(size * 1.5, 0);
+        ctx.lineTo(size * 0.3, -size * 0.35);
+        ctx.lineTo(-size * 0.6, -size * 0.5);
+        ctx.lineTo(-size * 1.0, -size * 0.15);
+        ctx.lineTo(-size * 1.0, size * 0.15);
+        ctx.lineTo(-size * 0.6, size * 0.5);
+        ctx.lineTo(size * 0.3, size * 0.35);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+      
+      // Angular delta wings (stealth faceted design)
+      ctx.fillStyle = darken(primary, 0.15);
+      ctx.beginPath();
+      ctx.moveTo(size * 0.1, -size * 0.08);
+      ctx.lineTo(-size * 0.2, -size * 0.55);
+      ctx.lineTo(-size * 0.75, -size * 0.48);
+      ctx.lineTo(-size * 0.5, -size * 0.1);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(size * 0.1, size * 0.08);
+      ctx.lineTo(-size * 0.2, size * 0.55);
+      ctx.lineTo(-size * 0.75, size * 0.48);
+      ctx.lineTo(-size * 0.5, size * 0.1);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Vertical stabilizers (canted)
+      ctx.fillStyle = darken(primary, 0.25);
+      ctx.beginPath();
+      ctx.moveTo(-size * 0.55, -size * 0.35);
+      ctx.lineTo(-size * 0.4, -size * 0.6);
+      ctx.lineTo(-size * 0.65, -size * 0.55);
+      ctx.lineTo(-size * 0.7, -size * 0.35);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(-size * 0.55, size * 0.35);
+      ctx.lineTo(-size * 0.4, size * 0.6);
+      ctx.lineTo(-size * 0.65, size * 0.55);
+      ctx.lineTo(-size * 0.7, size * 0.35);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Main fuselage - long needle shape
+      ctx.fillStyle = primary;
+      ctx.strokeStyle = trim;
+      ctx.lineWidth = Math.max(1.5, size * 0.06);
+      ctx.shadowColor = primary;
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.moveTo(size * 1.5, 0);
+      ctx.lineTo(size * 0.4, -size * 0.12);
+      ctx.lineTo(-size * 0.3, -size * 0.15);
+      ctx.lineTo(-size * 0.9, -size * 0.08);
+      ctx.lineTo(-size * 0.95, 0);
+      ctx.lineTo(-size * 0.9, size * 0.08);
+      ctx.lineTo(-size * 0.3, size * 0.15);
+      ctx.lineTo(size * 0.4, size * 0.12);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      
+      // Stealth panel lines (faceted surfaces)
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = size * 0.04;
+      ctx.beginPath();
+      ctx.moveTo(size * 1.1, 0);
+      ctx.lineTo(size * 0.2, -size * 0.08);
+      ctx.lineTo(-size * 0.5, -size * 0.1);
+      ctx.moveTo(size * 1.1, 0);
+      ctx.lineTo(size * 0.2, size * 0.08);
+      ctx.lineTo(-size * 0.5, size * 0.1);
+      ctx.stroke();
+      
+      // Sensor array on nose
+      ctx.fillStyle = accent;
+      ctx.beginPath();
+      ctx.arc(size * 1.2, 0, size * 0.06, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Elongated narrow canopy
+      ctx.save();
+      ctx.shadowColor = canopy;
+      ctx.shadowBlur = 8;
+      ctx.fillStyle = canopy;
+      ctx.globalAlpha = 0.85;
+      ctx.beginPath();
+      ctx.ellipse(size * 0.35, 0, size * 0.25, size * 0.07, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      
+      // Canopy highlight
+      ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+      ctx.lineWidth = size * 0.02;
+      ctx.beginPath();
+      ctx.arc(size * 0.4, -size * 0.02, size * 0.08, Math.PI, Math.PI * 1.5);
+      ctx.stroke();
+      
+      // Twin vectoring thrusters
+      const enginePulse = Math.sin(now / 80) * 0.2 + 0.8;
+      ctx.save();
+      ctx.shadowColor = thruster;
+      ctx.shadowBlur = 20;
+      ctx.fillStyle = thruster;
+      ctx.globalAlpha = enginePulse;
+      ctx.beginPath();
+      ctx.ellipse(-size * 0.92, -size * 0.04, size * 0.08, size * 0.045, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.92, size * 0.04, size * 0.08, size * 0.045, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Afterburner trails when boosting
+      if (isBoosting) {
+        ctx.globalAlpha = enginePulse * 0.6;
+        ctx.beginPath();
+        ctx.moveTo(-size * 0.98, -size * 0.04);
+        ctx.lineTo(-size * 1.4, 0);
+        ctx.lineTo(-size * 0.98, size * 0.04);
+        ctx.fill();
+      }
+      ctx.restore();
+
+    } else if (shape === 'bastion') {
+      // BULWARK-7 - Heavy assault gunship with twin hulls
+      // Inspired by A-10 Warthog / Pelican dropship
+      
+      if (isBoosting || isDefenseActive) {
+        ctx.save();
+        ctx.globalAlpha = 0.35;
+        ctx.shadowColor = isBoosting ? thruster : primary;
+        ctx.shadowBlur = 32;
+        ctx.fillStyle = isBoosting ? thruster : primary;
+        ctx.beginPath();
+        ctx.moveTo(size * 1.1, 0);
+        ctx.lineTo(size * 0.4, -size * 0.4);
+        ctx.lineTo(-size * 0.2, -size * 1.1);
+        ctx.lineTo(-size * 0.9, -size * 0.95);
+        ctx.lineTo(-size * 1.1, -size * 0.35);
+        ctx.lineTo(-size * 1.1, size * 0.35);
+        ctx.lineTo(-size * 0.9, size * 0.95);
+        ctx.lineTo(-size * 0.2, size * 1.1);
+        ctx.lineTo(size * 0.4, size * 0.4);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+      
+      // Heavy twin-boom hull structures
+      ctx.fillStyle = darken(primary, 0.2);
+      // Top boom
+      ctx.beginPath();
+      ctx.moveTo(size * 0.3, -size * 0.35);
+      ctx.lineTo(-size * 0.15, -size * 0.95);
+      ctx.lineTo(-size * 0.85, -size * 0.85);
+      ctx.lineTo(-size * 1.0, -size * 0.35);
+      ctx.lineTo(-size * 0.6, -size * 0.3);
+      ctx.closePath();
+      ctx.fill();
+      // Bottom boom
+      ctx.beginPath();
+      ctx.moveTo(size * 0.3, size * 0.35);
+      ctx.lineTo(-size * 0.15, size * 0.95);
+      ctx.lineTo(-size * 0.85, size * 0.85);
+      ctx.lineTo(-size * 1.0, size * 0.35);
+      ctx.lineTo(-size * 0.6, size * 0.3);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Armor plates on booms
+      ctx.fillStyle = accent;
+      ctx.beginPath();
+      ctx.rect(-size * 0.5, -size * 0.9, size * 0.25, size * 0.12);
+      ctx.rect(-size * 0.5, size * 0.78, size * 0.25, size * 0.12);
+      ctx.fill();
+      
+      // Central main fuselage (armored box)
+      ctx.fillStyle = primary;
+      ctx.strokeStyle = trim;
+      ctx.lineWidth = Math.max(2, size * 0.1);
+      ctx.shadowColor = primary;
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.moveTo(size * 1.1, 0);
+      ctx.lineTo(size * 0.6, -size * 0.28);
+      ctx.lineTo(-size * 0.4, -size * 0.25);
+      ctx.lineTo(-size * 0.55, -size * 0.18);
+      ctx.lineTo(-size * 0.55, size * 0.18);
+      ctx.lineTo(-size * 0.4, size * 0.25);
+      ctx.lineTo(size * 0.6, size * 0.28);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      
+      // Heavy weapon mount (chin gun)
+      ctx.fillStyle = darken(primary, 0.4);
+      ctx.beginPath();
+      ctx.rect(size * 0.8, -size * 0.06, size * 0.35, size * 0.12);
+      ctx.fill();
+      // Gun barrel details
+      ctx.fillStyle = trim;
+      ctx.beginPath();
+      ctx.rect(size * 1.1, -size * 0.03, size * 0.15, size * 0.02);
+      ctx.rect(size * 1.1, size * 0.01, size * 0.15, size * 0.02);
+      ctx.fill();
+      
+      // Reinforced armor lines
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = size * 0.07;
+      ctx.beginPath();
+      ctx.moveTo(size * 0.5, -size * 0.22);
+      ctx.lineTo(-size * 0.3, -size * 0.2);
+      ctx.moveTo(size * 0.5, size * 0.22);
+      ctx.lineTo(-size * 0.3, size * 0.2);
+      ctx.stroke();
+      
+      // Armored canopy (smaller, protected)
+      ctx.save();
+      ctx.shadowColor = canopy;
+      ctx.shadowBlur = 8;
+      ctx.fillStyle = canopy;
+      ctx.globalAlpha = 0.85;
+      ctx.beginPath();
+      ctx.ellipse(size * 0.45, 0, size * 0.2, size * 0.12, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      
+      // Sensor dome on top
+      ctx.fillStyle = canopy;
+      ctx.globalAlpha = 0.7;
+      ctx.beginPath();
+      ctx.arc(size * 0.1, -size * 0.15, size * 0.08, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      
+      // Quad engine configuration
+      const enginePulse = Math.sin(now / 120) * 0.15 + 0.85;
+      ctx.save();
+      ctx.shadowColor = thruster;
+      ctx.shadowBlur = 18;
+      ctx.fillStyle = thruster;
+      ctx.globalAlpha = enginePulse;
+      // Boom engines
+      ctx.beginPath();
+      ctx.ellipse(-size * 0.95, -size * 0.65, size * 0.12, size * 0.1, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.95, size * 0.65, size * 0.12, size * 0.1, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Central engines
+      ctx.beginPath();
+      ctx.ellipse(-size * 0.58, -size * 0.12, size * 0.08, size * 0.06, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.58, size * 0.12, size * 0.08, size * 0.06, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+    } else if (shape === 'razor') {
+      // EMBERWING - Aggressive attack craft with forward-swept wings
+      // Inspired by X-29 / aggressive sci-fi fighters
+      
+      if (isBoosting || isDefenseActive) {
+        ctx.save();
+        ctx.globalAlpha = 0.4;
+        ctx.shadowColor = isBoosting ? thruster : primary;
+        ctx.shadowBlur = 28;
+        ctx.fillStyle = isBoosting ? thruster : primary;
+        ctx.beginPath();
+        ctx.moveTo(size * 1.4, 0);
+        ctx.lineTo(size * 0.5, -size * 0.2);
+        ctx.lineTo(size * 0.3, -size * 0.75);
+        ctx.lineTo(-size * 0.4, -size * 0.55);
+        ctx.lineTo(-size * 0.9, -size * 0.2);
+        ctx.lineTo(-size * 0.9, size * 0.2);
+        ctx.lineTo(-size * 0.4, size * 0.55);
+        ctx.lineTo(size * 0.3, size * 0.75);
+        ctx.lineTo(size * 0.5, size * 0.2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+      
+      // Forward-swept aggressive wings
+      ctx.fillStyle = darken(primary, 0.15);
+      ctx.beginPath();
+      ctx.moveTo(size * 0.4, -size * 0.12);
+      ctx.lineTo(size * 0.35, -size * 0.7);
+      ctx.lineTo(-size * 0.35, -size * 0.55);
+      ctx.lineTo(-size * 0.15, -size * 0.12);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(size * 0.4, size * 0.12);
+      ctx.lineTo(size * 0.35, size * 0.7);
+      ctx.lineTo(-size * 0.35, size * 0.55);
+      ctx.lineTo(-size * 0.15, size * 0.12);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Wing-mounted cannons
+      ctx.fillStyle = darken(accent, 0.2);
+      ctx.beginPath();
+      ctx.rect(size * 0.4, -size * 0.58, size * 0.3, size * 0.06);
+      ctx.rect(size * 0.4, size * 0.52, size * 0.3, size * 0.06);
+      ctx.fill();
+      
+      // Tail fins (angular, aggressive)
+      ctx.fillStyle = darken(primary, 0.25);
+      ctx.beginPath();
+      ctx.moveTo(-size * 0.5, -size * 0.15);
+      ctx.lineTo(-size * 0.7, -size * 0.45);
+      ctx.lineTo(-size * 0.85, -size * 0.35);
+      ctx.lineTo(-size * 0.75, -size * 0.12);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(-size * 0.5, size * 0.15);
+      ctx.lineTo(-size * 0.7, size * 0.45);
+      ctx.lineTo(-size * 0.85, size * 0.35);
+      ctx.lineTo(-size * 0.75, size * 0.12);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Angular main fuselage
+      ctx.fillStyle = primary;
+      ctx.strokeStyle = trim;
+      ctx.lineWidth = Math.max(1.5, size * 0.07);
+      ctx.shadowColor = primary;
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.moveTo(size * 1.4, 0);
+      ctx.lineTo(size * 0.6, -size * 0.15);
+      ctx.lineTo(size * 0.2, -size * 0.18);
+      ctx.lineTo(-size * 0.5, -size * 0.12);
+      ctx.lineTo(-size * 0.8, 0);
+      ctx.lineTo(-size * 0.5, size * 0.12);
+      ctx.lineTo(size * 0.2, size * 0.18);
+      ctx.lineTo(size * 0.6, size * 0.15);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      
+      // Heat vents / radiator panels
+      ctx.fillStyle = thruster;
+      ctx.globalAlpha = 0.5 + Math.sin(now / 200) * 0.2;
+      ctx.beginPath();
+      ctx.rect(-size * 0.3, -size * 0.1, size * 0.15, size * 0.03);
+      ctx.rect(-size * 0.3, size * 0.07, size * 0.15, size * 0.03);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      
+      // Aggressive accent stripes
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = size * 0.05;
+      ctx.beginPath();
+      ctx.moveTo(size * 1.0, -size * 0.05);
+      ctx.lineTo(size * 0.4, -size * 0.12);
+      ctx.moveTo(size * 1.0, size * 0.05);
+      ctx.lineTo(size * 0.4, size * 0.12);
+      ctx.stroke();
+      
+      // Narrow aggressive canopy
+      ctx.save();
+      ctx.shadowColor = canopy;
+      ctx.shadowBlur = 10;
+      ctx.fillStyle = canopy;
+      ctx.globalAlpha = 0.9;
+      ctx.beginPath();
+      ctx.moveTo(size * 0.7, 0);
+      ctx.lineTo(size * 0.5, -size * 0.08);
+      ctx.lineTo(size * 0.25, -size * 0.06);
+      ctx.lineTo(size * 0.25, size * 0.06);
+      ctx.lineTo(size * 0.5, size * 0.08);
       ctx.closePath();
       ctx.fill();
       ctx.restore();
-    }
-    
-    // Phase A: Main hull with enhanced border
-    ctx.fillStyle = primary;
-    ctx.strokeStyle = trim;
-    ctx.lineWidth = Math.max(2, size * 0.14);
-    ctx.shadowColor = primary;
-    ctx.shadowBlur = 10;
-    ctx.beginPath();
-    if (shape === 'needle') {
-      ctx.moveTo(size * 1.28, 0);
-      ctx.lineTo(-size * 0.45, -size * 0.42);
-      ctx.lineTo(-size * 0.95, -size * 0.08);
-      ctx.lineTo(-size * 0.95, size * 0.08);
-      ctx.lineTo(-size * 0.45, size * 0.42);
-    } else if (shape === 'bastion') {
-      ctx.moveTo(size * 1.05, 0);
-      ctx.lineTo(size * 0.42, -size * 1.05);
-      ctx.lineTo(-size * 0.58, -size * 0.9);
-      ctx.lineTo(-size * 1.05, -size * 0.28);
-      ctx.lineTo(-size * 1.05, size * 0.28);
-      ctx.lineTo(-size * 0.58, size * 0.9);
-    } else if (shape === 'razor') {
-      ctx.moveTo(size * 1.25, 0);
-      ctx.lineTo(size * 0.42, -size * 0.72);
-      ctx.lineTo(-size * 0.82, -size * 0.38);
-      ctx.lineTo(-size * 0.28, 0);
-      ctx.lineTo(-size * 0.82, size * 0.38);
-      ctx.lineTo(size * 0.42, size * 0.72);
+      
+      // Triple engine configuration
+      const enginePulse = Math.sin(now / 90) * 0.2 + 0.8;
+      ctx.save();
+      ctx.shadowColor = thruster;
+      ctx.shadowBlur = 22;
+      ctx.fillStyle = thruster;
+      ctx.globalAlpha = enginePulse;
+      ctx.beginPath();
+      ctx.ellipse(-size * 0.82, 0, size * 0.12, size * 0.08, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.78, -size * 0.28, size * 0.08, size * 0.05, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.78, size * 0.28, size * 0.08, size * 0.05, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+    } else if (shape === 'dart') {
+      // SPECTRE-9 - Stealth reconnaissance craft
+      // Inspired by B-2 Spirit / flying wing designs
+      
+      if (isBoosting || isDefenseActive) {
+        ctx.save();
+        ctx.globalAlpha = 0.3;
+        ctx.shadowColor = isBoosting ? thruster : primary;
+        ctx.shadowBlur = 25;
+        ctx.fillStyle = isBoosting ? thruster : primary;
+        ctx.beginPath();
+        ctx.moveTo(size * 1.2, 0);
+        ctx.lineTo(size * 0.1, -size * 0.65);
+        ctx.lineTo(-size * 0.9, -size * 0.5);
+        ctx.lineTo(-size * 0.7, 0);
+        ctx.lineTo(-size * 0.9, size * 0.5);
+        ctx.lineTo(size * 0.1, size * 0.65);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+      
+      // Flying wing design - blended body
+      ctx.fillStyle = darken(primary, 0.12);
+      // Main wing body (smooth curves)
+      ctx.beginPath();
+      ctx.moveTo(size * 0.2, -size * 0.08);
+      ctx.quadraticCurveTo(-size * 0.1, -size * 0.5, -size * 0.75, -size * 0.48);
+      ctx.lineTo(-size * 0.6, -size * 0.15);
+      ctx.lineTo(size * 0.2, -size * 0.08);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(size * 0.2, size * 0.08);
+      ctx.quadraticCurveTo(-size * 0.1, size * 0.5, -size * 0.75, size * 0.48);
+      ctx.lineTo(-size * 0.6, size * 0.15);
+      ctx.lineTo(size * 0.2, size * 0.08);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Wingtip sensor pods
+      ctx.fillStyle = accent;
+      ctx.beginPath();
+      ctx.ellipse(-size * 0.68, -size * 0.42, size * 0.08, size * 0.05, -0.4, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.68, size * 0.42, size * 0.08, size * 0.05, 0.4, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Central body spine
+      ctx.fillStyle = primary;
+      ctx.strokeStyle = trim;
+      ctx.lineWidth = Math.max(1.5, size * 0.06);
+      ctx.shadowColor = primary;
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.moveTo(size * 1.2, 0);
+      ctx.quadraticCurveTo(size * 0.7, -size * 0.08, size * 0.3, -size * 0.1);
+      ctx.lineTo(-size * 0.4, -size * 0.12);
+      ctx.lineTo(-size * 0.65, 0);
+      ctx.lineTo(-size * 0.4, size * 0.12);
+      ctx.lineTo(size * 0.3, size * 0.1);
+      ctx.quadraticCurveTo(size * 0.7, size * 0.08, size * 1.2, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      
+      // Stealth coating lines (subtle)
+      ctx.strokeStyle = darken(primary, 0.15);
+      ctx.lineWidth = size * 0.015;
+      ctx.beginPath();
+      ctx.moveTo(size * 0.8, 0);
+      ctx.lineTo(-size * 0.2, -size * 0.08);
+      ctx.moveTo(size * 0.8, 0);
+      ctx.lineTo(-size * 0.2, size * 0.08);
+      ctx.moveTo(size * 0.3, -size * 0.06);
+      ctx.quadraticCurveTo(size * 0.1, -size * 0.25, -size * 0.3, -size * 0.3);
+      ctx.moveTo(size * 0.3, size * 0.06);
+      ctx.quadraticCurveTo(size * 0.1, size * 0.25, -size * 0.3, size * 0.3);
+      ctx.stroke();
+      
+      // Glowing sensor array on nose
+      ctx.save();
+      ctx.shadowColor = canopy;
+      ctx.shadowBlur = 12;
+      ctx.fillStyle = canopy;
+      ctx.globalAlpha = 0.7 + Math.sin(now / 400) * 0.3;
+      ctx.beginPath();
+      ctx.arc(size * 0.95, 0, size * 0.08, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      
+      // Wide panoramic canopy
+      ctx.save();
+      ctx.shadowColor = canopy;
+      ctx.shadowBlur = 10;
+      ctx.fillStyle = canopy;
+      ctx.globalAlpha = 0.85;
+      ctx.beginPath();
+      ctx.ellipse(size * 0.4, 0, size * 0.22, size * 0.08, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      
+      // Integrated stealth engines (hidden in trailing edge)
+      const enginePulse = Math.sin(now / 150) * 0.15 + 0.7;
+      ctx.save();
+      ctx.shadowColor = thruster;
+      ctx.shadowBlur = 15;
+      ctx.fillStyle = thruster;
+      ctx.globalAlpha = enginePulse;
+      // Slot exhausts blended into wing
+      ctx.beginPath();
+      ctx.ellipse(-size * 0.62, -size * 0.08, size * 0.06, size * 0.03, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.62, size * 0.08, size * 0.06, size * 0.03, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.55, 0, size * 0.05, size * 0.025, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+    } else if (shape === 'fortress') {
+      // TITAN HEAVY - Massive capital-class gunship
+      // Inspired by gunships, battleships, heavy bombers
+      
+      if (isBoosting || isDefenseActive) {
+        ctx.save();
+        ctx.globalAlpha = 0.35;
+        ctx.shadowColor = isBoosting ? thruster : primary;
+        ctx.shadowBlur = 35;
+        ctx.fillStyle = isBoosting ? thruster : primary;
+        ctx.beginPath();
+        ctx.moveTo(size * 1.0, 0);
+        ctx.lineTo(size * 0.5, -size * 0.5);
+        ctx.lineTo(-size * 0.3, -size * 1.0);
+        ctx.lineTo(-size * 1.0, -size * 0.8);
+        ctx.lineTo(-size * 1.15, -size * 0.3);
+        ctx.lineTo(-size * 1.15, size * 0.3);
+        ctx.lineTo(-size * 1.0, size * 0.8);
+        ctx.lineTo(-size * 0.3, size * 1.0);
+        ctx.lineTo(size * 0.5, size * 0.5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+      
+      // Massive wing platforms
+      ctx.fillStyle = darken(primary, 0.2);
+      // Upper wing/weapon platform
+      ctx.beginPath();
+      ctx.moveTo(size * 0.3, -size * 0.4);
+      ctx.lineTo(-size * 0.25, -size * 0.95);
+      ctx.lineTo(-size * 0.9, -size * 0.75);
+      ctx.lineTo(-size * 0.95, -size * 0.35);
+      ctx.lineTo(-size * 0.5, -size * 0.3);
+      ctx.closePath();
+      ctx.fill();
+      // Lower wing/weapon platform
+      ctx.beginPath();
+      ctx.moveTo(size * 0.3, size * 0.4);
+      ctx.lineTo(-size * 0.25, size * 0.95);
+      ctx.lineTo(-size * 0.9, size * 0.75);
+      ctx.lineTo(-size * 0.95, size * 0.35);
+      ctx.lineTo(-size * 0.5, size * 0.3);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Heavy turret mounts on wings
+      ctx.fillStyle = darken(primary, 0.35);
+      ctx.beginPath();
+      ctx.arc(-size * 0.5, -size * 0.65, size * 0.15, 0, Math.PI * 2);
+      ctx.arc(-size * 0.5, size * 0.65, size * 0.15, 0, Math.PI * 2);
+      ctx.fill();
+      // Turret barrels
+      ctx.fillStyle = trim;
+      ctx.beginPath();
+      ctx.rect(-size * 0.35, -size * 0.68, size * 0.25, size * 0.03);
+      ctx.rect(-size * 0.35, -size * 0.62, size * 0.25, size * 0.03);
+      ctx.rect(-size * 0.35, size * 0.62, size * 0.25, size * 0.03);
+      ctx.rect(-size * 0.35, size * 0.65, size * 0.25, size * 0.03);
+      ctx.fill();
+      
+      // Armored main hull
+      ctx.fillStyle = primary;
+      ctx.strokeStyle = trim;
+      ctx.lineWidth = Math.max(2, size * 0.1);
+      ctx.shadowColor = primary;
+      ctx.shadowBlur = 14;
+      ctx.beginPath();
+      ctx.moveTo(size * 1.0, 0);
+      ctx.lineTo(size * 0.6, -size * 0.35);
+      ctx.lineTo(-size * 0.3, -size * 0.38);
+      ctx.lineTo(-size * 0.7, -size * 0.25);
+      ctx.lineTo(-size * 0.85, 0);
+      ctx.lineTo(-size * 0.7, size * 0.25);
+      ctx.lineTo(-size * 0.3, size * 0.38);
+      ctx.lineTo(size * 0.6, size * 0.35);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      
+      // Command bridge/superstructure
+      ctx.fillStyle = darken(primary, 0.1);
+      ctx.beginPath();
+      ctx.moveTo(size * 0.5, -size * 0.25);
+      ctx.lineTo(size * 0.2, -size * 0.32);
+      ctx.lineTo(-size * 0.2, -size * 0.28);
+      ctx.lineTo(-size * 0.2, size * 0.28);
+      ctx.lineTo(size * 0.2, size * 0.32);
+      ctx.lineTo(size * 0.5, size * 0.25);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Forward heavy cannons
+      ctx.fillStyle = darken(primary, 0.4);
+      ctx.beginPath();
+      ctx.rect(size * 0.7, -size * 0.12, size * 0.4, size * 0.08);
+      ctx.rect(size * 0.7, size * 0.04, size * 0.4, size * 0.08);
+      ctx.fill();
+      // Barrel tips
+      ctx.fillStyle = accent;
+      ctx.beginPath();
+      ctx.rect(size * 1.05, -size * 0.1, size * 0.08, size * 0.04);
+      ctx.rect(size * 1.05, size * 0.06, size * 0.08, size * 0.04);
+      ctx.fill();
+      
+      // Armored plating details
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = size * 0.06;
+      ctx.beginPath();
+      ctx.moveTo(size * 0.4, -size * 0.28);
+      ctx.lineTo(-size * 0.3, -size * 0.3);
+      ctx.moveTo(size * 0.4, size * 0.28);
+      ctx.lineTo(-size * 0.3, size * 0.3);
+      ctx.stroke();
+      
+      // Small armored bridge canopy
+      ctx.save();
+      ctx.shadowColor = canopy;
+      ctx.shadowBlur = 8;
+      ctx.fillStyle = canopy;
+      ctx.globalAlpha = 0.8;
+      ctx.beginPath();
+      ctx.rect(size * 0.25, -size * 0.15, size * 0.2, size * 0.3);
+      ctx.fill();
+      ctx.restore();
+      
+      // Multiple sensor domes
+      ctx.fillStyle = canopy;
+      ctx.globalAlpha = 0.6;
+      ctx.beginPath();
+      ctx.arc(size * 0.0, -size * 0.22, size * 0.06, 0, Math.PI * 2);
+      ctx.arc(size * 0.0, size * 0.22, size * 0.06, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      
+      // Massive engine bank (6 engines)
+      const enginePulse = Math.sin(now / 130) * 0.15 + 0.85;
+      ctx.save();
+      ctx.shadowColor = thruster;
+      ctx.shadowBlur = 22;
+      ctx.fillStyle = thruster;
+      ctx.globalAlpha = enginePulse;
+      // Wing engines
+      ctx.beginPath();
+      ctx.ellipse(-size * 0.92, -size * 0.55, size * 0.12, size * 0.1, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.92, size * 0.55, size * 0.12, size * 0.1, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Central quad engines
+      ctx.beginPath();
+      ctx.ellipse(-size * 0.88, -size * 0.18, size * 0.1, size * 0.07, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.88, -size * 0.05, size * 0.1, size * 0.07, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.88, size * 0.05, size * 0.1, size * 0.07, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.88, size * 0.18, size * 0.1, size * 0.07, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
     } else {
+      // Fallback to spear shape (default)
+      ctx.fillStyle = primary;
+      ctx.strokeStyle = trim;
+      ctx.lineWidth = Math.max(2, size * 0.1);
+      ctx.beginPath();
       ctx.moveTo(size * 1.15, 0);
       ctx.lineTo(-size * 0.94, -size * 0.82);
       ctx.lineTo(-size * 0.22, 0);
       ctx.lineTo(-size * 0.94, size * 0.82);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
     }
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-    ctx.shadowBlur = 0;
     
-    // Phase A: Damage visualization - cracks and burn marks
+    // Damage visualization (applies to all ships)
     if (isDamaged) {
       ctx.save();
       ctx.strokeStyle = '#7f1d1d';
-      ctx.lineWidth = size * 0.08;
+      ctx.lineWidth = size * 0.06;
       ctx.globalAlpha = damageLevel * 0.7;
       ctx.beginPath();
-      // Random damage patterns based on shape
       if (damageLevel > 0.3) {
-        ctx.moveTo(-size * 0.4, -size * 0.3);
-        ctx.lineTo(-size * 0.2, -size * 0.5);
-        ctx.moveTo(size * 0.3, size * 0.2);
-        ctx.lineTo(size * 0.5, size * 0.4);
+        ctx.moveTo(-size * 0.3, -size * 0.2);
+        ctx.lineTo(-size * 0.1, -size * 0.4);
+        ctx.moveTo(size * 0.2, size * 0.15);
+        ctx.lineTo(size * 0.4, size * 0.3);
       }
-      if (damageLevel > 0.6) {
-        ctx.moveTo(-size * 0.6, size * 0.2);
-        ctx.lineTo(-size * 0.3, size * 0.4);
+      if (damageLevel > 0.5) {
+        ctx.moveTo(-size * 0.5, size * 0.1);
+        ctx.lineTo(-size * 0.25, size * 0.3);
+        ctx.moveTo(size * 0.0, -size * 0.15);
+        ctx.lineTo(size * 0.15, -size * 0.35);
+      }
+      if (damageLevel > 0.7) {
+        // Sparks/fire effect
+        ctx.fillStyle = thruster;
+        ctx.globalAlpha = Math.sin(now / 50) * 0.3 + 0.5;
+        ctx.beginPath();
+        ctx.arc(-size * 0.4, size * 0.2, size * 0.08, 0, Math.PI * 2);
+        ctx.fill();
       }
       ctx.stroke();
       ctx.restore();
     }
-
-    // Phase A: Accent lines with glow
-    ctx.strokeStyle = accent;
-    ctx.shadowColor = accent;
-    ctx.shadowBlur = 8;
-    if (shape === 'needle') {
-      ctx.lineWidth = size * 0.12;
-      ctx.beginPath();
-      ctx.moveTo(-size * 0.2, -size * 0.55);
-      ctx.quadraticCurveTo(size * 0.45, -size * 0.2, size * 0.95, -size * 0.05);
-      ctx.moveTo(-size * 0.2, size * 0.55);
-      ctx.quadraticCurveTo(size * 0.45, size * 0.2, size * 0.95, size * 0.05);
-      ctx.stroke();
-    } else if (shape === 'bastion') {
-      ctx.lineWidth = size * 0.16;
-      ctx.beginPath();
-      ctx.moveTo(-size * 0.75, -size * 0.6);
-      ctx.lineTo(size * 0.25, -size * 0.22);
-      ctx.moveTo(-size * 0.75, size * 0.6);
-      ctx.lineTo(size * 0.25, size * 0.22);
-      ctx.stroke();
-    } else if (shape === 'razor') {
-      ctx.lineWidth = size * 0.12;
-      ctx.beginPath();
-      ctx.moveTo(-size * 0.55, -size * 0.28);
-      ctx.lineTo(size * 0.78, -size * 0.15);
-      ctx.moveTo(-size * 0.55, size * 0.28);
-      ctx.lineTo(size * 0.78, size * 0.15);
-      ctx.stroke();
-    } else {
-      ctx.lineWidth = size * 0.14;
-      ctx.beginPath();
-      ctx.moveTo(-size * 0.45, -size * 0.64);
-      ctx.lineTo(size * 0.38, -size * 0.22);
-      ctx.moveTo(-size * 0.45, size * 0.64);
-      ctx.lineTo(size * 0.38, size * 0.22);
-      ctx.stroke();
-    }
-
-    // Phase A: Enhanced canopy with pulsing cockpit lights
-    const canopyX = shape === 'bastion' ? size * 0.15 : size * 0.3;
-    const canopyW = size * (shape === 'bastion' ? 0.42 : 0.36);
-    const canopyH = size * 0.28;
-    
-    // Canopy glow
-    ctx.save();
-    ctx.shadowColor = canopy;
-    ctx.shadowBlur = 12;
-    ctx.fillStyle = canopy;
-    ctx.globalAlpha = 0.9;
-    ctx.beginPath();
-    ctx.ellipse(canopyX, 0, canopyW, canopyH, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-    
-    // Cockpit reflection
-    ctx.strokeStyle = 'rgba(255,255,255,0.65)';
-    ctx.lineWidth = size * 0.05;
-    ctx.beginPath();
-    ctx.ellipse(canopyX - size * 0.08, -size * 0.08, canopyW * 0.35, canopyH * 0.35, 0, 0, Math.PI * 2);
-    ctx.stroke();
-    
-    // Phase A: Pulsing energy core visible through hull
-    const corePulse = Math.sin(now / 300) * 0.3 + 0.7;
-    ctx.save();
-    ctx.globalAlpha = 0.6 * corePulse;
-    ctx.shadowColor = primary;
-    ctx.shadowBlur = 20;
-    ctx.fillStyle = primary;
-    ctx.beginPath();
-    ctx.arc(0, 0, size * 0.2, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-    
-    // Phase A: Engine glow indicators
-    const engineY1 = shape === 'bastion' ? size * 0.6 : size * 0.5;
-    const engineY2 = -engineY1;
-    ctx.save();
-    ctx.shadowColor = thruster;
-    ctx.shadowBlur = 15;
-    ctx.fillStyle = thruster;
-    ctx.globalAlpha = 0.8 + Math.sin(now / 100) * 0.2;
-    ctx.beginPath();
-    ctx.arc(-size * 0.7, engineY1, size * 0.15, 0, Math.PI * 2);
-    ctx.arc(-size * 0.7, engineY2, size * 0.15, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
   };
 
   const dropCoin = (x, y) => coins.push(new Coin(x, y));
