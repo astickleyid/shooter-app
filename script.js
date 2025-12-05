@@ -5582,9 +5582,9 @@
     // Helper to darken colors for shadows/depth
     const darken = (color, amt = 0.3) => {
       const hex = color.replace('#', '');
-      const r = Math.max(0, parseInt(hex.substr(0, 2), 16) * (1 - amt));
-      const g = Math.max(0, parseInt(hex.substr(2, 2), 16) * (1 - amt));
-      const b = Math.max(0, parseInt(hex.substr(4, 2), 16) * (1 - amt));
+      const r = Math.max(0, parseInt(hex.slice(0, 2), 16) * (1 - amt));
+      const g = Math.max(0, parseInt(hex.slice(2, 4), 16) * (1 - amt));
+      const b = Math.max(0, parseInt(hex.slice(4, 6), 16) * (1 - amt));
       return `rgb(${Math.floor(r)},${Math.floor(g)},${Math.floor(b)})`;
     };
     
