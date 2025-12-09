@@ -301,6 +301,22 @@
         unlock: 820,
         color: '#8b5cf6',
         stats: { ammo: 2, cooldown: 15000, radius: 180, damage: 25, pull: 0.8, duration: 3000 }
+      },
+      {
+        id: 'charge',
+        name: 'Ramming Charge',
+        desc: 'Charge at high speed into enemies, dealing collision damage without taking hits.',
+        unlock: 450,
+        color: '#eab308',
+        stats: { ammo: 3, cooldown: 10000, duration: 2500, speedMult: 3.5, damage: 45, invulnerable: true }
+      },
+      {
+        id: 'reinforcement',
+        name: 'Orbital Strike',
+        desc: 'Call in a missile strike from command - aim to designate the target zone.',
+        unlock: 750,
+        color: '#dc2626',
+        stats: { ammo: 2, cooldown: 18000, radius: 120, damage: 90, missiles: 5, delay: 800 }
       }
     ],
     defense: [
@@ -393,6 +409,8 @@
       'secondary:cluster': 'assets/icons/secondary-cluster.svg',
       'secondary:seeker': 'assets/icons/secondary-nova.svg',
       'secondary:gravity': 'assets/icons/secondary-nova.svg',
+      'secondary:charge': 'assets/icons/secondary-nova.svg',
+      'secondary:reinforcement': 'assets/icons/secondary-cluster.svg',
       'defense:aegis': 'assets/icons/defense-aegis.svg',
       'defense:reflector': 'assets/icons/defense-reflector.svg',
       'defense:phaseshift': 'assets/icons/defense-aegis.svg',
@@ -414,6 +432,8 @@
       'secondary:cluster': { name: 'Cluster Barrage', desc: 'Micro warhead scatter' },
       'secondary:seeker': { name: 'Seeker Swarm', desc: 'Homing micro-drones' },
       'secondary:gravity': { name: 'Gravity Well', desc: 'Enemy pull anomaly' },
+      'secondary:charge': { name: 'Ramming Charge', desc: 'High-speed ram attack' },
+      'secondary:reinforcement': { name: 'Orbital Strike', desc: 'Command missile strike' },
       'defense:aegis': { name: 'Aegis Field', desc: 'Forward arc shield' },
       'defense:reflector': { name: 'Reflector Veil', desc: 'Damage reflection' },
       'defense:phaseshift': { name: 'Phase Shift', desc: 'Invulnerability phase' },
@@ -5045,6 +5065,11 @@
       this.ammoPerShot = 1;
       this.secondaryLatch = false;
       this.defenseLatch = false;
+      // Charge ability state
+      this.chargeActiveUntil = 0;
+      this.chargeDamage = 0;
+      this.chargeSpeedMult = 1;
+      this.chargeInvulnerable = false;
       this.reconfigureLoadout(false);
     }
 
@@ -5177,12 +5202,42 @@
         time: now
       });
       
-      // Phase A: Shield bubble effect
+      // Phase A: Shield bubble effect and charge glow
       const glow = Math.max(0, (this.invEnd - now) / BASE.INVULN_MS);
-      if (glow > 0 || this.flash || this.isDefenseActive(now)) {
+      const isCharging = now < this.chargeActiveUntil;
+      
+      if (glow > 0 || this.flash || this.isDefenseActive(now) || isCharging) {
         ctx.save();
         
-        if (this.isDefenseActive(now)) {
+        if (isCharging) {
+          // Charging effect - golden/yellow aggressive aura
+          ctx.globalAlpha = 0.6 + Math.sin(now / 40) * 0.3;
+          ctx.strokeStyle = '#eab308';
+          ctx.fillStyle = '#eab308';
+          ctx.lineWidth = 4;
+          ctx.shadowColor = '#fbbf24';
+          ctx.shadowBlur = 25;
+          
+          // Multiple expanding rings for speed effect
+          for (let i = 0; i < 3; i++) {
+            const offset = (now / 60 + i * 0.3) % 1;
+            ctx.globalAlpha = (1 - offset) * 0.5;
+            ctx.beginPath();
+            ctx.arc(0, 0, this.size * (1.2 + offset * 0.5), 0, Math.PI * 2);
+            ctx.stroke();
+          }
+          
+          // Speed lines behind ship
+          ctx.globalAlpha = 0.7;
+          ctx.lineWidth = 2;
+          for (let i = 0; i < 5; i++) {
+            const lineOffset = -this.size * (1.5 + i * 0.3);
+            ctx.beginPath();
+            ctx.moveTo(lineOffset, -this.size * 0.3 + i * this.size * 0.15);
+            ctx.lineTo(lineOffset - this.size * 0.5, -this.size * 0.3 + i * this.size * 0.15);
+            ctx.stroke();
+          }
+        } else if (this.isDefenseActive(now)) {
           // Hexagonal shield pattern
           ctx.globalAlpha = 0.5 + Math.sin(now / 100) * 0.2;
           ctx.strokeStyle = this.defenseStats?.color || '#a855f7';
@@ -5242,7 +5297,12 @@
 
     update(dt) {
       const stats = this.#dynamicStats();
-      const spd = input.isBoosting ? stats.boost : stats.speed;
+      const now = performance.now();
+      const isCharging = now < this.chargeActiveUntil;
+      let spd = input.isBoosting ? stats.boost : stats.speed;
+      if (isCharging) {
+        spd *= this.chargeSpeedMult;
+      }
       const moveMag = Math.hypot(input.moveX, input.moveY);
       let moving = false;
       
@@ -5411,15 +5471,55 @@
       this.secondaryReadyAt = now + (this.secondaryCooldownMs || 9000);
       const originX = this.x + Math.cos(this.lookAngle) * (this.size * 1.4);
       const originY = this.y + Math.sin(this.lookAngle) * (this.size * 1.4);
-      addParticles('nova', originX, originY, 0, 24);
-      shakeScreen(7, 220);
       
       // Play secondary weapon sound
       if (typeof AudioManager !== 'undefined') {
         AudioManager.playSecondary();
       }
       
-      if (this.secondary.id === 'cluster') {
+      // Handle different secondary weapon types
+      if (this.secondary.id === 'charge') {
+        // Ramming Charge: high speed, collision damage, invulnerable
+        this.chargeActiveUntil = now + (stats.duration || 2500);
+        this.chargeDamage = stats.damage || 45;
+        this.chargeSpeedMult = stats.speedMult || 3.5;
+        this.chargeInvulnerable = stats.invulnerable || true;
+        addParticles('boost', this.x, this.y, 0, 32);
+        shakeScreen(5, 180);
+        addLogEntry('⚡ RAMMING CHARGE!', '#eab308');
+      } else if (this.secondary.id === 'reinforcement') {
+        // Orbital Strike: missiles from off-screen
+        const targetX = originX;
+        const targetY = originY;
+        const missiles = stats.missiles || 5;
+        const delay = stats.delay || 800;
+        
+        addParticles('nova', targetX, targetY, 0, 16);
+        shakeScreen(4, 150);
+        addLogEntry('📡 ORBITAL STRIKE CALLED!', '#dc2626');
+        
+        for (let i = 0; i < missiles; i++) {
+          queueTimedEffect(delay + i * 220, () => {
+            // Missiles come from random positions off-screen above
+            const missileStartX = targetX + rand(-300, 300);
+            const missileStartY = targetY - 800;
+            const missileTargetX = targetX + rand(-60, 60);
+            const missileTargetY = targetY + rand(-60, 60);
+            
+            // Create missile trail effect
+            addParticles('boost', missileStartX, missileStartY, 0, 8);
+            
+            // Delayed impact
+            queueTimedEffect(400, () => {
+              addParticles('nova', missileTargetX, missileTargetY, 0, 24);
+              applyRadialDamage(missileTargetX, missileTargetY, stats.radius || 120, stats.damage || 90, { knockback: 5, chargeMult: 0.7 });
+              shakeScreen(6, 140);
+            });
+          });
+        }
+      } else if (this.secondary.id === 'cluster') {
+        addParticles('nova', originX, originY, 0, 24);
+        shakeScreen(7, 220);
         const clusters = stats.clusters || 5;
         for (let i = 0; i < clusters; i++) {
           queueTimedEffect(i * 90, () => {
@@ -5432,6 +5532,9 @@
           });
         }
       } else {
+        // Default secondary weapon behavior (nova, seeker, gravity, etc.)
+        addParticles('nova', originX, originY, 0, 24);
+        shakeScreen(7, 220);
         applyRadialDamage(originX, originY, stats.radius || 150, stats.damage || 70, { knockback: 4.2, pull: 0.2, chargeMult: 0.6 });
       }
       return true;
@@ -5512,6 +5615,10 @@
     takeDamage(amount, source = null) {
       const now = performance.now();
       if (now < this.invEnd) return;
+      
+      // Check if charging with invulnerability
+      const isCharging = now < this.chargeActiveUntil;
+      if (isCharging && this.chargeInvulnerable) return;
       
       // Calculate shield penetration from enemy source using optional chaining
       const penetration = source?.shieldPenetration ?? 0;
@@ -7257,11 +7364,33 @@
       const enemy = enemies[i];
       const dx = player.x - enemy.x;
       const dy = player.y - enemy.y;
-      if (Math.hypot(dx, dy) < player.size + enemy.size) {
-        enemies.splice(i, 1);
-        // Use enemy's calculated damage with adaptive scaling
-        const enemyDamage = enemy.getDamage();
-        player.takeDamage(enemyDamage, enemy);
+      const dist = Math.hypot(dx, dy);
+      if (dist < player.size + enemy.size) {
+        const now = performance.now();
+        const isCharging = now < player.chargeActiveUntil;
+        
+        if (isCharging) {
+          // Player is charging - damage enemy without taking damage
+          enemy.hp -= player.chargeDamage;
+          addParticles('hit', enemy.x, enemy.y, 0, 16);
+          shakeScreen(4, 120);
+          
+          if (enemy.hp <= 0) {
+            enemies.splice(i, 1);
+            onKillEnemy(enemy);
+          }
+          
+          // Don't take damage during charge if invulnerable
+          if (!player.chargeInvulnerable) {
+            const enemyDamage = enemy.getDamage();
+            player.takeDamage(enemyDamage, enemy);
+          }
+        } else {
+          // Normal collision - player takes damage
+          enemies.splice(i, 1);
+          const enemyDamage = enemy.getDamage();
+          player.takeDamage(enemyDamage, enemy);
+        }
       }
     }
 
