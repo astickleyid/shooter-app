@@ -5616,38 +5616,38 @@
         ctx.restore();
       }
       
-      // Main swept wings (bottom layer)
+      // Main swept wings (bottom layer) - widened for better proportions
       ctx.fillStyle = darken(primary, 0.2);
       ctx.beginPath();
-      ctx.moveTo(-size * 0.1, -size * 0.2);
-      ctx.lineTo(-size * 0.35, -size * 0.95);
-      ctx.lineTo(-size * 0.85, -size * 0.75);
-      ctx.lineTo(-size * 0.55, -size * 0.15);
+      ctx.moveTo(-size * 0.1, -size * 0.3);
+      ctx.lineTo(-size * 0.35, -size * 1.15);
+      ctx.lineTo(-size * 0.85, -size * 0.95);
+      ctx.lineTo(-size * 0.55, -size * 0.25);
       ctx.closePath();
       ctx.fill();
       ctx.beginPath();
-      ctx.moveTo(-size * 0.1, size * 0.2);
-      ctx.lineTo(-size * 0.35, size * 0.95);
-      ctx.lineTo(-size * 0.85, size * 0.75);
-      ctx.lineTo(-size * 0.55, size * 0.15);
+      ctx.moveTo(-size * 0.1, size * 0.3);
+      ctx.lineTo(-size * 0.35, size * 1.15);
+      ctx.lineTo(-size * 0.85, size * 0.95);
+      ctx.lineTo(-size * 0.55, size * 0.25);
       ctx.closePath();
       ctx.fill();
       
       // Wing tip weapons pods
       ctx.fillStyle = accent;
       ctx.beginPath();
-      ctx.ellipse(-size * 0.45, -size * 0.88, size * 0.12, size * 0.06, -0.3, 0, Math.PI * 2);
-      ctx.ellipse(-size * 0.45, size * 0.88, size * 0.12, size * 0.06, 0.3, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.45, -size * 1.05, size * 0.12, size * 0.06, -0.3, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.45, size * 1.05, size * 0.12, size * 0.06, 0.3, 0, Math.PI * 2);
       ctx.fill();
       
       // Engine nacelles on wings
       ctx.fillStyle = darken(primary, 0.35);
       ctx.beginPath();
-      ctx.ellipse(-size * 0.7, -size * 0.55, size * 0.18, size * 0.1, -0.2, 0, Math.PI * 2);
-      ctx.ellipse(-size * 0.7, size * 0.55, size * 0.18, size * 0.1, 0.2, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.7, -size * 0.7, size * 0.18, size * 0.1, -0.2, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.7, size * 0.7, size * 0.18, size * 0.1, 0.2, 0, Math.PI * 2);
       ctx.fill();
       
-      // Main fuselage body
+      // Main fuselage body - widened for better proportions
       ctx.fillStyle = primary;
       ctx.strokeStyle = trim;
       ctx.lineWidth = Math.max(1.5, size * 0.08);
@@ -5655,14 +5655,14 @@
       ctx.shadowBlur = 12;
       ctx.beginPath();
       ctx.moveTo(size * 1.3, 0);
-      ctx.quadraticCurveTo(size * 0.8, -size * 0.15, size * 0.3, -size * 0.22);
-      ctx.lineTo(-size * 0.5, -size * 0.18);
-      ctx.lineTo(-size * 0.75, -size * 0.12);
+      ctx.quadraticCurveTo(size * 0.8, -size * 0.2, size * 0.3, -size * 0.3);
+      ctx.lineTo(-size * 0.5, -size * 0.25);
+      ctx.lineTo(-size * 0.75, -size * 0.18);
       ctx.lineTo(-size * 0.85, 0);
-      ctx.lineTo(-size * 0.75, size * 0.12);
-      ctx.lineTo(-size * 0.5, size * 0.18);
-      ctx.lineTo(size * 0.3, size * 0.22);
-      ctx.quadraticCurveTo(size * 0.8, size * 0.15, size * 1.3, 0);
+      ctx.lineTo(-size * 0.75, size * 0.18);
+      ctx.lineTo(-size * 0.5, size * 0.25);
+      ctx.lineTo(size * 0.3, size * 0.3);
+      ctx.quadraticCurveTo(size * 0.8, size * 0.2, size * 1.3, 0);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
@@ -5680,12 +5680,12 @@
       ctx.strokeStyle = darken(primary, 0.25);
       ctx.lineWidth = size * 0.02;
       ctx.beginPath();
-      ctx.moveTo(size * 0.4, -size * 0.18);
-      ctx.lineTo(size * 0.1, -size * 0.2);
-      ctx.moveTo(size * 0.4, size * 0.18);
-      ctx.lineTo(size * 0.1, size * 0.2);
-      ctx.moveTo(-size * 0.2, -size * 0.15);
-      ctx.lineTo(-size * 0.2, size * 0.15);
+      ctx.moveTo(size * 0.4, -size * 0.25);
+      ctx.lineTo(size * 0.1, -size * 0.28);
+      ctx.moveTo(size * 0.4, size * 0.25);
+      ctx.lineTo(size * 0.1, size * 0.28);
+      ctx.moveTo(-size * 0.2, -size * 0.2);
+      ctx.lineTo(-size * 0.2, size * 0.2);
       ctx.stroke();
       
       // Canopy (elongated fighter style)
@@ -5696,10 +5696,10 @@
       ctx.globalAlpha = 0.9;
       ctx.beginPath();
       ctx.moveTo(size * 0.65, 0);
-      ctx.quadraticCurveTo(size * 0.5, -size * 0.12, size * 0.2, -size * 0.1);
+      ctx.quadraticCurveTo(size * 0.5, -size * 0.16, size * 0.2, -size * 0.14);
       ctx.lineTo(size * 0.1, 0);
-      ctx.lineTo(size * 0.2, size * 0.1);
-      ctx.quadraticCurveTo(size * 0.5, size * 0.12, size * 0.65, 0);
+      ctx.lineTo(size * 0.2, size * 0.14);
+      ctx.quadraticCurveTo(size * 0.5, size * 0.16, size * 0.65, 0);
       ctx.fill();
       ctx.restore();
       
@@ -5707,8 +5707,8 @@
       ctx.strokeStyle = trim;
       ctx.lineWidth = size * 0.03;
       ctx.beginPath();
-      ctx.moveTo(size * 0.4, -size * 0.08);
-      ctx.lineTo(size * 0.4, size * 0.08);
+      ctx.moveTo(size * 0.4, -size * 0.12);
+      ctx.lineTo(size * 0.4, size * 0.12);
       ctx.stroke();
       
       // Engine exhausts with glow
@@ -5720,8 +5720,8 @@
       ctx.globalAlpha = enginePulse;
       // Twin main engines
       ctx.beginPath();
-      ctx.ellipse(-size * 0.72, -size * 0.55, size * 0.12, size * 0.08, 0, 0, Math.PI * 2);
-      ctx.ellipse(-size * 0.72, size * 0.55, size * 0.12, size * 0.08, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.72, -size * 0.7, size * 0.12, size * 0.08, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.72, size * 0.7, size * 0.12, size * 0.08, 0, 0, Math.PI * 2);
       ctx.fill();
       // Central engine
       ctx.beginPath();
@@ -5759,41 +5759,41 @@
         ctx.restore();
       }
       
-      // Angular delta wings (stealth faceted design)
+      // Angular delta wings (stealth faceted design) - widened
       ctx.fillStyle = darken(primary, 0.15);
       ctx.beginPath();
-      ctx.moveTo(size * 0.1, -size * 0.08);
-      ctx.lineTo(-size * 0.2, -size * 0.55);
-      ctx.lineTo(-size * 0.75, -size * 0.48);
-      ctx.lineTo(-size * 0.5, -size * 0.1);
+      ctx.moveTo(size * 0.1, -size * 0.12);
+      ctx.lineTo(-size * 0.2, -size * 0.7);
+      ctx.lineTo(-size * 0.75, -size * 0.6);
+      ctx.lineTo(-size * 0.5, -size * 0.15);
       ctx.closePath();
       ctx.fill();
       ctx.beginPath();
-      ctx.moveTo(size * 0.1, size * 0.08);
-      ctx.lineTo(-size * 0.2, size * 0.55);
-      ctx.lineTo(-size * 0.75, size * 0.48);
-      ctx.lineTo(-size * 0.5, size * 0.1);
+      ctx.moveTo(size * 0.1, size * 0.12);
+      ctx.lineTo(-size * 0.2, size * 0.7);
+      ctx.lineTo(-size * 0.75, size * 0.6);
+      ctx.lineTo(-size * 0.5, size * 0.15);
       ctx.closePath();
       ctx.fill();
       
       // Vertical stabilizers (canted)
       ctx.fillStyle = darken(primary, 0.25);
       ctx.beginPath();
-      ctx.moveTo(-size * 0.55, -size * 0.35);
-      ctx.lineTo(-size * 0.4, -size * 0.6);
-      ctx.lineTo(-size * 0.65, -size * 0.55);
-      ctx.lineTo(-size * 0.7, -size * 0.35);
+      ctx.moveTo(-size * 0.55, -size * 0.45);
+      ctx.lineTo(-size * 0.4, -size * 0.75);
+      ctx.lineTo(-size * 0.65, -size * 0.7);
+      ctx.lineTo(-size * 0.7, -size * 0.45);
       ctx.closePath();
       ctx.fill();
       ctx.beginPath();
-      ctx.moveTo(-size * 0.55, size * 0.35);
-      ctx.lineTo(-size * 0.4, size * 0.6);
-      ctx.lineTo(-size * 0.65, size * 0.55);
-      ctx.lineTo(-size * 0.7, size * 0.35);
+      ctx.moveTo(-size * 0.55, size * 0.45);
+      ctx.lineTo(-size * 0.4, size * 0.75);
+      ctx.lineTo(-size * 0.65, size * 0.7);
+      ctx.lineTo(-size * 0.7, size * 0.45);
       ctx.closePath();
       ctx.fill();
       
-      // Main fuselage - long needle shape
+      // Main fuselage - long needle shape - widened
       ctx.fillStyle = primary;
       ctx.strokeStyle = trim;
       ctx.lineWidth = Math.max(1.5, size * 0.06);
@@ -5801,13 +5801,13 @@
       ctx.shadowBlur = 10;
       ctx.beginPath();
       ctx.moveTo(size * 1.5, 0);
-      ctx.lineTo(size * 0.4, -size * 0.12);
-      ctx.lineTo(-size * 0.3, -size * 0.15);
-      ctx.lineTo(-size * 0.9, -size * 0.08);
+      ctx.lineTo(size * 0.4, -size * 0.18);
+      ctx.lineTo(-size * 0.3, -size * 0.2);
+      ctx.lineTo(-size * 0.9, -size * 0.12);
       ctx.lineTo(-size * 0.95, 0);
-      ctx.lineTo(-size * 0.9, size * 0.08);
-      ctx.lineTo(-size * 0.3, size * 0.15);
-      ctx.lineTo(size * 0.4, size * 0.12);
+      ctx.lineTo(-size * 0.9, size * 0.12);
+      ctx.lineTo(-size * 0.3, size * 0.2);
+      ctx.lineTo(size * 0.4, size * 0.18);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
@@ -5818,11 +5818,11 @@
       ctx.lineWidth = size * 0.04;
       ctx.beginPath();
       ctx.moveTo(size * 1.1, 0);
-      ctx.lineTo(size * 0.2, -size * 0.08);
-      ctx.lineTo(-size * 0.5, -size * 0.1);
+      ctx.lineTo(size * 0.2, -size * 0.12);
+      ctx.lineTo(-size * 0.5, -size * 0.15);
       ctx.moveTo(size * 1.1, 0);
-      ctx.lineTo(size * 0.2, size * 0.08);
-      ctx.lineTo(-size * 0.5, size * 0.1);
+      ctx.lineTo(size * 0.2, size * 0.12);
+      ctx.lineTo(-size * 0.5, size * 0.15);
       ctx.stroke();
       
       // Sensor array on nose
@@ -5838,7 +5838,7 @@
       ctx.fillStyle = canopy;
       ctx.globalAlpha = 0.85;
       ctx.beginPath();
-      ctx.ellipse(size * 0.35, 0, size * 0.25, size * 0.07, 0, 0, Math.PI * 2);
+      ctx.ellipse(size * 0.35, 0, size * 0.25, size * 0.1, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
       
@@ -5896,35 +5896,35 @@
         ctx.restore();
       }
       
-      // Heavy twin-boom hull structures
+      // Heavy twin-boom hull structures - widened
       ctx.fillStyle = darken(primary, 0.2);
       // Top boom
       ctx.beginPath();
-      ctx.moveTo(size * 0.3, -size * 0.35);
-      ctx.lineTo(-size * 0.15, -size * 0.95);
-      ctx.lineTo(-size * 0.85, -size * 0.85);
-      ctx.lineTo(-size * 1.0, -size * 0.35);
-      ctx.lineTo(-size * 0.6, -size * 0.3);
+      ctx.moveTo(size * 0.3, -size * 0.45);
+      ctx.lineTo(-size * 0.15, -size * 1.15);
+      ctx.lineTo(-size * 0.85, -size * 1.05);
+      ctx.lineTo(-size * 1.0, -size * 0.45);
+      ctx.lineTo(-size * 0.6, -size * 0.4);
       ctx.closePath();
       ctx.fill();
       // Bottom boom
       ctx.beginPath();
-      ctx.moveTo(size * 0.3, size * 0.35);
-      ctx.lineTo(-size * 0.15, size * 0.95);
-      ctx.lineTo(-size * 0.85, size * 0.85);
-      ctx.lineTo(-size * 1.0, size * 0.35);
-      ctx.lineTo(-size * 0.6, size * 0.3);
+      ctx.moveTo(size * 0.3, size * 0.45);
+      ctx.lineTo(-size * 0.15, size * 1.15);
+      ctx.lineTo(-size * 0.85, size * 1.05);
+      ctx.lineTo(-size * 1.0, size * 0.45);
+      ctx.lineTo(-size * 0.6, size * 0.4);
       ctx.closePath();
       ctx.fill();
       
       // Armor plates on booms
       ctx.fillStyle = accent;
       ctx.beginPath();
-      ctx.rect(-size * 0.5, -size * 0.9, size * 0.25, size * 0.12);
-      ctx.rect(-size * 0.5, size * 0.78, size * 0.25, size * 0.12);
+      ctx.rect(-size * 0.5, -size * 1.1, size * 0.25, size * 0.12);
+      ctx.rect(-size * 0.5, size * 0.98, size * 0.25, size * 0.12);
       ctx.fill();
       
-      // Central main fuselage (armored box)
+      // Central main fuselage (armored box) - widened
       ctx.fillStyle = primary;
       ctx.strokeStyle = trim;
       ctx.lineWidth = Math.max(2, size * 0.1);
@@ -5932,12 +5932,12 @@
       ctx.shadowBlur = 12;
       ctx.beginPath();
       ctx.moveTo(size * 1.1, 0);
-      ctx.lineTo(size * 0.6, -size * 0.28);
-      ctx.lineTo(-size * 0.4, -size * 0.25);
-      ctx.lineTo(-size * 0.55, -size * 0.18);
-      ctx.lineTo(-size * 0.55, size * 0.18);
-      ctx.lineTo(-size * 0.4, size * 0.25);
-      ctx.lineTo(size * 0.6, size * 0.28);
+      ctx.lineTo(size * 0.6, -size * 0.38);
+      ctx.lineTo(-size * 0.4, -size * 0.35);
+      ctx.lineTo(-size * 0.55, -size * 0.25);
+      ctx.lineTo(-size * 0.55, size * 0.25);
+      ctx.lineTo(-size * 0.4, size * 0.35);
+      ctx.lineTo(size * 0.6, size * 0.38);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
@@ -5959,10 +5959,10 @@
       ctx.strokeStyle = accent;
       ctx.lineWidth = size * 0.07;
       ctx.beginPath();
-      ctx.moveTo(size * 0.5, -size * 0.22);
-      ctx.lineTo(-size * 0.3, -size * 0.2);
-      ctx.moveTo(size * 0.5, size * 0.22);
-      ctx.lineTo(-size * 0.3, size * 0.2);
+      ctx.moveTo(size * 0.5, -size * 0.3);
+      ctx.lineTo(-size * 0.3, -size * 0.28);
+      ctx.moveTo(size * 0.5, size * 0.3);
+      ctx.lineTo(-size * 0.3, size * 0.28);
       ctx.stroke();
       
       // Armored canopy (smaller, protected)
@@ -5993,13 +5993,13 @@
       ctx.globalAlpha = enginePulse;
       // Boom engines
       ctx.beginPath();
-      ctx.ellipse(-size * 0.95, -size * 0.65, size * 0.12, size * 0.1, 0, 0, Math.PI * 2);
-      ctx.ellipse(-size * 0.95, size * 0.65, size * 0.12, size * 0.1, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.95, -size * 0.82, size * 0.12, size * 0.1, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.95, size * 0.82, size * 0.12, size * 0.1, 0, 0, Math.PI * 2);
       ctx.fill();
       // Central engines
       ctx.beginPath();
-      ctx.ellipse(-size * 0.58, -size * 0.12, size * 0.08, size * 0.06, 0, 0, Math.PI * 2);
-      ctx.ellipse(-size * 0.58, size * 0.12, size * 0.08, size * 0.06, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.58, -size * 0.18, size * 0.08, size * 0.06, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.58, size * 0.18, size * 0.08, size * 0.06, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
 
@@ -6028,48 +6028,48 @@
         ctx.restore();
       }
       
-      // Forward-swept aggressive wings
+      // Forward-swept aggressive wings - widened
       ctx.fillStyle = darken(primary, 0.15);
       ctx.beginPath();
-      ctx.moveTo(size * 0.4, -size * 0.12);
-      ctx.lineTo(size * 0.35, -size * 0.7);
-      ctx.lineTo(-size * 0.35, -size * 0.55);
-      ctx.lineTo(-size * 0.15, -size * 0.12);
+      ctx.moveTo(size * 0.4, -size * 0.18);
+      ctx.lineTo(size * 0.35, -size * 0.9);
+      ctx.lineTo(-size * 0.35, -size * 0.7);
+      ctx.lineTo(-size * 0.15, -size * 0.18);
       ctx.closePath();
       ctx.fill();
       ctx.beginPath();
-      ctx.moveTo(size * 0.4, size * 0.12);
-      ctx.lineTo(size * 0.35, size * 0.7);
-      ctx.lineTo(-size * 0.35, size * 0.55);
-      ctx.lineTo(-size * 0.15, size * 0.12);
+      ctx.moveTo(size * 0.4, size * 0.18);
+      ctx.lineTo(size * 0.35, size * 0.9);
+      ctx.lineTo(-size * 0.35, size * 0.7);
+      ctx.lineTo(-size * 0.15, size * 0.18);
       ctx.closePath();
       ctx.fill();
       
       // Wing-mounted cannons
       ctx.fillStyle = darken(accent, 0.2);
       ctx.beginPath();
-      ctx.rect(size * 0.4, -size * 0.58, size * 0.3, size * 0.06);
-      ctx.rect(size * 0.4, size * 0.52, size * 0.3, size * 0.06);
+      ctx.rect(size * 0.4, -size * 0.75, size * 0.3, size * 0.06);
+      ctx.rect(size * 0.4, size * 0.69, size * 0.3, size * 0.06);
       ctx.fill();
       
       // Tail fins (angular, aggressive)
       ctx.fillStyle = darken(primary, 0.25);
       ctx.beginPath();
-      ctx.moveTo(-size * 0.5, -size * 0.15);
-      ctx.lineTo(-size * 0.7, -size * 0.45);
-      ctx.lineTo(-size * 0.85, -size * 0.35);
-      ctx.lineTo(-size * 0.75, -size * 0.12);
+      ctx.moveTo(-size * 0.5, -size * 0.2);
+      ctx.lineTo(-size * 0.7, -size * 0.58);
+      ctx.lineTo(-size * 0.85, -size * 0.45);
+      ctx.lineTo(-size * 0.75, -size * 0.18);
       ctx.closePath();
       ctx.fill();
       ctx.beginPath();
-      ctx.moveTo(-size * 0.5, size * 0.15);
-      ctx.lineTo(-size * 0.7, size * 0.45);
-      ctx.lineTo(-size * 0.85, size * 0.35);
-      ctx.lineTo(-size * 0.75, size * 0.12);
+      ctx.moveTo(-size * 0.5, size * 0.2);
+      ctx.lineTo(-size * 0.7, size * 0.58);
+      ctx.lineTo(-size * 0.85, size * 0.45);
+      ctx.lineTo(-size * 0.75, size * 0.18);
       ctx.closePath();
       ctx.fill();
       
-      // Angular main fuselage
+      // Angular main fuselage - widened
       ctx.fillStyle = primary;
       ctx.strokeStyle = trim;
       ctx.lineWidth = Math.max(1.5, size * 0.07);
@@ -6077,13 +6077,13 @@
       ctx.shadowBlur = 12;
       ctx.beginPath();
       ctx.moveTo(size * 1.4, 0);
-      ctx.lineTo(size * 0.6, -size * 0.15);
-      ctx.lineTo(size * 0.2, -size * 0.18);
-      ctx.lineTo(-size * 0.5, -size * 0.12);
+      ctx.lineTo(size * 0.6, -size * 0.22);
+      ctx.lineTo(size * 0.2, -size * 0.25);
+      ctx.lineTo(-size * 0.5, -size * 0.18);
       ctx.lineTo(-size * 0.8, 0);
-      ctx.lineTo(-size * 0.5, size * 0.12);
-      ctx.lineTo(size * 0.2, size * 0.18);
-      ctx.lineTo(size * 0.6, size * 0.15);
+      ctx.lineTo(-size * 0.5, size * 0.18);
+      ctx.lineTo(size * 0.2, size * 0.25);
+      ctx.lineTo(size * 0.6, size * 0.22);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
@@ -6280,43 +6280,43 @@
         ctx.restore();
       }
       
-      // Massive wing platforms
+      // Massive wing platforms - widened
       ctx.fillStyle = darken(primary, 0.2);
       // Upper wing/weapon platform
       ctx.beginPath();
-      ctx.moveTo(size * 0.3, -size * 0.4);
-      ctx.lineTo(-size * 0.25, -size * 0.95);
-      ctx.lineTo(-size * 0.9, -size * 0.75);
-      ctx.lineTo(-size * 0.95, -size * 0.35);
-      ctx.lineTo(-size * 0.5, -size * 0.3);
+      ctx.moveTo(size * 0.3, -size * 0.52);
+      ctx.lineTo(-size * 0.25, -size * 1.2);
+      ctx.lineTo(-size * 0.9, -size * 0.95);
+      ctx.lineTo(-size * 0.95, -size * 0.48);
+      ctx.lineTo(-size * 0.5, -size * 0.42);
       ctx.closePath();
       ctx.fill();
       // Lower wing/weapon platform
       ctx.beginPath();
-      ctx.moveTo(size * 0.3, size * 0.4);
-      ctx.lineTo(-size * 0.25, size * 0.95);
-      ctx.lineTo(-size * 0.9, size * 0.75);
-      ctx.lineTo(-size * 0.95, size * 0.35);
-      ctx.lineTo(-size * 0.5, size * 0.3);
+      ctx.moveTo(size * 0.3, size * 0.52);
+      ctx.lineTo(-size * 0.25, size * 1.2);
+      ctx.lineTo(-size * 0.9, size * 0.95);
+      ctx.lineTo(-size * 0.95, size * 0.48);
+      ctx.lineTo(-size * 0.5, size * 0.42);
       ctx.closePath();
       ctx.fill();
       
       // Heavy turret mounts on wings
       ctx.fillStyle = darken(primary, 0.35);
       ctx.beginPath();
-      ctx.arc(-size * 0.5, -size * 0.65, size * 0.15, 0, Math.PI * 2);
-      ctx.arc(-size * 0.5, size * 0.65, size * 0.15, 0, Math.PI * 2);
+      ctx.arc(-size * 0.5, -size * 0.85, size * 0.15, 0, Math.PI * 2);
+      ctx.arc(-size * 0.5, size * 0.85, size * 0.15, 0, Math.PI * 2);
       ctx.fill();
       // Turret barrels
       ctx.fillStyle = trim;
       ctx.beginPath();
-      ctx.rect(-size * 0.35, -size * 0.68, size * 0.25, size * 0.03);
-      ctx.rect(-size * 0.35, -size * 0.62, size * 0.25, size * 0.03);
-      ctx.rect(-size * 0.35, size * 0.62, size * 0.25, size * 0.03);
-      ctx.rect(-size * 0.35, size * 0.65, size * 0.25, size * 0.03);
+      ctx.rect(-size * 0.35, -size * 0.88, size * 0.25, size * 0.03);
+      ctx.rect(-size * 0.35, -size * 0.82, size * 0.25, size * 0.03);
+      ctx.rect(-size * 0.35, size * 0.82, size * 0.25, size * 0.03);
+      ctx.rect(-size * 0.35, size * 0.85, size * 0.25, size * 0.03);
       ctx.fill();
       
-      // Armored main hull
+      // Armored main hull - widened
       ctx.fillStyle = primary;
       ctx.strokeStyle = trim;
       ctx.lineWidth = Math.max(2, size * 0.1);
@@ -6324,13 +6324,13 @@
       ctx.shadowBlur = 14;
       ctx.beginPath();
       ctx.moveTo(size * 1.0, 0);
-      ctx.lineTo(size * 0.6, -size * 0.35);
-      ctx.lineTo(-size * 0.3, -size * 0.38);
-      ctx.lineTo(-size * 0.7, -size * 0.25);
+      ctx.lineTo(size * 0.6, -size * 0.45);
+      ctx.lineTo(-size * 0.3, -size * 0.48);
+      ctx.lineTo(-size * 0.7, -size * 0.35);
       ctx.lineTo(-size * 0.85, 0);
-      ctx.lineTo(-size * 0.7, size * 0.25);
-      ctx.lineTo(-size * 0.3, size * 0.38);
-      ctx.lineTo(size * 0.6, size * 0.35);
+      ctx.lineTo(-size * 0.7, size * 0.35);
+      ctx.lineTo(-size * 0.3, size * 0.48);
+      ctx.lineTo(size * 0.6, size * 0.45);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
@@ -6339,12 +6339,12 @@
       // Command bridge/superstructure
       ctx.fillStyle = darken(primary, 0.1);
       ctx.beginPath();
-      ctx.moveTo(size * 0.5, -size * 0.25);
-      ctx.lineTo(size * 0.2, -size * 0.32);
-      ctx.lineTo(-size * 0.2, -size * 0.28);
-      ctx.lineTo(-size * 0.2, size * 0.28);
-      ctx.lineTo(size * 0.2, size * 0.32);
-      ctx.lineTo(size * 0.5, size * 0.25);
+      ctx.moveTo(size * 0.5, -size * 0.35);
+      ctx.lineTo(size * 0.2, -size * 0.42);
+      ctx.lineTo(-size * 0.2, -size * 0.38);
+      ctx.lineTo(-size * 0.2, size * 0.38);
+      ctx.lineTo(size * 0.2, size * 0.42);
+      ctx.lineTo(size * 0.5, size * 0.35);
       ctx.closePath();
       ctx.fill();
       
@@ -6365,10 +6365,10 @@
       ctx.strokeStyle = accent;
       ctx.lineWidth = size * 0.06;
       ctx.beginPath();
-      ctx.moveTo(size * 0.4, -size * 0.28);
-      ctx.lineTo(-size * 0.3, -size * 0.3);
-      ctx.moveTo(size * 0.4, size * 0.28);
-      ctx.lineTo(-size * 0.3, size * 0.3);
+      ctx.moveTo(size * 0.4, -size * 0.38);
+      ctx.lineTo(-size * 0.3, -size * 0.4);
+      ctx.moveTo(size * 0.4, size * 0.38);
+      ctx.lineTo(-size * 0.3, size * 0.4);
       ctx.stroke();
       
       // Small armored bridge canopy
@@ -6400,15 +6400,15 @@
       ctx.globalAlpha = enginePulse;
       // Wing engines
       ctx.beginPath();
-      ctx.ellipse(-size * 0.92, -size * 0.55, size * 0.12, size * 0.1, 0, 0, Math.PI * 2);
-      ctx.ellipse(-size * 0.92, size * 0.55, size * 0.12, size * 0.1, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.92, -size * 0.72, size * 0.12, size * 0.1, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.92, size * 0.72, size * 0.12, size * 0.1, 0, 0, Math.PI * 2);
       ctx.fill();
       // Central quad engines
       ctx.beginPath();
-      ctx.ellipse(-size * 0.88, -size * 0.18, size * 0.1, size * 0.07, 0, 0, Math.PI * 2);
-      ctx.ellipse(-size * 0.88, -size * 0.05, size * 0.1, size * 0.07, 0, 0, Math.PI * 2);
-      ctx.ellipse(-size * 0.88, size * 0.05, size * 0.1, size * 0.07, 0, 0, Math.PI * 2);
-      ctx.ellipse(-size * 0.88, size * 0.18, size * 0.1, size * 0.07, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.88, -size * 0.26, size * 0.1, size * 0.07, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.88, -size * 0.08, size * 0.1, size * 0.07, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.88, size * 0.08, size * 0.1, size * 0.07, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.88, size * 0.26, size * 0.1, size * 0.07, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
 
