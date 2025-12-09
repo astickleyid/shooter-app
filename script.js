@@ -301,6 +301,22 @@
         unlock: 820,
         color: '#8b5cf6',
         stats: { ammo: 2, cooldown: 15000, radius: 180, damage: 25, pull: 0.8, duration: 3000 }
+      },
+      {
+        id: 'charge',
+        name: 'Ramming Charge',
+        desc: 'Charge at high speed into enemies, dealing collision damage without taking hits.',
+        unlock: 450,
+        color: '#eab308',
+        stats: { ammo: 3, cooldown: 10000, duration: 2500, speedMult: 3.5, damage: 45, invulnerable: true }
+      },
+      {
+        id: 'reinforcement',
+        name: 'Orbital Strike',
+        desc: 'Call in a missile strike from command - aim to designate the target zone.',
+        unlock: 750,
+        color: '#dc2626',
+        stats: { ammo: 2, cooldown: 18000, radius: 120, damage: 90, missiles: 5, delay: 800 }
       }
     ],
     defense: [
@@ -393,6 +409,8 @@
       'secondary:cluster': 'assets/icons/secondary-cluster.svg',
       'secondary:seeker': 'assets/icons/secondary-nova.svg',
       'secondary:gravity': 'assets/icons/secondary-nova.svg',
+      'secondary:charge': 'assets/icons/secondary-nova.svg',
+      'secondary:reinforcement': 'assets/icons/secondary-cluster.svg',
       'defense:aegis': 'assets/icons/defense-aegis.svg',
       'defense:reflector': 'assets/icons/defense-reflector.svg',
       'defense:phaseshift': 'assets/icons/defense-aegis.svg',
@@ -414,6 +432,8 @@
       'secondary:cluster': { name: 'Cluster Barrage', desc: 'Micro warhead scatter' },
       'secondary:seeker': { name: 'Seeker Swarm', desc: 'Homing micro-drones' },
       'secondary:gravity': { name: 'Gravity Well', desc: 'Enemy pull anomaly' },
+      'secondary:charge': { name: 'Ramming Charge', desc: 'High-speed ram attack' },
+      'secondary:reinforcement': { name: 'Orbital Strike', desc: 'Command missile strike' },
       'defense:aegis': { name: 'Aegis Field', desc: 'Forward arc shield' },
       'defense:reflector': { name: 'Reflector Veil', desc: 'Damage reflection' },
       'defense:phaseshift': { name: 'Phase Shift', desc: 'Invulnerability phase' },
@@ -5045,6 +5065,11 @@
       this.ammoPerShot = 1;
       this.secondaryLatch = false;
       this.defenseLatch = false;
+      // Charge ability state
+      this.chargeActiveUntil = 0;
+      this.chargeDamage = 0;
+      this.chargeSpeedMult = 1;
+      this.chargeInvulnerable = false;
       this.reconfigureLoadout(false);
     }
 
@@ -5177,12 +5202,42 @@
         time: now
       });
       
-      // Phase A: Shield bubble effect
+      // Phase A: Shield bubble effect and charge glow
       const glow = Math.max(0, (this.invEnd - now) / BASE.INVULN_MS);
-      if (glow > 0 || this.flash || this.isDefenseActive(now)) {
+      const isCharging = now < this.chargeActiveUntil;
+      
+      if (glow > 0 || this.flash || this.isDefenseActive(now) || isCharging) {
         ctx.save();
         
-        if (this.isDefenseActive(now)) {
+        if (isCharging) {
+          // Charging effect - golden/yellow aggressive aura
+          ctx.globalAlpha = 0.6 + Math.sin(now / 40) * 0.3;
+          ctx.strokeStyle = '#eab308';
+          ctx.fillStyle = '#eab308';
+          ctx.lineWidth = 4;
+          ctx.shadowColor = '#fbbf24';
+          ctx.shadowBlur = 25;
+          
+          // Multiple expanding rings for speed effect
+          for (let i = 0; i < 3; i++) {
+            const offset = (now / 60 + i * 0.3) % 1;
+            ctx.globalAlpha = (1 - offset) * 0.5;
+            ctx.beginPath();
+            ctx.arc(0, 0, this.size * (1.2 + offset * 0.5), 0, Math.PI * 2);
+            ctx.stroke();
+          }
+          
+          // Speed lines behind ship
+          ctx.globalAlpha = 0.7;
+          ctx.lineWidth = 2;
+          for (let i = 0; i < 5; i++) {
+            const lineOffset = -this.size * (1.5 + i * 0.3);
+            ctx.beginPath();
+            ctx.moveTo(lineOffset, -this.size * 0.3 + i * this.size * 0.15);
+            ctx.lineTo(lineOffset - this.size * 0.5, -this.size * 0.3 + i * this.size * 0.15);
+            ctx.stroke();
+          }
+        } else if (this.isDefenseActive(now)) {
           // Hexagonal shield pattern
           ctx.globalAlpha = 0.5 + Math.sin(now / 100) * 0.2;
           ctx.strokeStyle = this.defenseStats?.color || '#a855f7';
@@ -5242,7 +5297,12 @@
 
     update(dt) {
       const stats = this.#dynamicStats();
-      const spd = input.isBoosting ? stats.boost : stats.speed;
+      const now = performance.now();
+      const isCharging = now < this.chargeActiveUntil;
+      let spd = input.isBoosting ? stats.boost : stats.speed;
+      if (isCharging) {
+        spd *= this.chargeSpeedMult;
+      }
       const moveMag = Math.hypot(input.moveX, input.moveY);
       let moving = false;
       
@@ -5333,8 +5393,6 @@
         }
       }
       
-      const now = performance.now();
-      
       // Automatic defense activation when enemies get close
       const defenseRange = this.size + 100;
       let enemyNearby = false;
@@ -5411,15 +5469,55 @@
       this.secondaryReadyAt = now + (this.secondaryCooldownMs || 9000);
       const originX = this.x + Math.cos(this.lookAngle) * (this.size * 1.4);
       const originY = this.y + Math.sin(this.lookAngle) * (this.size * 1.4);
-      addParticles('nova', originX, originY, 0, 24);
-      shakeScreen(7, 220);
       
       // Play secondary weapon sound
       if (typeof AudioManager !== 'undefined') {
         AudioManager.playSecondary();
       }
       
-      if (this.secondary.id === 'cluster') {
+      // Handle different secondary weapon types
+      if (this.secondary.id === 'charge') {
+        // Ramming Charge: high speed, collision damage, invulnerable
+        this.chargeActiveUntil = now + (stats.duration || 2500);
+        this.chargeDamage = stats.damage || 45;
+        this.chargeSpeedMult = stats.speedMult || 3.5;
+        this.chargeInvulnerable = stats.invulnerable || true;
+        addParticles('boost', this.x, this.y, 0, 32);
+        shakeScreen(5, 180);
+        addLogEntry('⚡ RAMMING CHARGE!', '#eab308');
+      } else if (this.secondary.id === 'reinforcement') {
+        // Orbital Strike: missiles from off-screen
+        const targetX = originX;
+        const targetY = originY;
+        const missiles = stats.missiles || 5;
+        const delay = stats.delay || 800;
+        
+        addParticles('nova', targetX, targetY, 0, 16);
+        shakeScreen(4, 150);
+        addLogEntry('📡 ORBITAL STRIKE CALLED!', '#dc2626');
+        
+        for (let i = 0; i < missiles; i++) {
+          queueTimedEffect(delay + i * 220, () => {
+            // Missiles come from random positions off-screen above
+            const missileStartX = targetX + rand(-300, 300);
+            const missileStartY = targetY - 800;
+            const missileTargetX = targetX + rand(-60, 60);
+            const missileTargetY = targetY + rand(-60, 60);
+            
+            // Create missile trail effect
+            addParticles('boost', missileStartX, missileStartY, 0, 8);
+            
+            // Delayed impact
+            queueTimedEffect(400, () => {
+              addParticles('nova', missileTargetX, missileTargetY, 0, 24);
+              applyRadialDamage(missileTargetX, missileTargetY, stats.radius || 120, stats.damage || 90, { knockback: 5, chargeMult: 0.7 });
+              shakeScreen(6, 140);
+            });
+          });
+        }
+      } else if (this.secondary.id === 'cluster') {
+        addParticles('nova', originX, originY, 0, 24);
+        shakeScreen(7, 220);
         const clusters = stats.clusters || 5;
         for (let i = 0; i < clusters; i++) {
           queueTimedEffect(i * 90, () => {
@@ -5432,6 +5530,9 @@
           });
         }
       } else {
+        // Default secondary weapon behavior (nova, seeker, gravity, etc.)
+        addParticles('nova', originX, originY, 0, 24);
+        shakeScreen(7, 220);
         applyRadialDamage(originX, originY, stats.radius || 150, stats.damage || 70, { knockback: 4.2, pull: 0.2, chargeMult: 0.6 });
       }
       return true;
@@ -5512,6 +5613,10 @@
     takeDamage(amount, source = null) {
       const now = performance.now();
       if (now < this.invEnd) return;
+      
+      // Check if charging with invulnerability
+      const isCharging = now < this.chargeActiveUntil;
+      if (isCharging && this.chargeInvulnerable) return;
       
       // Calculate shield penetration from enemy source using optional chaining
       const penetration = source?.shieldPenetration ?? 0;
@@ -5616,38 +5721,38 @@
         ctx.restore();
       }
       
-      // Main swept wings (bottom layer)
+      // Main swept wings (bottom layer) - widened for better proportions
       ctx.fillStyle = darken(primary, 0.2);
       ctx.beginPath();
-      ctx.moveTo(-size * 0.1, -size * 0.2);
-      ctx.lineTo(-size * 0.35, -size * 0.95);
-      ctx.lineTo(-size * 0.85, -size * 0.75);
-      ctx.lineTo(-size * 0.55, -size * 0.15);
+      ctx.moveTo(-size * 0.1, -size * 0.3);
+      ctx.lineTo(-size * 0.35, -size * 1.15);
+      ctx.lineTo(-size * 0.85, -size * 0.95);
+      ctx.lineTo(-size * 0.55, -size * 0.25);
       ctx.closePath();
       ctx.fill();
       ctx.beginPath();
-      ctx.moveTo(-size * 0.1, size * 0.2);
-      ctx.lineTo(-size * 0.35, size * 0.95);
-      ctx.lineTo(-size * 0.85, size * 0.75);
-      ctx.lineTo(-size * 0.55, size * 0.15);
+      ctx.moveTo(-size * 0.1, size * 0.3);
+      ctx.lineTo(-size * 0.35, size * 1.15);
+      ctx.lineTo(-size * 0.85, size * 0.95);
+      ctx.lineTo(-size * 0.55, size * 0.25);
       ctx.closePath();
       ctx.fill();
       
       // Wing tip weapons pods
       ctx.fillStyle = accent;
       ctx.beginPath();
-      ctx.ellipse(-size * 0.45, -size * 0.88, size * 0.12, size * 0.06, -0.3, 0, Math.PI * 2);
-      ctx.ellipse(-size * 0.45, size * 0.88, size * 0.12, size * 0.06, 0.3, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.45, -size * 1.05, size * 0.12, size * 0.06, -0.3, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.45, size * 1.05, size * 0.12, size * 0.06, 0.3, 0, Math.PI * 2);
       ctx.fill();
       
       // Engine nacelles on wings
       ctx.fillStyle = darken(primary, 0.35);
       ctx.beginPath();
-      ctx.ellipse(-size * 0.7, -size * 0.55, size * 0.18, size * 0.1, -0.2, 0, Math.PI * 2);
-      ctx.ellipse(-size * 0.7, size * 0.55, size * 0.18, size * 0.1, 0.2, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.7, -size * 0.7, size * 0.18, size * 0.1, -0.2, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.7, size * 0.7, size * 0.18, size * 0.1, 0.2, 0, Math.PI * 2);
       ctx.fill();
       
-      // Main fuselage body
+      // Main fuselage body - widened for better proportions
       ctx.fillStyle = primary;
       ctx.strokeStyle = trim;
       ctx.lineWidth = Math.max(1.5, size * 0.08);
@@ -5655,14 +5760,14 @@
       ctx.shadowBlur = 12;
       ctx.beginPath();
       ctx.moveTo(size * 1.3, 0);
-      ctx.quadraticCurveTo(size * 0.8, -size * 0.15, size * 0.3, -size * 0.22);
-      ctx.lineTo(-size * 0.5, -size * 0.18);
-      ctx.lineTo(-size * 0.75, -size * 0.12);
+      ctx.quadraticCurveTo(size * 0.8, -size * 0.2, size * 0.3, -size * 0.3);
+      ctx.lineTo(-size * 0.5, -size * 0.25);
+      ctx.lineTo(-size * 0.75, -size * 0.18);
       ctx.lineTo(-size * 0.85, 0);
-      ctx.lineTo(-size * 0.75, size * 0.12);
-      ctx.lineTo(-size * 0.5, size * 0.18);
-      ctx.lineTo(size * 0.3, size * 0.22);
-      ctx.quadraticCurveTo(size * 0.8, size * 0.15, size * 1.3, 0);
+      ctx.lineTo(-size * 0.75, size * 0.18);
+      ctx.lineTo(-size * 0.5, size * 0.25);
+      ctx.lineTo(size * 0.3, size * 0.3);
+      ctx.quadraticCurveTo(size * 0.8, size * 0.2, size * 1.3, 0);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
@@ -5680,12 +5785,12 @@
       ctx.strokeStyle = darken(primary, 0.25);
       ctx.lineWidth = size * 0.02;
       ctx.beginPath();
-      ctx.moveTo(size * 0.4, -size * 0.18);
-      ctx.lineTo(size * 0.1, -size * 0.2);
-      ctx.moveTo(size * 0.4, size * 0.18);
-      ctx.lineTo(size * 0.1, size * 0.2);
-      ctx.moveTo(-size * 0.2, -size * 0.15);
-      ctx.lineTo(-size * 0.2, size * 0.15);
+      ctx.moveTo(size * 0.4, -size * 0.25);
+      ctx.lineTo(size * 0.1, -size * 0.28);
+      ctx.moveTo(size * 0.4, size * 0.25);
+      ctx.lineTo(size * 0.1, size * 0.28);
+      ctx.moveTo(-size * 0.2, -size * 0.2);
+      ctx.lineTo(-size * 0.2, size * 0.2);
       ctx.stroke();
       
       // Canopy (elongated fighter style)
@@ -5696,10 +5801,10 @@
       ctx.globalAlpha = 0.9;
       ctx.beginPath();
       ctx.moveTo(size * 0.65, 0);
-      ctx.quadraticCurveTo(size * 0.5, -size * 0.12, size * 0.2, -size * 0.1);
+      ctx.quadraticCurveTo(size * 0.5, -size * 0.16, size * 0.2, -size * 0.14);
       ctx.lineTo(size * 0.1, 0);
-      ctx.lineTo(size * 0.2, size * 0.1);
-      ctx.quadraticCurveTo(size * 0.5, size * 0.12, size * 0.65, 0);
+      ctx.lineTo(size * 0.2, size * 0.14);
+      ctx.quadraticCurveTo(size * 0.5, size * 0.16, size * 0.65, 0);
       ctx.fill();
       ctx.restore();
       
@@ -5707,8 +5812,8 @@
       ctx.strokeStyle = trim;
       ctx.lineWidth = size * 0.03;
       ctx.beginPath();
-      ctx.moveTo(size * 0.4, -size * 0.08);
-      ctx.lineTo(size * 0.4, size * 0.08);
+      ctx.moveTo(size * 0.4, -size * 0.12);
+      ctx.lineTo(size * 0.4, size * 0.12);
       ctx.stroke();
       
       // Engine exhausts with glow
@@ -5720,8 +5825,8 @@
       ctx.globalAlpha = enginePulse;
       // Twin main engines
       ctx.beginPath();
-      ctx.ellipse(-size * 0.72, -size * 0.55, size * 0.12, size * 0.08, 0, 0, Math.PI * 2);
-      ctx.ellipse(-size * 0.72, size * 0.55, size * 0.12, size * 0.08, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.72, -size * 0.7, size * 0.12, size * 0.08, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.72, size * 0.7, size * 0.12, size * 0.08, 0, 0, Math.PI * 2);
       ctx.fill();
       // Central engine
       ctx.beginPath();
@@ -5759,41 +5864,41 @@
         ctx.restore();
       }
       
-      // Angular delta wings (stealth faceted design)
+      // Angular delta wings (stealth faceted design) - widened
       ctx.fillStyle = darken(primary, 0.15);
       ctx.beginPath();
-      ctx.moveTo(size * 0.1, -size * 0.08);
-      ctx.lineTo(-size * 0.2, -size * 0.55);
-      ctx.lineTo(-size * 0.75, -size * 0.48);
-      ctx.lineTo(-size * 0.5, -size * 0.1);
+      ctx.moveTo(size * 0.1, -size * 0.12);
+      ctx.lineTo(-size * 0.2, -size * 0.7);
+      ctx.lineTo(-size * 0.75, -size * 0.6);
+      ctx.lineTo(-size * 0.5, -size * 0.15);
       ctx.closePath();
       ctx.fill();
       ctx.beginPath();
-      ctx.moveTo(size * 0.1, size * 0.08);
-      ctx.lineTo(-size * 0.2, size * 0.55);
-      ctx.lineTo(-size * 0.75, size * 0.48);
-      ctx.lineTo(-size * 0.5, size * 0.1);
+      ctx.moveTo(size * 0.1, size * 0.12);
+      ctx.lineTo(-size * 0.2, size * 0.7);
+      ctx.lineTo(-size * 0.75, size * 0.6);
+      ctx.lineTo(-size * 0.5, size * 0.15);
       ctx.closePath();
       ctx.fill();
       
       // Vertical stabilizers (canted)
       ctx.fillStyle = darken(primary, 0.25);
       ctx.beginPath();
-      ctx.moveTo(-size * 0.55, -size * 0.35);
-      ctx.lineTo(-size * 0.4, -size * 0.6);
-      ctx.lineTo(-size * 0.65, -size * 0.55);
-      ctx.lineTo(-size * 0.7, -size * 0.35);
+      ctx.moveTo(-size * 0.55, -size * 0.45);
+      ctx.lineTo(-size * 0.4, -size * 0.75);
+      ctx.lineTo(-size * 0.65, -size * 0.7);
+      ctx.lineTo(-size * 0.7, -size * 0.45);
       ctx.closePath();
       ctx.fill();
       ctx.beginPath();
-      ctx.moveTo(-size * 0.55, size * 0.35);
-      ctx.lineTo(-size * 0.4, size * 0.6);
-      ctx.lineTo(-size * 0.65, size * 0.55);
-      ctx.lineTo(-size * 0.7, size * 0.35);
+      ctx.moveTo(-size * 0.55, size * 0.45);
+      ctx.lineTo(-size * 0.4, size * 0.75);
+      ctx.lineTo(-size * 0.65, size * 0.7);
+      ctx.lineTo(-size * 0.7, size * 0.45);
       ctx.closePath();
       ctx.fill();
       
-      // Main fuselage - long needle shape
+      // Main fuselage - long needle shape - widened
       ctx.fillStyle = primary;
       ctx.strokeStyle = trim;
       ctx.lineWidth = Math.max(1.5, size * 0.06);
@@ -5801,13 +5906,13 @@
       ctx.shadowBlur = 10;
       ctx.beginPath();
       ctx.moveTo(size * 1.5, 0);
-      ctx.lineTo(size * 0.4, -size * 0.12);
-      ctx.lineTo(-size * 0.3, -size * 0.15);
-      ctx.lineTo(-size * 0.9, -size * 0.08);
+      ctx.lineTo(size * 0.4, -size * 0.18);
+      ctx.lineTo(-size * 0.3, -size * 0.2);
+      ctx.lineTo(-size * 0.9, -size * 0.12);
       ctx.lineTo(-size * 0.95, 0);
-      ctx.lineTo(-size * 0.9, size * 0.08);
-      ctx.lineTo(-size * 0.3, size * 0.15);
-      ctx.lineTo(size * 0.4, size * 0.12);
+      ctx.lineTo(-size * 0.9, size * 0.12);
+      ctx.lineTo(-size * 0.3, size * 0.2);
+      ctx.lineTo(size * 0.4, size * 0.18);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
@@ -5818,11 +5923,11 @@
       ctx.lineWidth = size * 0.04;
       ctx.beginPath();
       ctx.moveTo(size * 1.1, 0);
-      ctx.lineTo(size * 0.2, -size * 0.08);
-      ctx.lineTo(-size * 0.5, -size * 0.1);
+      ctx.lineTo(size * 0.2, -size * 0.12);
+      ctx.lineTo(-size * 0.5, -size * 0.15);
       ctx.moveTo(size * 1.1, 0);
-      ctx.lineTo(size * 0.2, size * 0.08);
-      ctx.lineTo(-size * 0.5, size * 0.1);
+      ctx.lineTo(size * 0.2, size * 0.12);
+      ctx.lineTo(-size * 0.5, size * 0.15);
       ctx.stroke();
       
       // Sensor array on nose
@@ -5838,7 +5943,7 @@
       ctx.fillStyle = canopy;
       ctx.globalAlpha = 0.85;
       ctx.beginPath();
-      ctx.ellipse(size * 0.35, 0, size * 0.25, size * 0.07, 0, 0, Math.PI * 2);
+      ctx.ellipse(size * 0.35, 0, size * 0.25, size * 0.1, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
       
@@ -5896,35 +6001,35 @@
         ctx.restore();
       }
       
-      // Heavy twin-boom hull structures
+      // Heavy twin-boom hull structures - widened
       ctx.fillStyle = darken(primary, 0.2);
       // Top boom
       ctx.beginPath();
-      ctx.moveTo(size * 0.3, -size * 0.35);
-      ctx.lineTo(-size * 0.15, -size * 0.95);
-      ctx.lineTo(-size * 0.85, -size * 0.85);
-      ctx.lineTo(-size * 1.0, -size * 0.35);
-      ctx.lineTo(-size * 0.6, -size * 0.3);
+      ctx.moveTo(size * 0.3, -size * 0.45);
+      ctx.lineTo(-size * 0.15, -size * 1.15);
+      ctx.lineTo(-size * 0.85, -size * 1.05);
+      ctx.lineTo(-size * 1.0, -size * 0.45);
+      ctx.lineTo(-size * 0.6, -size * 0.4);
       ctx.closePath();
       ctx.fill();
       // Bottom boom
       ctx.beginPath();
-      ctx.moveTo(size * 0.3, size * 0.35);
-      ctx.lineTo(-size * 0.15, size * 0.95);
-      ctx.lineTo(-size * 0.85, size * 0.85);
-      ctx.lineTo(-size * 1.0, size * 0.35);
-      ctx.lineTo(-size * 0.6, size * 0.3);
+      ctx.moveTo(size * 0.3, size * 0.45);
+      ctx.lineTo(-size * 0.15, size * 1.15);
+      ctx.lineTo(-size * 0.85, size * 1.05);
+      ctx.lineTo(-size * 1.0, size * 0.45);
+      ctx.lineTo(-size * 0.6, size * 0.4);
       ctx.closePath();
       ctx.fill();
       
       // Armor plates on booms
       ctx.fillStyle = accent;
       ctx.beginPath();
-      ctx.rect(-size * 0.5, -size * 0.9, size * 0.25, size * 0.12);
-      ctx.rect(-size * 0.5, size * 0.78, size * 0.25, size * 0.12);
+      ctx.rect(-size * 0.5, -size * 1.1, size * 0.25, size * 0.12);
+      ctx.rect(-size * 0.5, size * 0.98, size * 0.25, size * 0.12);
       ctx.fill();
       
-      // Central main fuselage (armored box)
+      // Central main fuselage (armored box) - widened
       ctx.fillStyle = primary;
       ctx.strokeStyle = trim;
       ctx.lineWidth = Math.max(2, size * 0.1);
@@ -5932,12 +6037,12 @@
       ctx.shadowBlur = 12;
       ctx.beginPath();
       ctx.moveTo(size * 1.1, 0);
-      ctx.lineTo(size * 0.6, -size * 0.28);
-      ctx.lineTo(-size * 0.4, -size * 0.25);
-      ctx.lineTo(-size * 0.55, -size * 0.18);
-      ctx.lineTo(-size * 0.55, size * 0.18);
-      ctx.lineTo(-size * 0.4, size * 0.25);
-      ctx.lineTo(size * 0.6, size * 0.28);
+      ctx.lineTo(size * 0.6, -size * 0.38);
+      ctx.lineTo(-size * 0.4, -size * 0.35);
+      ctx.lineTo(-size * 0.55, -size * 0.25);
+      ctx.lineTo(-size * 0.55, size * 0.25);
+      ctx.lineTo(-size * 0.4, size * 0.35);
+      ctx.lineTo(size * 0.6, size * 0.38);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
@@ -5959,10 +6064,10 @@
       ctx.strokeStyle = accent;
       ctx.lineWidth = size * 0.07;
       ctx.beginPath();
-      ctx.moveTo(size * 0.5, -size * 0.22);
-      ctx.lineTo(-size * 0.3, -size * 0.2);
-      ctx.moveTo(size * 0.5, size * 0.22);
-      ctx.lineTo(-size * 0.3, size * 0.2);
+      ctx.moveTo(size * 0.5, -size * 0.3);
+      ctx.lineTo(-size * 0.3, -size * 0.28);
+      ctx.moveTo(size * 0.5, size * 0.3);
+      ctx.lineTo(-size * 0.3, size * 0.28);
       ctx.stroke();
       
       // Armored canopy (smaller, protected)
@@ -5993,13 +6098,13 @@
       ctx.globalAlpha = enginePulse;
       // Boom engines
       ctx.beginPath();
-      ctx.ellipse(-size * 0.95, -size * 0.65, size * 0.12, size * 0.1, 0, 0, Math.PI * 2);
-      ctx.ellipse(-size * 0.95, size * 0.65, size * 0.12, size * 0.1, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.95, -size * 0.82, size * 0.12, size * 0.1, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.95, size * 0.82, size * 0.12, size * 0.1, 0, 0, Math.PI * 2);
       ctx.fill();
       // Central engines
       ctx.beginPath();
-      ctx.ellipse(-size * 0.58, -size * 0.12, size * 0.08, size * 0.06, 0, 0, Math.PI * 2);
-      ctx.ellipse(-size * 0.58, size * 0.12, size * 0.08, size * 0.06, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.58, -size * 0.18, size * 0.08, size * 0.06, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.58, size * 0.18, size * 0.08, size * 0.06, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
 
@@ -6028,48 +6133,48 @@
         ctx.restore();
       }
       
-      // Forward-swept aggressive wings
+      // Forward-swept aggressive wings - widened
       ctx.fillStyle = darken(primary, 0.15);
       ctx.beginPath();
-      ctx.moveTo(size * 0.4, -size * 0.12);
-      ctx.lineTo(size * 0.35, -size * 0.7);
-      ctx.lineTo(-size * 0.35, -size * 0.55);
-      ctx.lineTo(-size * 0.15, -size * 0.12);
+      ctx.moveTo(size * 0.4, -size * 0.18);
+      ctx.lineTo(size * 0.35, -size * 0.9);
+      ctx.lineTo(-size * 0.35, -size * 0.7);
+      ctx.lineTo(-size * 0.15, -size * 0.18);
       ctx.closePath();
       ctx.fill();
       ctx.beginPath();
-      ctx.moveTo(size * 0.4, size * 0.12);
-      ctx.lineTo(size * 0.35, size * 0.7);
-      ctx.lineTo(-size * 0.35, size * 0.55);
-      ctx.lineTo(-size * 0.15, size * 0.12);
+      ctx.moveTo(size * 0.4, size * 0.18);
+      ctx.lineTo(size * 0.35, size * 0.9);
+      ctx.lineTo(-size * 0.35, size * 0.7);
+      ctx.lineTo(-size * 0.15, size * 0.18);
       ctx.closePath();
       ctx.fill();
       
       // Wing-mounted cannons
       ctx.fillStyle = darken(accent, 0.2);
       ctx.beginPath();
-      ctx.rect(size * 0.4, -size * 0.58, size * 0.3, size * 0.06);
-      ctx.rect(size * 0.4, size * 0.52, size * 0.3, size * 0.06);
+      ctx.rect(size * 0.4, -size * 0.75, size * 0.3, size * 0.06);
+      ctx.rect(size * 0.4, size * 0.69, size * 0.3, size * 0.06);
       ctx.fill();
       
       // Tail fins (angular, aggressive)
       ctx.fillStyle = darken(primary, 0.25);
       ctx.beginPath();
-      ctx.moveTo(-size * 0.5, -size * 0.15);
-      ctx.lineTo(-size * 0.7, -size * 0.45);
-      ctx.lineTo(-size * 0.85, -size * 0.35);
-      ctx.lineTo(-size * 0.75, -size * 0.12);
+      ctx.moveTo(-size * 0.5, -size * 0.2);
+      ctx.lineTo(-size * 0.7, -size * 0.58);
+      ctx.lineTo(-size * 0.85, -size * 0.45);
+      ctx.lineTo(-size * 0.75, -size * 0.18);
       ctx.closePath();
       ctx.fill();
       ctx.beginPath();
-      ctx.moveTo(-size * 0.5, size * 0.15);
-      ctx.lineTo(-size * 0.7, size * 0.45);
-      ctx.lineTo(-size * 0.85, size * 0.35);
-      ctx.lineTo(-size * 0.75, size * 0.12);
+      ctx.moveTo(-size * 0.5, size * 0.2);
+      ctx.lineTo(-size * 0.7, size * 0.58);
+      ctx.lineTo(-size * 0.85, size * 0.45);
+      ctx.lineTo(-size * 0.75, size * 0.18);
       ctx.closePath();
       ctx.fill();
       
-      // Angular main fuselage
+      // Angular main fuselage - widened
       ctx.fillStyle = primary;
       ctx.strokeStyle = trim;
       ctx.lineWidth = Math.max(1.5, size * 0.07);
@@ -6077,13 +6182,13 @@
       ctx.shadowBlur = 12;
       ctx.beginPath();
       ctx.moveTo(size * 1.4, 0);
-      ctx.lineTo(size * 0.6, -size * 0.15);
-      ctx.lineTo(size * 0.2, -size * 0.18);
-      ctx.lineTo(-size * 0.5, -size * 0.12);
+      ctx.lineTo(size * 0.6, -size * 0.22);
+      ctx.lineTo(size * 0.2, -size * 0.25);
+      ctx.lineTo(-size * 0.5, -size * 0.18);
       ctx.lineTo(-size * 0.8, 0);
-      ctx.lineTo(-size * 0.5, size * 0.12);
-      ctx.lineTo(size * 0.2, size * 0.18);
-      ctx.lineTo(size * 0.6, size * 0.15);
+      ctx.lineTo(-size * 0.5, size * 0.18);
+      ctx.lineTo(size * 0.2, size * 0.25);
+      ctx.lineTo(size * 0.6, size * 0.22);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
@@ -6280,43 +6385,43 @@
         ctx.restore();
       }
       
-      // Massive wing platforms
+      // Massive wing platforms - widened
       ctx.fillStyle = darken(primary, 0.2);
       // Upper wing/weapon platform
       ctx.beginPath();
-      ctx.moveTo(size * 0.3, -size * 0.4);
-      ctx.lineTo(-size * 0.25, -size * 0.95);
-      ctx.lineTo(-size * 0.9, -size * 0.75);
-      ctx.lineTo(-size * 0.95, -size * 0.35);
-      ctx.lineTo(-size * 0.5, -size * 0.3);
+      ctx.moveTo(size * 0.3, -size * 0.52);
+      ctx.lineTo(-size * 0.25, -size * 1.2);
+      ctx.lineTo(-size * 0.9, -size * 0.95);
+      ctx.lineTo(-size * 0.95, -size * 0.48);
+      ctx.lineTo(-size * 0.5, -size * 0.42);
       ctx.closePath();
       ctx.fill();
       // Lower wing/weapon platform
       ctx.beginPath();
-      ctx.moveTo(size * 0.3, size * 0.4);
-      ctx.lineTo(-size * 0.25, size * 0.95);
-      ctx.lineTo(-size * 0.9, size * 0.75);
-      ctx.lineTo(-size * 0.95, size * 0.35);
-      ctx.lineTo(-size * 0.5, size * 0.3);
+      ctx.moveTo(size * 0.3, size * 0.52);
+      ctx.lineTo(-size * 0.25, size * 1.2);
+      ctx.lineTo(-size * 0.9, size * 0.95);
+      ctx.lineTo(-size * 0.95, size * 0.48);
+      ctx.lineTo(-size * 0.5, size * 0.42);
       ctx.closePath();
       ctx.fill();
       
       // Heavy turret mounts on wings
       ctx.fillStyle = darken(primary, 0.35);
       ctx.beginPath();
-      ctx.arc(-size * 0.5, -size * 0.65, size * 0.15, 0, Math.PI * 2);
-      ctx.arc(-size * 0.5, size * 0.65, size * 0.15, 0, Math.PI * 2);
+      ctx.arc(-size * 0.5, -size * 0.85, size * 0.15, 0, Math.PI * 2);
+      ctx.arc(-size * 0.5, size * 0.85, size * 0.15, 0, Math.PI * 2);
       ctx.fill();
       // Turret barrels
       ctx.fillStyle = trim;
       ctx.beginPath();
-      ctx.rect(-size * 0.35, -size * 0.68, size * 0.25, size * 0.03);
-      ctx.rect(-size * 0.35, -size * 0.62, size * 0.25, size * 0.03);
-      ctx.rect(-size * 0.35, size * 0.62, size * 0.25, size * 0.03);
-      ctx.rect(-size * 0.35, size * 0.65, size * 0.25, size * 0.03);
+      ctx.rect(-size * 0.35, -size * 0.88, size * 0.25, size * 0.03);
+      ctx.rect(-size * 0.35, -size * 0.82, size * 0.25, size * 0.03);
+      ctx.rect(-size * 0.35, size * 0.82, size * 0.25, size * 0.03);
+      ctx.rect(-size * 0.35, size * 0.85, size * 0.25, size * 0.03);
       ctx.fill();
       
-      // Armored main hull
+      // Armored main hull - widened
       ctx.fillStyle = primary;
       ctx.strokeStyle = trim;
       ctx.lineWidth = Math.max(2, size * 0.1);
@@ -6324,13 +6429,13 @@
       ctx.shadowBlur = 14;
       ctx.beginPath();
       ctx.moveTo(size * 1.0, 0);
-      ctx.lineTo(size * 0.6, -size * 0.35);
-      ctx.lineTo(-size * 0.3, -size * 0.38);
-      ctx.lineTo(-size * 0.7, -size * 0.25);
+      ctx.lineTo(size * 0.6, -size * 0.45);
+      ctx.lineTo(-size * 0.3, -size * 0.48);
+      ctx.lineTo(-size * 0.7, -size * 0.35);
       ctx.lineTo(-size * 0.85, 0);
-      ctx.lineTo(-size * 0.7, size * 0.25);
-      ctx.lineTo(-size * 0.3, size * 0.38);
-      ctx.lineTo(size * 0.6, size * 0.35);
+      ctx.lineTo(-size * 0.7, size * 0.35);
+      ctx.lineTo(-size * 0.3, size * 0.48);
+      ctx.lineTo(size * 0.6, size * 0.45);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
@@ -6339,12 +6444,12 @@
       // Command bridge/superstructure
       ctx.fillStyle = darken(primary, 0.1);
       ctx.beginPath();
-      ctx.moveTo(size * 0.5, -size * 0.25);
-      ctx.lineTo(size * 0.2, -size * 0.32);
-      ctx.lineTo(-size * 0.2, -size * 0.28);
-      ctx.lineTo(-size * 0.2, size * 0.28);
-      ctx.lineTo(size * 0.2, size * 0.32);
-      ctx.lineTo(size * 0.5, size * 0.25);
+      ctx.moveTo(size * 0.5, -size * 0.35);
+      ctx.lineTo(size * 0.2, -size * 0.42);
+      ctx.lineTo(-size * 0.2, -size * 0.38);
+      ctx.lineTo(-size * 0.2, size * 0.38);
+      ctx.lineTo(size * 0.2, size * 0.42);
+      ctx.lineTo(size * 0.5, size * 0.35);
       ctx.closePath();
       ctx.fill();
       
@@ -6365,10 +6470,10 @@
       ctx.strokeStyle = accent;
       ctx.lineWidth = size * 0.06;
       ctx.beginPath();
-      ctx.moveTo(size * 0.4, -size * 0.28);
-      ctx.lineTo(-size * 0.3, -size * 0.3);
-      ctx.moveTo(size * 0.4, size * 0.28);
-      ctx.lineTo(-size * 0.3, size * 0.3);
+      ctx.moveTo(size * 0.4, -size * 0.38);
+      ctx.lineTo(-size * 0.3, -size * 0.4);
+      ctx.moveTo(size * 0.4, size * 0.38);
+      ctx.lineTo(-size * 0.3, size * 0.4);
       ctx.stroke();
       
       // Small armored bridge canopy
@@ -6400,15 +6505,15 @@
       ctx.globalAlpha = enginePulse;
       // Wing engines
       ctx.beginPath();
-      ctx.ellipse(-size * 0.92, -size * 0.55, size * 0.12, size * 0.1, 0, 0, Math.PI * 2);
-      ctx.ellipse(-size * 0.92, size * 0.55, size * 0.12, size * 0.1, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.92, -size * 0.72, size * 0.12, size * 0.1, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.92, size * 0.72, size * 0.12, size * 0.1, 0, 0, Math.PI * 2);
       ctx.fill();
       // Central quad engines
       ctx.beginPath();
-      ctx.ellipse(-size * 0.88, -size * 0.18, size * 0.1, size * 0.07, 0, 0, Math.PI * 2);
-      ctx.ellipse(-size * 0.88, -size * 0.05, size * 0.1, size * 0.07, 0, 0, Math.PI * 2);
-      ctx.ellipse(-size * 0.88, size * 0.05, size * 0.1, size * 0.07, 0, 0, Math.PI * 2);
-      ctx.ellipse(-size * 0.88, size * 0.18, size * 0.1, size * 0.07, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.88, -size * 0.26, size * 0.1, size * 0.07, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.88, -size * 0.08, size * 0.1, size * 0.07, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.88, size * 0.08, size * 0.1, size * 0.07, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.88, size * 0.26, size * 0.1, size * 0.07, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
 
@@ -7257,11 +7362,32 @@
       const enemy = enemies[i];
       const dx = player.x - enemy.x;
       const dy = player.y - enemy.y;
-      if (Math.hypot(dx, dy) < player.size + enemy.size) {
-        enemies.splice(i, 1);
-        // Use enemy's calculated damage with adaptive scaling
-        const enemyDamage = enemy.getDamage();
-        player.takeDamage(enemyDamage, enemy);
+      const dist = Math.hypot(dx, dy);
+      if (dist < player.size + enemy.size) {
+        const now = performance.now();
+        const isCharging = now < player.chargeActiveUntil;
+        
+        if (isCharging) {
+          // Player is charging - damage enemy without taking damage
+          enemy.health -= player.chargeDamage;
+          addParticles('hit', enemy.x, enemy.y, 0, 16);
+          shakeScreen(4, 120);
+          
+          if (enemy.health <= 0) {
+            handleEnemyDeath(i);
+          }
+          
+          // Don't take damage during charge if invulnerable
+          if (!player.chargeInvulnerable) {
+            const enemyDamage = enemy.getDamage();
+            player.takeDamage(enemyDamage, enemy);
+          }
+        } else {
+          // Normal collision - player takes damage
+          enemies.splice(i, 1);
+          const enemyDamage = enemy.getDamage();
+          player.takeDamage(enemyDamage, enemy);
+        }
       }
     }
 
