@@ -5393,8 +5393,6 @@
         }
       }
       
-      const now = performance.now();
-      
       // Automatic defense activation when enemies get close
       const defenseRange = this.size + 100;
       let enemyNearby = false;
@@ -7376,8 +7374,7 @@
           shakeScreen(4, 120);
           
           if (enemy.hp <= 0) {
-            enemies.splice(i, 1);
-            onKillEnemy(enemy);
+            handleEnemyDeath(i);
           }
           
           // Don't take damage during charge if invulnerable
