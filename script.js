@@ -7369,11 +7369,11 @@
         
         if (isCharging) {
           // Player is charging - damage enemy without taking damage
-          enemy.hp -= player.chargeDamage;
+          enemy.health -= player.chargeDamage;
           addParticles('hit', enemy.x, enemy.y, 0, 16);
           shakeScreen(4, 120);
           
-          if (enemy.hp <= 0) {
+          if (enemy.health <= 0) {
             handleEnemyDeath(i);
           }
           
