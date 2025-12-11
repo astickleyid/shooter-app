@@ -37,32 +37,32 @@ jobs:
       - name: Sync web files to iOS WebContent
         run: |
           echo "Syncing web content to iOS bundle..."
-          
+
           # Copy main game files
           cp -v index.html ios/VoidRift/WebContent/index.html
           cp -v script.js ios/VoidRift/WebContent/script.js
           cp -v style.css ios/VoidRift/WebContent/style.css
-          
+
           # Copy API and supporting files
           cp -v backend-api.js ios/VoidRift/WebContent/backend-api.js
           cp -v audio-manager.js ios/VoidRift/WebContent/audio-manager.js
           cp -v game-utils.js ios/VoidRift/WebContent/game-utils.js
-          
+
           # Copy social integration files
           cp -v social-api.js ios/VoidRift/WebContent/social-api.js
           cp -v social-hub.js ios/VoidRift/WebContent/social-hub.js
           cp -v social-integration.js ios/VoidRift/WebContent/social-integration.js
-          
+
           # Copy assets directory
           cp -rv assets ios/VoidRift/WebContent/
-          
+
           echo "Web content sync complete!"
 
       - name: Verify Vercel URL in backend-api.js
         run: |
           echo "Checking Vercel API URL..."
           grep -n "API_URL:" ios/VoidRift/WebContent/backend-api.js || true
-          
+
       - name: Upload synced content as artifact
         uses: actions/upload-artifact@v4
         with:
@@ -154,19 +154,19 @@ jobs:
           # Create variables
           CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
-          
+
           # Import certificate from secrets
           echo -n "${{ secrets.IOS_CERTIFICATE_BASE64 }}" | base64 --decode -o $CERTIFICATE_PATH
-          
+
           # Create temporary keychain
           security create-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" $KEYCHAIN_PATH
           security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
           security unlock-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" $KEYCHAIN_PATH
-          
+
           # Import certificate to keychain
           security import $CERTIFICATE_PATH -P "${{ secrets.P12_PASSWORD }}" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
           security list-keychain -d user -s $KEYCHAIN_PATH
-          
+
           # Clean up certificate file
           rm $CERTIFICATE_PATH
 
