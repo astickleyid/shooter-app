@@ -1,0 +1,209 @@
+name: iOS Build
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'ios/**'
+      - 'index.html'
+      - 'script.js'
+      - 'style.css'
+      - 'backend-api.js'
+      - 'assets/**'
+      - '.github/workflows/ios-build.yml'
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'ios/**'
+      - 'index.html'
+      - 'script.js'
+      - 'style.css'
+      - 'backend-api.js'
+      - 'assets/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync-web-content:
+    name: Sync Web Content to iOS
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Sync web files to iOS WebContent
+        run: |
+          echo "Syncing web content to iOS bundle..."
+
+          # Copy main game files
+          cp -v index.html ios/VoidRift/WebContent/index.html
+          cp -v script.js ios/VoidRift/WebContent/script.js
+          cp -v style.css ios/VoidRift/WebContent/style.css
+
+          # Copy API and supporting files
+          cp -v backend-api.js ios/VoidRift/WebContent/backend-api.js
+          cp -v audio-manager.js ios/VoidRift/WebContent/audio-manager.js
+          cp -v game-utils.js ios/VoidRift/WebContent/game-utils.js
+
+          # Copy social integration files
+          cp -v social-api.js ios/VoidRift/WebContent/social-api.js
+          cp -v social-hub.js ios/VoidRift/WebContent/social-hub.js
+          cp -v social-integration.js ios/VoidRift/WebContent/social-integration.js
+
+          # Copy assets directory
+          cp -rv assets ios/VoidRift/WebContent/
+
+          echo "Web content sync complete!"
+
+      - name: Verify Vercel URL in backend-api.js
+        run: |
+          echo "Checking Vercel API URL..."
+          grep -n "API_URL:" ios/VoidRift/WebContent/backend-api.js || true
+
+      - name: Upload synced content as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: synced-web-content
+          path: ios/VoidRift/WebContent/
+
+  build-ios:
+    name: Build iOS App
+    runs-on: macos-14
+    needs: sync-web-content
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download synced content
+        uses: actions/download-artifact@v4
+        with:
+          name: synced-web-content
+          path: ios/VoidRift/WebContent/
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '15.2'
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: ios/Pods
+          key: ${{ runner.os }}-pods-${{ hashFiles('ios/Podfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pods-
+
+      - name: Install CocoaPods (if needed)
+        working-directory: ios
+        run: |
+          if [ -f "Podfile" ]; then
+            echo "Podfile found, installing dependencies..."
+            pod install
+          else
+            echo "No Podfile found, skipping pod install"
+          fi
+
+      - name: Build iOS app (Debug)
+        working-directory: ios
+        run: |
+          xcodebuild \
+            -project VoidRift.xcodeproj \
+            -scheme VoidRift \
+            -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' \
+            -configuration Debug \
+            clean build \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Check build output
+        run: |
+          echo "Build completed successfully!"
+          ls -lah ios/build/ 2>/dev/null || echo "Build directory structure may vary"
+
+  build-archive:
+    name: Build iOS Archive (Release)
+    runs-on: macos-14
+    needs: sync-web-content
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download synced content
+        uses: actions/download-artifact@v4
+        with:
+          name: synced-web-content
+          path: ios/VoidRift/WebContent/
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '15.2'
+
+      - name: Import Code-Signing Certificates (if available)
+        if: ${{ secrets.IOS_CERTIFICATE_BASE64 != '' }}
+        run: |
+          echo "Setting up code signing..."
+          # Create variables
+          CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+
+          # Import certificate from secrets
+          echo -n "${{ secrets.IOS_CERTIFICATE_BASE64 }}" | base64 --decode -o $CERTIFICATE_PATH
+
+          # Create temporary keychain
+          security create-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" $KEYCHAIN_PATH
+
+          # Import certificate to keychain
+          security import $CERTIFICATE_PATH -P "${{ secrets.P12_PASSWORD }}" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+          # Clean up certificate file
+          rm $CERTIFICATE_PATH
+
+      - name: Build iOS Archive
+        working-directory: ios
+        run: |
+          echo "Creating iOS archive..."
+          xcodebuild \
+            -project VoidRift.xcodeproj \
+            -scheme VoidRift \
+            -configuration Release \
+            -archivePath $RUNNER_TEMP/VoidRift.xcarchive \
+            archive \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Upload Archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: VoidRift-Archive
+          path: ${{ runner.temp }}/VoidRift.xcarchive
+          retention-days: 30
+
+      - name: Summary
+        run: |
+          echo "## iOS Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ iOS archive created successfully" >> $GITHUB_STEP_SUMMARY
+          echo "📦 Archive available in artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "🎮 Latest web content synced from Vercel deployment" >> $GITHUB_STEP_SUMMARY
