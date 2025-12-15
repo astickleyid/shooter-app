@@ -8090,108 +8090,45 @@
       ctx.restore();
     }
     
-    // Phase 1: Draw combo counter - Enhanced stylish design with mobile-safe positioning
+    // SUBTLE: Draw combo counter - SMALLER, positioned in TOP RIGHT corner, out of gameplay area
     const now = performance.now();
     if (comboCount > 1 && now < comboTimer) {
       ctx.save();
       const comboAge = now - (comboTimer - COMBO_TIMEOUT);
       const appearScale = Math.min(1, comboAge / 150);
-      const pulse = Math.sin(now / 100) * 0.08 + 1;
-      const shake = comboCount >= 10 ? Math.sin(now / 30) * 2 : 0;
       
-      ctx.textAlign = 'center';
+      ctx.textAlign = 'right';
       ctx.textBaseline = 'top';
       
-      // Use window dimensions for proper positioning (canvas has DPR transform applied)
       const screenWidth = window.innerWidth;
-      const screenHeight = window.innerHeight;
       
-      // Position calculation - ensure it stays within screen bounds on mobile
-      // Place it in the upper portion of the screen but with safe margins
-      const minY = 70; // Account for HUD panel
-      const maxY = screenHeight * 0.25; // Don't go too low
-      const baseY = Math.max(minY, Math.min(maxY, screenHeight * 0.12));
-      const x = screenWidth / 2 + shake;
-      const y = baseY;
+      // REPOSITIONED: Top right corner, away from gameplay
+      const x = screenWidth - 15;
+      const y = 70; // Below HUD
       
-      // Get tier-based styling using shared helper
+      // Get tier-based styling
       const tier = getTierFromCount(comboCount, COMBO_VISUAL_CONFIG.TIER_THRESHOLDS);
       const tierColors = {
-        1: { main: '#4ade80', glow: '#22c55e', bg: 'rgba(34, 197, 94, 0.15)' },
-        2: { main: '#fbbf24', glow: '#f59e0b', bg: 'rgba(251, 191, 36, 0.15)' },
-        3: { main: '#f97316', glow: '#ea580c', bg: 'rgba(249, 115, 22, 0.15)' },
-        4: { main: '#a855f7', glow: '#9333ea', bg: 'rgba(168, 85, 247, 0.15)' },
-        5: { main: '#ec4899', glow: '#db2777', bg: 'rgba(236, 72, 153, 0.15)' }
+        1: { main: '#4ade80', glow: '#22c55e' },
+        2: { main: '#fbbf24', glow: '#f59e0b' },
+        3: { main: '#f97316', glow: '#ea580c' },
+        4: { main: '#a855f7', glow: '#9333ea' },
+        5: { main: '#ec4899', glow: '#db2777' }
       };
       const colors = tierColors[tier];
       
-      // Background panel with rounded corners - responsive width
-      const panelWidth = Math.min(COMBO_VISUAL_CONFIG.PANEL_MAX_WIDTH, screenWidth * COMBO_VISUAL_CONFIG.PANEL_WIDTH_RATIO);
-      const panelHeight = 70;
-      const panelX = x - panelWidth / 2;
-      const panelY = y - 8;
-      
-      // Panel background with gradient
-      const bgGradient = ctx.createLinearGradient(panelX, panelY, panelX, panelY + panelHeight);
-      bgGradient.addColorStop(0, 'rgba(15, 23, 42, 0.9)');
-      bgGradient.addColorStop(1, 'rgba(15, 23, 42, 0.7)');
-      ctx.fillStyle = bgGradient;
-      ctx.beginPath();
-      ctx.roundRect(panelX, panelY, panelWidth, panelHeight, 10);
-      ctx.fill();
-      
-      // Glowing border
-      ctx.strokeStyle = colors.main;
-      ctx.lineWidth = 2;
-      ctx.shadowColor = colors.glow;
-      ctx.shadowBlur = 15;
-      ctx.beginPath();
-      ctx.roundRect(panelX, panelY, panelWidth, panelHeight, 10);
-      ctx.stroke();
-      ctx.shadowBlur = 0;
-      
-      // Accent line at top of panel
-      ctx.strokeStyle = colors.main;
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(panelX + 10, panelY);
-      ctx.lineTo(panelX + panelWidth - 10, panelY);
-      ctx.stroke();
-      
-      // "COMBO" label
-      ctx.font = '10px Arial, sans-serif';
-      ctx.fillStyle = '#94a3b8';
-      ctx.fillText('COMBO', x, y + 2);
-      
-      // Big combo number with glow
-      const fontSize = Math.floor(Math.min(COMBO_VISUAL_CONFIG.FONT_SIZE_MAX, screenWidth * COMBO_VISUAL_CONFIG.FONT_SIZE_RATIO) * appearScale * pulse);
-      ctx.font = `bold ${fontSize}px Arial, sans-serif`;
-      ctx.shadowColor = colors.glow;
-      ctx.shadowBlur = 20;
+      // MUCH SMALLER: Simple text-based display
+      const comboFontSize = 18;
+      ctx.font = `bold ${Math.floor(comboFontSize * appearScale)}px Arial, sans-serif`;
       ctx.fillStyle = colors.main;
-      ctx.fillText(`${comboCount}x`, x, y + 14);
+      ctx.shadowColor = colors.glow;
+      ctx.shadowBlur = 8;
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+      ctx.lineWidth = 2;
+      ctx.strokeText(`${comboCount}x COMBO`, x, y);
+      ctx.fillText(`${comboCount}x COMBO`, x, y);
+      
       ctx.shadowBlur = 0;
-      
-      // XP bonus with icon-like styling
-      ctx.font = 'bold 13px Arial, sans-serif';
-      ctx.fillStyle = '#fff';
-      ctx.fillText(`+${Math.floor(comboCount * 10)}% XP`, x, y + 48);
-      
-      // Decorative particles for high combos
-      if (tier >= 3) {
-        ctx.fillStyle = `${colors.main}88`;
-        const particleCount = tier * 2;
-        for (let i = 0; i < particleCount; i++) {
-          const angle = (i / particleCount) * Math.PI * 2 + (now / 500);
-          const dist = panelWidth / 2 + 10 + Math.sin(now / 300 + i) * 5;
-          const px = x + Math.cos(angle) * dist;
-          const py = y + panelHeight / 2 + Math.sin(angle) * (panelHeight / 2 + 5);
-          ctx.beginPath();
-          ctx.arc(px, py, 2, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
-      
       ctx.restore();
     }
     
@@ -8239,7 +8176,7 @@
       }
     }
     
-    // Draw kill streak popup - COMPACT: smaller, less flashy, positioned to avoid combo overlap
+    // SUBTLE: Draw kill streak popup - SMALLER, positioned in TOP RIGHT, out of the way
     if (killStreakPopup) {
       const elapsed = now - killStreakPopup.startTime;
       if (elapsed > KILL_STREAK_POPUP_DURATION) {
@@ -8248,36 +8185,23 @@
         ctx.save();
         const progress = elapsed / KILL_STREAK_POPUP_DURATION;
         
-        // Simpler animation: quick fade in, hold, fade out
-        let alpha, scale;
+        // Simple fade animation
+        let alpha;
         if (progress < 0.1) {
-          // Quick fade in
-          const t = progress / 0.1;
-          scale = 0.8 + t * 0.2;
-          alpha = t;
+          alpha = progress / 0.1;
         } else if (progress < 0.8) {
-          // Hold steady
-          scale = 1;
           alpha = 1;
         } else {
-          // Fade out
-          const t = (progress - 0.8) / 0.2;
-          scale = 1;
-          alpha = 1 - t;
+          alpha = 1 - ((progress - 0.8) / 0.2);
         }
         
-        // Use window dimensions for proper positioning
         const screenWidth = window.innerWidth;
-        const screenHeight = window.innerHeight;
-        const isPortrait = screenHeight > screenWidth;
         
-        // Position BELOW combo counter to avoid overlap
-        const centerX = screenWidth / 2;
-        // Place below combo (which is at ~12% of height)
-        const baseY = isPortrait ? screenHeight * 0.35 : screenHeight * 0.22;
-        const centerY = Math.min(baseY, screenHeight * 0.4);
+        // REPOSITIONED: Top right corner, below combo
+        const x = screenWidth - 15;
+        const y = 95; // Below combo counter
         
-        // Tier-based styling - SIMPLIFIED
+        // Tier-based styling - simplified
         const tierStyles = {
           1: { main: '#f97316', glow: '#ea580c' },
           2: { main: '#ef4444', glow: '#dc2626' },
@@ -8287,216 +8211,27 @@
         };
         const style = tierStyles[killStreakPopup.tier] || tierStyles[1];
         
-        // SMALLER panel - reduced from 100 to 60 height, narrower width
-        const panelWidth = Math.min(200, screenWidth * 0.5);
-        const panelHeight = 60;
-        
-        // Subtle glow - reduced from 50 to 20
-        ctx.shadowColor = style.glow;
-        ctx.shadowBlur = 20 * alpha;
-        
-        // Simple background - no gradient
-        ctx.fillStyle = `rgba(15, 23, 42, ${0.92 * alpha})`;
-        ctx.beginPath();
-        ctx.roundRect(
-          centerX - (panelWidth * scale) / 2,
-          centerY - (panelHeight * scale) / 2,
-          panelWidth * scale,
-          panelHeight * scale,
-          10
-        );
-        ctx.fill();
-        
-        // Simple border - thinner
-        ctx.strokeStyle = style.main;
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-        
-        // Main message text - SMALLER
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.font = `bold ${Math.floor(20 * scale)}px Arial, sans-serif`;
+        // MUCH SMALLER: Simple text display
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'top';
+        const textSize = 16;
+        ctx.font = `bold ${textSize}px Arial, sans-serif`;
         ctx.fillStyle = style.main;
         ctx.globalAlpha = alpha;
-        ctx.fillText(killStreakPopup.message.toUpperCase(), centerX, centerY - 8);
-        
-        // Kill count - SMALLER
-        ctx.font = `bold ${Math.floor(14 * scale)}px Arial, sans-serif`;
-        ctx.fillStyle = '#94a3b8';
-        ctx.fillText(`${killStreakPopup.milestone} KILLS`, centerX, centerY + 12);
+        ctx.shadowColor = style.glow;
+        ctx.shadowBlur = 6;
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.lineWidth = 2;
+        ctx.strokeText(`${killStreakPopup.milestone} KILL STREAK`, x, y);
+        ctx.fillText(`${killStreakPopup.milestone} KILL STREAK`, x, y);
         
         ctx.globalAlpha = 1;
+        ctx.shadowBlur = 0;
         ctx.restore();
       }
     }
     
-    // NEW: Draw ready-up screen - ENHANCED: More authoritative overlay with better spacing
-    if (readyUpPhase) {
-      const now = performance.now();
-      ctx.save();
-      
-      const screenWidth = window.innerWidth;
-      const screenHeight = window.innerHeight;
-      const isPortrait = screenHeight > screenWidth;
-      
-      // ENHANCED: Stronger, more authoritative overlay
-      const overlayOpacity = 0.97; // Increased from 0.92
-      const gradient = ctx.createRadialGradient(
-        screenWidth / 2, screenHeight * 0.5, 0,
-        screenWidth / 2, screenHeight * 0.5, Math.max(screenWidth, screenHeight) * 0.8
-      );
-      gradient.addColorStop(0, `rgba(5, 10, 20, ${overlayOpacity})`);
-      gradient.addColorStop(0.4, `rgba(10, 15, 25, ${overlayOpacity})`);
-      gradient.addColorStop(0.7, `rgba(15, 23, 42, ${overlayOpacity})`);
-      gradient.addColorStop(1, `rgba(0, 0, 0, ${overlayOpacity + 0.03})`);
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, screenWidth, screenHeight);
-      
-      // ENHANCED: Stronger scan lines for tech aesthetic
-      ctx.fillStyle = 'rgba(74, 222, 128, 0.05)';
-      const scanLineOffset = (now / 25) % 10;
-      for (let y = scanLineOffset; y < screenHeight; y += 10) {
-        ctx.fillRect(0, y, screenWidth, 2);
-      }
-      
-      // ENHANCED: Larger, more prominent corner accents
-      ctx.strokeStyle = 'rgba(74, 222, 128, 0.6)';
-      ctx.lineWidth = 4;
-      const cornerSize = isPortrait ? 60 : 80;
-      
-      ['tl', 'tr', 'bl', 'br'].forEach(corner => {
-        ctx.beginPath();
-        if (corner === 'tl') {
-          ctx.moveTo(30, 30 + cornerSize);
-          ctx.lineTo(30, 30);
-          ctx.lineTo(30 + cornerSize, 30);
-        } else if (corner === 'tr') {
-          ctx.moveTo(screenWidth - 30 - cornerSize, 30);
-          ctx.lineTo(screenWidth - 30, 30);
-          ctx.lineTo(screenWidth - 30, 30 + cornerSize);
-        } else if (corner === 'bl') {
-          ctx.moveTo(30, screenHeight - 30 - cornerSize);
-          ctx.lineTo(30, screenHeight - 30);
-          ctx.lineTo(30 + cornerSize, screenHeight - 30);
-        } else {
-          ctx.moveTo(screenWidth - 30 - cornerSize, screenHeight - 30);
-          ctx.lineTo(screenWidth - 30, screenHeight - 30);
-          ctx.lineTo(screenWidth - 30, screenHeight - 30 - cornerSize);
-        }
-        ctx.stroke();
-      });
-      
-      // ENHANCED: Add decorative border frame for authority
-      ctx.strokeStyle = 'rgba(74, 222, 128, 0.3)';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(40, 40, screenWidth - 80, screenHeight - 80);
-      
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      const centerX = screenWidth / 2;
-      const centerY = screenHeight * 0.5;
-      
-      // ENHANCED: Larger "LEVEL COMPLETE" text with better spacing
-      const completeFontSize = isPortrait ? 48 : 64;
-      ctx.font = `900 ${completeFontSize}px Arial, sans-serif`;
-      ctx.fillStyle = '#4ade80';
-      ctx.shadowColor = '#4ade80';
-      ctx.shadowBlur = 40;
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
-      ctx.lineWidth = 4;
-      ctx.strokeText('LEVEL COMPLETE', centerX, centerY - (isPortrait ? 180 : 200));
-      ctx.fillText('LEVEL COMPLETE', centerX, centerY - (isPortrait ? 180 : 200));
-      
-      // ENHANCED: Decorative line under title
-      ctx.strokeStyle = '#4ade80';
-      ctx.lineWidth = 3;
-      ctx.shadowBlur = 15;
-      ctx.beginPath();
-      const lineWidth = isPortrait ? 200 : 300;
-      ctx.moveTo(centerX - lineWidth / 2, centerY - (isPortrait ? 145 : 160));
-      ctx.lineTo(centerX + lineWidth / 2, centerY - (isPortrait ? 145 : 160));
-      ctx.stroke();
-      ctx.shadowBlur = 0;
-      
-      // ENHANCED: Larger level number with better visibility
-      const levelFontSize = isPortrait ? 32 : 42;
-      ctx.font = `bold ${levelFontSize}px Arial, sans-serif`;
-      ctx.fillStyle = '#cbd5e1';
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
-      ctx.lineWidth = 3;
-      ctx.strokeText(`Level ${readyUpLevel}`, centerX, centerY - (isPortrait ? 100 : 115));
-      ctx.fillText(`Level ${readyUpLevel}`, centerX, centerY - (isPortrait ? 100 : 115));
-      
-      // ENHANCED: Larger credits display with icon
-      const infoFontSize = isPortrait ? 22 : 28;
-      ctx.font = `bold ${infoFontSize}px Arial, sans-serif`;
-      ctx.fillStyle = '#fbbf24';
-      ctx.shadowColor = '#fbbf24';
-      ctx.shadowBlur = 10;
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
-      ctx.lineWidth = 2;
-      ctx.strokeText(`💰 ${Save.data.credits} Credits`, centerX, centerY - (isPortrait ? 50 : 60));
-      ctx.fillText(`💰 ${Save.data.credits} Credits`, centerX, centerY - (isPortrait ? 50 : 60));
-      ctx.shadowBlur = 0;
-      
-      // ENHANCED: Larger, more prominent action button
-      const pulsePhase = Math.sin(now / 350) * 0.12 + 1;
-      const buttonWidth = isPortrait ? 300 : 380;
-      const buttonHeight = isPortrait ? 80 : 95;
-      
-      // Button outer glow
-      ctx.shadowColor = '#4ade80';
-      ctx.shadowBlur = 40 * pulsePhase;
-      
-      // Button background with gradient
-      const btnGradient = ctx.createLinearGradient(
-        centerX - buttonWidth / 2, centerY - buttonHeight / 2,
-        centerX + buttonWidth / 2, centerY + buttonHeight / 2
-      );
-      btnGradient.addColorStop(0, `rgba(34, 197, 94, ${0.3 * pulsePhase})`);
-      btnGradient.addColorStop(0.5, `rgba(74, 222, 128, ${0.25 * pulsePhase})`);
-      btnGradient.addColorStop(1, `rgba(34, 197, 94, ${0.3 * pulsePhase})`);
-      ctx.fillStyle = btnGradient;
-      ctx.beginPath();
-      ctx.roundRect(centerX - (buttonWidth * pulsePhase) / 2, centerY - (buttonHeight * pulsePhase) / 2, 
-                     buttonWidth * pulsePhase, buttonHeight * pulsePhase, 16);
-      ctx.fill();
-      
-      // Button border
-      ctx.strokeStyle = '#4ade80';
-      ctx.lineWidth = 4;
-      ctx.stroke();
-      ctx.shadowBlur = 0;
-      
-      // Button text
-      const buttonTextSize = isPortrait ? 36 : 44;
-      ctx.font = `900 ${buttonTextSize}px Arial, sans-serif`;
-      ctx.fillStyle = '#4ade80';
-      ctx.shadowColor = '#4ade80';
-      ctx.shadowBlur = 20;
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
-      ctx.lineWidth = 3;
-      ctx.strokeText('READY UP!', centerX, centerY);
-      ctx.fillText('READY UP!', centerX, centerY);
-      
-      // ENHANCED: Clearer, better spaced instruction text
-      const instructSize = isPortrait ? 18 : 22;
-      ctx.font = `${instructSize}px Arial, sans-serif`;
-      ctx.fillStyle = '#e2e8f0';
-      ctx.shadowBlur = 5;
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
-      ctx.fillText('Press SPACE or TAP to start', centerX, centerY + (isPortrait ? 75 : 85));
-      
-      // ENHANCED: Shop hint with better styling
-      ctx.font = `bold ${instructSize}px Arial, sans-serif`;
-      ctx.fillStyle = '#60a5fa';
-      ctx.shadowColor = '#60a5fa';
-      ctx.shadowBlur = 8;
-      ctx.fillText('Press S to open SHOP and upgrade', centerX, centerY + (isPortrait ? 115 : 130));
-      
-      ctx.restore();
-    }
+    // Ready-up overlay is drawn separately after HUD (see drawReadyUpOverlay function)
     
     // Draw countdown - ENHANCED: Better positioning and styling to prevent overlap
     if (countdownActive) {
@@ -8756,10 +8491,11 @@
       return;
     }
     
-    // Always draw during countdown, but don't update game logic
-    if (countdownActive) {
+    // Always draw during countdown or ready-up, but don't update game logic
+    if (countdownActive || readyUpPhase) {
       drawGame();
       updateHUD();
+      drawReadyUpOverlay(); // Draw ready-up AFTER HUD so it's on top of everything
       lastTime = timestamp; // Update lastTime during countdown to prevent huge dt when resuming
       consumeTimedEffects(timestamp); // Process timed effects to allow countdown to complete
       animationFrame = requestAnimationFrame(loop);
@@ -8855,6 +8591,176 @@
     gameRunning = true;
     paused = false;
     loop(lastTime);
+  };
+
+  // NEW: Draw ready-up overlay AFTER HUD - Mobile-focused design, covers everything
+  const drawReadyUpOverlay = () => {
+    if (!readyUpPhase || !dom.ctx) return;
+    
+    const ctx = dom.ctx;
+    const now = performance.now();
+    ctx.save();
+    
+    const screenWidth = window.innerWidth;
+    const screenHeight = window.innerHeight;
+    const isPortrait = screenHeight > screenWidth;
+    
+    // FULL OPACITY overlay to completely cover game
+    const overlayOpacity = 0.98;
+    const gradient = ctx.createRadialGradient(
+      screenWidth / 2, screenHeight * 0.5, 0,
+      screenWidth / 2, screenHeight * 0.5, Math.max(screenWidth, screenHeight) * 0.8
+    );
+    gradient.addColorStop(0, `rgba(5, 10, 20, ${overlayOpacity})`);
+    gradient.addColorStop(0.4, `rgba(10, 15, 25, ${overlayOpacity})`);
+    gradient.addColorStop(0.7, `rgba(15, 23, 42, ${overlayOpacity})`);
+    gradient.addColorStop(1, `rgba(0, 0, 0, ${overlayOpacity + 0.02})`);
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, screenWidth, screenHeight);
+    
+    // Scan lines for tech aesthetic
+    ctx.fillStyle = 'rgba(74, 222, 128, 0.05)';
+    const scanLineOffset = (now / 25) % 10;
+    for (let y = scanLineOffset; y < screenHeight; y += 10) {
+      ctx.fillRect(0, y, screenWidth, 2);
+    }
+    
+    // Corner accents
+    ctx.strokeStyle = 'rgba(74, 222, 128, 0.6)';
+    ctx.lineWidth = 4;
+    const cornerSize = isPortrait ? 50 : 70;
+    
+    ['tl', 'tr', 'bl', 'br'].forEach(corner => {
+      ctx.beginPath();
+      if (corner === 'tl') {
+        ctx.moveTo(25, 25 + cornerSize);
+        ctx.lineTo(25, 25);
+        ctx.lineTo(25 + cornerSize, 25);
+      } else if (corner === 'tr') {
+        ctx.moveTo(screenWidth - 25 - cornerSize, 25);
+        ctx.lineTo(screenWidth - 25, 25);
+        ctx.lineTo(screenWidth - 25, 25 + cornerSize);
+      } else if (corner === 'bl') {
+        ctx.moveTo(25, screenHeight - 25 - cornerSize);
+        ctx.lineTo(25, screenHeight - 25);
+        ctx.lineTo(25 + cornerSize, screenHeight - 25);
+      } else {
+        ctx.moveTo(screenWidth - 25 - cornerSize, screenHeight - 25);
+        ctx.lineTo(screenWidth - 25, screenHeight - 25);
+        ctx.lineTo(screenWidth - 25, screenHeight - 25 - cornerSize);
+      }
+      ctx.stroke();
+    });
+    
+    // Decorative border frame
+    ctx.strokeStyle = 'rgba(74, 222, 128, 0.3)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(35, 35, screenWidth - 70, screenHeight - 70);
+    
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const centerX = screenWidth / 2;
+    const centerY = screenHeight * 0.5;
+    
+    // MOBILE-SIZED: Smaller "LEVEL COMPLETE" text
+    const completeFontSize = isPortrait ? 32 : 42;
+    ctx.font = `900 ${completeFontSize}px Arial, sans-serif`;
+    ctx.fillStyle = '#4ade80';
+    ctx.shadowColor = '#4ade80';
+    ctx.shadowBlur = 30;
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+    ctx.lineWidth = 3;
+    ctx.strokeText('LEVEL COMPLETE', centerX, centerY - (isPortrait ? 140 : 160));
+    ctx.fillText('LEVEL COMPLETE', centerX, centerY - (isPortrait ? 140 : 160));
+    
+    // Decorative line
+    ctx.strokeStyle = '#4ade80';
+    ctx.lineWidth = 2;
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    const lineWidth = isPortrait ? 150 : 220;
+    ctx.moveTo(centerX - lineWidth / 2, centerY - (isPortrait ? 110 : 125));
+    ctx.lineTo(centerX + lineWidth / 2, centerY - (isPortrait ? 110 : 125));
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    
+    // MOBILE-SIZED: Level number
+    const levelFontSize = isPortrait ? 24 : 32;
+    ctx.font = `bold ${levelFontSize}px Arial, sans-serif`;
+    ctx.fillStyle = '#cbd5e1';
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.lineWidth = 2;
+    ctx.strokeText(`Level ${readyUpLevel}`, centerX, centerY - (isPortrait ? 80 : 95));
+    ctx.fillText(`Level ${readyUpLevel}`, centerX, centerY - (isPortrait ? 80 : 95));
+    
+    // MOBILE-SIZED: Credits display
+    const infoFontSize = isPortrait ? 18 : 24;
+    ctx.font = `bold ${infoFontSize}px Arial, sans-serif`;
+    ctx.fillStyle = '#fbbf24';
+    ctx.shadowColor = '#fbbf24';
+    ctx.shadowBlur = 8;
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.lineWidth = 2;
+    ctx.strokeText(`💰 ${Save.data.credits} Credits`, centerX, centerY - (isPortrait ? 45 : 55));
+    ctx.fillText(`💰 ${Save.data.credits} Credits`, centerX, centerY - (isPortrait ? 45 : 55));
+    ctx.shadowBlur = 0;
+    
+    // MOBILE-SIZED: Action button
+    const pulsePhase = Math.sin(now / 350) * 0.12 + 1;
+    const buttonWidth = isPortrait ? 240 : 320;
+    const buttonHeight = isPortrait ? 65 : 80;
+    
+    // Button glow
+    ctx.shadowColor = '#4ade80';
+    ctx.shadowBlur = 35 * pulsePhase;
+    
+    // Button background with gradient
+    const btnGradient = ctx.createLinearGradient(
+      centerX - buttonWidth / 2, centerY - buttonHeight / 2,
+      centerX + buttonWidth / 2, centerY + buttonHeight / 2
+    );
+    btnGradient.addColorStop(0, `rgba(34, 197, 94, ${0.3 * pulsePhase})`);
+    btnGradient.addColorStop(0.5, `rgba(74, 222, 128, ${0.25 * pulsePhase})`);
+    btnGradient.addColorStop(1, `rgba(34, 197, 94, ${0.3 * pulsePhase})`);
+    ctx.fillStyle = btnGradient;
+    ctx.beginPath();
+    ctx.roundRect(centerX - (buttonWidth * pulsePhase) / 2, centerY - (buttonHeight * pulsePhase) / 2, 
+                   buttonWidth * pulsePhase, buttonHeight * pulsePhase, 14);
+    ctx.fill();
+    
+    // Button border
+    ctx.strokeStyle = '#4ade80';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    
+    // Button text - MOBILE-SIZED
+    const buttonTextSize = isPortrait ? 28 : 36;
+    ctx.font = `900 ${buttonTextSize}px Arial, sans-serif`;
+    ctx.fillStyle = '#4ade80';
+    ctx.shadowColor = '#4ade80';
+    ctx.shadowBlur = 18;
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+    ctx.lineWidth = 3;
+    ctx.strokeText('TAP TO START', centerX, centerY);
+    ctx.fillText('TAP TO START', centerX, centerY);
+    
+    // MOBILE-FOCUSED: Single tap instruction (removed keyboard references)
+    const instructSize = isPortrait ? 15 : 18;
+    ctx.font = `${instructSize}px Arial, sans-serif`;
+    ctx.fillStyle = '#e2e8f0';
+    ctx.shadowBlur = 4;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+    ctx.fillText('Tap anywhere to continue', centerX, centerY + (isPortrait ? 60 : 70));
+    
+    // Shop hint - MOBILE-SIZED
+    ctx.font = `bold ${instructSize}px Arial, sans-serif`;
+    ctx.fillStyle = '#60a5fa';
+    ctx.shadowColor = '#60a5fa';
+    ctx.shadowBlur = 6;
+    ctx.fillText('Tap SHOP button to upgrade', centerX, centerY + (isPortrait ? 90 : 105));
+    
+    ctx.restore();
   };
 
   const startGame = () => {
