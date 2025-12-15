@@ -395,7 +395,7 @@ html, body {
 /* HUD - Optimized for mobile */
 #uiPanel, #leftControls, #centerControls, #rightControls {
   position: absolute;
-  z-index: 3;
+  z-index: 4;
   opacity: 0.95;
 }
 
@@ -413,6 +413,7 @@ html, body {
   border-radius: 6px;
   border: 1px solid rgba(255,255,255,0.15);
   max-width: calc(100vw - 8px);
+  pointer-events: auto;
 }
 
 .ui-stat-row {
@@ -502,39 +503,42 @@ html, body {
 }
 
 /* Action Log - Minimal Console Style */
+/* Action Log - ENHANCED: Better positioning and styling */
 #actionLog {
   position: absolute;
-  bottom: 12px;
-  left: 12px;
+  bottom: 16px;
+  left: 16px;
   z-index: 4;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   pointer-events: none;
-  max-width: 280px;
+  max-width: 300px;
   font-family: 'Courier New', monospace;
 }
 
 .log-entry {
-  background: rgba(0,0,0,0.85);
-  border-left: 3px solid currentColor;
-  padding: 4px 8px;
-  font-size: 10px;
-  font-weight: 600;
+  background: rgba(0,0,0,0.92);
+  border-left: 4px solid currentColor;
+  border-radius: 3px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 700;
   white-space: nowrap;
-  animation: logSlideIn 0.2s ease, logFadeOut 0.4s ease 3.6s forwards;
-  text-shadow: 0 0 4px currentColor;
-  letter-spacing: 0.02em;
+  animation: logSlideIn 0.25s ease, logFadeOut 0.5s ease 3.5s forwards;
+  text-shadow: 0 0 6px currentColor, 0 1px 2px rgba(0,0,0,0.8);
+  letter-spacing: 0.03em;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.1);
 }
 
 @keyframes logSlideIn {
-  from { opacity: 0; transform: translateX(-20px); }
-  to { opacity: 1; transform: translateX(0); }
+  from { opacity: 0; transform: translateX(-25px) scale(0.95); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
 }
 
 @keyframes logFadeOut {
-  from { opacity: 1; }
-  to { opacity: 0; }
+  from { opacity: 1; transform: translateX(0) scale(1); }
+  to { opacity: 0; transform: translateX(-15px) scale(0.9); }
 }
 
 /* Equipment Slot Indicator - Secondary Weapons Dock */
@@ -923,32 +927,35 @@ html, body {
 }
 
 /* Unified menu button (replaces both action buttons and settings) */
+/* Now integrated into the HUD panel */
 #unifiedMenuButton {
-  position: absolute;
-  top: 50px;
-  right: 15px;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  border: 2px solid rgba(134, 239, 172,0.5);
+  position: relative;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid rgba(134, 239, 172,0.4);
   background: rgba(15,23,42,0.9);
   color: #86efac;
-  font-size: 24px;
+  font-size: 18px;
   font-weight: 700;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
   transition: all 0.2s ease;
   backdrop-filter: blur(4px);
+  flex-shrink: 0;
+  margin-left: auto;
+  pointer-events: auto;
+  z-index: 5;
 }
 
 #unifiedMenuButton:active {
   transform: scale(0.92);
   background: rgba(74, 222, 128,0.8);
   color: #fff;
-  box-shadow: 0 0 16px rgba(74, 222, 128,0.6);
+  box-shadow: 0 0 12px rgba(74, 222, 128,0.6);
 }
 
 /* Settings button (legacy) - hide if unified menu is present */
@@ -995,13 +1002,13 @@ html, body {
 }
 
 .modal-content {
-  background: linear-gradient(145deg, #0f172a, #1e293b);
+  background: linear-gradient(145deg, #000000, #0f0f0f);
   border: 2px solid rgba(74, 222, 128,0.4);
   border-radius: 16px;
   width: min(450px, 92vw);
   max-height: 85vh;
   overflow-y: auto;
-  box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+  box-shadow: 0 20px 50px rgba(0,0,0,0.8), 0 0 60px rgba(74,222,128,0.15), inset 0 1px 0 rgba(255,255,255,0.03);
 }
 
 .modal-content.unified-menu {
@@ -1159,7 +1166,8 @@ html, body {
   align-items: center;
   padding: 20px 24px;
   border-bottom: 2px solid rgba(74, 222, 128,0.3);
-  background: rgba(15, 23, 42, 0.5);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
 }
 
 .modal-header h2 {
@@ -1394,8 +1402,14 @@ html, body {
     right: 15px;
   }
   
-  /* Unified menu button adjustment */
-  #unifiedMenuButton, .settingsButton {
+  /* Unified menu button adjustment for landscape - stays in HUD */
+  #unifiedMenuButton {
+    width: 28px;
+    height: 28px;
+    font-size: 16px;
+  }
+  
+  .settingsButton {
     top: 30px;
     right: 10px;
     width: 40px;
@@ -1473,15 +1487,18 @@ html, body {
     max-width: 150px;
   }
   
-  /* Action log positioning */
+  /* Action log positioning - ENHANCED: Better mobile positioning to avoid overlap */
   #actionLog {
-    bottom: 4px;
-    left: 4px;
+    bottom: 6px;
+    left: 6px;
+    max-width: 240px;
+    gap: 3px;
   }
   
   .log-entry {
     font-size: 9px;
-    padding: 3px 7px;
+    padding: 4px 8px;
+    border-left-width: 3px;
   }
 }
 
@@ -1546,8 +1563,8 @@ html, body {
 #shopModal {
   position: absolute;
   inset: 0;
-  background: rgba(0,0,0,0.75);
-  backdrop-filter: blur(4px);
+  background: rgba(0,0,0,0.85);
+  backdrop-filter: blur(8px);
   display: none;
   align-items: center;
   justify-content: center;
@@ -1555,15 +1572,15 @@ html, body {
 }
 
 #shopCard {
-  background: linear-gradient(145deg, rgba(0,0,0,0.95), rgba(0,0,0,0.85));
+  background: linear-gradient(145deg, #000000, #0a0a0a);
   backdrop-filter: blur(20px);
-  border: 2px solid rgba(74, 222, 128,0.5);
+  border: 2px solid rgba(74, 222, 128, 0.5);
   border-radius: 20px;
   width: min(880px, 95vw);
   max-height: 90vh;
   overflow: auto;
   padding: 0;
-  box-shadow: 0 25px 60px rgba(0,0,0,0.8), 0 0 80px rgba(74,222,128,0.15), inset 0 1px 0 rgba(255,255,255,0.1);
+  box-shadow: 0 25px 60px rgba(0,0,0,0.9), 0 0 80px rgba(74,222,128,0.2), inset 0 1px 0 rgba(255,255,255,0.05);
 }
 
 #shopHeader {
@@ -1571,7 +1588,7 @@ html, body {
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(10px);
   border-bottom: 2px solid rgba(74, 222, 128,0.4);
   position: sticky;
@@ -1585,11 +1602,11 @@ html, body {
   color: #86efac;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  text-shadow: 0 0 10px rgba(134, 239, 172, 0.3);
+  text-shadow: 0 0 10px rgba(134, 239, 172, 0.4);
 }
 
 #closeShop {
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(10px);
   border: 2px solid rgba(148, 163, 184, 0.4);
   color: #94a3b8;
@@ -1599,13 +1616,15 @@ html, body {
   border-radius: 10px;
   transition: all 0.2s ease;
   font-weight: 700;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
 }
 
 #closeShop:hover {
-  background: rgba(239, 68, 68, 0.2);
-  border-color: #ef4444;
-  color: #ef4444;
+  background: rgba(74, 222, 128, 0.2);
+  border-color: #4ade80;
+  color: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(74, 222, 128, 0.3), inset 0 1px 0 rgba(255,255,255,0.1);
 }
 
 #openHangarFromShop.secondaryBtn {
@@ -1999,11 +2018,11 @@ html, body {
 /* Pause Menu Modal */
 .pause-menu {
   width: min(400px, 90vw);
-  background: linear-gradient(145deg, rgba(0,0,0,0.95), rgba(0,0,0,0.85));
+  background: linear-gradient(145deg, #000000, #0a0a0a);
   backdrop-filter: blur(20px);
   border: 2px solid rgba(74, 222, 128,0.6);
   border-radius: 20px;
-  box-shadow: 0 25px 60px rgba(0,0,0,0.8), 0 0 80px rgba(74,222,128,0.15), inset 0 1px 0 rgba(255,255,255,0.1);
+  box-shadow: 0 25px 60px rgba(0,0,0,0.9), 0 0 80px rgba(74,222,128,0.2), inset 0 1px 0 rgba(255,255,255,0.05);
 }
 
 .pause-menu-content {
@@ -2022,14 +2041,14 @@ html, body {
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.2s ease;
-  background: rgba(0,0,0,0.6);
+  background: rgba(0,0,0,0.7);
   backdrop-filter: blur(10px);
   color: #e2e8f0;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03);
 }
 
 .pause-menu-btn:hover {
@@ -2106,14 +2125,14 @@ html, body {
 /* Game Over Screen */
 .game-over-screen {
   width: min(500px, 92vw);
-  background: linear-gradient(145deg, #1e293b, #0f172a);
+  background: linear-gradient(145deg, #0a0000, #000000);
   border: 3px solid rgba(239,68,68,0.6);
-  box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.9), 0 0 60px rgba(239,68,68,0.2), inset 0 1px 0 rgba(255,255,255,0.03);
 }
 
 .game-over-header {
   padding: 24px;
-  background: linear-gradient(135deg, rgba(127,29,29,0.4), rgba(185,28,28,0.4));
+  background: linear-gradient(135deg, rgba(127,29,29,0.5), rgba(0,0,0,0.8));
   border-bottom: 2px solid rgba(239,68,68,0.3);
 }
 
@@ -2132,7 +2151,7 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 20px;
-  background: rgba(15,23,42,0.6);
+  background: rgba(0,0,0,0.8);
 }
 
 .stat-item {
@@ -2140,10 +2159,11 @@ html, body {
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  background: rgba(30,41,59,0.8);
+  background: rgba(0,0,0,0.9);
   border: 2px solid rgba(148,163,184,0.2);
   border-radius: 12px;
   transition: all 0.3s ease;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
 }
 
 .stat-item:hover {
@@ -2281,7 +2301,7 @@ html, body {
 }
 
 .auth-input {
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.8);
   backdrop-filter: blur(10px);
   color: #f1f5f9;
   border: 2px solid rgba(74, 222, 128,0.4);
@@ -2291,13 +2311,13 @@ html, body {
   width: 100%;
   outline: none;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255,255,255,0.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255,255,255,0.03);
 }
 
 .auth-input:focus {
   border-color: #4ade80;
-  box-shadow: 0 0 0 3px rgba(74, 222, 128,0.3), 0 4px 16px rgba(74, 222, 128, 0.2), inset 0 1px 0 rgba(255,255,255,0.1);
-  background: rgba(0, 0, 0, 0.8);
+  box-shadow: 0 0 0 3px rgba(74, 222, 128,0.3), 0 4px 16px rgba(74, 222, 128, 0.2), inset 0 1px 0 rgba(255,255,255,0.05);
+  background: rgba(0, 0, 0, 0.9);
 }
 
 .auth-input::placeholder {
@@ -2407,7 +2427,7 @@ html, body {
 }
 
 .leaderboard-entry {
-  background: rgba(15, 23, 42, 0.8);
+  background: rgba(0, 0, 0, 0.9);
   border: 2px solid rgba(148,163,184,0.25);
   border-radius: 12px;
   padding: 14px 18px;
@@ -2416,19 +2436,20 @@ html, body {
   gap: 16px;
   align-items: center;
   transition: all 0.25s ease;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
 }
 
 .leaderboard-entry:hover {
-  background: rgba(30,41,59,0.9);
+  background: rgba(10,10,10,0.95);
   border-color: rgba(74, 222, 128, 0.5);
   transform: translateX(4px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255,255,255,0.05);
 }
 
 .leaderboard-entry.current-user {
   border-color: #4ade80;
-  background: rgba(34,197,94,0.25);
-  box-shadow: 0 0 20px rgba(34, 197, 94, 0.3);
+  background: rgba(0,20,10,0.9);
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.3), inset 0 1px 0 rgba(74, 222, 128, 0.1);
 }
 
 .leaderboard-rank {
@@ -2518,7 +2539,7 @@ html, body {
 }
 
 .social-modal-content {
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  background: linear-gradient(135deg, #000000 0%, #0a0a0a 100%);
   border: 2px solid rgba(134, 239, 172, 0.3);
   border-radius: 16px;
   padding: 32px;
@@ -2526,7 +2547,7 @@ html, body {
   width: 90%;
   max-height: 85vh;
   overflow-y: auto;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 60px rgba(74, 222, 128, 0.1), inset 0 1px 0 rgba(255,255,255,0.03);
   position: relative;
 }
 
@@ -2674,18 +2695,20 @@ html, body {
 }
 
 .stat-card {
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(0, 0, 0, 0.8);
   border: 1px solid rgba(134, 239, 172, 0.2);
   border-radius: 12px;
   padding: 20px;
   text-align: center;
   transition: all 0.2s;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
 }
 
 .stat-card:hover {
   border-color: #86efac;
-  background: rgba(15, 23, 42, 0.8);
+  background: rgba(0, 0, 0, 0.95);
   transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(74, 222, 128, 0.2), inset 0 1px 0 rgba(255,255,255,0.05);
 }
 
 .stat-value {
@@ -2728,11 +2751,12 @@ html, body {
   align-items: center;
   gap: 16px;
   padding: 16px;
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(0, 0, 0, 0.8);
   border: 1px solid rgba(134, 239, 172, 0.2);
   border-radius: 12px;
   margin-bottom: 12px;
   transition: all 0.2s;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
 }
 
 .friend-card {
@@ -2741,8 +2765,9 @@ html, body {
 
 .friend-card:hover {
   border-color: #86efac;
-  background: rgba(15, 23, 42, 0.8);
+  background: rgba(0, 0, 0, 0.95);
   transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(74, 222, 128, 0.2), inset 0 1px 0 rgba(255,255,255,0.05);
 }
 
 .friend-avatar {
