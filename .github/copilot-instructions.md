@@ -112,3 +112,148 @@ Follow conventional commits format:
 ## Browser Compatibility
 
 The game targets modern browsers (Chrome, Firefox, Safari, Edge). Ensure changes maintain compatibility with ES2022 features as configured in `.eslintrc.json`.
+
+## API and Backend Structure
+
+The backend uses Vercel Serverless Functions located in the `api/` directory:
+
+- **api/leaderboard.js** - Global leaderboard endpoints (GET/POST scores)
+- **api/users.js** - User authentication and profile management
+- **api/friends.js** - Social features and friend management
+- **api/activity.js** - Activity feed and game events
+- **api/redis-client.js** - Shared Redis/Vercel KV client
+
+### Backend Guidelines
+
+- All API endpoints use Vercel KV (Redis) for data storage
+- CORS is configured in `vercel.json` to allow cross-origin requests
+- Password hashing uses SHA-256 via `src/utils/crypto.js`
+- Always validate inputs server-side in API endpoints
+- Keep API functions stateless and idempotent when possible
+
+## Deployment Workflow
+
+### Frontend Deployment
+- The game can be deployed to any static host (GitHub Pages, Netlify, Vercel)
+- No build step required - HTML, CSS, and JS files are used directly
+- Simply copy `index.html`, `script.js`, `style.css`, and related assets
+
+### Backend Deployment
+- Uses Vercel for serverless functions
+- Deploy with: `./deploy.sh` or `vercel --prod`
+- After deployment, update `API_URL` in `backend-api.js` with your Vercel deployment URL
+- Environment variables (if needed) go in Vercel dashboard or `.env.local`
+
+## Module-Specific Guidance
+
+### Core Modules (`src/core/`)
+- **config.js** - Game constants, difficulty settings, ship configs, armory items
+- Modify for balance changes, new weapons, or ship types
+- All numeric values should be well-documented
+
+### Entity Modules (`src/entities/`)
+- **Bullet.js** - Bullet projectile behavior
+- **Asteroid.js** - Asteroid obstacle behavior
+- Follow existing class patterns when adding new entities
+- Implement `update()` and `render()` methods consistently
+
+### System Modules (`src/systems/`)
+- **SaveSystem.js** - localStorage save/load (key: `void_rift_v11`)
+- **AuthSystem.js** - User authentication flows
+- **LeaderboardSystem.js** - Score tracking and leaderboard
+- **InputManager.js** - Unified keyboard/gamepad/touch input
+- **ParticleSystem.js** - Visual effects and particles
+- **GameState.js** - Runtime state management
+
+### Utility Modules (`src/utils/`)
+- **math.js** - Math helpers (clamp, distance, collision detection)
+- **crypto.js** - Password hashing using Web Crypto API
+- **validation.js** - Input validation and sanitization
+
+## Common Pitfalls and Troubleshooting
+
+### localStorage Issues
+- The save system uses key `void_rift_v11` in localStorage
+- Clearing browser data will reset all progress
+- Always validate saved data structure before using it
+- Handle missing or corrupted save data gracefully
+
+### Browser-Specific Issues
+- Safari has stricter autoplay policies for audio
+- Firefox requires explicit user gesture for fullscreen
+- Mobile browsers may have different touch event handling
+- Test gamepad support across different browsers
+
+### Performance Considerations
+- The game targets 60 FPS
+- Monitor particle counts to avoid performance degradation
+- Use object pooling for frequently created/destroyed objects
+- Minimize DOM operations during game loop
+
+### Input Handling
+- Touch controls are active on mobile devices
+- Gamepad support auto-detects connected controllers
+- Mouse and keyboard are primary on desktop
+- All input goes through `InputManager.js` for consistency
+
+## Testing Workflow
+
+### Running Tests
+```bash
+# Run all tests
+npx jest
+
+# Run specific test file
+npx jest game-utils.test.js
+
+# Run tests in watch mode
+npx jest --watch
+
+# Run with coverage report
+npx jest --coverage
+```
+
+### Test Files
+- **game-utils.test.js** - Utility function tests (math, collision, etc.)
+- **game-config.test.js** - Configuration validation tests
+- **save-system.test.js** - Save/load functionality tests
+
+### Writing Tests
+- Use Jest with jsdom environment (configured in `jest.config.js`)
+- Mock localStorage for save system tests
+- Test edge cases and error conditions
+- Keep tests focused and independent
+- Follow existing test patterns in the codebase
+
+## Development Server
+
+Start the local development server:
+```bash
+npm start
+# or
+python3 -m http.server 5173
+```
+
+The game will be available at `http://localhost:5173`
+
+## Environment and Browser Specifics
+
+### Local Development
+- Requires a local server (file:// protocol has limitations)
+- Use `npm start` or Python's http.server
+- Hot reload not available - refresh browser after changes
+
+### Browser Features Used
+- Canvas API for rendering
+- Web Audio API for sound
+- localStorage for persistence
+- Gamepad API for controller support
+- Touch Events API for mobile
+- Fullscreen API for immersive mode
+- Web Crypto API for password hashing
+
+### Browser Console
+- Avoid `console.log` in production code
+- Use `console.warn` for warnings
+- Use `console.error` for errors
+- ESLint will flag improper console usage
