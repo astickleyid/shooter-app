@@ -157,7 +157,19 @@ Development improvements:
 - **Code Quality**: ESLint passing with zero errors, comprehensive JSDoc comments
 - **Better Browser Support**: Enhanced meta tags for mobile and PWA compatibility
 - **Development Documentation**: Architecture docs and contributing guidelines
-- **iOS App Ready**: Complete iOS app with native features
+- **iOS App & CI/CD**: Complete iOS app with automated builds via GitHub Actions
+
+## iOS App
+
+The game is available as a native iOS app with automated builds:
+
+- **Location**: `ios/` directory
+- **Features**: Portrait/landscape support, interactive tutorial, touch controls
+- **Automated Builds**: GitHub Actions workflow builds iOS app on every push
+- **Latest Content**: Auto-syncs with Vercel deployment
+- **Quick Sync**: Run `./sync-ios-content.sh` to update iOS bundle locally
+
+See [IOS_BUILD_GUIDE.md](IOS_BUILD_GUIDE.md) and [ios/README.md](ios/README.md) for details.
 
 ## Contributing / Next Steps
 

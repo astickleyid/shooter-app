@@ -319,12 +319,12 @@
           <div class="settings-section">
             <h3>Configure Equipment Loadout</h3>
             <p style="color: #94a3b8; font-size: 13px; margin-bottom: 16px;">
-              Slot 1 must be a primary weapon. Use 2 taps to switch to slot 2, 3 taps for slot 3, etc.
+              Customize your 4 equipment slots. Each slot can be activated using different methods during gameplay.
             </p>
             
             <div class="equipment-slot-config">
               <label>
-                <span>Slot 1 (Primary) - Always Active</span>
+                <span>Slot 1 (Primary Weapon) - Always Active</span>
                 <select id="equipSlot1" class="equipment-select">
                   <option value="primary:pulse">Pulse Blaster</option>
                   <option value="primary:scatter">Scatter Coil</option>
@@ -334,7 +334,7 @@
               </label>
               
               <label>
-                <span>Slot 2 - 2 Taps to Activate</span>
+                <span>Slot 2 - Secondary Equipment</span>
                 <select id="equipSlot2" class="equipment-select">
                   <option value="defense:aegis">Aegis Shield</option>
                   <option value="defense:reflector">Reflector Veil</option>
@@ -347,7 +347,7 @@
               </label>
               
               <label>
-                <span>Slot 3 - 3 Taps to Activate</span>
+                <span>Slot 3 - Secondary Equipment</span>
                 <select id="equipSlot3" class="equipment-select">
                   <option value="secondary:nova">Nova Bomb</option>
                   <option value="secondary:cluster">Cluster Barrage</option>
@@ -360,7 +360,7 @@
               </label>
               
               <label>
-                <span>Slot 4 - 4 Taps to Activate</span>
+                <span>Slot 4 - Ultimate/Boost</span>
                 <select id="equipSlot4" class="equipment-select">
                   <option value="boost">Boost</option>
                   <option value="ultimate:voidstorm">Voidstorm</option>
@@ -374,9 +374,35 @@
               </label>
             </div>
             
-            <p style="color: #60a5fa; font-size: 12px; margin-top: 12px;">
-              <img src="assets/icons/icon-tip.svg" alt="" width="14" height="14" style="vertical-align: middle; margin-right: 4px;"/> Tap anywhere on screen (not joysticks) to cycle equipment: 2 taps = slot 2, 3 taps = slot 3, etc.
-            </p>
+            <div style="background: rgba(0,0,0,0.6); border: 2px solid rgba(74,222,128,0.3); border-radius: 12px; padding: 16px; margin-top: 20px;">
+              <h4 style="color: #86efac; font-size: 14px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                <img src="assets/icons/icon-gamepad.svg" alt="" width="16" height="16"/> In-Game Controls
+              </h4>
+              
+              <div style="display: grid; gap: 10px; font-size: 12px;">
+                <div style="display: flex; align-items: start; gap: 10px;">
+                  <span style="color: #4ade80; font-weight: 700; min-width: 120px;">Keyboard:</span>
+                  <span style="color: #cbd5e1;">Press <kbd style="background: rgba(74,222,128,0.2); padding: 2px 6px; border-radius: 4px; font-family: monospace;">1</kbd> <kbd style="background: rgba(74,222,128,0.2); padding: 2px 6px; border-radius: 4px; font-family: monospace;">2</kbd> <kbd style="background: rgba(74,222,128,0.2); padding: 2px 6px; border-radius: 4px; font-family: monospace;">3</kbd> <kbd style="background: rgba(74,222,128,0.2); padding: 2px 6px; border-radius: 4px; font-family: monospace;">4</kbd> to activate each slot directly</span>
+                </div>
+                
+                <div style="display: flex; align-items: start; gap: 10px;">
+                  <span style="color: #4ade80; font-weight: 700; min-width: 120px;">Touch/Mouse:</span>
+                  <span style="color: #cbd5e1;">Tap the equipment icons at the top of screen, OR long-press anywhere on screen to open radial menu</span>
+                </div>
+                
+                <div style="display: flex; align-items: start; gap: 10px;">
+                  <span style="color: #4ade80; font-weight: 700; min-width: 120px;">Gamepad:</span>
+                  <span style="color: #cbd5e1;">Use D-pad or face buttons to select equipment slots</span>
+                </div>
+              </div>
+              
+              <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(74,222,128,0.2);">
+                <p style="color: #60a5fa; font-size: 11px; margin: 0;">
+                  <img src="assets/icons/icon-tip.svg" alt="" width="12" height="12" style="vertical-align: middle; margin-right: 4px;"/> 
+                  <strong>Tip:</strong> Long-press anywhere on the screen (avoiding joysticks) to quickly access the radial equipment menu during gameplay.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
         

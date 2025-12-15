@@ -21,9 +21,26 @@ This iOS project has been built with all requested features:
 
 ### 🚀 Quick Start
 
+#### Automated Builds (GitHub Actions):
+The iOS app is automatically built via GitHub Actions whenever code is pushed! The workflow:
+- ✅ Syncs latest web content from Vercel deployment
+- ✅ Builds for iOS Simulator (Debug)
+- ✅ Creates App Store archive (Release, on main branch)
+- ✅ Validates Vercel API URL configuration
+
+**Manually trigger a build**: Go to Actions → iOS Build → Run workflow
+
+#### Sync Latest Web Content:
+```bash
+# From repository root
+./sync-ios-content.sh
+```
+
+This ensures the iOS app has the latest game files and Vercel API configuration.
+
 #### Open in Xcode:
 ```bash
-cd /Users/austinstickley/shooter-app/ios
+cd ios
 open VoidRift.xcodeproj
 ```
 
@@ -225,22 +242,39 @@ Status Bar: Hidden (for immersive gameplay)
 
 ### 🎯 Next Steps
 
-1. **Test on Device:**
+1. **Update Web Content:**
+   - Run `./sync-ios-content.sh` to get latest game files
+   - Or wait for GitHub Actions to sync automatically
+
+2. **Test on Device:**
    - Connect iPhone/iPad
    - Build and run
    - Test all orientations
    - Complete tutorial
 
-2. **App Store Preparation:**
+3. **App Store Preparation:**
    - Create App Store Connect listing
    - Prepare screenshots
    - Write app description
    - Set pricing/availability
 
-3. **Submit:**
-   - Archive build
+4. **Submit:**
+   - Archive build (or download from GitHub Actions)
    - Upload to App Store Connect
    - Submit for review
+
+### 🔄 Automated Builds & CI/CD
+
+The repository includes a GitHub Actions workflow for automated iOS builds:
+- **Location**: `.github/workflows/ios-build.yml`
+- **Triggers**: Push to main/develop, pull requests, manual dispatch
+- **Features**:
+  - Auto-syncs web content to iOS bundle
+  - Builds for iOS Simulator (all commits)
+  - Creates App Store archive (main branch only)
+  - Verifies Vercel API URL
+
+**See [IOS_BUILD_GUIDE.md](../IOS_BUILD_GUIDE.md) for complete documentation**
 
 ### ✨ Result
 
