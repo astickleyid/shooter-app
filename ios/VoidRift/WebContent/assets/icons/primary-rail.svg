@@ -1,0 +1,13 @@
+<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Rail Lance - High-powered railgun -->
+  <rect x="6" y="21" width="28" height="6" rx="2" fill="#a855f7" stroke="#9333ea" stroke-width="1.5"/>
+  <!-- Accelerator rings -->
+  <rect x="18" y="19" width="2" height="10" rx="1" fill="#c084fc"/>
+  <rect x="24" y="19" width="2" height="10" rx="1" fill="#c084fc"/>
+  <rect x="30" y="19" width="2" height="10" rx="1" fill="#c084fc"/>
+  <!-- Power core -->
+  <rect x="30" y="18" width="12" height="12" rx="3" fill="#d8b4fe" stroke="#9333ea" stroke-width="1.5"/>
+  <circle cx="36" cy="24" r="3" fill="#f3e8ff"/>
+  <!-- Charge beam -->
+  <line x1="2" y1="24" x2="6" y2="24" stroke="#f3e8ff" stroke-width="2" stroke-linecap="round"/>
+</svg>

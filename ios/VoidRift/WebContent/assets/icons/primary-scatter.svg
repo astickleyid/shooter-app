@@ -1,0 +1,12 @@
+<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Scatter Coil - Tri-barrel weapon -->
+  <rect x="8" y="18" width="24" height="4" rx="1" fill="#fbbf24" stroke="#f59e0b" stroke-width="1.5"/>
+  <rect x="8" y="24" width="24" height="4" rx="1" fill="#fbbf24" stroke="#f59e0b" stroke-width="1.5"/>
+  <rect x="8" y="30" width="24" height="4" rx="1" fill="#fbbf24" stroke="#f59e0b" stroke-width="1.5"/>
+  <!-- Barrel end -->
+  <rect x="28" y="16" width="12" height="16" rx="3" fill="#fcd34d" stroke="#f59e0b" stroke-width="1.5"/>
+  <!-- Muzzle flashes -->
+  <circle cx="6" cy="20" r="1.5" fill="#fef08a"/>
+  <circle cx="6" cy="26" r="1.5" fill="#fef08a"/>
+  <circle cx="6" cy="32" r="1.5" fill="#fef08a"/>
+</svg>
