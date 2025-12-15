@@ -16,6 +16,7 @@
 		AA0007 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = BB0007 /* LaunchScreen.storyboard */; };
 		AA0008 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BB0008 /* Assets.xcassets */; };
 		AA0009 /* WebContent in Resources */ = {isa = PBXBuildFile; fileRef = BB0009 /* WebContent */; };
+		AA0010 /* GameCenterManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0011 /* GameCenterManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -30,6 +31,7 @@
 		BB0008 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		BB0009 /* WebContent */ = {isa = PBXFileReference; lastKnownFileType = folder; path = WebContent; sourceTree = "<group>"; };
 		BB0010 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		BB0011 /* GameCenterManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCenterManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -79,6 +81,7 @@
 				BB0004 /* GameBridge.swift */,
 				BB0005 /* TutorialOverlay.swift */,
 				BB0006 /* OrientationManager.swift */,
+				BB0011 /* GameCenterManager.swift */,
 			);
 			path = Native;
 			sourceTree = "<group>";
@@ -177,6 +180,7 @@
 				AA0004 /* GameBridge.swift in Sources */,
 				AA0005 /* TutorialOverlay.swift in Sources */,
 				AA0006 /* OrientationManager.swift in Sources */,
+				AA0010 /* GameCenterManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
