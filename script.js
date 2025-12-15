@@ -7016,32 +7016,8 @@
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, width, height);
     
-    // Load and display weapon icon if available
-    const weaponType = item.id ? 
-      (ARMORY.primary.find(w => w.id === item.id) ? 'primary' :
-       ARMORY.secondary.find(w => w.id === item.id) ? 'secondary' :
-       ARMORY.defense.find(w => w.id === item.id) ? 'defense' :
-       ARMORY.ultimate.find(w => w.id === item.id) ? 'ultimate' : null) : null;
-    
-    if (weaponType && item.id) {
-      const iconPath = `assets/icons/${weaponType}-${item.id}.svg`;
-      const img = new Image();
-      img.onload = () => {
-        ctx.save();
-        ctx.translate(width / 2, height / 2);
-        // Draw icon centered and scaled
-        const iconSize = Math.min(width, height) * 0.6;
-        ctx.drawImage(img, -iconSize / 2, -iconSize / 2, iconSize, iconSize);
-        
-        // Add glow effect
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = item.color || '#4ade80';
-        ctx.drawImage(img, -iconSize / 2, -iconSize / 2, iconSize, iconSize);
-        ctx.restore();
-      };
-      img.src = iconPath;
-    } else {
-      // Fallback: draw generic weapon shape with item color
+    // Fallback: draw generic weapon shape with item color
+    const drawFallback = () => {
       ctx.save();
       ctx.translate(width / 2, height / 2);
       ctx.rotate(-Math.PI / 8);
@@ -7063,6 +7039,40 @@
       ctx.lineTo(width * 0.28, height * 0.04);
       ctx.stroke();
       ctx.restore();
+    };
+    
+    // Load and display weapon icon if available
+    const weaponType = item.id ? 
+      (ARMORY.primary.find(w => w.id === item.id) ? 'primary' :
+       ARMORY.secondary.find(w => w.id === item.id) ? 'secondary' :
+       ARMORY.defense.find(w => w.id === item.id) ? 'defense' :
+       ARMORY.ultimate.find(w => w.id === item.id) ? 'ultimate' : null) : null;
+    
+    if (weaponType && item.id) {
+      const iconPath = `assets/icons/${weaponType}-${item.id}.svg`;
+      const img = new Image();
+      
+      img.onload = () => {
+        ctx.save();
+        ctx.translate(width / 2, height / 2);
+        // Apply glow effect with single draw
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = item.color || '#4ade80';
+        // Draw icon centered and scaled
+        const iconSize = Math.min(width, height) * 0.6;
+        ctx.drawImage(img, -iconSize / 2, -iconSize / 2, iconSize, iconSize);
+        ctx.restore();
+      };
+      
+      img.onerror = () => {
+        // If icon fails to load, render fallback shape
+        drawFallback();
+      };
+      
+      img.src = iconPath;
+    } else {
+      // No weapon type identified, use fallback
+      drawFallback();
     }
   };
 
