@@ -5916,114 +5916,176 @@
         ctx.restore();
       }
       
-      // Angular delta wings (stealth faceted design) - widened
+      // Angular delta wings (stealth faceted design) - ENHANCED: wider and more dramatic
       ctx.fillStyle = darken(primary, 0.15);
       ctx.beginPath();
-      ctx.moveTo(size * 0.1, -size * 0.12);
-      ctx.lineTo(-size * 0.2, -size * 0.7);
-      ctx.lineTo(-size * 0.75, -size * 0.6);
-      ctx.lineTo(-size * 0.5, -size * 0.15);
+      ctx.moveTo(size * 0.15, -size * 0.15);
+      ctx.lineTo(-size * 0.15, -size * 0.82);
+      ctx.lineTo(-size * 0.8, -size * 0.68);
+      ctx.lineTo(-size * 0.5, -size * 0.18);
       ctx.closePath();
       ctx.fill();
       ctx.beginPath();
-      ctx.moveTo(size * 0.1, size * 0.12);
-      ctx.lineTo(-size * 0.2, size * 0.7);
-      ctx.lineTo(-size * 0.75, size * 0.6);
-      ctx.lineTo(-size * 0.5, size * 0.15);
+      ctx.moveTo(size * 0.15, size * 0.15);
+      ctx.lineTo(-size * 0.15, size * 0.82);
+      ctx.lineTo(-size * 0.8, size * 0.68);
+      ctx.lineTo(-size * 0.5, size * 0.18);
       ctx.closePath();
       ctx.fill();
       
-      // Vertical stabilizers (canted)
+      // Wing edge highlights - ENHANCED
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = size * 0.03;
+      ctx.beginPath();
+      ctx.moveTo(-size * 0.15, -size * 0.82);
+      ctx.lineTo(-size * 0.8, -size * 0.68);
+      ctx.moveTo(-size * 0.15, size * 0.82);
+      ctx.lineTo(-size * 0.8, size * 0.68);
+      ctx.stroke();
+      
+      // Vertical stabilizers (canted) - ENHANCED: larger and more aggressive
       ctx.fillStyle = darken(primary, 0.25);
       ctx.beginPath();
-      ctx.moveTo(-size * 0.55, -size * 0.45);
-      ctx.lineTo(-size * 0.4, -size * 0.75);
-      ctx.lineTo(-size * 0.65, -size * 0.7);
-      ctx.lineTo(-size * 0.7, -size * 0.45);
+      ctx.moveTo(-size * 0.5, -size * 0.5);
+      ctx.lineTo(-size * 0.35, -size * 0.85);
+      ctx.lineTo(-size * 0.7, -size * 0.78);
+      ctx.lineTo(-size * 0.75, -size * 0.48);
       ctx.closePath();
       ctx.fill();
       ctx.beginPath();
-      ctx.moveTo(-size * 0.55, size * 0.45);
-      ctx.lineTo(-size * 0.4, size * 0.75);
-      ctx.lineTo(-size * 0.65, size * 0.7);
-      ctx.lineTo(-size * 0.7, size * 0.45);
+      ctx.moveTo(-size * 0.5, size * 0.5);
+      ctx.lineTo(-size * 0.35, size * 0.85);
+      ctx.lineTo(-size * 0.7, size * 0.78);
+      ctx.lineTo(-size * 0.75, size * 0.48);
       ctx.closePath();
       ctx.fill();
       
-      // Main fuselage - long needle shape - widened
+      // Stabilizer edge accents
+      ctx.strokeStyle = darken(accent, 0.2);
+      ctx.lineWidth = size * 0.025;
+      ctx.beginPath();
+      ctx.moveTo(-size * 0.35, -size * 0.85);
+      ctx.lineTo(-size * 0.7, -size * 0.78);
+      ctx.moveTo(-size * 0.35, size * 0.85);
+      ctx.lineTo(-size * 0.7, size * 0.78);
+      ctx.stroke();
+      
+      // Main fuselage - long needle shape - ENHANCED: wider and more substantial
       ctx.fillStyle = primary;
       ctx.strokeStyle = trim;
-      ctx.lineWidth = Math.max(1.5, size * 0.06);
+      ctx.lineWidth = Math.max(2, size * 0.08);
       ctx.shadowColor = primary;
-      ctx.shadowBlur = 10;
+      ctx.shadowBlur = 12;
       ctx.beginPath();
       ctx.moveTo(size * 1.5, 0);
-      ctx.lineTo(size * 0.4, -size * 0.18);
-      ctx.lineTo(-size * 0.3, -size * 0.2);
-      ctx.lineTo(-size * 0.9, -size * 0.12);
+      ctx.lineTo(size * 0.4, -size * 0.22);
+      ctx.lineTo(-size * 0.3, -size * 0.24);
+      ctx.lineTo(-size * 0.9, -size * 0.15);
       ctx.lineTo(-size * 0.95, 0);
-      ctx.lineTo(-size * 0.9, size * 0.12);
-      ctx.lineTo(-size * 0.3, size * 0.2);
-      ctx.lineTo(size * 0.4, size * 0.18);
+      ctx.lineTo(-size * 0.9, size * 0.15);
+      ctx.lineTo(-size * 0.3, size * 0.24);
+      ctx.lineTo(size * 0.4, size * 0.22);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
       ctx.shadowBlur = 0;
       
-      // Stealth panel lines (faceted surfaces)
+      // Stealth panel lines (faceted surfaces) - ENHANCED: more detail
       ctx.strokeStyle = accent;
-      ctx.lineWidth = size * 0.04;
+      ctx.lineWidth = size * 0.05;
       ctx.beginPath();
       ctx.moveTo(size * 1.1, 0);
-      ctx.lineTo(size * 0.2, -size * 0.12);
-      ctx.lineTo(-size * 0.5, -size * 0.15);
+      ctx.lineTo(size * 0.2, -size * 0.15);
+      ctx.lineTo(-size * 0.5, -size * 0.18);
       ctx.moveTo(size * 1.1, 0);
-      ctx.lineTo(size * 0.2, size * 0.12);
-      ctx.lineTo(-size * 0.5, size * 0.15);
+      ctx.lineTo(size * 0.2, size * 0.15);
+      ctx.lineTo(-size * 0.5, size * 0.18);
       ctx.stroke();
       
-      // Sensor array on nose
-      ctx.fillStyle = accent;
+      // Additional facet lines for stealth appearance
+      ctx.strokeStyle = darken(primary, 0.3);
+      ctx.lineWidth = size * 0.02;
       ctx.beginPath();
-      ctx.arc(size * 1.2, 0, size * 0.06, 0, Math.PI * 2);
+      ctx.moveTo(size * 0.6, -size * 0.18);
+      ctx.lineTo(size * 0.3, -size * 0.2);
+      ctx.moveTo(size * 0.6, size * 0.18);
+      ctx.lineTo(size * 0.3, size * 0.2);
+      ctx.moveTo(-size * 0.1, -size * 0.22);
+      ctx.lineTo(-size * 0.1, size * 0.22);
+      ctx.stroke();
+      
+      // Sensor array on nose - ENHANCED: more prominent
+      ctx.fillStyle = accent;
+      ctx.shadowColor = accent;
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.arc(size * 1.25, 0, size * 0.08, 0, Math.PI * 2);
       ctx.fill();
       
-      // Elongated narrow canopy
+      // Additional sensor details
+      ctx.fillStyle = canopy;
+      ctx.globalAlpha = 0.8;
+      ctx.beginPath();
+      ctx.arc(size * 1.25, 0, size * 0.04, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.shadowBlur = 0;
+      
+      // Elongated narrow canopy - ENHANCED: more detailed
       ctx.save();
       ctx.shadowColor = canopy;
-      ctx.shadowBlur = 8;
+      ctx.shadowBlur = 10;
       ctx.fillStyle = canopy;
-      ctx.globalAlpha = 0.85;
+      ctx.globalAlpha = 0.88;
       ctx.beginPath();
-      ctx.ellipse(size * 0.35, 0, size * 0.25, size * 0.1, 0, 0, Math.PI * 2);
+      ctx.ellipse(size * 0.4, 0, size * 0.28, size * 0.12, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
       
-      // Canopy highlight
-      ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-      ctx.lineWidth = size * 0.02;
+      // Canopy highlight - ENHANCED
+      ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+      ctx.lineWidth = size * 0.025;
       ctx.beginPath();
-      ctx.arc(size * 0.4, -size * 0.02, size * 0.08, Math.PI, Math.PI * 1.5);
+      ctx.arc(size * 0.45, -size * 0.03, size * 0.1, Math.PI * 0.9, Math.PI * 1.4);
       ctx.stroke();
       
-      // Twin vectoring thrusters
-      const enginePulse = Math.sin(now / 80) * 0.2 + 0.8;
+      // Canopy frame lines
+      ctx.strokeStyle = trim;
+      ctx.lineWidth = size * 0.02;
+      ctx.beginPath();
+      ctx.moveTo(size * 0.25, -size * 0.08);
+      ctx.lineTo(size * 0.25, size * 0.08);
+      ctx.stroke();
+      
+      // Twin vectoring thrusters - ENHANCED: more powerful looking
+      const enginePulse = Math.sin(now / 80) * 0.25 + 0.8;
       ctx.save();
       ctx.shadowColor = thruster;
-      ctx.shadowBlur = 20;
+      ctx.shadowBlur = 24;
       ctx.fillStyle = thruster;
       ctx.globalAlpha = enginePulse;
       ctx.beginPath();
-      ctx.ellipse(-size * 0.92, -size * 0.04, size * 0.08, size * 0.045, 0, 0, Math.PI * 2);
-      ctx.ellipse(-size * 0.92, size * 0.04, size * 0.08, size * 0.045, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.92, -size * 0.05, size * 0.1, size * 0.055, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.92, size * 0.05, size * 0.1, size * 0.055, 0, 0, Math.PI * 2);
       ctx.fill();
-      // Afterburner trails when boosting
+      
+      // Inner engine core glow
+      ctx.fillStyle = '#fff';
+      ctx.globalAlpha = enginePulse * 0.7;
+      ctx.beginPath();
+      ctx.ellipse(-size * 0.92, -size * 0.05, size * 0.05, size * 0.03, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.92, size * 0.05, size * 0.05, size * 0.03, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Afterburner trails when boosting - ENHANCED
       if (isBoosting) {
-        ctx.globalAlpha = enginePulse * 0.6;
+        ctx.globalAlpha = enginePulse * 0.7;
+        ctx.fillStyle = thruster;
         ctx.beginPath();
-        ctx.moveTo(-size * 0.98, -size * 0.04);
-        ctx.lineTo(-size * 1.4, 0);
-        ctx.lineTo(-size * 0.98, size * 0.04);
+        ctx.moveTo(-size * 0.98, -size * 0.05);
+        ctx.lineTo(-size * 1.5, -size * 0.02);
+        ctx.lineTo(-size * 1.5, size * 0.02);
+        ctx.lineTo(-size * 0.98, size * 0.05);
         ctx.fill();
       }
       ctx.restore();
@@ -6053,110 +6115,189 @@
         ctx.restore();
       }
       
-      // Heavy twin-boom hull structures - widened
+      // Heavy twin-boom hull structures - ENHANCED: wider and more imposing
       ctx.fillStyle = darken(primary, 0.2);
       // Top boom
       ctx.beginPath();
-      ctx.moveTo(size * 0.3, -size * 0.45);
-      ctx.lineTo(-size * 0.15, -size * 1.15);
-      ctx.lineTo(-size * 0.85, -size * 1.05);
-      ctx.lineTo(-size * 1.0, -size * 0.45);
-      ctx.lineTo(-size * 0.6, -size * 0.4);
+      ctx.moveTo(size * 0.35, -size * 0.48);
+      ctx.lineTo(-size * 0.1, -size * 1.25);
+      ctx.lineTo(-size * 0.9, -size * 1.12);
+      ctx.lineTo(-size * 1.05, -size * 0.48);
+      ctx.lineTo(-size * 0.6, -size * 0.42);
       ctx.closePath();
       ctx.fill();
       // Bottom boom
       ctx.beginPath();
-      ctx.moveTo(size * 0.3, size * 0.45);
-      ctx.lineTo(-size * 0.15, size * 1.15);
-      ctx.lineTo(-size * 0.85, size * 1.05);
-      ctx.lineTo(-size * 1.0, size * 0.45);
-      ctx.lineTo(-size * 0.6, size * 0.4);
+      ctx.moveTo(size * 0.35, size * 0.48);
+      ctx.lineTo(-size * 0.1, size * 1.25);
+      ctx.lineTo(-size * 0.9, size * 1.12);
+      ctx.lineTo(-size * 1.05, size * 0.48);
+      ctx.lineTo(-size * 0.6, size * 0.42);
       ctx.closePath();
       ctx.fill();
       
-      // Armor plates on booms
+      // Boom structural ribs - ENHANCED
+      ctx.strokeStyle = darken(primary, 0.35);
+      ctx.lineWidth = size * 0.04;
+      ctx.beginPath();
+      ctx.moveTo(-size * 0.3, -size * 1.2);
+      ctx.lineTo(-size * 0.3, -size * 0.45);
+      ctx.moveTo(-size * 0.6, -size * 1.08);
+      ctx.lineTo(-size * 0.6, -size * 0.43);
+      ctx.moveTo(-size * 0.3, size * 1.2);
+      ctx.lineTo(-size * 0.3, size * 0.45);
+      ctx.moveTo(-size * 0.6, size * 1.08);
+      ctx.lineTo(-size * 0.6, size * 0.43);
+      ctx.stroke();
+      
+      // Armor plates on booms - ENHANCED: larger and more detailed
       ctx.fillStyle = accent;
       ctx.beginPath();
-      ctx.rect(-size * 0.5, -size * 1.1, size * 0.25, size * 0.12);
-      ctx.rect(-size * 0.5, size * 0.98, size * 0.25, size * 0.12);
+      ctx.rect(-size * 0.55, -size * 1.15, size * 0.3, size * 0.14);
+      ctx.rect(-size * 0.55, size * 1.01, size * 0.3, size * 0.14);
       ctx.fill();
       
-      // Central main fuselage (armored box) - widened
+      // Armor plate rivets
+      ctx.fillStyle = darken(accent, 0.4);
+      for (let i = 0; i < 3; i++) {
+        const x = -size * 0.5 + i * size * 0.1;
+        ctx.beginPath();
+        ctx.arc(x, -size * 1.08, size * 0.02, 0, Math.PI * 2);
+        ctx.arc(x, size * 1.08, size * 0.02, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      
+      // Central main fuselage (armored box) - ENHANCED: wider and more armored looking
       ctx.fillStyle = primary;
       ctx.strokeStyle = trim;
-      ctx.lineWidth = Math.max(2, size * 0.1);
+      ctx.lineWidth = Math.max(2.5, size * 0.12);
       ctx.shadowColor = primary;
-      ctx.shadowBlur = 12;
+      ctx.shadowBlur = 15;
       ctx.beginPath();
       ctx.moveTo(size * 1.1, 0);
-      ctx.lineTo(size * 0.6, -size * 0.38);
-      ctx.lineTo(-size * 0.4, -size * 0.35);
-      ctx.lineTo(-size * 0.55, -size * 0.25);
-      ctx.lineTo(-size * 0.55, size * 0.25);
-      ctx.lineTo(-size * 0.4, size * 0.35);
-      ctx.lineTo(size * 0.6, size * 0.38);
+      ctx.lineTo(size * 0.6, -size * 0.42);
+      ctx.lineTo(-size * 0.4, -size * 0.4);
+      ctx.lineTo(-size * 0.55, -size * 0.3);
+      ctx.lineTo(-size * 0.55, size * 0.3);
+      ctx.lineTo(-size * 0.4, size * 0.4);
+      ctx.lineTo(size * 0.6, size * 0.42);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
       ctx.shadowBlur = 0;
       
-      // Heavy weapon mount (chin gun)
+      // Heavy weapon mount (chin gun) - ENHANCED: more menacing
       ctx.fillStyle = darken(primary, 0.4);
       ctx.beginPath();
-      ctx.rect(size * 0.8, -size * 0.06, size * 0.35, size * 0.12);
-      ctx.fill();
-      // Gun barrel details
-      ctx.fillStyle = trim;
-      ctx.beginPath();
-      ctx.rect(size * 1.1, -size * 0.03, size * 0.15, size * 0.02);
-      ctx.rect(size * 1.1, size * 0.01, size * 0.15, size * 0.02);
+      ctx.rect(size * 0.8, -size * 0.08, size * 0.4, size * 0.16);
       ctx.fill();
       
-      // Reinforced armor lines
-      ctx.strokeStyle = accent;
-      ctx.lineWidth = size * 0.07;
+      // Weapon housing details
+      ctx.strokeStyle = darken(primary, 0.5);
+      ctx.lineWidth = size * 0.02;
       ctx.beginPath();
-      ctx.moveTo(size * 0.5, -size * 0.3);
-      ctx.lineTo(-size * 0.3, -size * 0.28);
-      ctx.moveTo(size * 0.5, size * 0.3);
-      ctx.lineTo(-size * 0.3, size * 0.28);
+      ctx.rect(size * 0.85, -size * 0.07, size * 0.3, size * 0.14);
       ctx.stroke();
       
-      // Armored canopy (smaller, protected)
+      // Gun barrel details - ENHANCED
+      ctx.fillStyle = trim;
+      ctx.beginPath();
+      ctx.rect(size * 1.15, -size * 0.04, size * 0.18, size * 0.028);
+      ctx.rect(size * 1.15, size * 0.012, size * 0.18, size * 0.028);
+      ctx.fill();
+      
+      // Barrel muzzle flash suppressors
+      ctx.fillStyle = darken(trim, 0.3);
+      ctx.beginPath();
+      ctx.rect(size * 1.3, -size * 0.045, size * 0.04, size * 0.035);
+      ctx.rect(size * 1.3, size * 0.01, size * 0.04, size * 0.035);
+      ctx.fill();
+      
+      // Reinforced armor lines - ENHANCED: more prominent
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = size * 0.09;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(size * 0.5, -size * 0.34);
+      ctx.lineTo(-size * 0.35, -size * 0.32);
+      ctx.moveTo(size * 0.5, size * 0.34);
+      ctx.lineTo(-size * 0.35, size * 0.32);
+      ctx.stroke();
+      
+      // Additional armor detail lines
+      ctx.strokeStyle = darken(accent, 0.3);
+      ctx.lineWidth = size * 0.04;
+      ctx.beginPath();
+      ctx.moveTo(size * 0.3, -size * 0.38);
+      ctx.lineTo(-size * 0.2, -size * 0.36);
+      ctx.moveTo(size * 0.3, size * 0.38);
+      ctx.lineTo(-size * 0.2, size * 0.36);
+      ctx.stroke();
+      ctx.lineCap = 'butt';
+      
+      // Armored canopy (smaller, protected) - ENHANCED
       ctx.save();
       ctx.shadowColor = canopy;
-      ctx.shadowBlur = 8;
+      ctx.shadowBlur = 10;
       ctx.fillStyle = canopy;
-      ctx.globalAlpha = 0.85;
+      ctx.globalAlpha = 0.88;
       ctx.beginPath();
-      ctx.ellipse(size * 0.45, 0, size * 0.2, size * 0.12, 0, 0, Math.PI * 2);
+      ctx.ellipse(size * 0.5, 0, size * 0.22, size * 0.14, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
       
-      // Sensor dome on top
-      ctx.fillStyle = canopy;
-      ctx.globalAlpha = 0.7;
+      // Canopy frame
+      ctx.strokeStyle = trim;
+      ctx.lineWidth = size * 0.035;
       ctx.beginPath();
-      ctx.arc(size * 0.1, -size * 0.15, size * 0.08, 0, Math.PI * 2);
+      ctx.arc(size * 0.5, 0, size * 0.18, Math.PI * 0.5, Math.PI * 1.5);
+      ctx.stroke();
+      
+      // Sensor dome on top - ENHANCED
+      ctx.fillStyle = canopy;
+      ctx.globalAlpha = 0.75;
+      ctx.shadowColor = canopy;
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(size * 0.12, -size * 0.18, size * 0.1, 0, Math.PI * 2);
       ctx.fill();
       ctx.globalAlpha = 1;
+      ctx.shadowBlur = 0;
       
-      // Quad engine configuration
-      const enginePulse = Math.sin(now / 120) * 0.15 + 0.85;
+      // Sensor dome antenna
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = size * 0.02;
+      ctx.beginPath();
+      ctx.moveTo(size * 0.12, -size * 0.28);
+      ctx.lineTo(size * 0.12, -size * 0.35);
+      ctx.stroke();
+      
+      // Quad engine configuration - ENHANCED: more powerful
+      const enginePulse = Math.sin(now / 120) * 0.2 + 0.85;
       ctx.save();
       ctx.shadowColor = thruster;
-      ctx.shadowBlur = 18;
+      ctx.shadowBlur = 22;
       ctx.fillStyle = thruster;
       ctx.globalAlpha = enginePulse;
-      // Boom engines
+      // Boom engines - larger
       ctx.beginPath();
-      ctx.ellipse(-size * 0.95, -size * 0.82, size * 0.12, size * 0.1, 0, 0, Math.PI * 2);
-      ctx.ellipse(-size * 0.95, size * 0.82, size * 0.12, size * 0.1, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.98, -size * 0.9, size * 0.15, size * 0.12, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.98, size * 0.9, size * 0.15, size * 0.12, 0, 0, Math.PI * 2);
       ctx.fill();
       // Central engines
       ctx.beginPath();
-      ctx.ellipse(-size * 0.58, -size * 0.18, size * 0.08, size * 0.06, 0, 0, Math.PI * 2);
-      ctx.ellipse(-size * 0.58, size * 0.18, size * 0.08, size * 0.06, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.58, -size * 0.22, size * 0.1, size * 0.08, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.58, size * 0.22, size * 0.1, size * 0.08, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Inner engine core glow
+      ctx.fillStyle = '#fff';
+      ctx.globalAlpha = enginePulse * 0.6;
+      ctx.beginPath();
+      ctx.ellipse(-size * 0.98, -size * 0.9, size * 0.08, size * 0.06, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.98, size * 0.9, size * 0.08, size * 0.06, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.58, -size * 0.22, size * 0.05, size * 0.04, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.58, size * 0.22, size * 0.05, size * 0.04, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
 
