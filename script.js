@@ -500,7 +500,7 @@
     MAX_LEVEL_FOR_SCALING: 25,
     
     // Progressive difficulty thresholds
-    EASY_LEVELS: 5,           // First N levels are easier (MID_GAME_START = EASY_LEVELS + 1)
+    EASY_LEVELS: 3,           // REDUCED from 5: First N levels are easier, ramps up faster
     LATE_GAME_START: 15,      // When difficulty becomes challenging
     
     // Diminishing returns on player upgrades
@@ -7840,13 +7840,10 @@
     const diff = getDifficulty();
     
     // Calculate enemies to kill with progressive scaling
-    // Early game: fewer enemies (8-20 range)
-    // Mid game: standard enemies (scales with level * 5.5)
-    // Late game: more enemies (scales with level * 7)
     let baseEnemies;
     if (level <= ADAPTIVE_CONSTANTS.EASY_LEVELS) {
-      // Early game: gentler enemy count
-      baseEnemies = Math.floor((8 + level * 2.5) * diff.enemiesToKill);
+      // Early game: INCREASED from (8 + level * 2.5) to make levels less trivial
+      baseEnemies = Math.floor((12 + level * 3.5) * diff.enemiesToKill);
     } else if (level <= ADAPTIVE_CONSTANTS.LATE_GAME_START) {
       // Mid game: standard scaling
       baseEnemies = Math.floor((10 + level * 5.5) * diff.enemiesToKill);
@@ -8334,7 +8331,7 @@
       }
     }
     
-    // NEW: Draw ready-up screen - Player must press button to start level
+    // NEW: Draw ready-up screen - ENHANCED: More authoritative overlay with better spacing
     if (readyUpPhase) {
       const now = performance.now();
       ctx.save();
@@ -8343,117 +8340,160 @@
       const screenHeight = window.innerHeight;
       const isPortrait = screenHeight > screenWidth;
       
-      // Dark overlay
-      const overlayOpacity = 0.92;
+      // ENHANCED: Stronger, more authoritative overlay
+      const overlayOpacity = 0.97; // Increased from 0.92
       const gradient = ctx.createRadialGradient(
-        screenWidth / 2, screenHeight * 0.42, 0,
-        screenWidth / 2, screenHeight * 0.42, Math.max(screenWidth, screenHeight) * 0.75
+        screenWidth / 2, screenHeight * 0.5, 0,
+        screenWidth / 2, screenHeight * 0.5, Math.max(screenWidth, screenHeight) * 0.8
       );
-      gradient.addColorStop(0, `rgba(10, 15, 25, ${overlayOpacity})`);
-      gradient.addColorStop(0.5, `rgba(15, 23, 42, ${overlayOpacity})`);
-      gradient.addColorStop(1, `rgba(0, 0, 0, ${overlayOpacity + 0.04})`);
+      gradient.addColorStop(0, `rgba(5, 10, 20, ${overlayOpacity})`);
+      gradient.addColorStop(0.4, `rgba(10, 15, 25, ${overlayOpacity})`);
+      gradient.addColorStop(0.7, `rgba(15, 23, 42, ${overlayOpacity})`);
+      gradient.addColorStop(1, `rgba(0, 0, 0, ${overlayOpacity + 0.03})`);
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, screenWidth, screenHeight);
       
-      // Scan lines
-      ctx.fillStyle = 'rgba(74, 222, 128, 0.02)';
+      // ENHANCED: Stronger scan lines for tech aesthetic
+      ctx.fillStyle = 'rgba(74, 222, 128, 0.05)';
       const scanLineOffset = (now / 25) % 10;
       for (let y = scanLineOffset; y < screenHeight; y += 10) {
-        ctx.fillRect(0, y, screenWidth, 1);
+        ctx.fillRect(0, y, screenWidth, 2);
       }
       
-      // Corner accents
-      ctx.strokeStyle = 'rgba(74, 222, 128, 0.4)';
-      ctx.lineWidth = 3;
-      const cornerSize = isPortrait ? 35 : 45;
+      // ENHANCED: Larger, more prominent corner accents
+      ctx.strokeStyle = 'rgba(74, 222, 128, 0.6)';
+      ctx.lineWidth = 4;
+      const cornerSize = isPortrait ? 60 : 80;
       
       ['tl', 'tr', 'bl', 'br'].forEach(corner => {
         ctx.beginPath();
         if (corner === 'tl') {
-          ctx.moveTo(20, 20 + cornerSize);
-          ctx.lineTo(20, 20);
-          ctx.lineTo(20 + cornerSize, 20);
+          ctx.moveTo(30, 30 + cornerSize);
+          ctx.lineTo(30, 30);
+          ctx.lineTo(30 + cornerSize, 30);
         } else if (corner === 'tr') {
-          ctx.moveTo(screenWidth - 20 - cornerSize, 20);
-          ctx.lineTo(screenWidth - 20, 20);
-          ctx.lineTo(screenWidth - 20, 20 + cornerSize);
+          ctx.moveTo(screenWidth - 30 - cornerSize, 30);
+          ctx.lineTo(screenWidth - 30, 30);
+          ctx.lineTo(screenWidth - 30, 30 + cornerSize);
         } else if (corner === 'bl') {
-          ctx.moveTo(20, screenHeight - 20 - cornerSize);
-          ctx.lineTo(20, screenHeight - 20);
-          ctx.lineTo(20 + cornerSize, screenHeight - 20);
+          ctx.moveTo(30, screenHeight - 30 - cornerSize);
+          ctx.lineTo(30, screenHeight - 30);
+          ctx.lineTo(30 + cornerSize, screenHeight - 30);
         } else {
-          ctx.moveTo(screenWidth - 20 - cornerSize, screenHeight - 20);
-          ctx.lineTo(screenWidth - 20, screenHeight - 20);
-          ctx.lineTo(screenWidth - 20, screenHeight - 20 - cornerSize);
+          ctx.moveTo(screenWidth - 30 - cornerSize, screenHeight - 30);
+          ctx.lineTo(screenWidth - 30, screenHeight - 30);
+          ctx.lineTo(screenWidth - 30, screenHeight - 30 - cornerSize);
         }
         ctx.stroke();
       });
       
+      // ENHANCED: Add decorative border frame for authority
+      ctx.strokeStyle = 'rgba(74, 222, 128, 0.3)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(40, 40, screenWidth - 80, screenHeight - 80);
+      
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       const centerX = screenWidth / 2;
-      const centerY = isPortrait ? screenHeight * 0.4 : screenHeight * 0.5;
+      const centerY = screenHeight * 0.5;
       
-      // "LEVEL COMPLETE" text
-      const completeFontSize = isPortrait ? 36 : 48;
+      // ENHANCED: Larger "LEVEL COMPLETE" text with better spacing
+      const completeFontSize = isPortrait ? 48 : 64;
       ctx.font = `900 ${completeFontSize}px Arial, sans-serif`;
       ctx.fillStyle = '#4ade80';
       ctx.shadowColor = '#4ade80';
-      ctx.shadowBlur = 30;
-      ctx.fillText('LEVEL COMPLETE', centerX, centerY - (isPortrait ? 120 : 140));
+      ctx.shadowBlur = 40;
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+      ctx.lineWidth = 4;
+      ctx.strokeText('LEVEL COMPLETE', centerX, centerY - (isPortrait ? 180 : 200));
+      ctx.fillText('LEVEL COMPLETE', centerX, centerY - (isPortrait ? 180 : 200));
       
-      // Level number
-      const levelFontSize = isPortrait ? 22 : 28;
-      ctx.font = `bold ${levelFontSize}px Arial, sans-serif`;
-      ctx.fillStyle = '#94a3b8';
+      // ENHANCED: Decorative line under title
+      ctx.strokeStyle = '#4ade80';
+      ctx.lineWidth = 3;
+      ctx.shadowBlur = 15;
+      ctx.beginPath();
+      const lineWidth = isPortrait ? 200 : 300;
+      ctx.moveTo(centerX - lineWidth / 2, centerY - (isPortrait ? 145 : 160));
+      ctx.lineTo(centerX + lineWidth / 2, centerY - (isPortrait ? 145 : 160));
+      ctx.stroke();
       ctx.shadowBlur = 0;
-      ctx.fillText(`Level ${readyUpLevel}`, centerX, centerY - (isPortrait ? 85 : 100));
       
-      // Credits and XP info
-      const infoFontSize = isPortrait ? 16 : 20;
+      // ENHANCED: Larger level number with better visibility
+      const levelFontSize = isPortrait ? 32 : 42;
+      ctx.font = `bold ${levelFontSize}px Arial, sans-serif`;
+      ctx.fillStyle = '#cbd5e1';
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.lineWidth = 3;
+      ctx.strokeText(`Level ${readyUpLevel}`, centerX, centerY - (isPortrait ? 100 : 115));
+      ctx.fillText(`Level ${readyUpLevel}`, centerX, centerY - (isPortrait ? 100 : 115));
+      
+      // ENHANCED: Larger credits display with icon
+      const infoFontSize = isPortrait ? 22 : 28;
       ctx.font = `bold ${infoFontSize}px Arial, sans-serif`;
       ctx.fillStyle = '#fbbf24';
-      ctx.fillText(`💰 ${Save.data.credits} Credits`, centerX, centerY - (isPortrait ? 40 : 50));
+      ctx.shadowColor = '#fbbf24';
+      ctx.shadowBlur = 10;
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.lineWidth = 2;
+      ctx.strokeText(`💰 ${Save.data.credits} Credits`, centerX, centerY - (isPortrait ? 50 : 60));
+      ctx.fillText(`💰 ${Save.data.credits} Credits`, centerX, centerY - (isPortrait ? 50 : 60));
+      ctx.shadowBlur = 0;
       
-      // Main action button - pulsing "READY UP" button
-      const pulsePhase = Math.sin(now / 400) * 0.1 + 1;
-      const buttonWidth = isPortrait ? 220 : 280;
-      const buttonHeight = isPortrait ? 60 : 70;
+      // ENHANCED: Larger, more prominent action button
+      const pulsePhase = Math.sin(now / 350) * 0.12 + 1;
+      const buttonWidth = isPortrait ? 300 : 380;
+      const buttonHeight = isPortrait ? 80 : 95;
       
-      // Button background
-      ctx.fillStyle = `rgba(74, 222, 128, ${0.2 * pulsePhase})`;
+      // Button outer glow
+      ctx.shadowColor = '#4ade80';
+      ctx.shadowBlur = 40 * pulsePhase;
+      
+      // Button background with gradient
+      const btnGradient = ctx.createLinearGradient(
+        centerX - buttonWidth / 2, centerY - buttonHeight / 2,
+        centerX + buttonWidth / 2, centerY + buttonHeight / 2
+      );
+      btnGradient.addColorStop(0, `rgba(34, 197, 94, ${0.3 * pulsePhase})`);
+      btnGradient.addColorStop(0.5, `rgba(74, 222, 128, ${0.25 * pulsePhase})`);
+      btnGradient.addColorStop(1, `rgba(34, 197, 94, ${0.3 * pulsePhase})`);
+      ctx.fillStyle = btnGradient;
       ctx.beginPath();
       ctx.roundRect(centerX - (buttonWidth * pulsePhase) / 2, centerY - (buttonHeight * pulsePhase) / 2, 
-                     buttonWidth * pulsePhase, buttonHeight * pulsePhase, 12);
+                     buttonWidth * pulsePhase, buttonHeight * pulsePhase, 16);
       ctx.fill();
       
       // Button border
       ctx.strokeStyle = '#4ade80';
-      ctx.lineWidth = 3;
-      ctx.shadowColor = '#4ade80';
-      ctx.shadowBlur = 20 * pulsePhase;
+      ctx.lineWidth = 4;
       ctx.stroke();
       ctx.shadowBlur = 0;
       
       // Button text
-      const buttonTextSize = isPortrait ? 26 : 32;
+      const buttonTextSize = isPortrait ? 36 : 44;
       ctx.font = `900 ${buttonTextSize}px Arial, sans-serif`;
       ctx.fillStyle = '#4ade80';
       ctx.shadowColor = '#4ade80';
-      ctx.shadowBlur = 15;
+      ctx.shadowBlur = 20;
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+      ctx.lineWidth = 3;
+      ctx.strokeText('READY UP!', centerX, centerY);
       ctx.fillText('READY UP!', centerX, centerY);
       
-      // Instruction text
-      const instructSize = isPortrait ? 14 : 16;
+      // ENHANCED: Clearer, better spaced instruction text
+      const instructSize = isPortrait ? 18 : 22;
       ctx.font = `${instructSize}px Arial, sans-serif`;
-      ctx.fillStyle = '#cbd5e1';
-      ctx.shadowBlur = 0;
-      ctx.fillText('Press SPACE or TAP to start', centerX, centerY + (isPortrait ? 55 : 65));
+      ctx.fillStyle = '#e2e8f0';
+      ctx.shadowBlur = 5;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+      ctx.fillText('Press SPACE or TAP to start', centerX, centerY + (isPortrait ? 75 : 85));
       
-      // Shop button hint
+      // ENHANCED: Shop hint with better styling
       ctx.font = `bold ${instructSize}px Arial, sans-serif`;
       ctx.fillStyle = '#60a5fa';
-      ctx.fillText('Press S or TAP SHOP to upgrade', centerX, centerY + (isPortrait ? 85 : 100));
+      ctx.shadowColor = '#60a5fa';
+      ctx.shadowBlur = 8;
+      ctx.fillText('Press S to open SHOP and upgrade', centerX, centerY + (isPortrait ? 115 : 130));
       
       ctx.restore();
     }
