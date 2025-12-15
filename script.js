@@ -5738,32 +5738,47 @@
       ctx.closePath();
       ctx.fill();
       
-      // Wing tip weapons pods - ENHANCED: larger and more detailed
+      // Wing tip weapons pods - ENHANCED: larger and more detailed with realistic touches
       ctx.fillStyle = accent;
       ctx.beginPath();
       ctx.ellipse(-size * 0.45, -size * 1.15, size * 0.15, size * 0.08, -0.3, 0, Math.PI * 2);
       ctx.ellipse(-size * 0.45, size * 1.15, size * 0.15, size * 0.08, 0.3, 0, Math.PI * 2);
       ctx.fill();
       
-      // Weapon pod details
+      // Weapon pod details and highlights
       ctx.fillStyle = darken(accent, 0.3);
       ctx.beginPath();
       ctx.ellipse(-size * 0.55, -size * 1.15, size * 0.06, size * 0.04, -0.3, 0, Math.PI * 2);
       ctx.ellipse(-size * 0.55, size * 1.15, size * 0.06, size * 0.04, 0.3, 0, Math.PI * 2);
       ctx.fill();
       
-      // Engine nacelles on wings - ENHANCED: bigger and more prominent
+      // Weapon pod highlights for realism
+      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+      ctx.lineWidth = size * 0.015;
+      ctx.beginPath();
+      ctx.arc(-size * 0.42, -size * 1.18, size * 0.08, Math.PI * 0.5, Math.PI * 1.2);
+      ctx.arc(-size * 0.42, size * 1.18, size * 0.08, -Math.PI * 1.2, -Math.PI * 0.5);
+      ctx.stroke();
+      
+      // Engine nacelles on wings - ENHANCED: bigger and more prominent with realistic shading
       ctx.fillStyle = darken(primary, 0.35);
       ctx.beginPath();
       ctx.ellipse(-size * 0.7, -size * 0.75, size * 0.22, size * 0.12, -0.2, 0, Math.PI * 2);
       ctx.ellipse(-size * 0.7, size * 0.75, size * 0.22, size * 0.12, 0.2, 0, Math.PI * 2);
       ctx.fill();
       
-      // Engine intake details
+      // Engine intake details with depth
       ctx.fillStyle = darken(primary, 0.5);
       ctx.beginPath();
       ctx.ellipse(-size * 0.65, -size * 0.75, size * 0.1, size * 0.06, -0.2, 0, Math.PI * 2);
       ctx.ellipse(-size * 0.65, size * 0.75, size * 0.1, size * 0.06, 0.2, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Engine nacelle highlights for realistic shine
+      ctx.fillStyle = 'rgba(255,255,255,0.15)';
+      ctx.beginPath();
+      ctx.ellipse(-size * 0.75, -size * 0.78, size * 0.08, size * 0.04, -0.2, Math.PI, Math.PI * 1.8);
+      ctx.ellipse(-size * 0.75, size * 0.78, size * 0.08, size * 0.04, 0.2, -Math.PI * 1.8, -Math.PI);
       ctx.fill();
       
       // Main fuselage body - ENHANCED: wider and more substantial
@@ -5805,7 +5820,7 @@
       ctx.lineTo(-size * 0.4, size * 0.08);
       ctx.stroke();
       
-      // Panel lines - ENHANCED: more detailed panel work
+      // Panel lines - ENHANCED: more detailed panel work with highlights
       ctx.strokeStyle = darken(primary, 0.25);
       ctx.lineWidth = size * 0.025;
       ctx.beginPath();
@@ -5817,6 +5832,16 @@
       ctx.lineTo(-size * 0.2, size * 0.25);
       ctx.moveTo(size * 0.0, -size * 0.3);
       ctx.lineTo(size * 0.0, size * 0.3);
+      ctx.stroke();
+      
+      // Panel highlights for metallic look
+      ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+      ctx.lineWidth = size * 0.015;
+      ctx.beginPath();
+      ctx.moveTo(size * 0.6, -size * 0.25);
+      ctx.lineTo(size * 0.2, -size * 0.28);
+      ctx.moveTo(size * 0.6, size * 0.25);
+      ctx.lineTo(size * 0.2, size * 0.28);
       ctx.stroke();
       
       // Canopy (elongated fighter style) - ENHANCED: larger and more detailed
@@ -8204,7 +8229,7 @@
       }
     }
     
-    // Draw kill streak popup - Stylish centered notification with mobile-safe positioning
+    // Draw kill streak popup - COMPACT: smaller, less flashy, positioned to avoid combo overlap
     if (killStreakPopup) {
       const elapsed = now - killStreakPopup.startTime;
       if (elapsed > KILL_STREAK_POPUP_DURATION) {
@@ -8213,173 +8238,83 @@
         ctx.save();
         const progress = elapsed / KILL_STREAK_POPUP_DURATION;
         
-        // Animation phases: appear (0-0.2), hold (0.2-0.7), fade out (0.7-1.0)
-        let alpha, scale, yOffset;
-        if (progress < 0.15) {
-          // Zoom in with bounce
-          const t = progress / 0.15;
-          scale = 0.3 + t * 0.9; // Overshoot to 1.2 then settle
+        // Simpler animation: quick fade in, hold, fade out
+        let alpha, scale;
+        if (progress < 0.1) {
+          // Quick fade in
+          const t = progress / 0.1;
+          scale = 0.8 + t * 0.2;
           alpha = t;
-          yOffset = (1 - t) * 50;
-        } else if (progress < 0.25) {
-          // Bounce settle
-          const t = (progress - 0.15) / 0.1;
-          scale = 1.2 - t * 0.2;
-          alpha = 1;
-          yOffset = 0;
-        } else if (progress < 0.75) {
+        } else if (progress < 0.8) {
           // Hold steady
           scale = 1;
           alpha = 1;
-          yOffset = 0;
         } else {
-          // Fade out and slide up
-          const t = (progress - 0.75) / 0.25;
-          scale = 1 - t * 0.2;
+          // Fade out
+          const t = (progress - 0.8) / 0.2;
+          scale = 1;
           alpha = 1 - t;
-          yOffset = t * -30;
         }
         
-        // Use window dimensions for proper positioning (canvas has DPR transform applied)
+        // Use window dimensions for proper positioning
         const screenWidth = window.innerWidth;
         const screenHeight = window.innerHeight;
         const isPortrait = screenHeight > screenWidth;
         
-        // Center position - ensure it stays within screen bounds on mobile
+        // Position BELOW combo counter to avoid overlap
         const centerX = screenWidth / 2;
-        // ENHANCED: Better positioning logic for portrait mode to avoid HUD overlap
-        // Position higher in portrait to avoid actionLog and HUD elements
-        let baseY;
-        if (isPortrait) {
-          // In portrait, position in upper third to avoid UI elements at bottom
-          baseY = Math.min(screenHeight * 0.28, 180);
-        } else {
-          // In landscape, use middle-upper area
-          baseY = Math.max(screenHeight * 0.3, 140);
-        }
-        const centerY = baseY + yOffset;
+        // Place below combo (which is at ~12% of height)
+        const baseY = isPortrait ? screenHeight * 0.35 : screenHeight * 0.22;
+        const centerY = Math.min(baseY, screenHeight * 0.4);
         
-        // Tier-based styling - ENHANCED with better colors and effects
+        // Tier-based styling - SIMPLIFIED
         const tierStyles = {
-          1: { main: '#f97316', glow: '#ea580c', accent: '#fbbf24', border: '#fb923c', name: 'KILL STREAK' },
-          2: { main: '#ef4444', glow: '#dc2626', accent: '#f97316', border: '#f87171', name: 'RAMPAGE' },
-          3: { main: '#a855f7', glow: '#9333ea', accent: '#ec4899', border: '#c084fc', name: 'DOMINATING' },
-          4: { main: '#ec4899', glow: '#db2777', accent: '#f472b6', border: '#f9a8d4', name: 'UNSTOPPABLE' },
-          5: { main: '#facc15', glow: '#eab308', accent: '#fef08a', border: '#fde047', name: 'LEGENDARY' }
+          1: { main: '#f97316', glow: '#ea580c' },
+          2: { main: '#ef4444', glow: '#dc2626' },
+          3: { main: '#a855f7', glow: '#9333ea' },
+          4: { main: '#ec4899', glow: '#db2777' },
+          5: { main: '#facc15', glow: '#eab308' }
         };
         const style = tierStyles[killStreakPopup.tier] || tierStyles[1];
         
-        // Background panel - ENHANCED: responsive sizing with better proportions
-        const panelWidth = Math.min(KILL_STREAK_VISUAL_CONFIG.PANEL_MAX_WIDTH, screenWidth * KILL_STREAK_VISUAL_CONFIG.PANEL_WIDTH_RATIO);
-        const panelHeight = 100;
+        // SMALLER panel - reduced from 100 to 60 height, narrower width
+        const panelWidth = Math.min(200, screenWidth * 0.5);
+        const panelHeight = 60;
         
-        // Outer glow - ENHANCED: stronger and more visible
+        // Subtle glow - reduced from 50 to 20
         ctx.shadowColor = style.glow;
-        ctx.shadowBlur = 50 * alpha;
+        ctx.shadowBlur = 20 * alpha;
         
-        // Panel background with gradient - ENHANCED: more depth
-        const bgGradient = ctx.createLinearGradient(
-          centerX - panelWidth / 2, centerY - panelHeight / 2,
-          centerX + panelWidth / 2, centerY + panelHeight / 2
-        );
-        bgGradient.addColorStop(0, `rgba(10, 15, 25, ${0.98 * alpha})`);
-        bgGradient.addColorStop(0.5, `rgba(20, 30, 45, ${0.95 * alpha})`);
-        bgGradient.addColorStop(1, `rgba(10, 15, 25, ${0.98 * alpha})`);
-        
-        ctx.fillStyle = bgGradient;
+        // Simple background - no gradient
+        ctx.fillStyle = `rgba(15, 23, 42, ${0.92 * alpha})`;
         ctx.beginPath();
         ctx.roundRect(
           centerX - (panelWidth * scale) / 2,
           centerY - (panelHeight * scale) / 2,
           panelWidth * scale,
           panelHeight * scale,
-          14
+          10
         );
         ctx.fill();
         
-        // Animated border with glow - ENHANCED: dual border for depth
-        ctx.strokeStyle = style.border;
-        ctx.lineWidth = 4;
-        ctx.stroke();
-        
-        // Inner border for extra depth
+        // Simple border - thinner
         ctx.strokeStyle = style.main;
         ctx.lineWidth = 2;
-        ctx.globalAlpha = alpha * 0.8;
         ctx.stroke();
-        ctx.globalAlpha = alpha;
         ctx.shadowBlur = 0;
         
-        // Top accent bar - ENHANCED: more prominent with gradient
-        const accentGradient = ctx.createLinearGradient(
-          centerX - (panelWidth - 40) * scale / 2, centerY - (panelHeight * scale) / 2 - 2,
-          centerX + (panelWidth - 40) * scale / 2, centerY - (panelHeight * scale) / 2 - 2
-        );
-        accentGradient.addColorStop(0, `rgba(0,0,0,0)`);
-        accentGradient.addColorStop(0.5, style.main);
-        accentGradient.addColorStop(1, `rgba(0,0,0,0)`);
-        ctx.fillStyle = accentGradient;
-        const accentWidth = (panelWidth - 40) * scale;
-        ctx.beginPath();
-        ctx.roundRect(centerX - accentWidth / 2, centerY - (panelHeight * scale) / 2 - 3, accentWidth, 6, 3);
-        ctx.fill();
-        
-        // Fire emoji with glow for high tiers - ENHANCED
+        // Main message text - SMALLER
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        
-        if (killStreakPopup.tier >= 3) {
-          ctx.font = `${Math.floor(28 * scale)}px Arial, sans-serif`;
-          ctx.shadowColor = style.glow;
-          ctx.shadowBlur = 15;
-          ctx.fillText('🔥', centerX - (panelWidth * scale) / 2 + 35, centerY - 10);
-          ctx.fillText('🔥', centerX + (panelWidth * scale) / 2 - 35, centerY - 10);
-          ctx.shadowBlur = 0;
-        }
-        
-        // Main message text - ENHANCED: better typography
-        ctx.font = `900 ${Math.floor(32 * scale)}px Arial, sans-serif`;
-        ctx.shadowColor = style.glow;
-        ctx.shadowBlur = 25 * alpha;
+        ctx.font = `bold ${Math.floor(20 * scale)}px Arial, sans-serif`;
         ctx.fillStyle = style.main;
         ctx.globalAlpha = alpha;
-        ctx.fillText(killStreakPopup.message.toUpperCase(), centerX, centerY - 14);
+        ctx.fillText(killStreakPopup.message.toUpperCase(), centerX, centerY - 8);
         
-        // Text outline for better contrast
-        ctx.strokeStyle = 'rgba(0,0,0,0.8)';
-        ctx.lineWidth = 3;
-        ctx.strokeText(killStreakPopup.message.toUpperCase(), centerX, centerY - 14);
-        ctx.shadowBlur = 0;
-        
-        // Kill count - ENHANCED: better styling with outline
-        ctx.font = `bold ${Math.floor(20 * scale)}px Arial, sans-serif`;
-        ctx.fillStyle = '#fff';
-        ctx.shadowColor = style.accent;
-        ctx.shadowBlur = 10;
-        ctx.fillText(`${killStreakPopup.milestone} KILLS`, centerX, centerY + 22);
-        
-        // Outline for kill count
-        ctx.strokeStyle = 'rgba(0,0,0,0.8)';
-        ctx.lineWidth = 2;
-        ctx.strokeText(`${killStreakPopup.milestone} KILLS`, centerX, centerY + 22);
-        ctx.shadowBlur = 0;
-        
-        // Animated particles around the panel for higher tiers
-        if (killStreakPopup.tier >= 2 && alpha > 0.5) {
-          ctx.fillStyle = `${style.accent}`;
-          const particleCount = killStreakPopup.tier * 4;
-          for (let i = 0; i < particleCount; i++) {
-            const angle = (i / particleCount) * Math.PI * 2 + (now / 400);
-            const radiusX = (panelWidth * scale) / 2 + 20;
-            const radiusY = (panelHeight * scale) / 2 + 15;
-            const px = centerX + Math.cos(angle) * radiusX;
-            const py = centerY + Math.sin(angle) * radiusY;
-            const size = 2 + Math.sin(now / 150 + i * 0.5) * 1.5;
-            ctx.beginPath();
-            ctx.arc(px, py, size, 0, Math.PI * 2);
-            ctx.fill();
-          }
-        }
+        // Kill count - SMALLER
+        ctx.font = `bold ${Math.floor(14 * scale)}px Arial, sans-serif`;
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText(`${killStreakPopup.milestone} KILLS`, centerX, centerY + 12);
         
         ctx.globalAlpha = 1;
         ctx.restore();
@@ -8561,11 +8496,15 @@
         ctx.lineTo(centerX + accentLineWidth, centerY - (isPortrait ? 60 : 75));
         ctx.stroke();
         
-        // "Starting in..." subtext - ENHANCED
+        // "Starting in..." subtext - ENHANCED: positioned with proper clearance from header
         const subtextSize = isPortrait ? 14 : 17;
+        const subtextY = centerY - (isPortrait ? 35 : 45); // Closer to ring, further from header
         ctx.font = `${subtextSize}px Arial, sans-serif`;
-        ctx.fillStyle = '#64748b';
-        ctx.fillText('Starting in', centerX, centerY - (isPortrait ? 40 : 50));
+        ctx.fillStyle = '#cbd5e1'; // Lighter color for better visibility
+        ctx.shadowColor = 'rgba(0,0,0,0.8)';
+        ctx.shadowBlur = 4;
+        ctx.fillText('Starting in', centerX, subtextY);
+        ctx.shadowBlur = 0;
         
         // Countdown circle ring - ENHANCED: adaptive sizing
         const ringRadius = isPortrait ? 60 : 75;
