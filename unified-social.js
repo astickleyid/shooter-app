@@ -2,7 +2,17 @@
  * Unified Social Manager
  * Bridges web-based social features with iOS Game Center
  * Provides seamless social experience across platforms
+ * 
+ * @global SocialAPI - Web social API (from social-api.js)
+ * @global SocialHub - Web social hub UI (from social-hub.js)
+ * @global GlobalLeaderboard - Global leaderboard system (from backend-api.js)
+ * @global submitSocialScore - Score submission function (from social-integration.js)
+ * @global socialGameOver - Game over handler (from social-integration.js)
+ * @global updateSocialUI - UI update function (from social-integration.js)
+ * @global module - Node.js module object
  */
+
+/* global SocialAPI, SocialHub, GlobalLeaderboard, submitSocialScore, socialGameOver, updateSocialUI, module */
 
 const UnifiedSocial = {
   // Platform detection
@@ -33,17 +43,13 @@ const UnifiedSocial = {
 
   // Initialize unified social system
   async initialize() {
-    console.log('🎮 Initializing Unified Social System...');
-    
     // Check for Game Center on iOS
     if (this.isIOS && window.iOSBridge?.gameCenter) {
       this.isGameCenterAvailable = true;
-      console.log('✅ Game Center available on iOS');
       
       // Listen for Game Center auth changes
-      window.onGameCenterAuthChanged = (authenticated, playerInfo) => {
+      window.onGameCenterAuthChanged = (authenticated, _playerInfo) => {
         this.isGameCenterAuthenticated = authenticated;
-        console.log(`Game Center auth: ${authenticated}`, playerInfo);
         
         // Update UI
         this.updateSocialUI();
@@ -56,7 +62,6 @@ const UnifiedSocial = {
     // Initialize web-based social (always available)
     if (typeof SocialAPI !== 'undefined') {
       SocialAPI.loadSession();
-      console.log('✅ Web social API available');
     }
     
     this.updateSocialUI();
@@ -64,15 +69,12 @@ const UnifiedSocial = {
 
   // Submit score to both systems
   async submitScore(score, level, difficulty) {
-    const promises = [];
-    
     // Submit to Game Center (iOS only)
     if (this.isGameCenterAuthenticated) {
       try {
         window.iOSBridge.gameCenter.submitScore(score, this.leaderboardIDs.highScore);
-        console.log(`✅ Score submitted to Game Center: ${score}`);
       } catch (error) {
-        console.error('Game Center score submission failed:', error);
+        // Silently ignore Game Center errors
       }
     }
     
@@ -81,9 +83,8 @@ const UnifiedSocial = {
       try {
         const username = this.getUsername();
         await submitSocialScore(username, score, level, difficulty);
-        console.log(`✅ Score submitted to web leaderboard: ${score}`);
       } catch (error) {
-        console.error('Web leaderboard submission failed:', error);
+        // Silently ignore web leaderboard errors
       }
     }
   },
@@ -96,9 +97,8 @@ const UnifiedSocial = {
       if (gcID) {
         try {
           window.iOSBridge.gameCenter.reportAchievement(gcID, percentComplete);
-          console.log(`✅ Achievement reported to Game Center: ${achievementKey}`);
         } catch (error) {
-          console.error('Game Center achievement report failed:', error);
+          // Silently ignore Game Center errors
         }
       }
     }
@@ -117,13 +117,12 @@ const UnifiedSocial = {
       if (!profile.unlockedAchievements.includes(achievementKey)) {
         profile.unlockedAchievements.push(achievementKey);
         localStorage.setItem(profileKey, JSON.stringify(profile));
-        console.log(`✅ Achievement unlocked locally: ${achievementKey}`);
         
         // Show achievement notification
         this.showAchievementNotification(achievementKey);
       }
     } catch (error) {
-      console.error('Local achievement save failed:', error);
+      // Silently ignore local achievement errors
     }
   },
 
@@ -169,7 +168,7 @@ const UnifiedSocial = {
           playerID: f.playerID
         })));
       } catch (error) {
-        console.error('Failed to load Game Center friends:', error);
+        // Silently ignore Game Center friend loading errors
       }
     }
     
@@ -183,7 +182,7 @@ const UnifiedSocial = {
           id: f.id
         })));
       } catch (error) {
-        console.error('Failed to load web friends:', error);
+        // Silently ignore web friend loading errors
       }
     }
     
@@ -391,6 +390,6 @@ if (typeof window !== 'undefined') {
 }
 
 // Export for module systems
-if (typeof module !== 'undefined' && module.exports) {
+if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
   module.exports = { UnifiedSocial };
 }

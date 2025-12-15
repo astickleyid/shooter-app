@@ -116,29 +116,58 @@ To run tests with coverage:
 ```bash
 npm test -- --coverage
 ```
+
+## Social Features
+
+VOID RIFT includes comprehensive social features for a connected gaming experience:
+
+### Web-Based Social (Cross-Platform)
+- **User Accounts**: Create an account to track your progress across devices
+- **Global Leaderboards**: Compete with players worldwide
+- **Friends System**: Add friends, compare stats, and see activity
+- **Profile Customization**: Customize your profile with achievements and titles
+- **Activity Feed**: See what your friends are achieving
+- **Achievements**: Unlock and showcase achievements
+
+### iOS Game Center Integration (iOS App Only)
+- **Native Integration**: Seamless Apple Game Center support
+- **Leaderboards**: Compete on iOS-native leaderboards
+- **Achievements**: Unlock achievements with native iOS banners
+- **Friends**: Play with your Game Center friends
+- **iCloud Sync**: Automatic progress sync across iOS devices (when configured)
+- **Unified Experience**: Both web and Game Center features work together
+
+See [GAME_CENTER_INTEGRATION.md](GAME_CENTER_INTEGRATION.md) for detailed information about the hybrid social system and [GAME_CENTER_SETUP.md](GAME_CENTER_SETUP.md) for setup instructions.
+
 ## Recent Features
 
 Game features:
+- **Unified Social System**: Seamless integration between web social features and iOS Game Center
+- **Cross-Platform Play**: Social features work on web, iOS, and future Android
 - **Fullscreen Mode**: Toggle with `F` key (outside of gameplay) or via the settings menu for an immersive experience
 - **FPS Counter**: Monitor performance with `G` key toggle or settings menu - displays in real-time with color coding (green = 55+ fps, yellow = 30-54 fps, red = <30 fps)
 - **Enhanced Robustness**: Improved error handling, save game validation, and automatic pause when tab loses focus
 - **Performance Monitoring**: Built-in frame rate tracking for smooth gameplay optimization
 
 Development improvements:
+- **iOS Game Center Support**: Native iOS integration with leaderboards and achievements
 - **Modular Architecture**: Refactored into maintainable, reusable modules
 - **Secure Authentication**: Password hashing using Web Crypto API (SHA-256)
 - **Enhanced Validation**: Comprehensive input validation and data sanitization
 - **Code Quality**: ESLint passing with zero errors, comprehensive JSDoc comments
 - **Better Browser Support**: Enhanced meta tags for mobile and PWA compatibility
 - **Development Documentation**: Architecture docs and contributing guidelines
-- **iOS Preparation**: Modular structure ready for mobile app integration
+- **iOS App Ready**: Complete iOS app with native features
 
 ## Contributing / Next Steps
 
 Open an issue or reach out with features you'd like to see. Some ideas:
 
-- New enemy types, bosses, or wave modifiers.
-- Additional environments or parallax layers.
-- Expanded upgrade trees and weapon variants.
-- Audio design pass (music / SFX toggle, volume sliders).
-- Performance profiling and touch-control refinements.
+- Multiplayer matchmaking via Game Center
+- Turn-based multiplayer mode
+- Weekly challenges and tournaments
+- New enemy types, bosses, or wave modifiers
+- Additional environments or parallax layers
+- Expanded upgrade trees and weapon variants
+- Audio design pass (music / SFX toggle, volume sliders)
+- Performance profiling and touch-control refinements
