@@ -1,0 +1,13 @@
+<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Ramming Charge - Forward thrust weapon -->
+  <path d="M8 18L24 12L40 18V30L24 36L8 30Z" fill="#eab308" stroke="#ca8a04" stroke-width="2"/>
+  <!-- Energy core -->
+  <ellipse cx="24" cy="24" rx="8" ry="6" fill="#fef08a"/>
+  <ellipse cx="24" cy="24" rx="4" ry="3" fill="#fef3c7"/>
+  <!-- Speed lines -->
+  <line x1="2" y1="20" x2="8" y2="20" stroke="#fef08a" stroke-width="2" stroke-linecap="round"/>
+  <line x1="4" y1="24" x2="8" y2="24" stroke="#fef08a" stroke-width="2" stroke-linecap="round"/>
+  <line x1="2" y1="28" x2="8" y2="28" stroke="#fef08a" stroke-width="2" stroke-linecap="round"/>
+  <!-- Shield effect -->
+  <path d="M14 10L24 6L34 10" stroke="#fbbf24" stroke-width="1.5" fill="none" opacity="0.6"/>
+</svg>

@@ -1,0 +1,15 @@
+<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Seeker Swarm - Homing missiles -->
+  <g transform="translate(8, 8)">
+    <!-- Missile 1 -->
+    <path d="M4 12L10 16L8 14L10 12Z" fill="#22d3ee" stroke="#06b6d4" stroke-width="1"/>
+    <!-- Missile 2 -->
+    <path d="M16 8L22 12L20 10L22 8Z" fill="#22d3ee" stroke="#06b6d4" stroke-width="1"/>
+    <!-- Missile 3 -->
+    <path d="M12 18L18 22L16 20L18 18Z" fill="#22d3ee" stroke="#06b6d4" stroke-width="1"/>
+  </g>
+  <!-- Swarm indicator -->
+  <circle cx="24" cy="24" r="14" fill="none" stroke="#22d3ee" stroke-width="1.5" stroke-dasharray="2 3" opacity="0.6"/>
+  <!-- Targeting lines -->
+  <path d="M20 12L16 8M28 12L32 8M20 36L16 40M28 36L32 40" stroke="#67e8f9" stroke-width="1" opacity="0.5"/>
+</svg>

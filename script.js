@@ -400,26 +400,26 @@
   const EQUIPMENT_ICONS = {
     paths: {
       'primary:pulse': 'assets/icons/primary-pulse.svg',
-      'primary:scatter': 'assets/icons/primary-pulse.svg',
-      'primary:rail': 'assets/icons/primary-pulse.svg',
-      'primary:ionburst': 'assets/icons/primary-pulse.svg',
-      'primary:plasma': 'assets/icons/primary-pulse.svg',
-      'primary:photon': 'assets/icons/primary-pulse.svg',
+      'primary:scatter': 'assets/icons/primary-scatter.svg',
+      'primary:rail': 'assets/icons/primary-rail.svg',
+      'primary:ionburst': 'assets/icons/primary-ionburst.svg',
+      'primary:plasma': 'assets/icons/primary-plasma.svg',
+      'primary:photon': 'assets/icons/primary-photon.svg',
       'secondary:nova': 'assets/icons/secondary-nova.svg',
       'secondary:cluster': 'assets/icons/secondary-cluster.svg',
-      'secondary:seeker': 'assets/icons/secondary-nova.svg',
-      'secondary:gravity': 'assets/icons/secondary-nova.svg',
-      'secondary:charge': 'assets/icons/secondary-nova.svg',
-      'secondary:reinforcement': 'assets/icons/secondary-cluster.svg',
+      'secondary:seeker': 'assets/icons/secondary-seeker.svg',
+      'secondary:gravity': 'assets/icons/secondary-gravity.svg',
+      'secondary:charge': 'assets/icons/secondary-charge.svg',
+      'secondary:reinforcement': 'assets/icons/secondary-reinforcement.svg',
       'defense:aegis': 'assets/icons/defense-aegis.svg',
       'defense:reflector': 'assets/icons/defense-reflector.svg',
-      'defense:phaseshift': 'assets/icons/defense-aegis.svg',
-      'defense:overcharge': 'assets/icons/defense-aegis.svg',
+      'defense:phaseshift': 'assets/icons/defense-phaseshift.svg',
+      'defense:overcharge': 'assets/icons/defense-overcharge.svg',
       'boost': 'assets/icons/boost-icon.svg',
       'ultimate:voidstorm': 'assets/icons/ultimate-voidstorm.svg',
       'ultimate:solarbeam': 'assets/icons/ultimate-solarbeam.svg',
-      'ultimate:timewarp': 'assets/icons/ultimate-voidstorm.svg',
-      'ultimate:supernova': 'assets/icons/ultimate-voidstorm.svg'
+      'ultimate:timewarp': 'assets/icons/ultimate-timewarp.svg',
+      'ultimate:supernova': 'assets/icons/ultimate-supernova.svg'
     },
     info: {
       'primary:pulse': { name: 'Pulse Blaster', desc: 'Standard pulse cannon' },
@@ -7004,27 +7004,66 @@
     const ctx = canvas.getContext('2d');
     const width = (canvas.width = canvas.clientWidth || 160);
     const height = (canvas.height = canvas.clientHeight || 110);
-    ctx.fillStyle = '#020617';
+    
+    // Black sleek background
+    ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, width, height);
-    ctx.save();
-    ctx.translate(width / 2, height / 2);
-    ctx.rotate(-Math.PI / 8);
-    ctx.fillStyle = item.color || '#38bdf8';
-    ctx.beginPath();
-    ctx.moveTo(-width * 0.28, -height * 0.14);
-    ctx.lineTo(width * 0.35, 0);
-    ctx.lineTo(-width * 0.28, height * 0.14);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(-width * 0.15, -height * 0.22);
-    ctx.lineTo(width * 0.28, -height * 0.04);
-    ctx.moveTo(-width * 0.15, height * 0.22);
-    ctx.lineTo(width * 0.28, height * 0.04);
-    ctx.stroke();
-    ctx.restore();
+    
+    // Add subtle gradient
+    const gradient = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, width / 2);
+    gradient.addColorStop(0, 'rgba(74, 222, 128, 0.15)');
+    gradient.addColorStop(1, 'rgba(0, 0, 0, 0.8)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+    
+    // Load and display weapon icon if available
+    const weaponType = item.id ? 
+      (ARMORY.primary.find(w => w.id === item.id) ? 'primary' :
+       ARMORY.secondary.find(w => w.id === item.id) ? 'secondary' :
+       ARMORY.defense.find(w => w.id === item.id) ? 'defense' :
+       ARMORY.ultimate.find(w => w.id === item.id) ? 'ultimate' : null) : null;
+    
+    if (weaponType && item.id) {
+      const iconPath = `assets/icons/${weaponType}-${item.id}.svg`;
+      const img = new Image();
+      img.onload = () => {
+        ctx.save();
+        ctx.translate(width / 2, height / 2);
+        // Draw icon centered and scaled
+        const iconSize = Math.min(width, height) * 0.6;
+        ctx.drawImage(img, -iconSize / 2, -iconSize / 2, iconSize, iconSize);
+        
+        // Add glow effect
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = item.color || '#4ade80';
+        ctx.drawImage(img, -iconSize / 2, -iconSize / 2, iconSize, iconSize);
+        ctx.restore();
+      };
+      img.src = iconPath;
+    } else {
+      // Fallback: draw generic weapon shape with item color
+      ctx.save();
+      ctx.translate(width / 2, height / 2);
+      ctx.rotate(-Math.PI / 8);
+      ctx.fillStyle = item.color || '#4ade80';
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = item.color || '#4ade80';
+      ctx.beginPath();
+      ctx.moveTo(-width * 0.28, -height * 0.14);
+      ctx.lineTo(width * 0.35, 0);
+      ctx.lineTo(-width * 0.28, height * 0.14);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-width * 0.15, -height * 0.22);
+      ctx.lineTo(width * 0.28, -height * 0.04);
+      ctx.moveTo(-width * 0.15, height * 0.22);
+      ctx.lineTo(width * 0.28, height * 0.04);
+      ctx.stroke();
+      ctx.restore();
+    }
   };
 
   const createSectionHeader = (label) => {
