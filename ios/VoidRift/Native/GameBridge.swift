@@ -90,8 +90,13 @@ class GameBridge: NSObject {
                     window.webkit.messageHandlers.gcShowAchievements.postMessage({});
                 },
                 loadFriends: function(callback) {
-                    window._gcFriendsCallback = callback;
-                    window.webkit.messageHandlers.gcLoadFriends.postMessage({});
+                    // Use callback registry to avoid race conditions
+                    if (!window._gcCallbacks) {
+                        window._gcCallbacks = { nextId: 1, callbacks: {} };
+                    }
+                    const callbackId = window._gcCallbacks.nextId++;
+                    window._gcCallbacks.callbacks[callbackId] = callback;
+                    window.webkit.messageHandlers.gcLoadFriends.postMessage({ callbackId: callbackId });
                 }
             }
         };
@@ -164,7 +169,7 @@ extension GameBridge: WKScriptMessageHandler {
         case "gcShowAchievements":
             handleGameCenterShowAchievements()
         case "gcLoadFriends":
-            handleGameCenterLoadFriends()
+            handleGameCenterLoadFriends(message.body)
         default:
             break
         }
@@ -275,7 +280,12 @@ extension GameBridge: WKScriptMessageHandler {
         GameCenterManager.shared.showAchievements()
     }
     
-    private func handleGameCenterLoadFriends() {
+    private func handleGameCenterLoadFriends(_ body: Any) {
+        guard let data = body as? [String: Any],
+              let callbackId = data["callbackId"] as? Int else {
+            return
+        }
+        
         GameCenterManager.shared.loadFriends { [weak self] players in
             let friends = players?.map { player in
                 return [
@@ -284,7 +294,7 @@ extension GameBridge: WKScriptMessageHandler {
                 ]
             } ?? []
             
-            self?.notifyGameCenterFriends(friends)
+            self?.notifyGameCenterFriends(friends, callbackId: callbackId)
         }
     }
     
@@ -315,14 +325,14 @@ extension GameBridge: WKScriptMessageHandler {
         webView?.evaluateJavaScript(script, completionHandler: nil)
     }
     
-    private func notifyGameCenterFriends(_ friends: [[String: String]]) {
+    private func notifyGameCenterFriends(_ friends: [[String: String]], callbackId: Int) {
         let jsonData = try? JSONSerialization.data(withJSONObject: friends)
         let jsonString = jsonData.flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
         
         let script = """
-        if (window._gcFriendsCallback) {
-            window._gcFriendsCallback(\(jsonString));
-            window._gcFriendsCallback = null;
+        if (window._gcCallbacks && window._gcCallbacks.callbacks[\(callbackId)]) {
+            window._gcCallbacks.callbacks[\(callbackId)](\(jsonString));
+            delete window._gcCallbacks.callbacks[\(callbackId)];
         }
         """
         

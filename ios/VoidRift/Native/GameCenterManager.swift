@@ -68,13 +68,13 @@ class GameCenterManager: NSObject {
     ///   - score: The score to submit
     ///   - leaderboardID: The leaderboard identifier (e.g., "com.voidrift.highscore")
     func submitScore(_ score: Int, to leaderboardID: String, completion: ((Bool) -> Void)? = nil) {
-        guard isAuthenticated else {
+        guard isAuthenticated, let player = localPlayer else {
             print("⚠️ Cannot submit score: Not authenticated with Game Center")
             completion?(false)
             return
         }
         
-        GKLeaderboard.submitScore(score, context: 0, player: localPlayer!, leaderboardIDs: [leaderboardID]) { error in
+        GKLeaderboard.submitScore(score, context: 0, player: player, leaderboardIDs: [leaderboardID]) { error in
             if let error = error {
                 print("❌ Failed to submit score: \(error.localizedDescription)")
                 completion?(false)
@@ -227,12 +227,28 @@ class GameCenterManager: NSObject {
                 return
             }
             
-            GKPlayer.loadPlayers(forIdentifiers: friendIDs) { players, error in
-                if let error = error {
-                    print("❌ Failed to load friend players: \(error.localizedDescription)")
-                    completion(nil)
-                } else {
-                    completion(players)
+            // Note: GKPlayer.loadPlayers(forIdentifiers:) is deprecated in iOS 14.5+
+            // but we support iOS 14.0+, so we use this for compatibility
+            if #available(iOS 14.5, *) {
+                // Use the modern API on iOS 14.5+
+                Task {
+                    do {
+                        let players = try await GKPlayer.loadPlayers(forIdentifiers: friendIDs)
+                        completion(players)
+                    } catch {
+                        print("❌ Failed to load friend players: \(error.localizedDescription)")
+                        completion(nil)
+                    }
+                }
+            } else {
+                // Fallback for iOS 14.0 - 14.4
+                GKPlayer.loadPlayers(forIdentifiers: friendIDs) { players, error in
+                    if let error = error {
+                        print("❌ Failed to load friend players: \(error.localizedDescription)")
+                        completion(nil)
+                    } else {
+                        completion(players)
+                    }
                 }
             }
         }

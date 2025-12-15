@@ -156,8 +156,13 @@ const UnifiedSocial = {
     // Load Game Center friends (iOS only)
     if (this.isGameCenterAuthenticated) {
       try {
-        const gcFriends = await new Promise((resolve) => {
+        const gcFriends = await new Promise((resolve, reject) => {
+          const timeoutId = setTimeout(() => {
+            reject(new Error('Game Center friends loading timed out'));
+          }, 10000); // 10 second timeout
+          
           window.iOSBridge.gameCenter.loadFriends((friends) => {
+            clearTimeout(timeoutId);
             resolve(friends || []);
           });
         });
