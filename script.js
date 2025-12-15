@@ -8753,12 +8753,12 @@
     ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
     ctx.fillText('Tap anywhere to continue', centerX, centerY + (isPortrait ? 60 : 70));
     
-    // Shop hint - MOBILE-SIZED
+    // Shop hint - MOBILE-SIZED (updated to reference menu)
     ctx.font = `bold ${instructSize}px Arial, sans-serif`;
     ctx.fillStyle = '#60a5fa';
     ctx.shadowColor = '#60a5fa';
     ctx.shadowBlur = 6;
-    ctx.fillText('Tap SHOP button to upgrade', centerX, centerY + (isPortrait ? 90 : 105));
+    ctx.fillText('Open menu (top right) for shop & upgrades', centerX, centerY + (isPortrait ? 90 : 105));
     
     ctx.restore();
   };
@@ -10627,7 +10627,13 @@
     let tapTimeout = null;
     
     const handleGameTap = (clientX, clientY) => {
-      if (!gameRunning || paused || countdownActive || readyUpPhase) return;
+      // NEW: Handle ready-up phase taps - tap anywhere to start
+      if (readyUpPhase) {
+        startCountdownFromReadyUp();
+        return;
+      }
+      
+      if (!gameRunning || paused || countdownActive) return;
       
       // Get viewport dimensions
       const viewportWidth = window.innerWidth;
@@ -10779,22 +10785,10 @@
 
     if (dom.canvas) {
       dom.canvas.addEventListener('mousedown', (e) => {
-        // NEW: Handle ready-up phase click
+        // NEW: Handle ready-up phase click - anywhere on screen
         if (readyUpPhase) {
           e.preventDefault();
-          const screenWidth = window.innerWidth;
-          const screenHeight = window.innerHeight;
-          const isPortrait = screenHeight > screenWidth;
-          const centerX = screenWidth / 2;
-          const centerY = isPortrait ? screenHeight * 0.4 : screenHeight * 0.5;
-          const buttonWidth = isPortrait ? 220 : 280;
-          const buttonHeight = isPortrait ? 60 : 70;
-          
-          // Check if click is on ready button
-          if (Math.abs(e.clientX - centerX) < buttonWidth / 2 && 
-              Math.abs(e.clientY - centerY) < buttonHeight / 2) {
-            startCountdownFromReadyUp();
-          }
+          startCountdownFromReadyUp();
           return;
         }
         
@@ -11037,6 +11031,7 @@
     
     // Touch zone handlers for floating joysticks
     dom.leftTouchZone?.addEventListener('touchstart', (e) => {
+      if (readyUpPhase || countdownActive) return; // Disable joystick during ready-up and countdown
       e.preventDefault();
       if (moveId !== null) return;
       const touch = e.changedTouches[0];
@@ -11046,6 +11041,7 @@
     }, { passive: false });
     
     dom.rightTouchZone?.addEventListener('touchstart', (e) => {
+      if (readyUpPhase || countdownActive) return; // Disable joystick during ready-up and countdown
       e.preventDefault();
       if (shootId !== null) return;
       const touch = e.changedTouches[0];
