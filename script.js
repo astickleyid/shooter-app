@@ -908,6 +908,8 @@
   let countdownActive = false;
   let countdownEnd = 0;
   let countdownCompletedLevel = 0;
+  let readyUpPhase = false; // NEW: Phase where player can shop before countdown
+  let readyUpLevel = 0; // Level displayed during ready-up
   const camera = { x: 0, y: 0 };
 
   // Difficulty system
@@ -7874,10 +7876,10 @@
       waveTimer = 0;
     }
     
-    // Start countdown - 3 second countdown
-    countdownActive = true;
-    countdownEnd = performance.now() + 3000;
-    countdownCompletedLevel = completedLevel;
+    // NEW: Enter ready-up phase instead of immediately starting countdown
+    readyUpPhase = true;
+    readyUpLevel = completedLevel;
+    countdownActive = false;
     
     if (player) {
       player.reconfigureLoadout(false);
@@ -7885,13 +7887,26 @@
       player.y = window.innerHeight / 2 + camera.y;
     }
     
+    tookDamageThisLevel = false;
+  };
+  
+  // NEW: Function to start countdown from ready-up phase
+  const startCountdownFromReadyUp = () => {
+    if (!readyUpPhase) return;
+    
+    readyUpPhase = false;
+    countdownActive = true;
+    countdownEnd = performance.now() + 3000;
+    countdownCompletedLevel = readyUpLevel;
+    
     // Set up level after countdown
     queueTimedEffect(3000, () => {
       countdownActive = false;
       spawnObstacles();
-      spawnHazards();  // Spawn environmental hazards
+      spawnHazards();
       
       // Spawn rate modifier for wave types
+      const waveType = WAVE_TYPES[currentWaveType];
       let spawnerCount = Math.min(1 + Math.floor(level / 2), 5);
       if (waveType.spawnRateBoost) spawnerCount = Math.ceil(spawnerCount * waveType.spawnRateBoost);
       createSpawners(spawnerCount, true);
@@ -7904,8 +7919,6 @@
       recenterStars();
       lastTime = performance.now();
     });
-    
-    tookDamageThisLevel = false;
   };
 
   // Spawn a boss enemy
@@ -8321,6 +8334,130 @@
       }
     }
     
+    // NEW: Draw ready-up screen - Player must press button to start level
+    if (readyUpPhase) {
+      const now = performance.now();
+      ctx.save();
+      
+      const screenWidth = window.innerWidth;
+      const screenHeight = window.innerHeight;
+      const isPortrait = screenHeight > screenWidth;
+      
+      // Dark overlay
+      const overlayOpacity = 0.92;
+      const gradient = ctx.createRadialGradient(
+        screenWidth / 2, screenHeight * 0.42, 0,
+        screenWidth / 2, screenHeight * 0.42, Math.max(screenWidth, screenHeight) * 0.75
+      );
+      gradient.addColorStop(0, `rgba(10, 15, 25, ${overlayOpacity})`);
+      gradient.addColorStop(0.5, `rgba(15, 23, 42, ${overlayOpacity})`);
+      gradient.addColorStop(1, `rgba(0, 0, 0, ${overlayOpacity + 0.04})`);
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, screenWidth, screenHeight);
+      
+      // Scan lines
+      ctx.fillStyle = 'rgba(74, 222, 128, 0.02)';
+      const scanLineOffset = (now / 25) % 10;
+      for (let y = scanLineOffset; y < screenHeight; y += 10) {
+        ctx.fillRect(0, y, screenWidth, 1);
+      }
+      
+      // Corner accents
+      ctx.strokeStyle = 'rgba(74, 222, 128, 0.4)';
+      ctx.lineWidth = 3;
+      const cornerSize = isPortrait ? 35 : 45;
+      
+      ['tl', 'tr', 'bl', 'br'].forEach(corner => {
+        ctx.beginPath();
+        if (corner === 'tl') {
+          ctx.moveTo(20, 20 + cornerSize);
+          ctx.lineTo(20, 20);
+          ctx.lineTo(20 + cornerSize, 20);
+        } else if (corner === 'tr') {
+          ctx.moveTo(screenWidth - 20 - cornerSize, 20);
+          ctx.lineTo(screenWidth - 20, 20);
+          ctx.lineTo(screenWidth - 20, 20 + cornerSize);
+        } else if (corner === 'bl') {
+          ctx.moveTo(20, screenHeight - 20 - cornerSize);
+          ctx.lineTo(20, screenHeight - 20);
+          ctx.lineTo(20 + cornerSize, screenHeight - 20);
+        } else {
+          ctx.moveTo(screenWidth - 20 - cornerSize, screenHeight - 20);
+          ctx.lineTo(screenWidth - 20, screenHeight - 20);
+          ctx.lineTo(screenWidth - 20, screenHeight - 20 - cornerSize);
+        }
+        ctx.stroke();
+      });
+      
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const centerX = screenWidth / 2;
+      const centerY = isPortrait ? screenHeight * 0.4 : screenHeight * 0.5;
+      
+      // "LEVEL COMPLETE" text
+      const completeFontSize = isPortrait ? 36 : 48;
+      ctx.font = `900 ${completeFontSize}px Arial, sans-serif`;
+      ctx.fillStyle = '#4ade80';
+      ctx.shadowColor = '#4ade80';
+      ctx.shadowBlur = 30;
+      ctx.fillText('LEVEL COMPLETE', centerX, centerY - (isPortrait ? 120 : 140));
+      
+      // Level number
+      const levelFontSize = isPortrait ? 22 : 28;
+      ctx.font = `bold ${levelFontSize}px Arial, sans-serif`;
+      ctx.fillStyle = '#94a3b8';
+      ctx.shadowBlur = 0;
+      ctx.fillText(`Level ${readyUpLevel}`, centerX, centerY - (isPortrait ? 85 : 100));
+      
+      // Credits and XP info
+      const infoFontSize = isPortrait ? 16 : 20;
+      ctx.font = `bold ${infoFontSize}px Arial, sans-serif`;
+      ctx.fillStyle = '#fbbf24';
+      ctx.fillText(`💰 ${Save.data.credits} Credits`, centerX, centerY - (isPortrait ? 40 : 50));
+      
+      // Main action button - pulsing "READY UP" button
+      const pulsePhase = Math.sin(now / 400) * 0.1 + 1;
+      const buttonWidth = isPortrait ? 220 : 280;
+      const buttonHeight = isPortrait ? 60 : 70;
+      
+      // Button background
+      ctx.fillStyle = `rgba(74, 222, 128, ${0.2 * pulsePhase})`;
+      ctx.beginPath();
+      ctx.roundRect(centerX - (buttonWidth * pulsePhase) / 2, centerY - (buttonHeight * pulsePhase) / 2, 
+                     buttonWidth * pulsePhase, buttonHeight * pulsePhase, 12);
+      ctx.fill();
+      
+      // Button border
+      ctx.strokeStyle = '#4ade80';
+      ctx.lineWidth = 3;
+      ctx.shadowColor = '#4ade80';
+      ctx.shadowBlur = 20 * pulsePhase;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      
+      // Button text
+      const buttonTextSize = isPortrait ? 26 : 32;
+      ctx.font = `900 ${buttonTextSize}px Arial, sans-serif`;
+      ctx.fillStyle = '#4ade80';
+      ctx.shadowColor = '#4ade80';
+      ctx.shadowBlur = 15;
+      ctx.fillText('READY UP!', centerX, centerY);
+      
+      // Instruction text
+      const instructSize = isPortrait ? 14 : 16;
+      ctx.font = `${instructSize}px Arial, sans-serif`;
+      ctx.fillStyle = '#cbd5e1';
+      ctx.shadowBlur = 0;
+      ctx.fillText('Press SPACE or TAP to start', centerX, centerY + (isPortrait ? 55 : 65));
+      
+      // Shop button hint
+      ctx.font = `bold ${instructSize}px Arial, sans-serif`;
+      ctx.fillStyle = '#60a5fa';
+      ctx.fillText('Press S or TAP SHOP to upgrade', centerX, centerY + (isPortrait ? 85 : 100));
+      
+      ctx.restore();
+    }
+    
     // Draw countdown - ENHANCED: Better positioning and styling to prevent overlap
     if (countdownActive) {
       const timeRemaining = countdownEnd - performance.now();
@@ -8496,15 +8633,7 @@
         ctx.lineTo(centerX + accentLineWidth, centerY - (isPortrait ? 60 : 75));
         ctx.stroke();
         
-        // "Starting in..." subtext - ENHANCED: positioned with proper clearance from header
-        const subtextSize = isPortrait ? 14 : 17;
-        const subtextY = centerY - (isPortrait ? 35 : 45); // Closer to ring, further from header
-        ctx.font = `${subtextSize}px Arial, sans-serif`;
-        ctx.fillStyle = '#cbd5e1'; // Lighter color for better visibility
-        ctx.shadowColor = 'rgba(0,0,0,0.8)';
-        ctx.shadowBlur = 4;
-        ctx.fillText('Starting in', centerX, subtextY);
-        ctx.shadowBlur = 0;
+        // REMOVED: "Starting in" text as requested
         
         // Countdown circle ring - ENHANCED: adaptive sizing
         const ringRadius = isPortrait ? 60 : 75;
@@ -10552,7 +10681,7 @@
     let tapTimeout = null;
     
     const handleGameTap = (clientX, clientY) => {
-      if (!gameRunning || paused || countdownActive) return;
+      if (!gameRunning || paused || countdownActive || readyUpPhase) return;
       
       // Get viewport dimensions
       const viewportWidth = window.innerWidth;
@@ -10641,6 +10770,20 @@
     });
 
     document.addEventListener('keydown', (e) => {
+      // NEW: Handle ready-up phase
+      if (readyUpPhase) {
+        if (e.key === ' ' || e.key === 'Enter') {
+          e.preventDefault();
+          startCountdownFromReadyUp();
+          return;
+        }
+        if (e.key === 's' || e.key === 'S') {
+          e.preventDefault();
+          openShop();
+          return;
+        }
+      }
+      
       if (e.key === 'Escape') {
         if (dom.hangarModal?.classList.contains('active') || dom.hangarModal?.style.display === 'flex') {
           e.preventDefault();
@@ -10667,14 +10810,14 @@
       }
       if (e.key === 'f' || e.key === 'F') {
         // Only allow 'f' for fullscreen if defense isn't using it in game
-        if (!gameRunning || paused || countdownActive) {
+        if (!gameRunning || paused || countdownActive || readyUpPhase) {
           e.preventDefault();
           toggleFullscreen();
         }
       }
       
       // Equipment slot keyboard shortcuts (number keys 1-4)
-      if (gameRunning && !paused && !countdownActive) {
+      if (gameRunning && !paused && !countdownActive && !readyUpPhase) {
         if (handleEquipmentKeyboard(e)) {
           return; // Keyboard event was handled by equipment system
         }
@@ -10690,6 +10833,25 @@
 
     if (dom.canvas) {
       dom.canvas.addEventListener('mousedown', (e) => {
+        // NEW: Handle ready-up phase click
+        if (readyUpPhase) {
+          e.preventDefault();
+          const screenWidth = window.innerWidth;
+          const screenHeight = window.innerHeight;
+          const isPortrait = screenHeight > screenWidth;
+          const centerX = screenWidth / 2;
+          const centerY = isPortrait ? screenHeight * 0.4 : screenHeight * 0.5;
+          const buttonWidth = isPortrait ? 220 : 280;
+          const buttonHeight = isPortrait ? 60 : 70;
+          
+          // Check if click is on ready button
+          if (Math.abs(e.clientX - centerX) < buttonWidth / 2 && 
+              Math.abs(e.clientY - centerY) < buttonHeight / 2) {
+            startCountdownFromReadyUp();
+          }
+          return;
+        }
+        
         if (e.button === 2) {
           e.preventDefault();
           triggerSecondary();
