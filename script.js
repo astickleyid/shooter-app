@@ -500,7 +500,7 @@
     MAX_LEVEL_FOR_SCALING: 25,
     
     // Progressive difficulty thresholds
-    EASY_LEVELS: 5,           // First N levels are easier (MID_GAME_START = EASY_LEVELS + 1)
+    EASY_LEVELS: 3,           // REDUCED from 5: First N levels are easier, ramps up faster
     LATE_GAME_START: 15,      // When difficulty becomes challenging
     
     // Diminishing returns on player upgrades
@@ -908,6 +908,8 @@
   let countdownActive = false;
   let countdownEnd = 0;
   let countdownCompletedLevel = 0;
+  let readyUpPhase = false; // NEW: Phase where player can shop before countdown
+  let readyUpLevel = 0; // Level displayed during ready-up
   const camera = { x: 0, y: 0 };
 
   // Difficulty system
@@ -5721,125 +5723,202 @@
         ctx.restore();
       }
       
-      // Main swept wings (bottom layer) - widened for better proportions
+      // Main swept wings (bottom layer) - ENHANCED: wider and more aggressive
       ctx.fillStyle = darken(primary, 0.2);
       ctx.beginPath();
-      ctx.moveTo(-size * 0.1, -size * 0.3);
-      ctx.lineTo(-size * 0.35, -size * 1.15);
-      ctx.lineTo(-size * 0.85, -size * 0.95);
-      ctx.lineTo(-size * 0.55, -size * 0.25);
+      ctx.moveTo(-size * 0.05, -size * 0.35);
+      ctx.lineTo(-size * 0.3, -size * 1.3);
+      ctx.lineTo(-size * 0.9, -size * 1.05);
+      ctx.lineTo(-size * 0.6, -size * 0.3);
       ctx.closePath();
       ctx.fill();
       ctx.beginPath();
-      ctx.moveTo(-size * 0.1, size * 0.3);
-      ctx.lineTo(-size * 0.35, size * 1.15);
-      ctx.lineTo(-size * 0.85, size * 0.95);
-      ctx.lineTo(-size * 0.55, size * 0.25);
+      ctx.moveTo(-size * 0.05, size * 0.35);
+      ctx.lineTo(-size * 0.3, size * 1.3);
+      ctx.lineTo(-size * 0.9, size * 1.05);
+      ctx.lineTo(-size * 0.6, size * 0.3);
       ctx.closePath();
       ctx.fill();
       
-      // Wing tip weapons pods
+      // Wing tip weapons pods - ENHANCED: larger and more detailed with realistic touches
       ctx.fillStyle = accent;
       ctx.beginPath();
-      ctx.ellipse(-size * 0.45, -size * 1.05, size * 0.12, size * 0.06, -0.3, 0, Math.PI * 2);
-      ctx.ellipse(-size * 0.45, size * 1.05, size * 0.12, size * 0.06, 0.3, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.45, -size * 1.15, size * 0.15, size * 0.08, -0.3, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.45, size * 1.15, size * 0.15, size * 0.08, 0.3, 0, Math.PI * 2);
       ctx.fill();
       
-      // Engine nacelles on wings
+      // Weapon pod details and highlights
+      ctx.fillStyle = darken(accent, 0.3);
+      ctx.beginPath();
+      ctx.ellipse(-size * 0.55, -size * 1.15, size * 0.06, size * 0.04, -0.3, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.55, size * 1.15, size * 0.06, size * 0.04, 0.3, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Weapon pod highlights for realism
+      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+      ctx.lineWidth = size * 0.015;
+      ctx.beginPath();
+      ctx.arc(-size * 0.42, -size * 1.18, size * 0.08, Math.PI * 0.5, Math.PI * 1.2);
+      ctx.arc(-size * 0.42, size * 1.18, size * 0.08, -Math.PI * 1.2, -Math.PI * 0.5);
+      ctx.stroke();
+      
+      // Engine nacelles on wings - ENHANCED: bigger and more prominent with realistic shading
       ctx.fillStyle = darken(primary, 0.35);
       ctx.beginPath();
-      ctx.ellipse(-size * 0.7, -size * 0.7, size * 0.18, size * 0.1, -0.2, 0, Math.PI * 2);
-      ctx.ellipse(-size * 0.7, size * 0.7, size * 0.18, size * 0.1, 0.2, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.7, -size * 0.75, size * 0.22, size * 0.12, -0.2, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.7, size * 0.75, size * 0.22, size * 0.12, 0.2, 0, Math.PI * 2);
       ctx.fill();
       
-      // Main fuselage body - widened for better proportions
+      // Engine intake details with depth
+      ctx.fillStyle = darken(primary, 0.5);
+      ctx.beginPath();
+      ctx.ellipse(-size * 0.65, -size * 0.75, size * 0.1, size * 0.06, -0.2, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.65, size * 0.75, size * 0.1, size * 0.06, 0.2, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Engine nacelle highlights for realistic shine
+      ctx.fillStyle = 'rgba(255,255,255,0.15)';
+      ctx.beginPath();
+      ctx.ellipse(-size * 0.75, -size * 0.78, size * 0.08, size * 0.04, -0.2, Math.PI, Math.PI * 1.8);
+      ctx.ellipse(-size * 0.75, size * 0.78, size * 0.08, size * 0.04, 0.2, -Math.PI * 1.8, -Math.PI);
+      ctx.fill();
+      
+      // Main fuselage body - ENHANCED: wider and more substantial
       ctx.fillStyle = primary;
       ctx.strokeStyle = trim;
-      ctx.lineWidth = Math.max(1.5, size * 0.08);
+      ctx.lineWidth = Math.max(2, size * 0.1);
       ctx.shadowColor = primary;
-      ctx.shadowBlur = 12;
+      ctx.shadowBlur = 15;
       ctx.beginPath();
       ctx.moveTo(size * 1.3, 0);
-      ctx.quadraticCurveTo(size * 0.8, -size * 0.2, size * 0.3, -size * 0.3);
-      ctx.lineTo(-size * 0.5, -size * 0.25);
-      ctx.lineTo(-size * 0.75, -size * 0.18);
+      ctx.quadraticCurveTo(size * 0.8, -size * 0.25, size * 0.3, -size * 0.35);
+      ctx.lineTo(-size * 0.5, -size * 0.32);
+      ctx.lineTo(-size * 0.75, -size * 0.22);
       ctx.lineTo(-size * 0.85, 0);
-      ctx.lineTo(-size * 0.75, size * 0.18);
-      ctx.lineTo(-size * 0.5, size * 0.25);
-      ctx.lineTo(size * 0.3, size * 0.3);
-      ctx.quadraticCurveTo(size * 0.8, size * 0.2, size * 1.3, 0);
+      ctx.lineTo(-size * 0.75, size * 0.22);
+      ctx.lineTo(-size * 0.5, size * 0.32);
+      ctx.lineTo(size * 0.3, size * 0.35);
+      ctx.quadraticCurveTo(size * 0.8, size * 0.25, size * 1.3, 0);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
       ctx.shadowBlur = 0;
       
-      // Dorsal ridge/spine detail
+      // Dorsal ridge/spine detail - ENHANCED: thicker and more prominent
       ctx.strokeStyle = accent;
-      ctx.lineWidth = size * 0.06;
+      ctx.lineWidth = size * 0.08;
       ctx.beginPath();
       ctx.moveTo(size * 0.9, 0);
       ctx.lineTo(-size * 0.6, 0);
       ctx.stroke();
       
-      // Panel lines
-      ctx.strokeStyle = darken(primary, 0.25);
-      ctx.lineWidth = size * 0.02;
+      // Additional surface detailing
+      ctx.strokeStyle = darken(accent, 0.3);
+      ctx.lineWidth = size * 0.04;
       ctx.beginPath();
-      ctx.moveTo(size * 0.4, -size * 0.25);
-      ctx.lineTo(size * 0.1, -size * 0.28);
-      ctx.moveTo(size * 0.4, size * 0.25);
-      ctx.lineTo(size * 0.1, size * 0.28);
-      ctx.moveTo(-size * 0.2, -size * 0.2);
-      ctx.lineTo(-size * 0.2, size * 0.2);
+      ctx.moveTo(size * 0.7, -size * 0.08);
+      ctx.lineTo(-size * 0.4, -size * 0.08);
+      ctx.moveTo(size * 0.7, size * 0.08);
+      ctx.lineTo(-size * 0.4, size * 0.08);
       ctx.stroke();
       
-      // Canopy (elongated fighter style)
+      // Panel lines - ENHANCED: more detailed panel work with highlights
+      ctx.strokeStyle = darken(primary, 0.25);
+      ctx.lineWidth = size * 0.025;
+      ctx.beginPath();
+      ctx.moveTo(size * 0.5, -size * 0.28);
+      ctx.lineTo(size * 0.1, -size * 0.32);
+      ctx.moveTo(size * 0.5, size * 0.28);
+      ctx.lineTo(size * 0.1, size * 0.32);
+      ctx.moveTo(-size * 0.2, -size * 0.25);
+      ctx.lineTo(-size * 0.2, size * 0.25);
+      ctx.moveTo(size * 0.0, -size * 0.3);
+      ctx.lineTo(size * 0.0, size * 0.3);
+      ctx.stroke();
+      
+      // Panel highlights for metallic look
+      ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+      ctx.lineWidth = size * 0.015;
+      ctx.beginPath();
+      ctx.moveTo(size * 0.6, -size * 0.25);
+      ctx.lineTo(size * 0.2, -size * 0.28);
+      ctx.moveTo(size * 0.6, size * 0.25);
+      ctx.lineTo(size * 0.2, size * 0.28);
+      ctx.stroke();
+      
+      // Canopy (elongated fighter style) - ENHANCED: larger and more detailed
       ctx.save();
       ctx.shadowColor = canopy;
-      ctx.shadowBlur = 10;
+      ctx.shadowBlur = 12;
       ctx.fillStyle = canopy;
       ctx.globalAlpha = 0.9;
       ctx.beginPath();
-      ctx.moveTo(size * 0.65, 0);
-      ctx.quadraticCurveTo(size * 0.5, -size * 0.16, size * 0.2, -size * 0.14);
+      ctx.moveTo(size * 0.7, 0);
+      ctx.quadraticCurveTo(size * 0.5, -size * 0.18, size * 0.2, -size * 0.16);
       ctx.lineTo(size * 0.1, 0);
-      ctx.lineTo(size * 0.2, size * 0.14);
-      ctx.quadraticCurveTo(size * 0.5, size * 0.16, size * 0.65, 0);
+      ctx.lineTo(size * 0.2, size * 0.16);
+      ctx.quadraticCurveTo(size * 0.5, size * 0.18, size * 0.7, 0);
       ctx.fill();
       ctx.restore();
       
-      // Canopy frame
+      // Canopy frame - ENHANCED
       ctx.strokeStyle = trim;
-      ctx.lineWidth = size * 0.03;
+      ctx.lineWidth = size * 0.04;
       ctx.beginPath();
-      ctx.moveTo(size * 0.4, -size * 0.12);
-      ctx.lineTo(size * 0.4, size * 0.12);
+      ctx.moveTo(size * 0.45, -size * 0.14);
+      ctx.lineTo(size * 0.45, size * 0.14);
       ctx.stroke();
       
-      // Engine exhausts with glow
-      const enginePulse = Math.sin(now / 100) * 0.15 + 0.85;
+      // Canopy highlight for realism
+      ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+      ctx.lineWidth = size * 0.02;
+      ctx.beginPath();
+      ctx.arc(size * 0.5, -size * 0.06, size * 0.12, Math.PI * 0.8, Math.PI * 1.3);
+      ctx.stroke();
+      
+      // Engine exhausts with glow - ENHANCED: more powerful looking
+      const enginePulse = Math.sin(now / 100) * 0.2 + 0.85;
       ctx.save();
       ctx.shadowColor = thruster;
-      ctx.shadowBlur = 18;
+      ctx.shadowBlur = 22;
       ctx.fillStyle = thruster;
       ctx.globalAlpha = enginePulse;
-      // Twin main engines
+      // Twin main engines - larger
       ctx.beginPath();
-      ctx.ellipse(-size * 0.72, -size * 0.7, size * 0.12, size * 0.08, 0, 0, Math.PI * 2);
-      ctx.ellipse(-size * 0.72, size * 0.7, size * 0.12, size * 0.08, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.72, -size * 0.75, size * 0.14, size * 0.1, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.72, size * 0.75, size * 0.14, size * 0.1, 0, 0, Math.PI * 2);
       ctx.fill();
-      // Central engine
+      // Central engine - larger
       ctx.beginPath();
-      ctx.ellipse(-size * 0.88, 0, size * 0.1, size * 0.06, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.88, 0, size * 0.12, size * 0.08, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Inner engine glow
+      ctx.fillStyle = '#fff';
+      ctx.globalAlpha = enginePulse * 0.6;
+      ctx.beginPath();
+      ctx.ellipse(-size * 0.72, -size * 0.75, size * 0.08, size * 0.06, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.72, size * 0.75, size * 0.08, size * 0.06, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.88, 0, size * 0.07, size * 0.05, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
       
-      // Weapon barrels at nose
+      // Weapon barrels at nose - ENHANCED: more prominent
       ctx.fillStyle = darken(trim, 0.3);
       ctx.beginPath();
-      ctx.rect(size * 1.0, -size * 0.04, size * 0.2, size * 0.02);
-      ctx.rect(size * 1.0, size * 0.02, size * 0.2, size * 0.02);
+      ctx.rect(size * 1.05, -size * 0.06, size * 0.25, size * 0.025);
+      ctx.rect(size * 1.05, size * 0.035, size * 0.25, size * 0.025);
       ctx.fill();
+      
+      // Weapon barrel tips with glow
+      ctx.fillStyle = accent;
+      ctx.shadowColor = accent;
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.rect(size * 1.28, -size * 0.055, size * 0.04, size * 0.015);
+      ctx.rect(size * 1.28, size * 0.04, size * 0.04, size * 0.015);
+      ctx.fill();
+      ctx.shadowBlur = 0;
 
     } else if (shape === 'needle') {
       // PHANTOM-X - Sleek stealth interceptor with angular surfaces
@@ -5864,114 +5943,176 @@
         ctx.restore();
       }
       
-      // Angular delta wings (stealth faceted design) - widened
+      // Angular delta wings (stealth faceted design) - ENHANCED: wider and more dramatic
       ctx.fillStyle = darken(primary, 0.15);
       ctx.beginPath();
-      ctx.moveTo(size * 0.1, -size * 0.12);
-      ctx.lineTo(-size * 0.2, -size * 0.7);
-      ctx.lineTo(-size * 0.75, -size * 0.6);
-      ctx.lineTo(-size * 0.5, -size * 0.15);
+      ctx.moveTo(size * 0.15, -size * 0.15);
+      ctx.lineTo(-size * 0.15, -size * 0.82);
+      ctx.lineTo(-size * 0.8, -size * 0.68);
+      ctx.lineTo(-size * 0.5, -size * 0.18);
       ctx.closePath();
       ctx.fill();
       ctx.beginPath();
-      ctx.moveTo(size * 0.1, size * 0.12);
-      ctx.lineTo(-size * 0.2, size * 0.7);
-      ctx.lineTo(-size * 0.75, size * 0.6);
-      ctx.lineTo(-size * 0.5, size * 0.15);
+      ctx.moveTo(size * 0.15, size * 0.15);
+      ctx.lineTo(-size * 0.15, size * 0.82);
+      ctx.lineTo(-size * 0.8, size * 0.68);
+      ctx.lineTo(-size * 0.5, size * 0.18);
       ctx.closePath();
       ctx.fill();
       
-      // Vertical stabilizers (canted)
+      // Wing edge highlights - ENHANCED
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = size * 0.03;
+      ctx.beginPath();
+      ctx.moveTo(-size * 0.15, -size * 0.82);
+      ctx.lineTo(-size * 0.8, -size * 0.68);
+      ctx.moveTo(-size * 0.15, size * 0.82);
+      ctx.lineTo(-size * 0.8, size * 0.68);
+      ctx.stroke();
+      
+      // Vertical stabilizers (canted) - ENHANCED: larger and more aggressive
       ctx.fillStyle = darken(primary, 0.25);
       ctx.beginPath();
-      ctx.moveTo(-size * 0.55, -size * 0.45);
-      ctx.lineTo(-size * 0.4, -size * 0.75);
-      ctx.lineTo(-size * 0.65, -size * 0.7);
-      ctx.lineTo(-size * 0.7, -size * 0.45);
+      ctx.moveTo(-size * 0.5, -size * 0.5);
+      ctx.lineTo(-size * 0.35, -size * 0.85);
+      ctx.lineTo(-size * 0.7, -size * 0.78);
+      ctx.lineTo(-size * 0.75, -size * 0.48);
       ctx.closePath();
       ctx.fill();
       ctx.beginPath();
-      ctx.moveTo(-size * 0.55, size * 0.45);
-      ctx.lineTo(-size * 0.4, size * 0.75);
-      ctx.lineTo(-size * 0.65, size * 0.7);
-      ctx.lineTo(-size * 0.7, size * 0.45);
+      ctx.moveTo(-size * 0.5, size * 0.5);
+      ctx.lineTo(-size * 0.35, size * 0.85);
+      ctx.lineTo(-size * 0.7, size * 0.78);
+      ctx.lineTo(-size * 0.75, size * 0.48);
       ctx.closePath();
       ctx.fill();
       
-      // Main fuselage - long needle shape - widened
+      // Stabilizer edge accents
+      ctx.strokeStyle = darken(accent, 0.2);
+      ctx.lineWidth = size * 0.025;
+      ctx.beginPath();
+      ctx.moveTo(-size * 0.35, -size * 0.85);
+      ctx.lineTo(-size * 0.7, -size * 0.78);
+      ctx.moveTo(-size * 0.35, size * 0.85);
+      ctx.lineTo(-size * 0.7, size * 0.78);
+      ctx.stroke();
+      
+      // Main fuselage - long needle shape - ENHANCED: wider and more substantial
       ctx.fillStyle = primary;
       ctx.strokeStyle = trim;
-      ctx.lineWidth = Math.max(1.5, size * 0.06);
+      ctx.lineWidth = Math.max(2, size * 0.08);
       ctx.shadowColor = primary;
-      ctx.shadowBlur = 10;
+      ctx.shadowBlur = 12;
       ctx.beginPath();
       ctx.moveTo(size * 1.5, 0);
-      ctx.lineTo(size * 0.4, -size * 0.18);
-      ctx.lineTo(-size * 0.3, -size * 0.2);
-      ctx.lineTo(-size * 0.9, -size * 0.12);
+      ctx.lineTo(size * 0.4, -size * 0.22);
+      ctx.lineTo(-size * 0.3, -size * 0.24);
+      ctx.lineTo(-size * 0.9, -size * 0.15);
       ctx.lineTo(-size * 0.95, 0);
-      ctx.lineTo(-size * 0.9, size * 0.12);
-      ctx.lineTo(-size * 0.3, size * 0.2);
-      ctx.lineTo(size * 0.4, size * 0.18);
+      ctx.lineTo(-size * 0.9, size * 0.15);
+      ctx.lineTo(-size * 0.3, size * 0.24);
+      ctx.lineTo(size * 0.4, size * 0.22);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
       ctx.shadowBlur = 0;
       
-      // Stealth panel lines (faceted surfaces)
+      // Stealth panel lines (faceted surfaces) - ENHANCED: more detail
       ctx.strokeStyle = accent;
-      ctx.lineWidth = size * 0.04;
+      ctx.lineWidth = size * 0.05;
       ctx.beginPath();
       ctx.moveTo(size * 1.1, 0);
-      ctx.lineTo(size * 0.2, -size * 0.12);
-      ctx.lineTo(-size * 0.5, -size * 0.15);
+      ctx.lineTo(size * 0.2, -size * 0.15);
+      ctx.lineTo(-size * 0.5, -size * 0.18);
       ctx.moveTo(size * 1.1, 0);
-      ctx.lineTo(size * 0.2, size * 0.12);
-      ctx.lineTo(-size * 0.5, size * 0.15);
+      ctx.lineTo(size * 0.2, size * 0.15);
+      ctx.lineTo(-size * 0.5, size * 0.18);
       ctx.stroke();
       
-      // Sensor array on nose
-      ctx.fillStyle = accent;
+      // Additional facet lines for stealth appearance
+      ctx.strokeStyle = darken(primary, 0.3);
+      ctx.lineWidth = size * 0.02;
       ctx.beginPath();
-      ctx.arc(size * 1.2, 0, size * 0.06, 0, Math.PI * 2);
+      ctx.moveTo(size * 0.6, -size * 0.18);
+      ctx.lineTo(size * 0.3, -size * 0.2);
+      ctx.moveTo(size * 0.6, size * 0.18);
+      ctx.lineTo(size * 0.3, size * 0.2);
+      ctx.moveTo(-size * 0.1, -size * 0.22);
+      ctx.lineTo(-size * 0.1, size * 0.22);
+      ctx.stroke();
+      
+      // Sensor array on nose - ENHANCED: more prominent
+      ctx.fillStyle = accent;
+      ctx.shadowColor = accent;
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.arc(size * 1.25, 0, size * 0.08, 0, Math.PI * 2);
       ctx.fill();
       
-      // Elongated narrow canopy
+      // Additional sensor details
+      ctx.fillStyle = canopy;
+      ctx.globalAlpha = 0.8;
+      ctx.beginPath();
+      ctx.arc(size * 1.25, 0, size * 0.04, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.shadowBlur = 0;
+      
+      // Elongated narrow canopy - ENHANCED: more detailed
       ctx.save();
       ctx.shadowColor = canopy;
-      ctx.shadowBlur = 8;
+      ctx.shadowBlur = 10;
       ctx.fillStyle = canopy;
-      ctx.globalAlpha = 0.85;
+      ctx.globalAlpha = 0.88;
       ctx.beginPath();
-      ctx.ellipse(size * 0.35, 0, size * 0.25, size * 0.1, 0, 0, Math.PI * 2);
+      ctx.ellipse(size * 0.4, 0, size * 0.28, size * 0.12, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
       
-      // Canopy highlight
-      ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-      ctx.lineWidth = size * 0.02;
+      // Canopy highlight - ENHANCED
+      ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+      ctx.lineWidth = size * 0.025;
       ctx.beginPath();
-      ctx.arc(size * 0.4, -size * 0.02, size * 0.08, Math.PI, Math.PI * 1.5);
+      ctx.arc(size * 0.45, -size * 0.03, size * 0.1, Math.PI * 0.9, Math.PI * 1.4);
       ctx.stroke();
       
-      // Twin vectoring thrusters
-      const enginePulse = Math.sin(now / 80) * 0.2 + 0.8;
+      // Canopy frame lines
+      ctx.strokeStyle = trim;
+      ctx.lineWidth = size * 0.02;
+      ctx.beginPath();
+      ctx.moveTo(size * 0.25, -size * 0.08);
+      ctx.lineTo(size * 0.25, size * 0.08);
+      ctx.stroke();
+      
+      // Twin vectoring thrusters - ENHANCED: more powerful looking
+      const enginePulse = Math.sin(now / 80) * 0.25 + 0.8;
       ctx.save();
       ctx.shadowColor = thruster;
-      ctx.shadowBlur = 20;
+      ctx.shadowBlur = 24;
       ctx.fillStyle = thruster;
       ctx.globalAlpha = enginePulse;
       ctx.beginPath();
-      ctx.ellipse(-size * 0.92, -size * 0.04, size * 0.08, size * 0.045, 0, 0, Math.PI * 2);
-      ctx.ellipse(-size * 0.92, size * 0.04, size * 0.08, size * 0.045, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.92, -size * 0.05, size * 0.1, size * 0.055, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.92, size * 0.05, size * 0.1, size * 0.055, 0, 0, Math.PI * 2);
       ctx.fill();
-      // Afterburner trails when boosting
+      
+      // Inner engine core glow
+      ctx.fillStyle = '#fff';
+      ctx.globalAlpha = enginePulse * 0.7;
+      ctx.beginPath();
+      ctx.ellipse(-size * 0.92, -size * 0.05, size * 0.05, size * 0.03, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.92, size * 0.05, size * 0.05, size * 0.03, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Afterburner trails when boosting - ENHANCED
       if (isBoosting) {
-        ctx.globalAlpha = enginePulse * 0.6;
+        ctx.globalAlpha = enginePulse * 0.7;
+        ctx.fillStyle = thruster;
         ctx.beginPath();
-        ctx.moveTo(-size * 0.98, -size * 0.04);
-        ctx.lineTo(-size * 1.4, 0);
-        ctx.lineTo(-size * 0.98, size * 0.04);
+        ctx.moveTo(-size * 0.98, -size * 0.05);
+        ctx.lineTo(-size * 1.5, -size * 0.02);
+        ctx.lineTo(-size * 1.5, size * 0.02);
+        ctx.lineTo(-size * 0.98, size * 0.05);
         ctx.fill();
       }
       ctx.restore();
@@ -6001,110 +6142,189 @@
         ctx.restore();
       }
       
-      // Heavy twin-boom hull structures - widened
+      // Heavy twin-boom hull structures - ENHANCED: wider and more imposing
       ctx.fillStyle = darken(primary, 0.2);
       // Top boom
       ctx.beginPath();
-      ctx.moveTo(size * 0.3, -size * 0.45);
-      ctx.lineTo(-size * 0.15, -size * 1.15);
-      ctx.lineTo(-size * 0.85, -size * 1.05);
-      ctx.lineTo(-size * 1.0, -size * 0.45);
-      ctx.lineTo(-size * 0.6, -size * 0.4);
+      ctx.moveTo(size * 0.35, -size * 0.48);
+      ctx.lineTo(-size * 0.1, -size * 1.25);
+      ctx.lineTo(-size * 0.9, -size * 1.12);
+      ctx.lineTo(-size * 1.05, -size * 0.48);
+      ctx.lineTo(-size * 0.6, -size * 0.42);
       ctx.closePath();
       ctx.fill();
       // Bottom boom
       ctx.beginPath();
-      ctx.moveTo(size * 0.3, size * 0.45);
-      ctx.lineTo(-size * 0.15, size * 1.15);
-      ctx.lineTo(-size * 0.85, size * 1.05);
-      ctx.lineTo(-size * 1.0, size * 0.45);
-      ctx.lineTo(-size * 0.6, size * 0.4);
+      ctx.moveTo(size * 0.35, size * 0.48);
+      ctx.lineTo(-size * 0.1, size * 1.25);
+      ctx.lineTo(-size * 0.9, size * 1.12);
+      ctx.lineTo(-size * 1.05, size * 0.48);
+      ctx.lineTo(-size * 0.6, size * 0.42);
       ctx.closePath();
       ctx.fill();
       
-      // Armor plates on booms
+      // Boom structural ribs - ENHANCED
+      ctx.strokeStyle = darken(primary, 0.35);
+      ctx.lineWidth = size * 0.04;
+      ctx.beginPath();
+      ctx.moveTo(-size * 0.3, -size * 1.2);
+      ctx.lineTo(-size * 0.3, -size * 0.45);
+      ctx.moveTo(-size * 0.6, -size * 1.08);
+      ctx.lineTo(-size * 0.6, -size * 0.43);
+      ctx.moveTo(-size * 0.3, size * 1.2);
+      ctx.lineTo(-size * 0.3, size * 0.45);
+      ctx.moveTo(-size * 0.6, size * 1.08);
+      ctx.lineTo(-size * 0.6, size * 0.43);
+      ctx.stroke();
+      
+      // Armor plates on booms - ENHANCED: larger and more detailed
       ctx.fillStyle = accent;
       ctx.beginPath();
-      ctx.rect(-size * 0.5, -size * 1.1, size * 0.25, size * 0.12);
-      ctx.rect(-size * 0.5, size * 0.98, size * 0.25, size * 0.12);
+      ctx.rect(-size * 0.55, -size * 1.15, size * 0.3, size * 0.14);
+      ctx.rect(-size * 0.55, size * 1.01, size * 0.3, size * 0.14);
       ctx.fill();
       
-      // Central main fuselage (armored box) - widened
+      // Armor plate rivets
+      ctx.fillStyle = darken(accent, 0.4);
+      for (let i = 0; i < 3; i++) {
+        const x = -size * 0.5 + i * size * 0.1;
+        ctx.beginPath();
+        ctx.arc(x, -size * 1.08, size * 0.02, 0, Math.PI * 2);
+        ctx.arc(x, size * 1.08, size * 0.02, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      
+      // Central main fuselage (armored box) - ENHANCED: wider and more armored looking
       ctx.fillStyle = primary;
       ctx.strokeStyle = trim;
-      ctx.lineWidth = Math.max(2, size * 0.1);
+      ctx.lineWidth = Math.max(2.5, size * 0.12);
       ctx.shadowColor = primary;
-      ctx.shadowBlur = 12;
+      ctx.shadowBlur = 15;
       ctx.beginPath();
       ctx.moveTo(size * 1.1, 0);
-      ctx.lineTo(size * 0.6, -size * 0.38);
-      ctx.lineTo(-size * 0.4, -size * 0.35);
-      ctx.lineTo(-size * 0.55, -size * 0.25);
-      ctx.lineTo(-size * 0.55, size * 0.25);
-      ctx.lineTo(-size * 0.4, size * 0.35);
-      ctx.lineTo(size * 0.6, size * 0.38);
+      ctx.lineTo(size * 0.6, -size * 0.42);
+      ctx.lineTo(-size * 0.4, -size * 0.4);
+      ctx.lineTo(-size * 0.55, -size * 0.3);
+      ctx.lineTo(-size * 0.55, size * 0.3);
+      ctx.lineTo(-size * 0.4, size * 0.4);
+      ctx.lineTo(size * 0.6, size * 0.42);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
       ctx.shadowBlur = 0;
       
-      // Heavy weapon mount (chin gun)
+      // Heavy weapon mount (chin gun) - ENHANCED: more menacing
       ctx.fillStyle = darken(primary, 0.4);
       ctx.beginPath();
-      ctx.rect(size * 0.8, -size * 0.06, size * 0.35, size * 0.12);
-      ctx.fill();
-      // Gun barrel details
-      ctx.fillStyle = trim;
-      ctx.beginPath();
-      ctx.rect(size * 1.1, -size * 0.03, size * 0.15, size * 0.02);
-      ctx.rect(size * 1.1, size * 0.01, size * 0.15, size * 0.02);
+      ctx.rect(size * 0.8, -size * 0.08, size * 0.4, size * 0.16);
       ctx.fill();
       
-      // Reinforced armor lines
-      ctx.strokeStyle = accent;
-      ctx.lineWidth = size * 0.07;
+      // Weapon housing details
+      ctx.strokeStyle = darken(primary, 0.5);
+      ctx.lineWidth = size * 0.02;
       ctx.beginPath();
-      ctx.moveTo(size * 0.5, -size * 0.3);
-      ctx.lineTo(-size * 0.3, -size * 0.28);
-      ctx.moveTo(size * 0.5, size * 0.3);
-      ctx.lineTo(-size * 0.3, size * 0.28);
+      ctx.rect(size * 0.85, -size * 0.07, size * 0.3, size * 0.14);
       ctx.stroke();
       
-      // Armored canopy (smaller, protected)
+      // Gun barrel details - ENHANCED
+      ctx.fillStyle = trim;
+      ctx.beginPath();
+      ctx.rect(size * 1.15, -size * 0.04, size * 0.18, size * 0.028);
+      ctx.rect(size * 1.15, size * 0.012, size * 0.18, size * 0.028);
+      ctx.fill();
+      
+      // Barrel muzzle flash suppressors
+      ctx.fillStyle = darken(trim, 0.3);
+      ctx.beginPath();
+      ctx.rect(size * 1.3, -size * 0.045, size * 0.04, size * 0.035);
+      ctx.rect(size * 1.3, size * 0.01, size * 0.04, size * 0.035);
+      ctx.fill();
+      
+      // Reinforced armor lines - ENHANCED: more prominent
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = size * 0.09;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(size * 0.5, -size * 0.34);
+      ctx.lineTo(-size * 0.35, -size * 0.32);
+      ctx.moveTo(size * 0.5, size * 0.34);
+      ctx.lineTo(-size * 0.35, size * 0.32);
+      ctx.stroke();
+      
+      // Additional armor detail lines
+      ctx.strokeStyle = darken(accent, 0.3);
+      ctx.lineWidth = size * 0.04;
+      ctx.beginPath();
+      ctx.moveTo(size * 0.3, -size * 0.38);
+      ctx.lineTo(-size * 0.2, -size * 0.36);
+      ctx.moveTo(size * 0.3, size * 0.38);
+      ctx.lineTo(-size * 0.2, size * 0.36);
+      ctx.stroke();
+      ctx.lineCap = 'butt';
+      
+      // Armored canopy (smaller, protected) - ENHANCED
       ctx.save();
       ctx.shadowColor = canopy;
-      ctx.shadowBlur = 8;
+      ctx.shadowBlur = 10;
       ctx.fillStyle = canopy;
-      ctx.globalAlpha = 0.85;
+      ctx.globalAlpha = 0.88;
       ctx.beginPath();
-      ctx.ellipse(size * 0.45, 0, size * 0.2, size * 0.12, 0, 0, Math.PI * 2);
+      ctx.ellipse(size * 0.5, 0, size * 0.22, size * 0.14, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
       
-      // Sensor dome on top
-      ctx.fillStyle = canopy;
-      ctx.globalAlpha = 0.7;
+      // Canopy frame
+      ctx.strokeStyle = trim;
+      ctx.lineWidth = size * 0.035;
       ctx.beginPath();
-      ctx.arc(size * 0.1, -size * 0.15, size * 0.08, 0, Math.PI * 2);
+      ctx.arc(size * 0.5, 0, size * 0.18, Math.PI * 0.5, Math.PI * 1.5);
+      ctx.stroke();
+      
+      // Sensor dome on top - ENHANCED
+      ctx.fillStyle = canopy;
+      ctx.globalAlpha = 0.75;
+      ctx.shadowColor = canopy;
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(size * 0.12, -size * 0.18, size * 0.1, 0, Math.PI * 2);
       ctx.fill();
       ctx.globalAlpha = 1;
+      ctx.shadowBlur = 0;
       
-      // Quad engine configuration
-      const enginePulse = Math.sin(now / 120) * 0.15 + 0.85;
+      // Sensor dome antenna
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = size * 0.02;
+      ctx.beginPath();
+      ctx.moveTo(size * 0.12, -size * 0.28);
+      ctx.lineTo(size * 0.12, -size * 0.35);
+      ctx.stroke();
+      
+      // Quad engine configuration - ENHANCED: more powerful
+      const enginePulse = Math.sin(now / 120) * 0.2 + 0.85;
       ctx.save();
       ctx.shadowColor = thruster;
-      ctx.shadowBlur = 18;
+      ctx.shadowBlur = 22;
       ctx.fillStyle = thruster;
       ctx.globalAlpha = enginePulse;
-      // Boom engines
+      // Boom engines - larger
       ctx.beginPath();
-      ctx.ellipse(-size * 0.95, -size * 0.82, size * 0.12, size * 0.1, 0, 0, Math.PI * 2);
-      ctx.ellipse(-size * 0.95, size * 0.82, size * 0.12, size * 0.1, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.98, -size * 0.9, size * 0.15, size * 0.12, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.98, size * 0.9, size * 0.15, size * 0.12, 0, 0, Math.PI * 2);
       ctx.fill();
       // Central engines
       ctx.beginPath();
-      ctx.ellipse(-size * 0.58, -size * 0.18, size * 0.08, size * 0.06, 0, 0, Math.PI * 2);
-      ctx.ellipse(-size * 0.58, size * 0.18, size * 0.08, size * 0.06, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.58, -size * 0.22, size * 0.1, size * 0.08, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.58, size * 0.22, size * 0.1, size * 0.08, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Inner engine core glow
+      ctx.fillStyle = '#fff';
+      ctx.globalAlpha = enginePulse * 0.6;
+      ctx.beginPath();
+      ctx.ellipse(-size * 0.98, -size * 0.9, size * 0.08, size * 0.06, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.98, size * 0.9, size * 0.08, size * 0.06, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.58, -size * 0.22, size * 0.05, size * 0.04, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.58, size * 0.22, size * 0.05, size * 0.04, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
 
@@ -6133,113 +6353,179 @@
         ctx.restore();
       }
       
-      // Forward-swept aggressive wings - widened
+      // Forward-swept aggressive wings - ENHANCED: wider and more dynamic
       ctx.fillStyle = darken(primary, 0.15);
       ctx.beginPath();
-      ctx.moveTo(size * 0.4, -size * 0.18);
-      ctx.lineTo(size * 0.35, -size * 0.9);
-      ctx.lineTo(-size * 0.35, -size * 0.7);
-      ctx.lineTo(-size * 0.15, -size * 0.18);
+      ctx.moveTo(size * 0.45, -size * 0.22);
+      ctx.lineTo(size * 0.38, -size * 1.05);
+      ctx.lineTo(-size * 0.38, -size * 0.8);
+      ctx.lineTo(-size * 0.12, -size * 0.22);
       ctx.closePath();
       ctx.fill();
       ctx.beginPath();
-      ctx.moveTo(size * 0.4, size * 0.18);
-      ctx.lineTo(size * 0.35, size * 0.9);
-      ctx.lineTo(-size * 0.35, size * 0.7);
-      ctx.lineTo(-size * 0.15, size * 0.18);
+      ctx.moveTo(size * 0.45, size * 0.22);
+      ctx.lineTo(size * 0.38, size * 1.05);
+      ctx.lineTo(-size * 0.38, size * 0.8);
+      ctx.lineTo(-size * 0.12, size * 0.22);
       ctx.closePath();
       ctx.fill();
       
-      // Wing-mounted cannons
+      // Wing leading edge highlights - ENHANCED
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = size * 0.04;
+      ctx.beginPath();
+      ctx.moveTo(size * 0.45, -size * 0.22);
+      ctx.lineTo(size * 0.38, -size * 1.05);
+      ctx.moveTo(size * 0.45, size * 0.22);
+      ctx.lineTo(size * 0.38, size * 1.05);
+      ctx.stroke();
+      
+      // Wing-mounted cannons - ENHANCED: larger and more detailed
       ctx.fillStyle = darken(accent, 0.2);
       ctx.beginPath();
-      ctx.rect(size * 0.4, -size * 0.75, size * 0.3, size * 0.06);
-      ctx.rect(size * 0.4, size * 0.69, size * 0.3, size * 0.06);
+      ctx.rect(size * 0.42, -size * 0.88, size * 0.35, size * 0.08);
+      ctx.rect(size * 0.42, size * 0.8, size * 0.35, size * 0.08);
       ctx.fill();
       
-      // Tail fins (angular, aggressive)
+      // Cannon barrels
+      ctx.fillStyle = darken(trim, 0.3);
+      ctx.beginPath();
+      ctx.rect(size * 0.72, -size * 0.86, size * 0.12, size * 0.04);
+      ctx.rect(size * 0.72, size * 0.82, size * 0.12, size * 0.04);
+      ctx.fill();
+      
+      // Cannon muzzle glow
+      ctx.fillStyle = primary;
+      ctx.shadowColor = primary;
+      ctx.shadowBlur = 6;
+      ctx.beginPath();
+      ctx.rect(size * 0.82, -size * 0.855, size * 0.03, size * 0.03);
+      ctx.rect(size * 0.82, size * 0.825, size * 0.03, size * 0.03);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      
+      // Tail fins (angular, aggressive) - ENHANCED: larger and more prominent
       ctx.fillStyle = darken(primary, 0.25);
       ctx.beginPath();
-      ctx.moveTo(-size * 0.5, -size * 0.2);
-      ctx.lineTo(-size * 0.7, -size * 0.58);
-      ctx.lineTo(-size * 0.85, -size * 0.45);
-      ctx.lineTo(-size * 0.75, -size * 0.18);
+      ctx.moveTo(-size * 0.48, -size * 0.24);
+      ctx.lineTo(-size * 0.68, -size * 0.68);
+      ctx.lineTo(-size * 0.88, -size * 0.52);
+      ctx.lineTo(-size * 0.75, -size * 0.22);
       ctx.closePath();
       ctx.fill();
       ctx.beginPath();
-      ctx.moveTo(-size * 0.5, size * 0.2);
-      ctx.lineTo(-size * 0.7, size * 0.58);
-      ctx.lineTo(-size * 0.85, size * 0.45);
-      ctx.lineTo(-size * 0.75, size * 0.18);
+      ctx.moveTo(-size * 0.48, size * 0.24);
+      ctx.lineTo(-size * 0.68, size * 0.68);
+      ctx.lineTo(-size * 0.88, size * 0.52);
+      ctx.lineTo(-size * 0.75, size * 0.22);
       ctx.closePath();
       ctx.fill();
       
-      // Angular main fuselage - widened
+      // Tail fin edge accents
+      ctx.strokeStyle = darken(accent, 0.3);
+      ctx.lineWidth = size * 0.03;
+      ctx.beginPath();
+      ctx.moveTo(-size * 0.68, -size * 0.68);
+      ctx.lineTo(-size * 0.88, -size * 0.52);
+      ctx.moveTo(-size * 0.68, size * 0.68);
+      ctx.lineTo(-size * 0.88, size * 0.52);
+      ctx.stroke();
+      
+      // Angular main fuselage - ENHANCED: wider and more aggressive
       ctx.fillStyle = primary;
       ctx.strokeStyle = trim;
-      ctx.lineWidth = Math.max(1.5, size * 0.07);
+      ctx.lineWidth = Math.max(2, size * 0.09);
       ctx.shadowColor = primary;
-      ctx.shadowBlur = 12;
+      ctx.shadowBlur = 14;
       ctx.beginPath();
       ctx.moveTo(size * 1.4, 0);
-      ctx.lineTo(size * 0.6, -size * 0.22);
-      ctx.lineTo(size * 0.2, -size * 0.25);
-      ctx.lineTo(-size * 0.5, -size * 0.18);
+      ctx.lineTo(size * 0.6, -size * 0.26);
+      ctx.lineTo(size * 0.2, -size * 0.3);
+      ctx.lineTo(-size * 0.5, -size * 0.22);
       ctx.lineTo(-size * 0.8, 0);
-      ctx.lineTo(-size * 0.5, size * 0.18);
-      ctx.lineTo(size * 0.2, size * 0.25);
-      ctx.lineTo(size * 0.6, size * 0.22);
+      ctx.lineTo(-size * 0.5, size * 0.22);
+      ctx.lineTo(size * 0.2, size * 0.3);
+      ctx.lineTo(size * 0.6, size * 0.26);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
       ctx.shadowBlur = 0;
       
-      // Heat vents / radiator panels
+      // Heat vents / radiator panels - ENHANCED: more prominent
       ctx.fillStyle = thruster;
-      ctx.globalAlpha = 0.5 + Math.sin(now / 200) * 0.2;
+      const heatPulse = 0.5 + Math.sin(now / 180) * 0.25;
+      ctx.globalAlpha = heatPulse;
+      ctx.shadowColor = thruster;
+      ctx.shadowBlur = 10;
       ctx.beginPath();
-      ctx.rect(-size * 0.3, -size * 0.1, size * 0.15, size * 0.03);
-      ctx.rect(-size * 0.3, size * 0.07, size * 0.15, size * 0.03);
+      ctx.rect(-size * 0.32, -size * 0.14, size * 0.18, size * 0.04);
+      ctx.rect(-size * 0.32, size * 0.1, size * 0.18, size * 0.04);
+      // Additional vent slits
+      for (let i = 0; i < 4; i++) {
+        const x = -size * 0.3 + i * size * 0.04;
+        ctx.rect(x, -size * 0.13, size * 0.015, size * 0.02);
+        ctx.rect(x, size * 0.11, size * 0.015, size * 0.02);
+      }
       ctx.fill();
       ctx.globalAlpha = 1;
+      ctx.shadowBlur = 0;
       
-      // Aggressive accent stripes
+      // Aggressive accent stripes - ENHANCED: thicker and more visible
       ctx.strokeStyle = accent;
-      ctx.lineWidth = size * 0.05;
+      ctx.lineWidth = size * 0.07;
+      ctx.lineCap = 'round';
       ctx.beginPath();
-      ctx.moveTo(size * 1.0, -size * 0.05);
-      ctx.lineTo(size * 0.4, -size * 0.12);
-      ctx.moveTo(size * 1.0, size * 0.05);
-      ctx.lineTo(size * 0.4, size * 0.12);
+      ctx.moveTo(size * 1.1, -size * 0.06);
+      ctx.lineTo(size * 0.35, -size * 0.14);
+      ctx.moveTo(size * 1.1, size * 0.06);
+      ctx.lineTo(size * 0.35, size * 0.14);
       ctx.stroke();
+      ctx.lineCap = 'butt';
       
-      // Narrow aggressive canopy
+      // Narrow aggressive canopy - ENHANCED
       ctx.save();
       ctx.shadowColor = canopy;
-      ctx.shadowBlur = 10;
+      ctx.shadowBlur = 12;
       ctx.fillStyle = canopy;
-      ctx.globalAlpha = 0.9;
+      ctx.globalAlpha = 0.92;
       ctx.beginPath();
-      ctx.moveTo(size * 0.7, 0);
-      ctx.lineTo(size * 0.5, -size * 0.08);
-      ctx.lineTo(size * 0.25, -size * 0.06);
-      ctx.lineTo(size * 0.25, size * 0.06);
-      ctx.lineTo(size * 0.5, size * 0.08);
+      ctx.moveTo(size * 0.75, 0);
+      ctx.lineTo(size * 0.52, -size * 0.1);
+      ctx.lineTo(size * 0.25, -size * 0.08);
+      ctx.lineTo(size * 0.25, size * 0.08);
+      ctx.lineTo(size * 0.52, size * 0.1);
       ctx.closePath();
       ctx.fill();
       ctx.restore();
       
-      // Triple engine configuration
-      const enginePulse = Math.sin(now / 90) * 0.2 + 0.8;
+      // Canopy frame highlight
+      ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+      ctx.lineWidth = size * 0.02;
+      ctx.beginPath();
+      ctx.moveTo(size * 0.6, -size * 0.08);
+      ctx.lineTo(size * 0.5, -size * 0.09);
+      ctx.stroke();
+      
+      // Triple engine configuration - ENHANCED: more powerful
+      const enginePulse = Math.sin(now / 90) * 0.25 + 0.8;
       ctx.save();
       ctx.shadowColor = thruster;
-      ctx.shadowBlur = 22;
+      ctx.shadowBlur = 24;
       ctx.fillStyle = thruster;
       ctx.globalAlpha = enginePulse;
       ctx.beginPath();
-      ctx.ellipse(-size * 0.82, 0, size * 0.12, size * 0.08, 0, 0, Math.PI * 2);
-      ctx.ellipse(-size * 0.78, -size * 0.28, size * 0.08, size * 0.05, 0, 0, Math.PI * 2);
-      ctx.ellipse(-size * 0.78, size * 0.28, size * 0.08, size * 0.05, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.82, 0, size * 0.14, size * 0.1, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.78, -size * 0.3, size * 0.1, size * 0.06, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.78, size * 0.3, size * 0.1, size * 0.06, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Inner engine core glow
+      ctx.fillStyle = '#fff';
+      ctx.globalAlpha = enginePulse * 0.7;
+      ctx.beginPath();
+      ctx.ellipse(-size * 0.82, 0, size * 0.07, size * 0.05, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.78, -size * 0.3, size * 0.05, size * 0.03, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.78, size * 0.3, size * 0.05, size * 0.03, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
 
@@ -6290,73 +6576,106 @@
       ctx.ellipse(-size * 0.68, size * 0.42, size * 0.08, size * 0.05, 0.4, 0, Math.PI * 2);
       ctx.fill();
       
-      // Central body spine
+      // Central body spine - ENHANCED: wider and more substantial
       ctx.fillStyle = primary;
       ctx.strokeStyle = trim;
-      ctx.lineWidth = Math.max(1.5, size * 0.06);
+      ctx.lineWidth = Math.max(2, size * 0.08);
       ctx.shadowColor = primary;
-      ctx.shadowBlur = 10;
+      ctx.shadowBlur = 12;
       ctx.beginPath();
       ctx.moveTo(size * 1.2, 0);
-      ctx.quadraticCurveTo(size * 0.7, -size * 0.08, size * 0.3, -size * 0.1);
-      ctx.lineTo(-size * 0.4, -size * 0.12);
+      ctx.quadraticCurveTo(size * 0.7, -size * 0.1, size * 0.3, -size * 0.13);
+      ctx.lineTo(-size * 0.4, -size * 0.15);
       ctx.lineTo(-size * 0.65, 0);
-      ctx.lineTo(-size * 0.4, size * 0.12);
-      ctx.lineTo(size * 0.3, size * 0.1);
-      ctx.quadraticCurveTo(size * 0.7, size * 0.08, size * 1.2, 0);
+      ctx.lineTo(-size * 0.4, size * 0.15);
+      ctx.lineTo(size * 0.3, size * 0.13);
+      ctx.quadraticCurveTo(size * 0.7, size * 0.1, size * 1.2, 0);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
       ctx.shadowBlur = 0;
       
-      // Stealth coating lines (subtle)
+      // Stealth coating lines (subtle) - ENHANCED: more detail
       ctx.strokeStyle = darken(primary, 0.15);
-      ctx.lineWidth = size * 0.015;
+      ctx.lineWidth = size * 0.02;
       ctx.beginPath();
-      ctx.moveTo(size * 0.8, 0);
-      ctx.lineTo(-size * 0.2, -size * 0.08);
-      ctx.moveTo(size * 0.8, 0);
-      ctx.lineTo(-size * 0.2, size * 0.08);
-      ctx.moveTo(size * 0.3, -size * 0.06);
-      ctx.quadraticCurveTo(size * 0.1, -size * 0.25, -size * 0.3, -size * 0.3);
-      ctx.moveTo(size * 0.3, size * 0.06);
-      ctx.quadraticCurveTo(size * 0.1, size * 0.25, -size * 0.3, size * 0.3);
+      ctx.moveTo(size * 0.85, 0);
+      ctx.lineTo(-size * 0.18, -size * 0.1);
+      ctx.moveTo(size * 0.85, 0);
+      ctx.lineTo(-size * 0.18, size * 0.1);
+      ctx.moveTo(size * 0.35, -size * 0.08);
+      ctx.quadraticCurveTo(size * 0.1, -size * 0.28, -size * 0.32, -size * 0.35);
+      ctx.moveTo(size * 0.35, size * 0.08);
+      ctx.quadraticCurveTo(size * 0.1, size * 0.28, -size * 0.32, size * 0.35);
       ctx.stroke();
       
-      // Glowing sensor array on nose
+      // Additional panel details
+      ctx.strokeStyle = darken(primary, 0.25);
+      ctx.lineWidth = size * 0.015;
+      ctx.beginPath();
+      ctx.moveTo(size * 0.5, -size * 0.05);
+      ctx.lineTo(size * 0.1, -size * 0.1);
+      ctx.moveTo(size * 0.5, size * 0.05);
+      ctx.lineTo(size * 0.1, size * 0.1);
+      ctx.stroke();
+      
+      // Glowing sensor array on nose - ENHANCED
+      ctx.save();
+      ctx.shadowColor = canopy;
+      ctx.shadowBlur = 15;
+      ctx.fillStyle = canopy;
+      ctx.globalAlpha = 0.75 + Math.sin(now / 350) * 0.25;
+      ctx.beginPath();
+      ctx.arc(size * 1.0, 0, size * 0.1, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Inner sensor core
+      ctx.fillStyle = '#fff';
+      ctx.globalAlpha = 0.6 + Math.sin(now / 300) * 0.3;
+      ctx.beginPath();
+      ctx.arc(size * 1.0, 0, size * 0.05, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      
+      // Wide panoramic canopy - ENHANCED
       ctx.save();
       ctx.shadowColor = canopy;
       ctx.shadowBlur = 12;
       ctx.fillStyle = canopy;
-      ctx.globalAlpha = 0.7 + Math.sin(now / 400) * 0.3;
+      ctx.globalAlpha = 0.88;
       ctx.beginPath();
-      ctx.arc(size * 0.95, 0, size * 0.08, 0, Math.PI * 2);
+      ctx.ellipse(size * 0.42, 0, size * 0.26, size * 0.1, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
       
-      // Wide panoramic canopy
-      ctx.save();
-      ctx.shadowColor = canopy;
-      ctx.shadowBlur = 10;
-      ctx.fillStyle = canopy;
-      ctx.globalAlpha = 0.85;
+      // Canopy frame highlights
+      ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+      ctx.lineWidth = size * 0.02;
       ctx.beginPath();
-      ctx.ellipse(size * 0.4, 0, size * 0.22, size * 0.08, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
+      ctx.arc(size * 0.5, 0, size * 0.22, Math.PI * 0.7, Math.PI * 1.3);
+      ctx.stroke();
       
-      // Integrated stealth engines (hidden in trailing edge)
-      const enginePulse = Math.sin(now / 150) * 0.15 + 0.7;
+      // Integrated stealth engines (hidden in trailing edge) - ENHANCED
+      const enginePulse = Math.sin(now / 150) * 0.2 + 0.75;
       ctx.save();
       ctx.shadowColor = thruster;
-      ctx.shadowBlur = 15;
+      ctx.shadowBlur = 18;
       ctx.fillStyle = thruster;
       ctx.globalAlpha = enginePulse;
       // Slot exhausts blended into wing
       ctx.beginPath();
-      ctx.ellipse(-size * 0.62, -size * 0.08, size * 0.06, size * 0.03, 0, 0, Math.PI * 2);
-      ctx.ellipse(-size * 0.62, size * 0.08, size * 0.06, size * 0.03, 0, 0, Math.PI * 2);
-      ctx.ellipse(-size * 0.55, 0, size * 0.05, size * 0.025, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.62, -size * 0.1, size * 0.08, size * 0.04, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.62, size * 0.1, size * 0.08, size * 0.04, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.55, 0, size * 0.07, size * 0.035, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Inner engine glow
+      ctx.fillStyle = '#fff';
+      ctx.globalAlpha = enginePulse * 0.6;
+      ctx.beginPath();
+      ctx.ellipse(-size * 0.62, -size * 0.1, size * 0.04, size * 0.02, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.62, size * 0.1, size * 0.04, size * 0.02, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.55, 0, size * 0.035, size * 0.018, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
 
@@ -6385,57 +6704,92 @@
         ctx.restore();
       }
       
-      // Massive wing platforms - widened
+      // Massive wing platforms - ENHANCED: wider and more menacing
       ctx.fillStyle = darken(primary, 0.2);
       // Upper wing/weapon platform
       ctx.beginPath();
-      ctx.moveTo(size * 0.3, -size * 0.52);
-      ctx.lineTo(-size * 0.25, -size * 1.2);
-      ctx.lineTo(-size * 0.9, -size * 0.95);
-      ctx.lineTo(-size * 0.95, -size * 0.48);
-      ctx.lineTo(-size * 0.5, -size * 0.42);
+      ctx.moveTo(size * 0.35, -size * 0.55);
+      ctx.lineTo(-size * 0.2, -size * 1.3);
+      ctx.lineTo(-size * 0.95, -size * 1.05);
+      ctx.lineTo(-size * 1.0, -size * 0.5);
+      ctx.lineTo(-size * 0.48, -size * 0.45);
       ctx.closePath();
       ctx.fill();
       // Lower wing/weapon platform
       ctx.beginPath();
-      ctx.moveTo(size * 0.3, size * 0.52);
-      ctx.lineTo(-size * 0.25, size * 1.2);
-      ctx.lineTo(-size * 0.9, size * 0.95);
-      ctx.lineTo(-size * 0.95, size * 0.48);
-      ctx.lineTo(-size * 0.5, size * 0.42);
+      ctx.moveTo(size * 0.35, size * 0.55);
+      ctx.lineTo(-size * 0.2, size * 1.3);
+      ctx.lineTo(-size * 0.95, size * 1.05);
+      ctx.lineTo(-size * 1.0, size * 0.5);
+      ctx.lineTo(-size * 0.48, size * 0.45);
       ctx.closePath();
       ctx.fill();
       
-      // Heavy turret mounts on wings
+      // Wing structural supports - ENHANCED
+      ctx.strokeStyle = darken(primary, 0.35);
+      ctx.lineWidth = size * 0.05;
+      ctx.beginPath();
+      ctx.moveTo(-size * 0.35, -size * 1.25);
+      ctx.lineTo(-size * 0.5, -size * 0.48);
+      ctx.moveTo(-size * 0.65, -size * 1.1);
+      ctx.lineTo(-size * 0.7, -size * 0.48);
+      ctx.moveTo(-size * 0.35, size * 1.25);
+      ctx.lineTo(-size * 0.5, size * 0.48);
+      ctx.moveTo(-size * 0.65, size * 1.1);
+      ctx.lineTo(-size * 0.7, size * 0.48);
+      ctx.stroke();
+      
+      // Heavy turret mounts on wings - ENHANCED: larger and more imposing
       ctx.fillStyle = darken(primary, 0.35);
       ctx.beginPath();
-      ctx.arc(-size * 0.5, -size * 0.85, size * 0.15, 0, Math.PI * 2);
-      ctx.arc(-size * 0.5, size * 0.85, size * 0.15, 0, Math.PI * 2);
-      ctx.fill();
-      // Turret barrels
-      ctx.fillStyle = trim;
-      ctx.beginPath();
-      ctx.rect(-size * 0.35, -size * 0.88, size * 0.25, size * 0.03);
-      ctx.rect(-size * 0.35, -size * 0.82, size * 0.25, size * 0.03);
-      ctx.rect(-size * 0.35, size * 0.82, size * 0.25, size * 0.03);
-      ctx.rect(-size * 0.35, size * 0.85, size * 0.25, size * 0.03);
+      ctx.arc(-size * 0.52, -size * 0.92, size * 0.18, 0, Math.PI * 2);
+      ctx.arc(-size * 0.52, size * 0.92, size * 0.18, 0, Math.PI * 2);
       ctx.fill();
       
-      // Armored main hull - widened
+      // Turret armor rings
+      ctx.strokeStyle = darken(accent, 0.3);
+      ctx.lineWidth = size * 0.03;
+      ctx.beginPath();
+      ctx.arc(-size * 0.52, -size * 0.92, size * 0.16, 0, Math.PI * 2);
+      ctx.arc(-size * 0.52, size * 0.92, size * 0.16, 0, Math.PI * 2);
+      ctx.stroke();
+      
+      // Turret barrels - ENHANCED
+      ctx.fillStyle = trim;
+      ctx.beginPath();
+      ctx.rect(-size * 0.32, -size * 0.96, size * 0.28, size * 0.035);
+      ctx.rect(-size * 0.32, -size * 0.88, size * 0.28, size * 0.035);
+      ctx.rect(-size * 0.32, size * 0.88, size * 0.28, size * 0.035);
+      ctx.rect(-size * 0.32, size * 0.925, size * 0.28, size * 0.035);
+      ctx.fill();
+      
+      // Barrel muzzles
+      ctx.fillStyle = accent;
+      ctx.shadowColor = accent;
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.rect(-size * 0.05, -size * 0.955, size * 0.04, size * 0.025);
+      ctx.rect(-size * 0.05, -size * 0.875, size * 0.04, size * 0.025);
+      ctx.rect(-size * 0.05, size * 0.885, size * 0.04, size * 0.025);
+      ctx.rect(-size * 0.05, size * 0.93, size * 0.04, size * 0.025);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      
+      // Armored main hull - ENHANCED: wider and more tank-like
       ctx.fillStyle = primary;
       ctx.strokeStyle = trim;
-      ctx.lineWidth = Math.max(2, size * 0.1);
+      ctx.lineWidth = Math.max(2.5, size * 0.12);
       ctx.shadowColor = primary;
-      ctx.shadowBlur = 14;
+      ctx.shadowBlur = 16;
       ctx.beginPath();
       ctx.moveTo(size * 1.0, 0);
-      ctx.lineTo(size * 0.6, -size * 0.45);
-      ctx.lineTo(-size * 0.3, -size * 0.48);
-      ctx.lineTo(-size * 0.7, -size * 0.35);
+      ctx.lineTo(size * 0.6, -size * 0.5);
+      ctx.lineTo(-size * 0.3, -size * 0.52);
+      ctx.lineTo(-size * 0.7, -size * 0.4);
       ctx.lineTo(-size * 0.85, 0);
-      ctx.lineTo(-size * 0.7, size * 0.35);
-      ctx.lineTo(-size * 0.3, size * 0.48);
-      ctx.lineTo(size * 0.6, size * 0.45);
+      ctx.lineTo(-size * 0.7, size * 0.4);
+      ctx.lineTo(-size * 0.3, size * 0.52);
+      ctx.lineTo(size * 0.6, size * 0.5);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
@@ -6476,44 +6830,66 @@
       ctx.lineTo(-size * 0.3, size * 0.4);
       ctx.stroke();
       
-      // Small armored bridge canopy
+      // Small armored bridge canopy - ENHANCED
       ctx.save();
       ctx.shadowColor = canopy;
-      ctx.shadowBlur = 8;
+      ctx.shadowBlur = 10;
       ctx.fillStyle = canopy;
-      ctx.globalAlpha = 0.8;
+      ctx.globalAlpha = 0.85;
       ctx.beginPath();
-      ctx.rect(size * 0.25, -size * 0.15, size * 0.2, size * 0.3);
+      ctx.rect(size * 0.28, -size * 0.18, size * 0.25, size * 0.36);
       ctx.fill();
       ctx.restore();
       
-      // Multiple sensor domes
-      ctx.fillStyle = canopy;
-      ctx.globalAlpha = 0.6;
+      // Bridge frame
+      ctx.strokeStyle = trim;
+      ctx.lineWidth = size * 0.025;
       ctx.beginPath();
-      ctx.arc(size * 0.0, -size * 0.22, size * 0.06, 0, Math.PI * 2);
-      ctx.arc(size * 0.0, size * 0.22, size * 0.06, 0, Math.PI * 2);
+      ctx.rect(size * 0.28, -size * 0.18, size * 0.25, size * 0.36);
+      ctx.stroke();
+      
+      // Multiple sensor domes - ENHANCED
+      ctx.fillStyle = canopy;
+      ctx.shadowColor = canopy;
+      ctx.shadowBlur = 8;
+      ctx.globalAlpha = 0.7;
+      ctx.beginPath();
+      ctx.arc(size * 0.0, -size * 0.26, size * 0.08, 0, Math.PI * 2);
+      ctx.arc(size * 0.0, size * 0.26, size * 0.08, 0, Math.PI * 2);
       ctx.fill();
       ctx.globalAlpha = 1;
+      ctx.shadowBlur = 0;
       
-      // Massive engine bank (6 engines)
-      const enginePulse = Math.sin(now / 130) * 0.15 + 0.85;
+      // Massive engine bank (6 engines) - ENHANCED: more powerful
+      const enginePulse = Math.sin(now / 130) * 0.2 + 0.85;
       ctx.save();
       ctx.shadowColor = thruster;
-      ctx.shadowBlur = 22;
+      ctx.shadowBlur = 26;
       ctx.fillStyle = thruster;
       ctx.globalAlpha = enginePulse;
-      // Wing engines
+      // Wing engines - larger
       ctx.beginPath();
-      ctx.ellipse(-size * 0.92, -size * 0.72, size * 0.12, size * 0.1, 0, 0, Math.PI * 2);
-      ctx.ellipse(-size * 0.92, size * 0.72, size * 0.12, size * 0.1, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.95, -size * 0.82, size * 0.15, size * 0.12, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.95, size * 0.82, size * 0.15, size * 0.12, 0, 0, Math.PI * 2);
       ctx.fill();
       // Central quad engines
       ctx.beginPath();
-      ctx.ellipse(-size * 0.88, -size * 0.26, size * 0.1, size * 0.07, 0, 0, Math.PI * 2);
-      ctx.ellipse(-size * 0.88, -size * 0.08, size * 0.1, size * 0.07, 0, 0, Math.PI * 2);
-      ctx.ellipse(-size * 0.88, size * 0.08, size * 0.1, size * 0.07, 0, 0, Math.PI * 2);
-      ctx.ellipse(-size * 0.88, size * 0.26, size * 0.1, size * 0.07, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.88, -size * 0.3, size * 0.12, size * 0.09, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.88, -size * 0.1, size * 0.12, size * 0.09, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.88, size * 0.1, size * 0.12, size * 0.09, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.88, size * 0.3, size * 0.12, size * 0.09, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Inner engine core glow
+      ctx.fillStyle = '#fff';
+      ctx.globalAlpha = enginePulse * 0.7;
+      ctx.beginPath();
+      ctx.ellipse(-size * 0.95, -size * 0.82, size * 0.08, size * 0.06, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.95, size * 0.82, size * 0.08, size * 0.06, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.88, -size * 0.3, size * 0.06, size * 0.045, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.88, -size * 0.1, size * 0.06, size * 0.045, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.88, size * 0.1, size * 0.06, size * 0.045, 0, 0, Math.PI * 2);
+      ctx.ellipse(-size * 0.88, size * 0.3, size * 0.06, size * 0.045, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
 
@@ -7513,13 +7889,10 @@
     const diff = getDifficulty();
     
     // Calculate enemies to kill with progressive scaling
-    // Early game: fewer enemies (8-20 range)
-    // Mid game: standard enemies (scales with level * 5.5)
-    // Late game: more enemies (scales with level * 7)
     let baseEnemies;
     if (level <= ADAPTIVE_CONSTANTS.EASY_LEVELS) {
-      // Early game: gentler enemy count
-      baseEnemies = Math.floor((8 + level * 2.5) * diff.enemiesToKill);
+      // Early game: INCREASED from (8 + level * 2.5) to make levels less trivial
+      baseEnemies = Math.floor((12 + level * 3.5) * diff.enemiesToKill);
     } else if (level <= ADAPTIVE_CONSTANTS.LATE_GAME_START) {
       // Mid game: standard scaling
       baseEnemies = Math.floor((10 + level * 5.5) * diff.enemiesToKill);
@@ -7549,10 +7922,10 @@
       waveTimer = 0;
     }
     
-    // Start countdown - 3 second countdown
-    countdownActive = true;
-    countdownEnd = performance.now() + 3000;
-    countdownCompletedLevel = completedLevel;
+    // NEW: Enter ready-up phase instead of immediately starting countdown
+    readyUpPhase = true;
+    readyUpLevel = completedLevel;
+    countdownActive = false;
     
     if (player) {
       player.reconfigureLoadout(false);
@@ -7560,13 +7933,26 @@
       player.y = window.innerHeight / 2 + camera.y;
     }
     
+    tookDamageThisLevel = false;
+  };
+  
+  // NEW: Function to start countdown from ready-up phase
+  const startCountdownFromReadyUp = () => {
+    if (!readyUpPhase) return;
+    
+    readyUpPhase = false;
+    countdownActive = true;
+    countdownEnd = performance.now() + 3000;
+    countdownCompletedLevel = readyUpLevel;
+    
     // Set up level after countdown
     queueTimedEffect(3000, () => {
       countdownActive = false;
       spawnObstacles();
-      spawnHazards();  // Spawn environmental hazards
+      spawnHazards();
       
       // Spawn rate modifier for wave types
+      const waveType = WAVE_TYPES[currentWaveType];
       let spawnerCount = Math.min(1 + Math.floor(level / 2), 5);
       if (waveType.spawnRateBoost) spawnerCount = Math.ceil(spawnerCount * waveType.spawnRateBoost);
       createSpawners(spawnerCount, true);
@@ -7579,8 +7965,6 @@
       recenterStars();
       lastTime = performance.now();
     });
-    
-    tookDamageThisLevel = false;
   };
 
   // Spawn a boss enemy
@@ -7755,108 +8139,45 @@
       ctx.restore();
     }
     
-    // Phase 1: Draw combo counter - Enhanced stylish design with mobile-safe positioning
+    // SUBTLE: Draw combo counter - SMALLER, positioned in TOP RIGHT corner, out of gameplay area
     const now = performance.now();
     if (comboCount > 1 && now < comboTimer) {
       ctx.save();
       const comboAge = now - (comboTimer - COMBO_TIMEOUT);
       const appearScale = Math.min(1, comboAge / 150);
-      const pulse = Math.sin(now / 100) * 0.08 + 1;
-      const shake = comboCount >= 10 ? Math.sin(now / 30) * 2 : 0;
       
-      ctx.textAlign = 'center';
+      ctx.textAlign = 'right';
       ctx.textBaseline = 'top';
       
-      // Use window dimensions for proper positioning (canvas has DPR transform applied)
       const screenWidth = window.innerWidth;
-      const screenHeight = window.innerHeight;
       
-      // Position calculation - ensure it stays within screen bounds on mobile
-      // Place it in the upper portion of the screen but with safe margins
-      const minY = 70; // Account for HUD panel
-      const maxY = screenHeight * 0.25; // Don't go too low
-      const baseY = Math.max(minY, Math.min(maxY, screenHeight * 0.12));
-      const x = screenWidth / 2 + shake;
-      const y = baseY;
+      // REPOSITIONED: Top right corner, away from gameplay
+      const x = screenWidth - 15;
+      const y = 70; // Below HUD
       
-      // Get tier-based styling using shared helper
+      // Get tier-based styling
       const tier = getTierFromCount(comboCount, COMBO_VISUAL_CONFIG.TIER_THRESHOLDS);
       const tierColors = {
-        1: { main: '#4ade80', glow: '#22c55e', bg: 'rgba(34, 197, 94, 0.15)' },
-        2: { main: '#fbbf24', glow: '#f59e0b', bg: 'rgba(251, 191, 36, 0.15)' },
-        3: { main: '#f97316', glow: '#ea580c', bg: 'rgba(249, 115, 22, 0.15)' },
-        4: { main: '#a855f7', glow: '#9333ea', bg: 'rgba(168, 85, 247, 0.15)' },
-        5: { main: '#ec4899', glow: '#db2777', bg: 'rgba(236, 72, 153, 0.15)' }
+        1: { main: '#4ade80', glow: '#22c55e' },
+        2: { main: '#fbbf24', glow: '#f59e0b' },
+        3: { main: '#f97316', glow: '#ea580c' },
+        4: { main: '#a855f7', glow: '#9333ea' },
+        5: { main: '#ec4899', glow: '#db2777' }
       };
       const colors = tierColors[tier];
       
-      // Background panel with rounded corners - responsive width
-      const panelWidth = Math.min(COMBO_VISUAL_CONFIG.PANEL_MAX_WIDTH, screenWidth * COMBO_VISUAL_CONFIG.PANEL_WIDTH_RATIO);
-      const panelHeight = 70;
-      const panelX = x - panelWidth / 2;
-      const panelY = y - 8;
-      
-      // Panel background with gradient
-      const bgGradient = ctx.createLinearGradient(panelX, panelY, panelX, panelY + panelHeight);
-      bgGradient.addColorStop(0, 'rgba(15, 23, 42, 0.9)');
-      bgGradient.addColorStop(1, 'rgba(15, 23, 42, 0.7)');
-      ctx.fillStyle = bgGradient;
-      ctx.beginPath();
-      ctx.roundRect(panelX, panelY, panelWidth, panelHeight, 10);
-      ctx.fill();
-      
-      // Glowing border
-      ctx.strokeStyle = colors.main;
-      ctx.lineWidth = 2;
-      ctx.shadowColor = colors.glow;
-      ctx.shadowBlur = 15;
-      ctx.beginPath();
-      ctx.roundRect(panelX, panelY, panelWidth, panelHeight, 10);
-      ctx.stroke();
-      ctx.shadowBlur = 0;
-      
-      // Accent line at top of panel
-      ctx.strokeStyle = colors.main;
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(panelX + 10, panelY);
-      ctx.lineTo(panelX + panelWidth - 10, panelY);
-      ctx.stroke();
-      
-      // "COMBO" label
-      ctx.font = '10px Arial, sans-serif';
-      ctx.fillStyle = '#94a3b8';
-      ctx.fillText('COMBO', x, y + 2);
-      
-      // Big combo number with glow
-      const fontSize = Math.floor(Math.min(COMBO_VISUAL_CONFIG.FONT_SIZE_MAX, screenWidth * COMBO_VISUAL_CONFIG.FONT_SIZE_RATIO) * appearScale * pulse);
-      ctx.font = `bold ${fontSize}px Arial, sans-serif`;
-      ctx.shadowColor = colors.glow;
-      ctx.shadowBlur = 20;
+      // MUCH SMALLER: Simple text-based display
+      const comboFontSize = 18;
+      ctx.font = `bold ${Math.floor(comboFontSize * appearScale)}px Arial, sans-serif`;
       ctx.fillStyle = colors.main;
-      ctx.fillText(`${comboCount}x`, x, y + 14);
+      ctx.shadowColor = colors.glow;
+      ctx.shadowBlur = 8;
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+      ctx.lineWidth = 2;
+      ctx.strokeText(`${comboCount}x COMBO`, x, y);
+      ctx.fillText(`${comboCount}x COMBO`, x, y);
+      
       ctx.shadowBlur = 0;
-      
-      // XP bonus with icon-like styling
-      ctx.font = 'bold 13px Arial, sans-serif';
-      ctx.fillStyle = '#fff';
-      ctx.fillText(`+${Math.floor(comboCount * 10)}% XP`, x, y + 48);
-      
-      // Decorative particles for high combos
-      if (tier >= 3) {
-        ctx.fillStyle = `${colors.main}88`;
-        const particleCount = tier * 2;
-        for (let i = 0; i < particleCount; i++) {
-          const angle = (i / particleCount) * Math.PI * 2 + (now / 500);
-          const dist = panelWidth / 2 + 10 + Math.sin(now / 300 + i) * 5;
-          const px = x + Math.cos(angle) * dist;
-          const py = y + panelHeight / 2 + Math.sin(angle) * (panelHeight / 2 + 5);
-          ctx.beginPath();
-          ctx.arc(px, py, 2, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
-      
       ctx.restore();
     }
     
@@ -7904,7 +8225,7 @@
       }
     }
     
-    // Draw kill streak popup - Stylish centered notification with mobile-safe positioning
+    // SUBTLE: Draw kill streak popup - SMALLER, positioned in TOP RIGHT, out of the way
     if (killStreakPopup) {
       const elapsed = now - killStreakPopup.startTime;
       if (elapsed > KILL_STREAK_POPUP_DURATION) {
@@ -7913,141 +8234,55 @@
         ctx.save();
         const progress = elapsed / KILL_STREAK_POPUP_DURATION;
         
-        // Animation phases: appear (0-0.2), hold (0.2-0.7), fade out (0.7-1.0)
-        let alpha, scale, yOffset;
-        if (progress < 0.15) {
-          // Zoom in with bounce
-          const t = progress / 0.15;
-          scale = 0.3 + t * 0.9; // Overshoot to 1.2 then settle
-          alpha = t;
-          yOffset = (1 - t) * 50;
-        } else if (progress < 0.25) {
-          // Bounce settle
-          const t = (progress - 0.15) / 0.1;
-          scale = 1.2 - t * 0.2;
+        // Simple fade animation
+        let alpha;
+        if (progress < 0.1) {
+          alpha = progress / 0.1;
+        } else if (progress < 0.8) {
           alpha = 1;
-          yOffset = 0;
-        } else if (progress < 0.75) {
-          // Hold steady
-          scale = 1;
-          alpha = 1;
-          yOffset = 0;
         } else {
-          // Fade out and slide up
-          const t = (progress - 0.75) / 0.25;
-          scale = 1 - t * 0.2;
-          alpha = 1 - t;
-          yOffset = t * -30;
+          alpha = 1 - ((progress - 0.8) / 0.2);
         }
         
-        // Use window dimensions for proper positioning (canvas has DPR transform applied)
         const screenWidth = window.innerWidth;
-        const screenHeight = window.innerHeight;
         
-        // Center position - ensure it stays within screen bounds on mobile
-        const centerX = screenWidth / 2;
-        // Position in upper-middle portion of screen, safe from HUD
-        const baseY = Math.max(screenHeight * 0.25, 120);
-        const centerY = Math.min(baseY, screenHeight * 0.4) + yOffset;
+        // REPOSITIONED: Top right corner, below combo
+        const x = screenWidth - 15;
+        const y = 95; // Below combo counter
         
-        // Tier-based styling
+        // Tier-based styling - simplified
         const tierStyles = {
-          1: { main: '#f97316', glow: '#ea580c', accent: '#fbbf24', name: 'KILL STREAK' },
-          2: { main: '#ef4444', glow: '#dc2626', accent: '#f97316', name: 'RAMPAGE' },
-          3: { main: '#a855f7', glow: '#9333ea', accent: '#ec4899', name: 'DOMINATING' },
-          4: { main: '#ec4899', glow: '#db2777', accent: '#f472b6', name: 'UNSTOPPABLE' },
-          5: { main: '#facc15', glow: '#eab308', accent: '#fef08a', name: 'LEGENDARY' }
+          1: { main: '#f97316', glow: '#ea580c' },
+          2: { main: '#ef4444', glow: '#dc2626' },
+          3: { main: '#a855f7', glow: '#9333ea' },
+          4: { main: '#ec4899', glow: '#db2777' },
+          5: { main: '#facc15', glow: '#eab308' }
         };
         const style = tierStyles[killStreakPopup.tier] || tierStyles[1];
         
-        // Background panel - responsive sizing using config
-        const panelWidth = Math.min(KILL_STREAK_VISUAL_CONFIG.PANEL_MAX_WIDTH, screenWidth * KILL_STREAK_VISUAL_CONFIG.PANEL_WIDTH_RATIO);
-        const panelHeight = 90;
-        
-        // Outer glow
-        ctx.shadowColor = style.glow;
-        ctx.shadowBlur = 40 * alpha;
-        
-        // Panel background with gradient
-        const bgGradient = ctx.createLinearGradient(
-          centerX - panelWidth / 2, centerY - panelHeight / 2,
-          centerX + panelWidth / 2, centerY + panelHeight / 2
-        );
-        bgGradient.addColorStop(0, `rgba(15, 23, 42, ${0.95 * alpha})`);
-        bgGradient.addColorStop(0.5, `rgba(30, 41, 59, ${0.9 * alpha})`);
-        bgGradient.addColorStop(1, `rgba(15, 23, 42, ${0.95 * alpha})`);
-        
-        ctx.fillStyle = bgGradient;
-        ctx.beginPath();
-        ctx.roundRect(
-          centerX - (panelWidth * scale) / 2,
-          centerY - (panelHeight * scale) / 2,
-          panelWidth * scale,
-          panelHeight * scale,
-          12
-        );
-        ctx.fill();
-        
-        // Animated border with glow
-        ctx.strokeStyle = style.main;
-        ctx.lineWidth = 3;
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-        
-        // Top accent bar
-        ctx.fillStyle = style.main;
-        const accentWidth = (panelWidth - 40) * scale;
-        ctx.beginPath();
-        ctx.roundRect(centerX - accentWidth / 2, centerY - (panelHeight * scale) / 2 - 2, accentWidth, 4, 2);
-        ctx.fill();
-        
-        // Fire emoji with glow for high tiers
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        
-        if (killStreakPopup.tier >= 3) {
-          ctx.font = `${Math.floor(24 * scale)}px Arial, sans-serif`;
-          ctx.fillText('🔥', centerX - (panelWidth * scale) / 2 + 30, centerY - 8);
-          ctx.fillText('🔥', centerX + (panelWidth * scale) / 2 - 30, centerY - 8);
-        }
-        
-        // Main message text
-        ctx.font = `bold ${Math.floor(28 * scale)}px Arial, sans-serif`;
-        ctx.shadowColor = style.glow;
-        ctx.shadowBlur = 20 * alpha;
+        // MUCH SMALLER: Simple text display
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'top';
+        const textSize = 16;
+        ctx.font = `bold ${textSize}px Arial, sans-serif`;
         ctx.fillStyle = style.main;
         ctx.globalAlpha = alpha;
-        ctx.fillText(killStreakPopup.message.toUpperCase(), centerX, centerY - 12);
-        ctx.shadowBlur = 0;
-        
-        // Kill count
-        ctx.font = `bold ${Math.floor(18 * scale)}px Arial, sans-serif`;
-        ctx.fillStyle = '#fff';
-        ctx.fillText(`${killStreakPopup.milestone} KILLS`, centerX, centerY + 20);
-        
-        // Animated particles around the panel for higher tiers
-        if (killStreakPopup.tier >= 2 && alpha > 0.5) {
-          ctx.fillStyle = `${style.accent}`;
-          const particleCount = killStreakPopup.tier * 4;
-          for (let i = 0; i < particleCount; i++) {
-            const angle = (i / particleCount) * Math.PI * 2 + (now / 400);
-            const radiusX = (panelWidth * scale) / 2 + 20;
-            const radiusY = (panelHeight * scale) / 2 + 15;
-            const px = centerX + Math.cos(angle) * radiusX;
-            const py = centerY + Math.sin(angle) * radiusY;
-            const size = 2 + Math.sin(now / 150 + i * 0.5) * 1.5;
-            ctx.beginPath();
-            ctx.arc(px, py, size, 0, Math.PI * 2);
-            ctx.fill();
-          }
-        }
+        ctx.shadowColor = style.glow;
+        ctx.shadowBlur = 6;
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.lineWidth = 2;
+        ctx.strokeText(`${killStreakPopup.milestone} KILL STREAK`, x, y);
+        ctx.fillText(`${killStreakPopup.milestone} KILL STREAK`, x, y);
         
         ctx.globalAlpha = 1;
+        ctx.shadowBlur = 0;
         ctx.restore();
       }
     }
     
-    // Draw countdown - Enhanced stylish design
+    // Ready-up overlay is drawn separately after HUD (see drawReadyUpOverlay function)
+    
+    // Draw countdown - ENHANCED: Better positioning and styling to prevent overlap
     if (countdownActive) {
       const timeRemaining = countdownEnd - performance.now();
       const now = performance.now();
@@ -8057,31 +8292,32 @@
       // Use window dimensions for proper positioning (canvas has DPR transform applied)
       const screenWidth = window.innerWidth;
       const screenHeight = window.innerHeight;
+      const isPortrait = screenHeight > screenWidth;
       
-      // Animated gradient background with radial pulse effect
-      const pulsePhase = Math.sin(now / 300) * 0.1;
-      const gradientCenterY = screenHeight * (0.4 + pulsePhase * 0.05);
+      // ENHANCED: Semi-transparent overlay that adapts to screen size
+      const overlayOpacity = isPortrait ? 0.96 : 0.94;
+      const gradientCenterY = screenHeight * 0.42;
       const gradient = ctx.createRadialGradient(
         screenWidth / 2, gradientCenterY, 0,
-        screenWidth / 2, gradientCenterY, Math.max(screenWidth, screenHeight) * 0.8
+        screenWidth / 2, gradientCenterY, Math.max(screenWidth, screenHeight) * 0.75
       );
-      gradient.addColorStop(0, 'rgba(15, 23, 42, 0.92)');
-      gradient.addColorStop(0.4, 'rgba(15, 23, 42, 0.95)');
-      gradient.addColorStop(1, 'rgba(0, 0, 0, 0.98)');
+      gradient.addColorStop(0, `rgba(10, 15, 25, ${overlayOpacity})`);
+      gradient.addColorStop(0.5, `rgba(15, 23, 42, ${overlayOpacity})`);
+      gradient.addColorStop(1, `rgba(0, 0, 0, ${overlayOpacity + 0.02})`);
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, screenWidth, screenHeight);
       
-      // Animated scan lines effect
-      ctx.fillStyle = 'rgba(74, 222, 128, 0.03)';
-      const scanLineOffset = (now / 20) % 8;
-      for (let y = scanLineOffset; y < screenHeight; y += 8) {
+      // ENHANCED: Animated scan lines effect (subtle)
+      ctx.fillStyle = 'rgba(74, 222, 128, 0.02)';
+      const scanLineOffset = (now / 25) % 10;
+      for (let y = scanLineOffset; y < screenHeight; y += 10) {
         ctx.fillRect(0, y, screenWidth, 1);
       }
       
-      // Glowing corner accent lines
-      ctx.strokeStyle = 'rgba(74, 222, 128, 0.3)';
-      ctx.lineWidth = 2;
-      const cornerSize = 40;
+      // ENHANCED: Glowing corner accent lines with better visibility
+      ctx.strokeStyle = 'rgba(74, 222, 128, 0.4)';
+      ctx.lineWidth = 3;
+      const cornerSize = isPortrait ? 35 : 45;
       
       // Top-left corner
       ctx.beginPath();
@@ -8114,136 +8350,173 @@
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       
-      // Center coordinates for text and elements
+      // Center coordinates for text and elements - ENHANCED: better positioning
       const centerX = screenWidth / 2;
-      const centerY = screenHeight / 2;
+      const centerY = isPortrait ? screenHeight * 0.45 : screenHeight * 0.5;
       
-      // First 0.5 seconds: Show "LEVEL COMPLETE"
+      // First 0.5 seconds: Show "LEVEL COMPLETE" - ENHANCED
       if (timeRemaining > 2500) {
         const appearPhase = Math.min(1, (3000 - timeRemaining) / 400);
-        const bounceScale = 1 + Math.sin(appearPhase * Math.PI) * 0.1;
+        const bounceScale = 1 + Math.sin(appearPhase * Math.PI) * 0.12;
         
-        // Decorative line above
-        const lineWidth = 200 * appearPhase;
-        ctx.strokeStyle = `rgba(74, 222, 128, ${0.6 * appearPhase})`;
-        ctx.lineWidth = 3;
+        // Decorative line above - ENHANCED
+        const lineWidth = Math.min(250, screenWidth * 0.6) * appearPhase;
+        ctx.strokeStyle = `rgba(74, 222, 128, ${0.7 * appearPhase})`;
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
         ctx.beginPath();
-        ctx.moveTo(centerX - lineWidth / 2, centerY - 100);
-        ctx.lineTo(centerX + lineWidth / 2, centerY - 100);
+        ctx.moveTo(centerX - lineWidth / 2, centerY - (isPortrait ? 80 : 100));
+        ctx.lineTo(centerX + lineWidth / 2, centerY - (isPortrait ? 80 : 100));
         ctx.stroke();
         
-        // "LEVEL COMPLETE" text with glow
-        ctx.font = `bold ${Math.floor(48 * bounceScale)}px Arial, sans-serif`;
+        // "LEVEL COMPLETE" text with glow - ENHANCED: better sizing for mobile
+        const completeFontSize = isPortrait ? 40 : 52;
+        ctx.font = `900 ${Math.floor(completeFontSize * bounceScale)}px Arial, sans-serif`;
         ctx.shadowColor = '#4ade80';
-        ctx.shadowBlur = 40;
+        ctx.shadowBlur = 45;
+        
+        // Double glow for extra pop
         ctx.fillStyle = '#4ade80';
-        ctx.fillText('LEVEL COMPLETE', centerX, centerY - 50);
-        ctx.shadowBlur = 20;
-        ctx.fillText('LEVEL COMPLETE', centerX, centerY - 50);
+        ctx.fillText('LEVEL COMPLETE', centerX, centerY - (isPortrait ? 40 : 50));
+        ctx.shadowBlur = 25;
+        ctx.fillText('LEVEL COMPLETE', centerX, centerY - (isPortrait ? 40 : 50));
+        
+        // Text outline for better contrast
+        ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+        ctx.lineWidth = 3;
+        ctx.shadowBlur = 0;
+        ctx.strokeText('LEVEL COMPLETE', centerX, centerY - (isPortrait ? 40 : 50));
         ctx.shadowBlur = 0;
         
-        // Level number badge
-        const badgeWidth = 160;
-        const badgeHeight = 50;
-        ctx.fillStyle = 'rgba(74, 222, 128, 0.15)';
+        // Level number badge - ENHANCED
+        const badgeWidth = isPortrait ? 140 : 170;
+        const badgeHeight = isPortrait ? 45 : 55;
+        ctx.fillStyle = 'rgba(74, 222, 128, 0.18)';
         ctx.beginPath();
-        ctx.roundRect(centerX - badgeWidth / 2, centerY - 5, badgeWidth, badgeHeight, 8);
+        ctx.roundRect(centerX - badgeWidth / 2, centerY - 8, badgeWidth, badgeHeight, 10);
         ctx.fill();
-        ctx.strokeStyle = 'rgba(74, 222, 128, 0.5)';
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'rgba(74, 222, 128, 0.6)';
+        ctx.lineWidth = 3;
         ctx.stroke();
         
-        ctx.font = 'bold 28px Arial, sans-serif';
+        const levelFontSize = isPortrait ? 24 : 30;
+        ctx.font = `bold ${levelFontSize}px Arial, sans-serif`;
         ctx.fillStyle = '#fff';
-        ctx.fillText(`Level ${countdownCompletedLevel}`, centerX, centerY + 20);
+        ctx.shadowColor = '#4ade80';
+        ctx.shadowBlur = 10;
+        ctx.fillText(`Level ${countdownCompletedLevel}`, centerX, centerY + (isPortrait ? 14 : 20));
+        ctx.shadowBlur = 0;
         
-        // "Get Ready" with animated dots
+        // "Get Ready" with animated dots - ENHANCED
         const dotCount = Math.floor((now / 400) % 4);
         const dots = '.'.repeat(dotCount);
-        ctx.font = '18px Arial, sans-serif';
+        const readyFontSize = isPortrait ? 16 : 18;
+        ctx.font = `${readyFontSize}px Arial, sans-serif`;
         ctx.fillStyle = '#94a3b8';
-        ctx.fillText(`Get Ready${dots}`, centerX, centerY + 70);
+        ctx.fillText(`Get Ready${dots}`, centerX, centerY + (isPortrait ? 55 : 70));
         
-        // Decorative line below
-        ctx.strokeStyle = `rgba(74, 222, 128, ${0.4 * appearPhase})`;
-        ctx.lineWidth = 2;
+        // Decorative line below - ENHANCED
+        const bottomLineY = isPortrait ? 80 : 100;
+        ctx.strokeStyle = `rgba(74, 222, 128, ${0.5 * appearPhase})`;
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
         ctx.beginPath();
-        ctx.moveTo(centerX - lineWidth / 2, centerY + 100);
-        ctx.lineTo(centerX + lineWidth / 2, centerY + 100);
+        ctx.moveTo(centerX - lineWidth / 2, centerY + bottomLineY);
+        ctx.lineTo(centerX + lineWidth / 2, centerY + bottomLineY);
         ctx.stroke();
       } 
-      // Remaining time: Show countdown and next level
+      // Remaining time: Show countdown and next level - ENHANCED
       else if (timeRemaining > 0) {
         const countdown = Math.ceil(timeRemaining / 1000);
         const countdownFraction = (timeRemaining / 1000) % 1;
-        const pulseScale = 1 + (1 - countdownFraction) * 0.15;
-        const pulseOpacity = 0.3 + countdownFraction * 0.7;
+        const pulseScale = 1 + (1 - countdownFraction) * 0.18;
+        const pulseOpacity = 0.4 + countdownFraction * 0.6;
         
-        // "LEVEL X" header with accent
-        ctx.font = 'bold 32px Arial, sans-serif';
+        // "LEVEL X" header with accent - ENHANCED
+        const levelHeaderSize = isPortrait ? 28 : 36;
+        ctx.font = `900 ${levelHeaderSize}px Arial, sans-serif`;
         ctx.fillStyle = '#60a5fa';
         ctx.shadowColor = '#60a5fa';
-        ctx.shadowBlur = 15;
-        ctx.fillText(`LEVEL ${level}`, centerX, centerY - 100);
+        ctx.shadowBlur = 18;
+        ctx.fillText(`LEVEL ${level}`, centerX, centerY - (isPortrait ? 80 : 100));
+        
+        // Outline for better contrast
+        ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+        ctx.lineWidth = 2;
+        ctx.shadowBlur = 0;
+        ctx.strokeText(`LEVEL ${level}`, centerX, centerY - (isPortrait ? 80 : 100));
         ctx.shadowBlur = 0;
         
-        // Small accent line under header
-        ctx.strokeStyle = 'rgba(96, 165, 250, 0.5)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(centerX - 60, centerY - 75);
-        ctx.lineTo(centerX + 60, centerY - 75);
-        ctx.stroke();
-        
-        // "Starting in..." subtext
-        ctx.font = '16px Arial, sans-serif';
-        ctx.fillStyle = '#64748b';
-        ctx.fillText('Starting in', centerX, centerY - 50);
-        
-        // Countdown circle ring
-        const ringRadius = 70;
-        ctx.strokeStyle = 'rgba(74, 222, 128, 0.2)';
-        ctx.lineWidth = 6;
-        ctx.beginPath();
-        ctx.arc(centerX, centerY + 20, ringRadius, 0, Math.PI * 2);
-        ctx.stroke();
-        
-        // Animated progress ring
-        const progressAngle = (1 - countdownFraction) * Math.PI * 2;
-        ctx.strokeStyle = '#4ade80';
-        ctx.lineWidth = 6;
+        // Small accent line under header - ENHANCED
+        const accentLineWidth = isPortrait ? 50 : 70;
+        ctx.strokeStyle = 'rgba(96, 165, 250, 0.6)';
+        ctx.lineWidth = 3;
         ctx.lineCap = 'round';
         ctx.beginPath();
-        ctx.arc(centerX, centerY + 20, ringRadius, -Math.PI / 2, -Math.PI / 2 + progressAngle);
+        ctx.moveTo(centerX - accentLineWidth, centerY - (isPortrait ? 60 : 75));
+        ctx.lineTo(centerX + accentLineWidth, centerY - (isPortrait ? 60 : 75));
+        ctx.stroke();
+        
+        // REMOVED: "Starting in" text as requested
+        
+        // Countdown circle ring - ENHANCED: adaptive sizing
+        const ringRadius = isPortrait ? 60 : 75;
+        const ringY = isPortrait ? 15 : 20;
+        ctx.strokeStyle = 'rgba(74, 222, 128, 0.25)';
+        ctx.lineWidth = 8;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY + ringY, ringRadius, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // Animated progress ring - ENHANCED
+        const progressAngle = (1 - countdownFraction) * Math.PI * 2;
+        ctx.strokeStyle = '#4ade80';
+        ctx.lineWidth = 8;
+        ctx.lineCap = 'round';
+        ctx.shadowColor = '#4ade80';
+        ctx.shadowBlur = 15;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY + ringY, ringRadius, -Math.PI / 2, -Math.PI / 2 + progressAngle);
         ctx.stroke();
         ctx.lineCap = 'butt';
-        
-        // Pulsing glow circle behind number
-        ctx.beginPath();
-        ctx.arc(centerX, centerY + 20, 50 * pulseScale, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(74, 222, 128, ${0.1 * pulseOpacity})`;
-        ctx.fill();
-        
-        // Big countdown number
-        ctx.font = `bold ${Math.floor(90 * pulseScale)}px Arial, sans-serif`;
-        ctx.fillStyle = '#4ade80';
-        ctx.shadowColor = '#4ade80';
-        ctx.shadowBlur = 30 * pulseOpacity;
-        ctx.fillText(countdown, centerX, centerY + 30);
         ctx.shadowBlur = 0;
         
-        // Small decorative particles around the ring
-        ctx.fillStyle = 'rgba(74, 222, 128, 0.6)';
-        const particleCount = 8;
+        // Pulsing glow circle behind number - ENHANCED
+        ctx.beginPath();
+        ctx.arc(centerX, centerY + ringY, 50 * pulseScale, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(74, 222, 128, ${0.15 * pulseOpacity})`;
+        ctx.fill();
+        
+        // Big countdown number - ENHANCED: better sizing and effects
+        const countdownSize = isPortrait ? 75 : 95;
+        ctx.font = `900 ${Math.floor(countdownSize * pulseScale)}px Arial, sans-serif`;
+        ctx.fillStyle = '#4ade80';
+        ctx.shadowColor = '#4ade80';
+        ctx.shadowBlur = 35 * pulseOpacity;
+        ctx.fillText(countdown, centerX, centerY + (isPortrait ? 25 : 32));
+        
+        // Number outline for better contrast
+        ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+        ctx.lineWidth = 4;
+        ctx.shadowBlur = 0;
+        ctx.strokeText(countdown, centerX, centerY + (isPortrait ? 25 : 32));
+        ctx.shadowBlur = 0;
+        
+        // Small decorative particles around the ring - ENHANCED
+        ctx.fillStyle = 'rgba(74, 222, 128, 0.7)';
+        ctx.shadowColor = 'rgba(74, 222, 128, 0.5)';
+        ctx.shadowBlur = 5;
+        const particleCount = 10;
         for (let i = 0; i < particleCount; i++) {
           const angle = (i / particleCount) * Math.PI * 2 + (now / 2000);
-          const px = centerX + Math.cos(angle) * (ringRadius + 15);
-          const py = centerY + 20 + Math.sin(angle) * (ringRadius + 15);
-          const particleSize = 2 + Math.sin(now / 200 + i) * 1;
+          const px = centerX + Math.cos(angle) * (ringRadius + 18);
+          const py = centerY + ringY + Math.sin(angle) * (ringRadius + 18);
+          const particleSize = 2.5 + Math.sin(now / 200 + i) * 1.2;
           ctx.beginPath();
           ctx.arc(px, py, particleSize, 0, Math.PI * 2);
           ctx.fill();
         }
+        ctx.shadowBlur = 0;
       }
       
       ctx.restore();
@@ -8267,10 +8540,11 @@
       return;
     }
     
-    // Always draw during countdown, but don't update game logic
-    if (countdownActive) {
+    // Always draw during countdown or ready-up, but don't update game logic
+    if (countdownActive || readyUpPhase) {
       drawGame();
       updateHUD();
+      drawReadyUpOverlay(); // Draw ready-up AFTER HUD so it's on top of everything
       lastTime = timestamp; // Update lastTime during countdown to prevent huge dt when resuming
       consumeTimedEffects(timestamp); // Process timed effects to allow countdown to complete
       animationFrame = requestAnimationFrame(loop);
@@ -8366,6 +8640,176 @@
     gameRunning = true;
     paused = false;
     loop(lastTime);
+  };
+
+  // NEW: Draw ready-up overlay AFTER HUD - Mobile-focused design, covers everything
+  const drawReadyUpOverlay = () => {
+    if (!readyUpPhase || !dom.ctx) return;
+    
+    const ctx = dom.ctx;
+    const now = performance.now();
+    ctx.save();
+    
+    const screenWidth = window.innerWidth;
+    const screenHeight = window.innerHeight;
+    const isPortrait = screenHeight > screenWidth;
+    
+    // FULL OPACITY overlay to completely cover game
+    const overlayOpacity = 0.98;
+    const gradient = ctx.createRadialGradient(
+      screenWidth / 2, screenHeight * 0.5, 0,
+      screenWidth / 2, screenHeight * 0.5, Math.max(screenWidth, screenHeight) * 0.8
+    );
+    gradient.addColorStop(0, `rgba(5, 10, 20, ${overlayOpacity})`);
+    gradient.addColorStop(0.4, `rgba(10, 15, 25, ${overlayOpacity})`);
+    gradient.addColorStop(0.7, `rgba(15, 23, 42, ${overlayOpacity})`);
+    gradient.addColorStop(1, `rgba(0, 0, 0, ${overlayOpacity + 0.02})`);
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, screenWidth, screenHeight);
+    
+    // Scan lines for tech aesthetic
+    ctx.fillStyle = 'rgba(74, 222, 128, 0.05)';
+    const scanLineOffset = (now / 25) % 10;
+    for (let y = scanLineOffset; y < screenHeight; y += 10) {
+      ctx.fillRect(0, y, screenWidth, 2);
+    }
+    
+    // Corner accents
+    ctx.strokeStyle = 'rgba(74, 222, 128, 0.6)';
+    ctx.lineWidth = 4;
+    const cornerSize = isPortrait ? 50 : 70;
+    
+    ['tl', 'tr', 'bl', 'br'].forEach(corner => {
+      ctx.beginPath();
+      if (corner === 'tl') {
+        ctx.moveTo(25, 25 + cornerSize);
+        ctx.lineTo(25, 25);
+        ctx.lineTo(25 + cornerSize, 25);
+      } else if (corner === 'tr') {
+        ctx.moveTo(screenWidth - 25 - cornerSize, 25);
+        ctx.lineTo(screenWidth - 25, 25);
+        ctx.lineTo(screenWidth - 25, 25 + cornerSize);
+      } else if (corner === 'bl') {
+        ctx.moveTo(25, screenHeight - 25 - cornerSize);
+        ctx.lineTo(25, screenHeight - 25);
+        ctx.lineTo(25 + cornerSize, screenHeight - 25);
+      } else {
+        ctx.moveTo(screenWidth - 25 - cornerSize, screenHeight - 25);
+        ctx.lineTo(screenWidth - 25, screenHeight - 25);
+        ctx.lineTo(screenWidth - 25, screenHeight - 25 - cornerSize);
+      }
+      ctx.stroke();
+    });
+    
+    // Decorative border frame
+    ctx.strokeStyle = 'rgba(74, 222, 128, 0.3)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(35, 35, screenWidth - 70, screenHeight - 70);
+    
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const centerX = screenWidth / 2;
+    const centerY = screenHeight * 0.5;
+    
+    // MOBILE-SIZED: Smaller "LEVEL COMPLETE" text
+    const completeFontSize = isPortrait ? 32 : 42;
+    ctx.font = `900 ${completeFontSize}px Arial, sans-serif`;
+    ctx.fillStyle = '#4ade80';
+    ctx.shadowColor = '#4ade80';
+    ctx.shadowBlur = 30;
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+    ctx.lineWidth = 3;
+    ctx.strokeText('LEVEL COMPLETE', centerX, centerY - (isPortrait ? 140 : 160));
+    ctx.fillText('LEVEL COMPLETE', centerX, centerY - (isPortrait ? 140 : 160));
+    
+    // Decorative line
+    ctx.strokeStyle = '#4ade80';
+    ctx.lineWidth = 2;
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    const lineWidth = isPortrait ? 150 : 220;
+    ctx.moveTo(centerX - lineWidth / 2, centerY - (isPortrait ? 110 : 125));
+    ctx.lineTo(centerX + lineWidth / 2, centerY - (isPortrait ? 110 : 125));
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    
+    // MOBILE-SIZED: Level number
+    const levelFontSize = isPortrait ? 24 : 32;
+    ctx.font = `bold ${levelFontSize}px Arial, sans-serif`;
+    ctx.fillStyle = '#cbd5e1';
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.lineWidth = 2;
+    ctx.strokeText(`Level ${readyUpLevel}`, centerX, centerY - (isPortrait ? 80 : 95));
+    ctx.fillText(`Level ${readyUpLevel}`, centerX, centerY - (isPortrait ? 80 : 95));
+    
+    // MOBILE-SIZED: Credits display
+    const infoFontSize = isPortrait ? 18 : 24;
+    ctx.font = `bold ${infoFontSize}px Arial, sans-serif`;
+    ctx.fillStyle = '#fbbf24';
+    ctx.shadowColor = '#fbbf24';
+    ctx.shadowBlur = 8;
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.lineWidth = 2;
+    ctx.strokeText(`💰 ${Save.data.credits} Credits`, centerX, centerY - (isPortrait ? 45 : 55));
+    ctx.fillText(`💰 ${Save.data.credits} Credits`, centerX, centerY - (isPortrait ? 45 : 55));
+    ctx.shadowBlur = 0;
+    
+    // MOBILE-SIZED: Action button
+    const pulsePhase = Math.sin(now / 350) * 0.12 + 1;
+    const buttonWidth = isPortrait ? 240 : 320;
+    const buttonHeight = isPortrait ? 65 : 80;
+    
+    // Button glow
+    ctx.shadowColor = '#4ade80';
+    ctx.shadowBlur = 35 * pulsePhase;
+    
+    // Button background with gradient
+    const btnGradient = ctx.createLinearGradient(
+      centerX - buttonWidth / 2, centerY - buttonHeight / 2,
+      centerX + buttonWidth / 2, centerY + buttonHeight / 2
+    );
+    btnGradient.addColorStop(0, `rgba(34, 197, 94, ${0.3 * pulsePhase})`);
+    btnGradient.addColorStop(0.5, `rgba(74, 222, 128, ${0.25 * pulsePhase})`);
+    btnGradient.addColorStop(1, `rgba(34, 197, 94, ${0.3 * pulsePhase})`);
+    ctx.fillStyle = btnGradient;
+    ctx.beginPath();
+    ctx.roundRect(centerX - (buttonWidth * pulsePhase) / 2, centerY - (buttonHeight * pulsePhase) / 2, 
+                   buttonWidth * pulsePhase, buttonHeight * pulsePhase, 14);
+    ctx.fill();
+    
+    // Button border
+    ctx.strokeStyle = '#4ade80';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    
+    // Button text - MOBILE-SIZED
+    const buttonTextSize = isPortrait ? 28 : 36;
+    ctx.font = `900 ${buttonTextSize}px Arial, sans-serif`;
+    ctx.fillStyle = '#4ade80';
+    ctx.shadowColor = '#4ade80';
+    ctx.shadowBlur = 18;
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+    ctx.lineWidth = 3;
+    ctx.strokeText('TAP TO START', centerX, centerY);
+    ctx.fillText('TAP TO START', centerX, centerY);
+    
+    // MOBILE-FOCUSED: Single tap instruction (removed keyboard references)
+    const instructSize = isPortrait ? 15 : 18;
+    ctx.font = `${instructSize}px Arial, sans-serif`;
+    ctx.fillStyle = '#e2e8f0';
+    ctx.shadowBlur = 4;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+    ctx.fillText('Tap anywhere to continue', centerX, centerY + (isPortrait ? 60 : 70));
+    
+    // Shop hint - MOBILE-SIZED (updated to reference menu)
+    ctx.font = `bold ${instructSize}px Arial, sans-serif`;
+    ctx.fillStyle = '#60a5fa';
+    ctx.shadowColor = '#60a5fa';
+    ctx.shadowBlur = 6;
+    ctx.fillText('Open menu (top right) for shop & upgrades', centerX, centerY + (isPortrait ? 90 : 105));
+    
+    ctx.restore();
   };
 
   const startGame = () => {
@@ -10232,6 +10676,12 @@
     let tapTimeout = null;
     
     const handleGameTap = (clientX, clientY) => {
+      // NEW: Handle ready-up phase taps - tap anywhere to start
+      if (readyUpPhase) {
+        startCountdownFromReadyUp();
+        return;
+      }
+      
       if (!gameRunning || paused || countdownActive) return;
       
       // Get viewport dimensions
@@ -10321,6 +10771,20 @@
     });
 
     document.addEventListener('keydown', (e) => {
+      // NEW: Handle ready-up phase
+      if (readyUpPhase) {
+        if (e.key === ' ' || e.key === 'Enter') {
+          e.preventDefault();
+          startCountdownFromReadyUp();
+          return;
+        }
+        if (e.key === 's' || e.key === 'S') {
+          e.preventDefault();
+          openShop();
+          return;
+        }
+      }
+      
       if (e.key === 'Escape') {
         if (dom.hangarModal?.classList.contains('active') || dom.hangarModal?.style.display === 'flex') {
           e.preventDefault();
@@ -10347,14 +10811,14 @@
       }
       if (e.key === 'f' || e.key === 'F') {
         // Only allow 'f' for fullscreen if defense isn't using it in game
-        if (!gameRunning || paused || countdownActive) {
+        if (!gameRunning || paused || countdownActive || readyUpPhase) {
           e.preventDefault();
           toggleFullscreen();
         }
       }
       
       // Equipment slot keyboard shortcuts (number keys 1-4)
-      if (gameRunning && !paused && !countdownActive) {
+      if (gameRunning && !paused && !countdownActive && !readyUpPhase) {
         if (handleEquipmentKeyboard(e)) {
           return; // Keyboard event was handled by equipment system
         }
@@ -10370,6 +10834,13 @@
 
     if (dom.canvas) {
       dom.canvas.addEventListener('mousedown', (e) => {
+        // NEW: Handle ready-up phase click - anywhere on screen
+        if (readyUpPhase) {
+          e.preventDefault();
+          startCountdownFromReadyUp();
+          return;
+        }
+        
         if (e.button === 2) {
           e.preventDefault();
           triggerSecondary();
@@ -10609,6 +11080,7 @@
     
     // Touch zone handlers for floating joysticks
     dom.leftTouchZone?.addEventListener('touchstart', (e) => {
+      if (readyUpPhase || countdownActive) return; // Disable joystick during ready-up and countdown
       e.preventDefault();
       if (moveId !== null) return;
       const touch = e.changedTouches[0];
@@ -10618,6 +11090,7 @@
     }, { passive: false });
     
     dom.rightTouchZone?.addEventListener('touchstart', (e) => {
+      if (readyUpPhase || countdownActive) return; // Disable joystick during ready-up and countdown
       e.preventDefault();
       if (shootId !== null) return;
       const touch = e.changedTouches[0];
