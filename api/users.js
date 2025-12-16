@@ -1,6 +1,27 @@
 const { kv } = require('./redis-client');
 const crypto = require('crypto');
 
+const SESSION_TTL_SECONDS = 60 * 60 * 24; // 24h rolling session
+
+async function createSession(userId, username) {
+  const token = crypto.randomBytes(24).toString('hex');
+  const session = {
+    token,
+    userId,
+    username,
+    createdAt: Date.now(),
+    expiresAt: Date.now() + SESSION_TTL_SECONDS * 1000
+  };
+
+  try {
+    await kv.set(`session:${token}`, session, { ex: SESSION_TTL_SECONDS });
+  } catch (err) {
+    console.error('Failed to persist session:', err.message);
+  }
+
+  return session;
+}
+
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -82,13 +103,15 @@ module.exports = async (req, res) => {
       await kv.sadd('users:all', userId);
 
       console.log('Registration complete!');
+      const session = await createSession(user.id, user.username);
       return res.status(201).json({
         success: true,
         user: {
           id: user.id,
           username: user.username,
           profile: user.profile
-        }
+        },
+        sessionToken: session?.token || null
       });
     }
 
@@ -111,6 +134,8 @@ module.exports = async (req, res) => {
       user.lastActive = Date.now();
       await kv.set(`user:${userId}`, user);
 
+      const session = await createSession(user.id, user.username);
+
       return res.status(200).json({
         success: true,
         user: {
@@ -121,7 +146,8 @@ module.exports = async (req, res) => {
           stats: user.stats,
           friends: user.friends,
           lastActive: user.lastActive
-        }
+        },
+        sessionToken: session?.token || null
       });
     }
 

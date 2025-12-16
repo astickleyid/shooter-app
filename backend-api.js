@@ -14,6 +14,21 @@ const BACKEND_CONFIG = {
 };
 
 const GlobalLeaderboard = {
+  lastError: null,
+
+  getAuthContext(entry) {
+    if (entry?.authToken) return { token: entry.authToken, userId: entry.userId, username: entry.username };
+    if (typeof SocialAPI !== 'undefined' && SocialAPI.currentUser) {
+      const user = SocialAPI.currentUser;
+      return {
+        token: user.sessionToken || null,
+        userId: entry?.userId || user.id,
+        username: entry?.username || user.username
+      };
+    }
+    return { token: null, userId: entry?.userId, username: entry?.username };
+  },
+
   async submitScore(entry) {
     if (!BACKEND_CONFIG.USE_GLOBAL) {
       return null;
@@ -26,11 +41,19 @@ const GlobalLeaderboard = {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), BACKEND_CONFIG.TIMEOUT_MS);
 
+        const auth = this.getAuthContext(entry);
+        const headers = { 'Content-Type': 'application/json' };
+        if (auth.token) {
+          headers.Authorization = `Bearer ${auth.token}`;
+        }
+
         const response = await fetch(BACKEND_CONFIG.API_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({
-            username: entry.username,
+            username: auth.username || entry.username,
+            userId: auth.userId || entry.userId,
+            authToken: auth.token || undefined,
             score: entry.score,
             level: entry.level,
             difficulty: entry.difficulty,
@@ -41,12 +64,22 @@ const GlobalLeaderboard = {
 
         clearTimeout(timeout);
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
+        const rawText = await response.text();
+        let data = {};
+        try {
+          data = rawText ? JSON.parse(rawText) : {};
+        } catch (parseErr) {
+          data = {};
         }
 
-        const data = await response.json();
+        if (!response.ok) {
+          const message = data?.error || `HTTP ${response.status}`;
+          this.lastError = message;
+          return { success: false, error: message, status: response.status, fallback: 'local' };
+        }
+
         console.log(`✓ Score submitted to global leaderboard (${data.storage || 'unknown'} storage)`);
+        this.lastError = null;
         return data;
       } catch (error) {
         lastError = error;
@@ -57,8 +90,9 @@ const GlobalLeaderboard = {
       }
     }
     
-    console.error('Failed to submit score after retries:', lastError?.message);
-    return null;
+    this.lastError = lastError?.message || 'Unknown submission error';
+    console.error('Failed to submit score after retries:', this.lastError);
+    return { success: false, error: this.lastError, fallback: 'local' };
   },
 
   async fetchScores(difficulty = 'all', limit = 100) {
@@ -86,12 +120,16 @@ const GlobalLeaderboard = {
         clearTimeout(timeout);
 
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
+          const errData = await response.json().catch(() => null);
+          const message = errData?.error || `HTTP ${response.status}`;
+          this.lastError = message;
+          throw new Error(message);
         }
 
         const data = await response.json();
         const storageType = data.storage || 'unknown';
         console.log(`✓ Fetched ${data.entries?.length || 0} global scores (${storageType} storage)`);
+        this.lastError = null;
         return data.entries || [];
       } catch (error) {
         lastError = error;
@@ -102,8 +140,9 @@ const GlobalLeaderboard = {
       }
     }
     
-    console.error('Failed to fetch scores after retries:', lastError?.message);
-    return [];
+    this.lastError = lastError?.message || 'Unable to fetch global scores';
+    console.error('Failed to fetch scores after retries:', this.lastError);
+    return null;
   },
 
   async checkConnection() {

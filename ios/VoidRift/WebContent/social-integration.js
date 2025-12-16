@@ -182,9 +182,11 @@ window.submitSocialScore = async function(username, score, level, difficulty) {
   }
 
   // Submit with user ID
+  const authToken = SocialAPI.currentUser?.sessionToken || null;
   return GlobalLeaderboard.submitScore({
     userId: SocialAPI.currentUser.id,
     username: SocialAPI.currentUser.username,
+    authToken,
     score,
     level,
     difficulty,
