@@ -395,7 +395,7 @@ html, body {
 /* HUD - Optimized for mobile */
 #uiPanel, #leftControls, #centerControls, #rightControls {
   position: absolute;
-  z-index: 3;
+  z-index: 4;
   opacity: 0.95;
 }
 
@@ -413,6 +413,7 @@ html, body {
   border-radius: 6px;
   border: 1px solid rgba(255,255,255,0.15);
   max-width: calc(100vw - 8px);
+  pointer-events: auto;
 }
 
 .ui-stat-row {
@@ -926,32 +927,35 @@ html, body {
 }
 
 /* Unified menu button (replaces both action buttons and settings) */
+/* Now integrated into the HUD panel */
 #unifiedMenuButton {
-  position: absolute;
-  top: 50px;
-  right: 15px;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  border: 2px solid rgba(134, 239, 172,0.5);
+  position: relative;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid rgba(134, 239, 172,0.4);
   background: rgba(15,23,42,0.9);
   color: #86efac;
-  font-size: 24px;
+  font-size: 18px;
   font-weight: 700;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
   transition: all 0.2s ease;
   backdrop-filter: blur(4px);
+  flex-shrink: 0;
+  margin-left: auto;
+  pointer-events: auto;
+  z-index: 5;
 }
 
 #unifiedMenuButton:active {
   transform: scale(0.92);
   background: rgba(74, 222, 128,0.8);
   color: #fff;
-  box-shadow: 0 0 16px rgba(74, 222, 128,0.6);
+  box-shadow: 0 0 12px rgba(74, 222, 128,0.6);
 }
 
 /* Settings button (legacy) - hide if unified menu is present */
@@ -1398,8 +1402,14 @@ html, body {
     right: 15px;
   }
   
-  /* Unified menu button adjustment */
-  #unifiedMenuButton, .settingsButton {
+  /* Unified menu button adjustment for landscape - stays in HUD */
+  #unifiedMenuButton {
+    width: 28px;
+    height: 28px;
+    font-size: 16px;
+  }
+  
+  .settingsButton {
     top: 30px;
     right: 10px;
     width: 40px;
