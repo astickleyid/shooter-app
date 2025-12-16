@@ -159,14 +159,14 @@ Current implementation is suitable for casual games. For production:
 
 1. ✅ CORS enabled (all origins allowed)
 2. ✅ Input validation (username, score, difficulty)
-3. ⚠️ No rate limiting (add for production)
-4. ⚠️ No authentication (anyone can submit as any username)
-5. ⚠️ No score verification (client can submit any score)
+3. ✅ Basic rate limiting (5 submissions/min per authenticated player, 2 unauthenticated attempts)
+4. ✅ Authentication required (SocialAPI sessions attach `Authorization: Bearer <token>`)
+5. ✅ Score sanity checks (reject extreme/implausible values)
 
 **Recommendations for Production:**
-- Add rate limiting (prevent spam)
-- Add authentication (verify users)
-- Add score verification (hash scores, server-side validation)
+- Tune rate limits for your audience (edit `RATE_LIMIT_*` in `api/leaderboard.js`)
+- Keep SocialAPI sessions short-lived and rotate on login
+- Add server-side signing/hashing for scores if you need stronger anti-cheat
 
 ## Alternative Storage Options
 

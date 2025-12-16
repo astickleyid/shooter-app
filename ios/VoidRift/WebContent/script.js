@@ -789,6 +789,7 @@
     dom.leaderboardLogin = document.getElementById('leaderboardLogin');
     dom.leaderboardLogout = document.getElementById('leaderboardLogout');
     dom.leaderboardList = document.getElementById('leaderboardList');
+    dom.leaderboardStatus = document.getElementById('leaderboardStatus');
     dom.pauseMenuModal = document.getElementById('pauseMenuModal');
     dom.resumeGameBtn = document.getElementById('resumeGameBtn');
     dom.restartGameBtn = document.getElementById('restartGameBtn');
@@ -1711,6 +1712,18 @@
     entries: [],
     useGlobal: typeof GlobalLeaderboard !== 'undefined',
     migrated: false,
+    statusMessage: '',
+    statusTone: 'info',
+
+    setStatus(message = '', tone = 'info') {
+      this.statusMessage = message;
+      this.statusTone = tone;
+      if (dom.leaderboardStatus) {
+        dom.leaderboardStatus.textContent = message;
+        dom.leaderboardStatus.className = `leaderboard-status ${tone}`;
+        dom.leaderboardStatus.style.display = message ? 'block' : 'none';
+      }
+    },
     
     load() {
       try {
@@ -1725,6 +1738,7 @@
       
       // Auto-migrate local scores to global on first load
       this.autoMigrate();
+      this.setStatus('', 'info');
     },
     
     async autoMigrate() {
@@ -1788,11 +1802,17 @@
         try {
           const result = await GlobalLeaderboard.submitScore(entry);
           if (result && result.rank) {
+            this.setStatus('', 'info');
             // Score submitted successfully
             return result.rank;
           }
+
+          if (result && result.success === false) {
+            this.setStatus(result.error || 'Global submit failed. Using local scores.', 'error');
+          }
         } catch (err) {
           console.warn('Global leaderboard unavailable, using local');
+          this.setStatus('Global leaderboard unavailable. Using local scores.', 'warning');
         }
       }
       
@@ -1814,10 +1834,15 @@
             // Global entries fetched successfully
             // Merge with local entries to ensure user's scores appear
             const mergedEntries = this.mergeWithLocal(globalEntries, difficulty);
+            this.setStatus('', 'info');
             return mergedEntries.slice(0, limit);
+          }
+          if (GlobalLeaderboard.lastError) {
+            this.setStatus(`Global leaderboard unavailable: ${GlobalLeaderboard.lastError}`, 'warning');
           }
         } catch (err) {
           console.warn('Global leaderboard unavailable, using local:', err.message);
+          this.setStatus('Global leaderboard unavailable. Using local scores.', 'warning');
         }
       }
       
@@ -9356,6 +9381,7 @@
     if (!dom.leaderboardModal) return;
     dom.leaderboardModal.style.display = 'flex';
     updateAuthUI();
+    Leaderboard.setStatus(Leaderboard.statusMessage, Leaderboard.statusTone);
     setLeaderboardFilter(currentLeaderboardFilter || currentDifficulty);
   };
 

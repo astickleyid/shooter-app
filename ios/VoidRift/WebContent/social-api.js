@@ -17,10 +17,15 @@ const SocialAPI = {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), SOCIAL_CONFIG.TIMEOUT_MS);
 
+      const authHeaders = this.currentUser?.sessionToken
+        ? { Authorization: `Bearer ${this.currentUser.sessionToken}` }
+        : {};
+
       const response = await fetch(`${SOCIAL_CONFIG.API_BASE}${endpoint}`, {
         ...options,
         headers: {
           'Content-Type': 'application/json',
+          ...authHeaders,
           ...options.headers
         },
         signal: controller.signal
@@ -49,8 +54,8 @@ const SocialAPI = {
     });
     
     if (data.success) {
-      this.currentUser = data.user;
-      localStorage.setItem('social_user', JSON.stringify(data.user));
+      this.currentUser = { ...data.user, sessionToken: data.sessionToken || null };
+      localStorage.setItem('social_user', JSON.stringify(this.currentUser));
     }
     
     return data;
@@ -63,8 +68,8 @@ const SocialAPI = {
     });
     
     if (data.success) {
-      this.currentUser = data.user;
-      localStorage.setItem('social_user', JSON.stringify(data.user));
+      this.currentUser = { ...data.user, sessionToken: data.sessionToken || null };
+      localStorage.setItem('social_user', JSON.stringify(this.currentUser));
     }
     
     return data;
