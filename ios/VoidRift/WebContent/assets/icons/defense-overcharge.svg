@@ -1,0 +1,18 @@
+<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Overcharge Matrix - Energy conversion shield -->
+  <rect x="10" y="10" width="28" height="28" rx="4" fill="#eab308" stroke="#ca8a04" stroke-width="2" opacity="0.3"/>
+  <rect x="14" y="14" width="20" height="20" rx="3" fill="#fde047" stroke="#ca8a04" stroke-width="1.5" opacity="0.5"/>
+  <!-- Energy core -->
+  <circle cx="24" cy="24" r="6" fill="#fef08a" stroke="#ca8a04" stroke-width="1.5"/>
+  <circle cx="24" cy="24" r="3" fill="#fef3c7"/>
+  <!-- Power lines -->
+  <line x1="12" y1="12" x2="24" y2="24" stroke="#fef08a" stroke-width="1.5" opacity="0.7"/>
+  <line x1="36" y1="12" x2="24" y2="24" stroke="#fef08a" stroke-width="1.5" opacity="0.7"/>
+  <line x1="12" y1="36" x2="24" y2="24" stroke="#fef08a" stroke-width="1.5" opacity="0.7"/>
+  <line x1="36" y1="36" x2="24" y2="24" stroke="#fef08a" stroke-width="1.5" opacity="0.7"/>
+  <!-- Corner nodes -->
+  <circle cx="12" cy="12" r="2" fill="#fef3c7"/>
+  <circle cx="36" cy="12" r="2" fill="#fef3c7"/>
+  <circle cx="12" cy="36" r="2" fill="#fef3c7"/>
+  <circle cx="36" cy="36" r="2" fill="#fef3c7"/>
+</svg>
