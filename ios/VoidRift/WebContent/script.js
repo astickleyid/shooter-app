@@ -11137,7 +11137,7 @@
      LOADING SCREEN & VISUAL EFFECTS
      ========================================== */
 
-  // Loading screen animation
+  // Loading screen animation - GAMEPLAY TEASER
   const initLoadingScreen = () => {
     const loadingOverlay = document.getElementById('loadingOverlay');
     const loadingCanvas = document.getElementById('loadingCanvas');
@@ -11148,69 +11148,207 @@
     loadingCanvas.width = window.innerWidth;
     loadingCanvas.height = window.innerHeight;
     
-    // Particle system for loading screen
-    const particles = [];
-    const particleCount = 80;
+    // Mini gameplay elements for loading
+    const miniShips = [];
+    const miniEnemies = [];
+    const miniBullets = [];
+    const sparkles = [];
     
-    class LoadingParticle {
+    // Background sparkles
+    for (let i = 0; i < 60; i++) {
+      sparkles.push({
+        x: Math.random() * loadingCanvas.width,
+        y: Math.random() * loadingCanvas.height,
+        size: Math.random() * 2 + 0.5,
+        vx: (Math.random() - 0.5) * 0.3,
+        vy: (Math.random() - 0.5) * 0.3,
+        opacity: Math.random() * 0.6 + 0.3,
+        twinkle: Math.random() * Math.PI * 2
+      });
+    }
+    
+    // Mini ship
+    class MiniShip {
       constructor() {
-        this.reset();
+        this.x = loadingCanvas.width * 0.25;
+        this.y = loadingCanvas.height * 0.5;
+        this.size = 12;
+        this.shootTimer = 0;
       }
       
-      reset() {
-        this.x = Math.random() * loadingCanvas.width;
+      update() {
+        this.y = loadingCanvas.height * 0.5 + Math.sin(Date.now() / 600) * 40;
+        this.shootTimer++;
+        if (this.shootTimer > 15) {
+          this.shootTimer = 0;
+          miniBullets.push({
+            x: this.x + 15,
+            y: this.y,
+            vx: 4,
+            size: 3,
+            color: '#fde047',
+            life: 0
+          });
+        }
+      }
+      
+      draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        
+        // Ship glow
+        ctx.shadowColor = '#0ea5e9';
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = '#0ea5e9';
+        ctx.beginPath();
+        ctx.moveTo(this.size, 0);
+        ctx.lineTo(-this.size * 0.5, -this.size * 0.4);
+        ctx.lineTo(-this.size * 0.5, this.size * 0.4);
+        ctx.closePath();
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        
+        ctx.restore();
+      }
+    }
+    
+    // Mini enemy
+    class MiniEnemy {
+      constructor() {
+        this.x = loadingCanvas.width + 30;
         this.y = Math.random() * loadingCanvas.height;
-        this.vx = (Math.random() - 0.5) * 0.5;
-        this.vy = (Math.random() - 0.5) * 0.5;
-        this.radius = Math.random() * 2 + 0.5;
-        this.opacity = Math.random() * 0.5 + 0.3;
-        this.twinkle = Math.random() * Math.PI * 2;
-        this.twinkleSpeed = (Math.random() - 0.5) * 0.05;
+        this.size = 10;
+        this.vx = -1.5;
       }
       
       update() {
         this.x += this.vx;
-        this.y += this.vy;
-        this.twinkle += this.twinkleSpeed;
-        
-        // Wrap around screen
-        if (this.x < 0) this.x = loadingCanvas.width;
-        if (this.x > loadingCanvas.width) this.x = 0;
-        if (this.y < 0) this.y = loadingCanvas.height;
-        if (this.y > loadingCanvas.height) this.y = 0;
+        return this.x > -50;
       }
       
-      draw(context) {
-        const twinkleAlpha = Math.sin(this.twinkle) * 0.3 + 0.7;
-        context.beginPath();
-        context.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        context.fillStyle = `rgba(74, 222, 128, ${this.opacity * twinkleAlpha})`;
-        context.fill();
+      draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
         
-        // Glow effect
-        const gradient = context.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius * 3);
-        gradient.addColorStop(0, `rgba(74, 222, 128, ${this.opacity * 0.3 * twinkleAlpha})`);
-        gradient.addColorStop(1, 'rgba(74, 222, 128, 0)');
-        context.fillStyle = gradient;
-        context.fillRect(this.x - this.radius * 3, this.y - this.radius * 3, this.radius * 6, this.radius * 6);
+        // Enemy glow
+        ctx.shadowColor = '#dc2626';
+        ctx.shadowBlur = 12;
+        ctx.fillStyle = '#dc2626';
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size * 0.8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        
+        ctx.restore();
       }
     }
     
-    // Initialize particles
-    for (let i = 0; i < particleCount; i++) {
-      particles.push(new LoadingParticle());
-    }
+    miniShips.push(new MiniShip());
+    
+    let enemyTimer = 0;
     
     // Animation loop
     let loadingAnimationFrame;
     const animateLoading = () => {
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
       ctx.fillRect(0, 0, loadingCanvas.width, loadingCanvas.height);
       
-      particles.forEach(particle => {
-        particle.update();
-        particle.draw(ctx);
+      // Update sparkles
+      sparkles.forEach(s => {
+        s.x += s.vx;
+        s.y += s.vy;
+        s.twinkle += 0.05;
+        if (s.x < 0) s.x = loadingCanvas.width;
+        if (s.x > loadingCanvas.width) s.x = 0;
+        if (s.y < 0) s.y = loadingCanvas.height;
+        if (s.y > loadingCanvas.height) s.y = 0;
+        
+        const alpha = s.opacity * (Math.sin(s.twinkle) * 0.3 + 0.7);
+        ctx.fillStyle = `rgba(74, 222, 128, ${alpha})`;
+        ctx.fillRect(s.x, s.y, s.size, s.size);
       });
+      
+      // Spawn mini enemies
+      enemyTimer++;
+      if (enemyTimer > 80 && miniEnemies.length < 4) {
+        enemyTimer = 0;
+        miniEnemies.push(new MiniEnemy());
+      }
+      
+      // Update ship
+      miniShips.forEach(ship => {
+        ship.update();
+        ship.draw();
+      });
+      
+      // Update enemies
+      for (let i = miniEnemies.length - 1; i >= 0; i--) {
+        if (!miniEnemies[i].update()) {
+          miniEnemies.splice(i, 1);
+        } else {
+          miniEnemies[i].draw();
+        }
+      }
+      
+      // Update bullets
+      for (let i = miniBullets.length - 1; i >= 0; i--) {
+        const b = miniBullets[i];
+        b.x += b.vx;
+        b.life++;
+        
+        if (b.x > loadingCanvas.width + 50 || b.life > 150) {
+          miniBullets.splice(i, 1);
+          continue;
+        }
+        
+        // Check collision with enemies
+        for (let j = miniEnemies.length - 1; j >= 0; j--) {
+          const e = miniEnemies[j];
+          const dx = b.x - e.x;
+          const dy = b.y - e.y;
+          if (Math.sqrt(dx * dx + dy * dy) < b.size + e.size) {
+            // Hit!
+            miniBullets.splice(i, 1);
+            miniEnemies.splice(j, 1);
+            
+            // Small explosion
+            for (let k = 0; k < 8; k++) {
+              const angle = (k / 8) * Math.PI * 2;
+              sparkles.push({
+                x: e.x,
+                y: e.y,
+                size: 2,
+                vx: Math.cos(angle) * 2,
+                vy: Math.sin(angle) * 2,
+                opacity: 0.8,
+                twinkle: 0,
+                lifetime: 30
+              });
+            }
+            break;
+          }
+        }
+        
+        // Draw bullet
+        const pulse = Math.sin(b.life / 3) * 0.3 + 0.7;
+        ctx.shadowColor = b.color;
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = b.color;
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.size * pulse, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+      
+      // Clean up explosion sparkles
+      for (let i = sparkles.length - 1; i >= 0; i--) {
+        if (sparkles[i].lifetime !== undefined) {
+          sparkles[i].lifetime--;
+          if (sparkles[i].lifetime <= 0) {
+            sparkles.splice(i, 1);
+          }
+        }
+      }
       
       loadingAnimationFrame = requestAnimationFrame(animateLoading);
     };
@@ -11226,7 +11364,7 @@
     }, 2000);
   };
 
-  // Start screen animated background
+  // Start screen animated background - GAMEPLAY PREVIEW
   const initStartScreenBackground = () => {
     const canvas = document.getElementById('startBackgroundCanvas');
     if (!canvas) return;
@@ -11239,139 +11377,372 @@
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
     
-    // Enhanced particle system for start screen
-    const stars = [];
-    const starCount = 150;
-    const nebulaClouds = [];
-    const cloudCount = 5;
+    // Gameplay-inspired animation system
+    const ships = [];
+    const enemies = [];
+    const bullets = [];
+    const explosionParticles = [];
+    const bgStars = [];
     
-    class Star {
+    // Background stars for depth
+    for (let i = 0; i < 100; i++) {
+      bgStars.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        size: Math.random() * 1.5 + 0.5,
+        speed: Math.random() * 0.3 + 0.1,
+        opacity: Math.random() * 0.5 + 0.3
+      });
+    }
+    
+    // Player ship class (exaggerated)
+    class PreviewShip {
       constructor() {
-        this.reset();
-      }
-      
-      reset() {
-        this.x = Math.random() * canvas.width;
-        this.y = Math.random() * canvas.height;
-        this.z = Math.random() * 1000;
-        this.radius = Math.random() * 1.5 + 0.5;
-        this.speed = Math.random() * 0.5 + 0.2;
-        this.opacity = Math.random() * 0.8 + 0.2;
-        this.twinkle = Math.random() * Math.PI * 2;
-        this.twinkleSpeed = (Math.random() - 0.5) * 0.03;
+        this.x = canvas.width * 0.3;
+        this.y = canvas.height * 0.5;
+        this.size = 24;
+        this.angle = 0;
+        this.thrustPhase = 0;
+        this.shootTimer = 0;
       }
       
       update() {
-        this.z -= this.speed;
-        this.twinkle += this.twinkleSpeed;
+        // Dramatic weaving motion
+        this.y = canvas.height * 0.5 + Math.sin(Date.now() / 800) * 60;
+        this.thrustPhase += 0.3;
+        this.angle = Math.sin(Date.now() / 1200) * 0.15;
         
-        if (this.z <= 0) {
-          this.reset();
-          this.z = 1000;
+        // Auto-fire bullets
+        this.shootTimer++;
+        if (this.shootTimer > 8) {
+          this.shootTimer = 0;
+          bullets.push(new PreviewBullet(this.x + 30, this.y, false));
         }
       }
       
       draw() {
-        const x = (this.x - canvas.width / 2) * (1000 / this.z) + canvas.width / 2;
-        const y = (this.y - canvas.height / 2) * (1000 / this.z) + canvas.height / 2;
-        const size = this.radius * (1000 / this.z) * 0.5;
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
         
-        if (x < -50 || x > canvas.width + 50 || y < -50 || y > canvas.height + 50) {
-          this.reset();
-          return;
+        // Boost glow (exaggerated)
+        ctx.shadowColor = '#f97316';
+        ctx.shadowBlur = 25;
+        ctx.globalAlpha = 0.6;
+        ctx.fillStyle = '#f97316';
+        ctx.beginPath();
+        ctx.arc(-this.size * 0.5, 0, this.size * 0.8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.shadowBlur = 0;
+        
+        // Ship body (blue - Vanguard style)
+        ctx.fillStyle = '#0ea5e9';
+        ctx.strokeStyle = '#7dd3fc';
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#0ea5e9';
+        ctx.shadowBlur = 15;
+        ctx.beginPath();
+        ctx.moveTo(this.size * 1.2, 0);
+        ctx.lineTo(this.size * 0.3, -this.size * 0.3);
+        ctx.lineTo(-this.size * 0.4, -this.size * 0.3);
+        ctx.lineTo(-this.size * 0.7, 0);
+        ctx.lineTo(-this.size * 0.4, this.size * 0.3);
+        ctx.lineTo(this.size * 0.3, this.size * 0.3);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        
+        // Thruster flames (animated)
+        const thrustIntensity = Math.sin(this.thrustPhase) * 0.3 + 0.7;
+        ctx.fillStyle = `rgba(249, 115, 22, ${thrustIntensity})`;
+        ctx.shadowColor = '#f97316';
+        ctx.shadowBlur = 20;
+        ctx.beginPath();
+        ctx.moveTo(-this.size * 0.7, -this.size * 0.15);
+        ctx.lineTo(-this.size * (1.2 + thrustIntensity * 0.3), 0);
+        ctx.lineTo(-this.size * 0.7, this.size * 0.15);
+        ctx.closePath();
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        
+        ctx.restore();
+      }
+    }
+    
+    // Enemy class (dramatic red)
+    class PreviewEnemy {
+      constructor() {
+        this.x = canvas.width + 50;
+        this.y = Math.random() * canvas.height;
+        this.size = 16;
+        this.vx = -(Math.random() * 2 + 1.5);
+        this.vy = (Math.random() - 0.5) * 0.5;
+        this.angle = Math.PI;
+        this.pulse = Math.random() * Math.PI * 2;
+        this.shootTimer = Math.random() * 60;
+        this.health = 3;
+      }
+      
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.pulse += 0.1;
+        
+        // Shoot at player ship occasionally
+        this.shootTimer--;
+        if (this.shootTimer <= 0 && this.x < canvas.width * 0.8) {
+          this.shootTimer = 40 + Math.random() * 40;
+          bullets.push(new PreviewBullet(this.x - 20, this.y, true));
         }
         
-        const twinkleAlpha = Math.sin(this.twinkle) * 0.3 + 0.7;
-        const alpha = this.opacity * (1000 / this.z) * 0.5 * twinkleAlpha;
+        return this.x > -100;
+      }
+      
+      draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
         
+        // Enemy glow (pulsing red)
+        const pulseIntensity = Math.sin(this.pulse) * 0.3 + 0.7;
+        ctx.shadowColor = '#dc2626';
+        ctx.shadowBlur = 20 * pulseIntensity;
+        ctx.globalAlpha = 0.5;
+        ctx.fillStyle = '#dc2626';
         ctx.beginPath();
-        ctx.arc(x, y, size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(200, 220, 255, ${Math.min(alpha, 1)})`;
+        ctx.arc(0, 0, this.size * 1.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        
+        // Enemy body
+        ctx.fillStyle = '#b91c1c';
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(this.size, 0);
+        ctx.lineTo(this.size * 0.3, -this.size * 0.4);
+        ctx.lineTo(-this.size * 0.5, -this.size * 0.3);
+        ctx.lineTo(-this.size * 0.8, 0);
+        ctx.lineTo(-this.size * 0.5, this.size * 0.3);
+        ctx.lineTo(this.size * 0.3, this.size * 0.4);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        
+        ctx.restore();
+      }
+    }
+    
+    // Bullet class
+    class PreviewBullet {
+      constructor(x, y, isEnemy) {
+        this.x = x;
+        this.y = y;
+        this.isEnemy = isEnemy;
+        this.size = 5;
+        this.vx = isEnemy ? -6 : 8;
+        this.vy = (Math.random() - 0.5) * 0.5;
+        this.life = 0;
+        this.color = isEnemy ? '#dc2626' : '#fde047';
+      }
+      
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.life++;
+        return this.x > -50 && this.x < canvas.width + 50 && this.life < 200;
+      }
+      
+      draw() {
+        const pulse = Math.sin(this.life / 3) * 0.3 + 0.7;
+        ctx.shadowColor = this.color;
+        ctx.shadowBlur = 15 * pulse;
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size * pulse, 0, Math.PI * 2);
         ctx.fill();
         
-        // Glow effect for brighter stars
-        if (this.z < 500) {
-          const gradient = ctx.createRadialGradient(x, y, 0, x, y, size * 4);
-          gradient.addColorStop(0, `rgba(74, 222, 128, ${alpha * 0.4})`);
-          gradient.addColorStop(1, 'rgba(74, 222, 128, 0)');
-          ctx.fillStyle = gradient;
-          ctx.fillRect(x - size * 4, y - size * 4, size * 8, size * 8);
-        }
+        // Inner bright core
+        ctx.fillStyle = this.isEnemy ? '#fca5a5' : '#fef08a';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
       }
     }
     
-    class NebulaCloud {
-      constructor() {
-        this.x = Math.random() * canvas.width;
-        this.y = Math.random() * canvas.height;
-        this.radius = Math.random() * 200 + 100;
-        this.color = `rgba(${Math.random() * 50 + 20}, ${Math.random() * 100 + 50}, ${Math.random() * 50 + 100}, 0.1)`;
-        this.drift = Math.random() * 0.1;
-        this.phase = Math.random() * Math.PI * 2;
+    // Explosion particle
+    class ExplosionParticle {
+      constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 3 + 1;
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed;
+        this.size = Math.random() * 4 + 2;
+        this.color = color;
+        this.life = 60;
+        this.maxLife = 60;
       }
       
       update() {
-        this.phase += 0.001;
-        this.x += Math.sin(this.phase) * this.drift;
-        
-        // Wrap around
-        if (this.x < -this.radius) this.x = canvas.width + this.radius;
-        if (this.x > canvas.width + this.radius) this.x = -this.radius;
+        this.x += this.vx;
+        this.y += this.vy;
+        this.vx *= 0.95;
+        this.vy *= 0.95;
+        this.life--;
+        return this.life > 0;
       }
       
       draw() {
-        const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius);
-        gradient.addColorStop(0, this.color);
-        gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(this.x - this.radius, this.y - this.radius, this.radius * 2, this.radius * 2);
+        const alpha = this.life / this.maxLife;
+        ctx.globalAlpha = alpha;
+        ctx.shadowColor = this.color;
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.shadowBlur = 0;
       }
     }
     
-    // Energy wave effect
-    let wavePhase = 0;
-    const drawEnergyWaves = () => {
-      wavePhase += 0.02;
-      ctx.strokeStyle = `rgba(74, 222, 128, ${0.05 + Math.sin(wavePhase) * 0.03})`;
-      ctx.lineWidth = 2;
-      
-      for (let i = 0; i < 3; i++) {
-        ctx.beginPath();
-        const offset = i * Math.PI * 0.66;
-        for (let x = 0; x <= canvas.width; x += 10) {
-          const y = canvas.height / 2 + Math.sin((x * 0.01) + wavePhase + offset) * 50 + Math.sin(wavePhase * 2) * 20;
-          if (x === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        }
-        ctx.stroke();
+    // Create explosion
+    const createExplosion = (x, y, color, count = 15) => {
+      for (let i = 0; i < count; i++) {
+        explosionParticles.push(new ExplosionParticle(x, y, color));
       }
+      
+      // Add ring effect
+      explosionParticles.push({
+        x, y,
+        radius: 5,
+        maxRadius: 40,
+        color,
+        life: 20,
+        maxLife: 20,
+        update() {
+          this.radius += 2;
+          this.life--;
+          return this.life > 0;
+        },
+        draw() {
+          const alpha = this.life / this.maxLife;
+          ctx.globalAlpha = alpha * 0.8;
+          ctx.strokeStyle = this.color;
+          ctx.lineWidth = 3;
+          ctx.shadowColor = this.color;
+          ctx.shadowBlur = 15;
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+          ctx.shadowBlur = 0;
+        }
+      });
     };
     
-    // Initialize
-    for (let i = 0; i < starCount; i++) stars.push(new Star());
-    for (let i = 0; i < cloudCount; i++) nebulaClouds.push(new NebulaCloud());
+    // Initialize one player ship
+    ships.push(new PreviewShip());
+    
+    // Spawn enemies periodically
+    let enemySpawnTimer = 0;
+    
+    // Collision detection (simplified)
+    const checkCollisions = () => {
+      for (let i = bullets.length - 1; i >= 0; i--) {
+        const bullet = bullets[i];
+        
+        // Player bullets hitting enemies
+        if (!bullet.isEnemy) {
+          for (let j = enemies.length - 1; j >= 0; j--) {
+            const enemy = enemies[j];
+            const dx = bullet.x - enemy.x;
+            const dy = bullet.y - enemy.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+            if (dist < bullet.size + enemy.size) {
+              bullets.splice(i, 1);
+              enemy.health--;
+              
+              if (enemy.health <= 0) {
+                createExplosion(enemy.x, enemy.y, '#ef4444', 20);
+                enemies.splice(j, 1);
+              } else {
+                createExplosion(enemy.x, enemy.y, '#f97316', 8);
+              }
+              break;
+            }
+          }
+        }
+      }
+    };
     
     // Animation loop
     let startAnimationFrame;
     const animate = () => {
-      // Clear with fade effect
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+      // Clear with subtle fade
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
-      // Draw nebula clouds
-      nebulaClouds.forEach(cloud => {
-        cloud.update();
-        cloud.draw();
+      // Draw background stars
+      bgStars.forEach(star => {
+        star.x -= star.speed;
+        if (star.x < 0) star.x = canvas.width;
+        
+        ctx.globalAlpha = star.opacity;
+        ctx.fillStyle = '#c8dcff';
+        ctx.fillRect(star.x, star.y, star.size, star.size);
+        ctx.globalAlpha = 1;
       });
       
-      // Draw energy waves
-      drawEnergyWaves();
+      // Spawn enemies
+      enemySpawnTimer++;
+      if (enemySpawnTimer > 50 && enemies.length < 8) {
+        enemySpawnTimer = 0;
+        enemies.push(new PreviewEnemy());
+      }
       
-      // Draw stars
-      stars.forEach(star => {
-        star.update();
-        star.draw();
+      // Update and draw ships
+      ships.forEach(ship => {
+        ship.update();
+        ship.draw();
       });
+      
+      // Update and draw enemies
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        if (!enemies[i].update()) {
+          enemies.splice(i, 1);
+        } else {
+          enemies[i].draw();
+        }
+      }
+      
+      // Update and draw bullets
+      for (let i = bullets.length - 1; i >= 0; i--) {
+        if (!bullets[i].update()) {
+          bullets.splice(i, 1);
+        } else {
+          bullets[i].draw();
+        }
+      }
+      
+      // Check collisions
+      checkCollisions();
+      
+      // Update and draw explosion particles
+      for (let i = explosionParticles.length - 1; i >= 0; i--) {
+        if (!explosionParticles[i].update()) {
+          explosionParticles.splice(i, 1);
+        } else {
+          explosionParticles[i].draw();
+        }
+      }
       
       startAnimationFrame = requestAnimationFrame(animate);
     };
