@@ -11095,4 +11095,270 @@
     // Initialize equipment dock interaction listeners
     initEquipmentDockListeners();
   };
+
+  /* ==========================================
+     LOADING SCREEN & VISUAL EFFECTS
+     ========================================== */
+
+  // Loading screen animation
+  const initLoadingScreen = () => {
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const loadingCanvas = document.getElementById('loadingCanvas');
+    
+    if (!loadingCanvas || !loadingOverlay) return;
+    
+    const ctx = loadingCanvas.getContext('2d');
+    loadingCanvas.width = window.innerWidth;
+    loadingCanvas.height = window.innerHeight;
+    
+    // Particle system for loading screen
+    const particles = [];
+    const particleCount = 80;
+    
+    class LoadingParticle {
+      constructor() {
+        this.reset();
+      }
+      
+      reset() {
+        this.x = Math.random() * loadingCanvas.width;
+        this.y = Math.random() * loadingCanvas.height;
+        this.vx = (Math.random() - 0.5) * 0.5;
+        this.vy = (Math.random() - 0.5) * 0.5;
+        this.radius = Math.random() * 2 + 0.5;
+        this.opacity = Math.random() * 0.5 + 0.3;
+        this.twinkle = Math.random() * Math.PI * 2;
+        this.twinkleSpeed = (Math.random() - 0.5) * 0.05;
+      }
+      
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.twinkle += this.twinkleSpeed;
+        
+        // Wrap around screen
+        if (this.x < 0) this.x = loadingCanvas.width;
+        if (this.x > loadingCanvas.width) this.x = 0;
+        if (this.y < 0) this.y = loadingCanvas.height;
+        if (this.y > loadingCanvas.height) this.y = 0;
+      }
+      
+      draw(context) {
+        const twinkleAlpha = Math.sin(this.twinkle) * 0.3 + 0.7;
+        context.beginPath();
+        context.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        context.fillStyle = `rgba(74, 222, 128, ${this.opacity * twinkleAlpha})`;
+        context.fill();
+        
+        // Glow effect
+        const gradient = context.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius * 3);
+        gradient.addColorStop(0, `rgba(74, 222, 128, ${this.opacity * 0.3 * twinkleAlpha})`);
+        gradient.addColorStop(1, 'rgba(74, 222, 128, 0)');
+        context.fillStyle = gradient;
+        context.fillRect(this.x - this.radius * 3, this.y - this.radius * 3, this.radius * 6, this.radius * 6);
+      }
+    }
+    
+    // Initialize particles
+    for (let i = 0; i < particleCount; i++) {
+      particles.push(new LoadingParticle());
+    }
+    
+    // Animation loop
+    let loadingAnimationFrame;
+    const animateLoading = () => {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+      ctx.fillRect(0, 0, loadingCanvas.width, loadingCanvas.height);
+      
+      particles.forEach(particle => {
+        particle.update();
+        particle.draw(ctx);
+      });
+      
+      loadingAnimationFrame = requestAnimationFrame(animateLoading);
+    };
+    
+    animateLoading();
+    
+    // Hide loading screen after assets load
+    setTimeout(() => {
+      loadingOverlay.classList.add('loaded');
+      setTimeout(() => {
+        cancelAnimationFrame(loadingAnimationFrame);
+      }, 800);
+    }, 2000);
+  };
+
+  // Start screen animated background
+  const initStartScreenBackground = () => {
+    const canvas = document.getElementById('startBackgroundCanvas');
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    const resizeCanvas = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    
+    // Enhanced particle system for start screen
+    const stars = [];
+    const starCount = 150;
+    const nebulaClouds = [];
+    const cloudCount = 5;
+    
+    class Star {
+      constructor() {
+        this.reset();
+      }
+      
+      reset() {
+        this.x = Math.random() * canvas.width;
+        this.y = Math.random() * canvas.height;
+        this.z = Math.random() * 1000;
+        this.radius = Math.random() * 1.5 + 0.5;
+        this.speed = Math.random() * 0.5 + 0.2;
+        this.opacity = Math.random() * 0.8 + 0.2;
+        this.twinkle = Math.random() * Math.PI * 2;
+        this.twinkleSpeed = (Math.random() - 0.5) * 0.03;
+      }
+      
+      update() {
+        this.z -= this.speed;
+        this.twinkle += this.twinkleSpeed;
+        
+        if (this.z <= 0) {
+          this.reset();
+          this.z = 1000;
+        }
+      }
+      
+      draw() {
+        const x = (this.x - canvas.width / 2) * (1000 / this.z) + canvas.width / 2;
+        const y = (this.y - canvas.height / 2) * (1000 / this.z) + canvas.height / 2;
+        const size = this.radius * (1000 / this.z) * 0.5;
+        
+        if (x < -50 || x > canvas.width + 50 || y < -50 || y > canvas.height + 50) {
+          this.reset();
+          return;
+        }
+        
+        const twinkleAlpha = Math.sin(this.twinkle) * 0.3 + 0.7;
+        const alpha = this.opacity * (1000 / this.z) * 0.5 * twinkleAlpha;
+        
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(200, 220, 255, ${Math.min(alpha, 1)})`;
+        ctx.fill();
+        
+        // Glow effect for brighter stars
+        if (this.z < 500) {
+          const gradient = ctx.createRadialGradient(x, y, 0, x, y, size * 4);
+          gradient.addColorStop(0, `rgba(74, 222, 128, ${alpha * 0.4})`);
+          gradient.addColorStop(1, 'rgba(74, 222, 128, 0)');
+          ctx.fillStyle = gradient;
+          ctx.fillRect(x - size * 4, y - size * 4, size * 8, size * 8);
+        }
+      }
+    }
+    
+    class NebulaCloud {
+      constructor() {
+        this.x = Math.random() * canvas.width;
+        this.y = Math.random() * canvas.height;
+        this.radius = Math.random() * 200 + 100;
+        this.color = `rgba(${Math.random() * 50 + 20}, ${Math.random() * 100 + 50}, ${Math.random() * 50 + 100}, 0.1)`;
+        this.drift = Math.random() * 0.1;
+        this.phase = Math.random() * Math.PI * 2;
+      }
+      
+      update() {
+        this.phase += 0.001;
+        this.x += Math.sin(this.phase) * this.drift;
+        
+        // Wrap around
+        if (this.x < -this.radius) this.x = canvas.width + this.radius;
+        if (this.x > canvas.width + this.radius) this.x = -this.radius;
+      }
+      
+      draw() {
+        const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius);
+        gradient.addColorStop(0, this.color);
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(this.x - this.radius, this.y - this.radius, this.radius * 2, this.radius * 2);
+      }
+    }
+    
+    // Energy wave effect
+    let wavePhase = 0;
+    const drawEnergyWaves = () => {
+      wavePhase += 0.02;
+      ctx.strokeStyle = `rgba(74, 222, 128, ${0.05 + Math.sin(wavePhase) * 0.03})`;
+      ctx.lineWidth = 2;
+      
+      for (let i = 0; i < 3; i++) {
+        ctx.beginPath();
+        const offset = i * Math.PI * 0.66;
+        for (let x = 0; x <= canvas.width; x += 10) {
+          const y = canvas.height / 2 + Math.sin((x * 0.01) + wavePhase + offset) * 50 + Math.sin(wavePhase * 2) * 20;
+          if (x === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+    };
+    
+    // Initialize
+    for (let i = 0; i < starCount; i++) stars.push(new Star());
+    for (let i = 0; i < cloudCount; i++) nebulaClouds.push(new NebulaCloud());
+    
+    // Animation loop
+    let startAnimationFrame;
+    const animate = () => {
+      // Clear with fade effect
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Draw nebula clouds
+      nebulaClouds.forEach(cloud => {
+        cloud.update();
+        cloud.draw();
+      });
+      
+      // Draw energy waves
+      drawEnergyWaves();
+      
+      // Draw stars
+      stars.forEach(star => {
+        star.update();
+        star.draw();
+      });
+      
+      startAnimationFrame = requestAnimationFrame(animate);
+    };
+    
+    animate();
+    
+    // Clean up when leaving start screen
+    return () => {
+      cancelAnimationFrame(startAnimationFrame);
+    };
+  };
+
+  // Initialize on page load
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      initLoadingScreen();
+      setTimeout(() => {
+        initStartScreenBackground();
+      }, 2000);
+    });
+  } else {
+    initLoadingScreen();
+    setTimeout(() => {
+      initStartScreenBackground();
+    }, 2000);
+  }
 })();
