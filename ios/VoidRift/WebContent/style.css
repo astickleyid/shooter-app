@@ -351,6 +351,50 @@ html, body {
   animation: fadeIn 1s ease-out 1s both;
 }
 
+.gameplay-hint {
+  margin-top: 16px;
+  padding: 8px 20px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(74, 222, 128, 0.3);
+  border-radius: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  backdrop-filter: blur(10px);
+  animation: fadeIn 1s ease-out 1.5s both, hintFloat 3s ease-in-out infinite 2s;
+}
+
+@keyframes hintFloat {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.hint-icon {
+  font-size: 16px;
+  animation: hintIconSpin 10s linear infinite;
+}
+
+@keyframes hintIconSpin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.hint-text {
+  font-size: 11px;
+  font-weight: 600;
+  color: #86efac;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
 @keyframes fadeIn {
   0% {
     opacity: 0;

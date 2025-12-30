@@ -8775,9 +8775,24 @@
     currentPlanet = null;
     
     initShipSelection();
-    dom.startScreen.style.display = 'none';
-    dom.gameContainer.style.display = 'block';
-    dom.messageBox.style.display = 'none';
+    
+    // Add smooth transition effect
+    dom.startScreen.style.transition = 'opacity 0.6s ease-out, transform 0.6s ease-out';
+    dom.startScreen.style.opacity = '0';
+    dom.startScreen.style.transform = 'scale(0.95)';
+    
+    setTimeout(() => {
+      dom.startScreen.style.display = 'none';
+      dom.gameContainer.style.display = 'block';
+      dom.messageBox.style.display = 'none';
+      
+      // Reset transition for next time
+      setTimeout(() => {
+        dom.startScreen.style.transition = '';
+        dom.startScreen.style.opacity = '';
+        dom.startScreen.style.transform = '';
+      }, 50);
+    }, 600);
     
     // Initialize audio system on user interaction (required for Chrome autoplay policy)
     if (typeof AudioManager !== 'undefined') {
@@ -8785,7 +8800,10 @@
       AudioManager.startMusic();
     }
     
-    startLevel(1, true);
+    // Start level after transition begins
+    setTimeout(() => {
+      startLevel(1, true);
+    }, 100);
   };
 
   /* ====== PAUSE MENU & GAME STATE MANAGEMENT ====== */
@@ -9231,11 +9249,30 @@
     closeLeaderboardModal();
     closeAuthModal();
     
-    // Hide game container
-    dom.gameContainer.style.display = 'none';
+    // Hide game container with fade
+    dom.gameContainer.style.transition = 'opacity 0.4s ease-out';
+    dom.gameContainer.style.opacity = '0';
     
-    // Show start screen
-    dom.startScreen.style.display = 'flex';
+    setTimeout(() => {
+      dom.gameContainer.style.display = 'none';
+      dom.gameContainer.style.transition = '';
+      dom.gameContainer.style.opacity = '';
+      
+      // Show start screen with fade in
+      dom.startScreen.style.display = 'flex';
+      dom.startScreen.style.opacity = '0';
+      dom.startScreen.style.transform = 'scale(0.95)';
+      
+      requestAnimationFrame(() => {
+        dom.startScreen.style.transition = 'opacity 0.5s ease-out, transform 0.5s ease-out';
+        dom.startScreen.style.opacity = '1';
+        dom.startScreen.style.transform = 'scale(1)';
+        
+        setTimeout(() => {
+          dom.startScreen.style.transition = '';
+        }, 500);
+      });
+    }, 400);
     
     // Reset game state
     gameRunning = false;
@@ -11353,12 +11390,60 @@
       initLoadingScreen();
       setTimeout(() => {
         initStartScreenBackground();
+        initGameplayHints();
       }, 2000);
     });
   } else {
     initLoadingScreen();
     setTimeout(() => {
       initStartScreenBackground();
+      initGameplayHints();
     }, 2000);
   }
+
+  // Cycling gameplay hints on start screen
+  const initGameplayHints = () => {
+    const hintElement = document.getElementById('gameplayHint');
+    if (!hintElement) return;
+    
+    const hints = [
+      { icon: '💫', text: 'Twin-stick action awaits' },
+      { icon: '🚀', text: 'Upgrade your ship & weapons' },
+      { icon: '⚡', text: 'Master powerful abilities' },
+      { icon: '🌟', text: 'Compete on global leaderboards' },
+      { icon: '🎯', text: 'Survive endless enemy waves' },
+      { icon: '💎', text: 'Collect credits to unlock gear' },
+      { icon: '🔥', text: 'Chain combos for high scores' }
+    ];
+    
+    let currentHintIndex = 0;
+    
+    const updateHint = () => {
+      const hint = hints[currentHintIndex];
+      const iconElement = hintElement.querySelector('.hint-icon');
+      const textElement = hintElement.querySelector('.hint-text');
+      
+      if (iconElement && textElement) {
+        // Fade out
+        hintElement.style.transition = 'opacity 0.3s ease-out, transform 0.3s ease-out';
+        hintElement.style.opacity = '0';
+        hintElement.style.transform = 'translateY(10px)';
+        
+        setTimeout(() => {
+          // Update content
+          iconElement.textContent = hint.icon;
+          textElement.textContent = hint.text;
+          
+          // Fade in
+          hintElement.style.opacity = '1';
+          hintElement.style.transform = 'translateY(0)';
+          
+          currentHintIndex = (currentHintIndex + 1) % hints.length;
+        }, 300);
+      }
+    };
+    
+    // Change hint every 4 seconds
+    setInterval(updateHint, 4000);
+  };
 })();
