@@ -11137,7 +11137,7 @@
      LOADING SCREEN & VISUAL EFFECTS
      ========================================== */
 
-  // Loading screen animation - GAMEPLAY TEASER
+  // Loading screen animation - CINEMATIC GAMEPLAY TEASER
   const initLoadingScreen = () => {
     const loadingOverlay = document.getElementById('loadingOverlay');
     const loadingCanvas = document.getElementById('loadingCanvas');
@@ -11148,95 +11148,214 @@
     loadingCanvas.width = window.innerWidth;
     loadingCanvas.height = window.innerHeight;
     
-    // Mini gameplay elements for loading
+    // Cinematic elements
     const miniShips = [];
     const miniEnemies = [];
     const miniBullets = [];
     const sparkles = [];
+    const lightRays = [];
+    const cameraShake = { x: 0, y: 0, intensity: 0 };
     
-    // Background sparkles
-    for (let i = 0; i < 60; i++) {
+    // Enhanced sparkles with depth
+    for (let i = 0; i < 80; i++) {
       sparkles.push({
         x: Math.random() * loadingCanvas.width,
         y: Math.random() * loadingCanvas.height,
-        size: Math.random() * 2 + 0.5,
-        vx: (Math.random() - 0.5) * 0.3,
-        vy: (Math.random() - 0.5) * 0.3,
-        opacity: Math.random() * 0.6 + 0.3,
-        twinkle: Math.random() * Math.PI * 2
+        size: Math.random() * 3 + 0.5,
+        vx: (Math.random() - 0.5) * 0.5,
+        vy: (Math.random() - 0.5) * 0.5,
+        opacity: Math.random() * 0.8 + 0.2,
+        twinkle: Math.random() * Math.PI * 2,
+        depth: Math.random() * 0.7 + 0.3 // For depth of field
       });
     }
     
-    // Mini ship
+    // Light rays for cinematic atmosphere
+    for (let i = 0; i < 5; i++) {
+      lightRays.push({
+        x: Math.random() * loadingCanvas.width,
+        y: -100,
+        length: Math.random() * 300 + 200,
+        angle: Math.random() * 0.4 - 0.2,
+        opacity: Math.random() * 0.15 + 0.05,
+        speed: Math.random() * 0.5 + 0.3
+      });
+    }
+    
+    // Cinematic ship with trail
     class MiniShip {
       constructor() {
         this.x = loadingCanvas.width * 0.25;
         this.y = loadingCanvas.height * 0.5;
-        this.size = 12;
+        this.size = 16;
         this.shootTimer = 0;
+        this.trail = []; // Motion trail
+        this.boostIntensity = 1;
       }
       
       update() {
-        this.y = loadingCanvas.height * 0.5 + Math.sin(Date.now() / 600) * 40;
+        const prevY = this.y;
+        this.y = loadingCanvas.height * 0.5 + Math.sin(Date.now() / 600) * 50;
+        
+        // Add trail point
+        this.trail.push({ x: this.x - 10, y: this.y, life: 20 });
+        if (this.trail.length > 15) this.trail.shift();
+        
+        // Update trail
+        this.trail.forEach(t => t.life--);
+        this.trail = this.trail.filter(t => t.life > 0);
+        
+        // Boost animation
+        this.boostIntensity = 0.8 + Math.sin(Date.now() / 200) * 0.2;
+        
         this.shootTimer++;
-        if (this.shootTimer > 15) {
+        if (this.shootTimer > 12) {
           this.shootTimer = 0;
+          // Shoot with muzzle flash
           miniBullets.push({
-            x: this.x + 15,
+            x: this.x + 18,
             y: this.y,
-            vx: 4,
-            size: 3,
+            vx: 5,
+            vy: (Math.random() - 0.5) * 0.3,
+            size: 4,
             color: '#fde047',
-            life: 0
+            life: 0,
+            trail: [],
+            muzzleFlash: 10
           });
         }
       }
       
       draw() {
         ctx.save();
+        
+        // Draw boost trail
+        this.trail.forEach((t, i) => {
+          const alpha = (t.life / 20) * 0.6;
+          const size = (t.life / 20) * this.size * 0.8;
+          ctx.globalAlpha = alpha;
+          
+          const gradient = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, size);
+          gradient.addColorStop(0, 'rgba(249, 115, 22, 0.8)');
+          gradient.addColorStop(0.5, 'rgba(249, 115, 22, 0.4)');
+          gradient.addColorStop(1, 'rgba(249, 115, 22, 0)');
+          ctx.fillStyle = gradient;
+          ctx.fillRect(t.x - size, t.y - size, size * 2, size * 2);
+        });
+        ctx.globalAlpha = 1;
+        
         ctx.translate(this.x, this.y);
         
-        // Ship glow
-        ctx.shadowColor = '#0ea5e9';
-        ctx.shadowBlur = 10;
-        ctx.fillStyle = '#0ea5e9';
+        // Enhanced boost glow with bloom
+        ctx.shadowColor = '#f97316';
+        ctx.shadowBlur = 30 * this.boostIntensity;
+        ctx.globalAlpha = 0.7 * this.boostIntensity;
+        const boostGrad = ctx.createRadialGradient(-this.size * 0.6, 0, 0, -this.size * 0.6, 0, this.size * 1.5);
+        boostGrad.addColorStop(0, '#fbbf24');
+        boostGrad.addColorStop(0.4, '#f97316');
+        boostGrad.addColorStop(1, 'rgba(249, 115, 22, 0)');
+        ctx.fillStyle = boostGrad;
         ctx.beginPath();
-        ctx.moveTo(this.size, 0);
-        ctx.lineTo(-this.size * 0.5, -this.size * 0.4);
-        ctx.lineTo(-this.size * 0.5, this.size * 0.4);
+        ctx.arc(-this.size * 0.6, 0, this.size * 1.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        
+        // Ship body with enhanced details
+        ctx.fillStyle = '#0ea5e9';
+        ctx.strokeStyle = '#7dd3fc';
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#0ea5e9';
+        ctx.shadowBlur = 20;
+        ctx.beginPath();
+        ctx.moveTo(this.size * 1.3, 0);
+        ctx.lineTo(this.size * 0.4, -this.size * 0.35);
+        ctx.lineTo(-this.size * 0.5, -this.size * 0.35);
+        ctx.lineTo(-this.size * 0.8, 0);
+        ctx.lineTo(-this.size * 0.5, this.size * 0.35);
+        ctx.lineTo(this.size * 0.4, this.size * 0.35);
         ctx.closePath();
         ctx.fill();
-        ctx.shadowBlur = 0;
+        ctx.stroke();
         
+        // Cockpit highlight
+        ctx.fillStyle = 'rgba(125, 211, 252, 0.8)';
+        ctx.beginPath();
+        ctx.arc(this.size * 0.3, 0, this.size * 0.2, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.shadowBlur = 0;
         ctx.restore();
       }
     }
     
-    // Mini enemy
+    // Cinematic enemy with enhanced effects
     class MiniEnemy {
       constructor() {
-        this.x = loadingCanvas.width + 30;
+        this.x = loadingCanvas.width + 40;
         this.y = Math.random() * loadingCanvas.height;
-        this.size = 10;
-        this.vx = -1.5;
+        this.size = 14;
+        this.vx = -2;
+        this.vy = (Math.random() - 0.5) * 0.3;
+        this.pulse = Math.random() * Math.PI * 2;
+        this.trail = [];
       }
       
       update() {
         this.x += this.vx;
-        return this.x > -50;
+        this.y += this.vy;
+        this.pulse += 0.12;
+        
+        // Add trail
+        this.trail.push({ x: this.x + 8, y: this.y, life: 15 });
+        if (this.trail.length > 10) this.trail.shift();
+        this.trail.forEach(t => t.life--);
+        this.trail = this.trail.filter(t => t.life > 0);
+        
+        return this.x > -60;
       }
       
       draw() {
         ctx.save();
+        
+        // Enemy trail
+        this.trail.forEach((t, i) => {
+          const alpha = (t.life / 15) * 0.5;
+          const size = (t.life / 15) * this.size * 0.7;
+          ctx.globalAlpha = alpha;
+          
+          const gradient = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, size);
+          gradient.addColorStop(0, 'rgba(220, 38, 38, 0.7)');
+          gradient.addColorStop(1, 'rgba(220, 38, 38, 0)');
+          ctx.fillStyle = gradient;
+          ctx.fillRect(t.x - size, t.y - size, size * 2, size * 2);
+        });
+        ctx.globalAlpha = 1;
+        
         ctx.translate(this.x, this.y);
         
-        // Enemy glow
+        // Enhanced enemy glow with bloom
+        const pulseIntensity = Math.sin(this.pulse) * 0.4 + 0.8;
         ctx.shadowColor = '#dc2626';
-        ctx.shadowBlur = 12;
-        ctx.fillStyle = '#dc2626';
+        ctx.shadowBlur = 25 * pulseIntensity;
+        ctx.globalAlpha = 0.6 * pulseIntensity;
+        const enemyGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size * 1.8);
+        enemyGrad.addColorStop(0, '#ef4444');
+        enemyGrad.addColorStop(0.5, '#dc2626');
+        enemyGrad.addColorStop(1, 'rgba(220, 38, 38, 0)');
+        ctx.fillStyle = enemyGrad;
         ctx.beginPath();
-        ctx.arc(0, 0, this.size * 0.8, 0, Math.PI * 2);
+        ctx.arc(0, 0, this.size * 1.8, 0, Math.PI * 2);
         ctx.fill();
+        ctx.globalAlpha = 1;
+        
+        // Enemy body
+        ctx.fillStyle = '#b91c1c';
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size * 0.9, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
         ctx.shadowBlur = 0;
         
         ctx.restore();
@@ -11247,41 +11366,82 @@
     
     let enemyTimer = 0;
     
-    // Animation loop
+    // Cinematic animation loop
     let loadingAnimationFrame;
     const animateLoading = () => {
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+      // Clear with subtle motion blur
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
       ctx.fillRect(0, 0, loadingCanvas.width, loadingCanvas.height);
       
-      // Update sparkles
+      // Apply camera shake
+      ctx.save();
+      ctx.translate(cameraShake.x, cameraShake.y);
+      
+      // Draw light rays
+      lightRays.forEach(ray => {
+        ray.y += ray.speed;
+        if (ray.y > loadingCanvas.height + ray.length) {
+          ray.y = -ray.length;
+          ray.x = Math.random() * loadingCanvas.width;
+        }
+        
+        ctx.globalAlpha = ray.opacity;
+        const gradient = ctx.createLinearGradient(
+          ray.x, ray.y,
+          ray.x + Math.sin(ray.angle) * ray.length,
+          ray.y + Math.cos(ray.angle) * ray.length
+        );
+        gradient.addColorStop(0, 'rgba(74, 222, 128, 0)');
+        gradient.addColorStop(0.5, 'rgba(74, 222, 128, 1)');
+        gradient.addColorStop(1, 'rgba(74, 222, 128, 0)');
+        ctx.strokeStyle = gradient;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(ray.x, ray.y);
+        ctx.lineTo(ray.x + Math.sin(ray.angle) * ray.length, ray.y + Math.cos(ray.angle) * ray.length);
+        ctx.stroke();
+      });
+      ctx.globalAlpha = 1;
+      
+      // Draw sparkles with depth of field
       sparkles.forEach(s => {
-        s.x += s.vx;
-        s.y += s.vy;
-        s.twinkle += 0.05;
+        s.x += s.vx * s.depth;
+        s.y += s.vy * s.depth;
+        s.twinkle += 0.06;
+        
         if (s.x < 0) s.x = loadingCanvas.width;
         if (s.x > loadingCanvas.width) s.x = 0;
         if (s.y < 0) s.y = loadingCanvas.height;
         if (s.y > loadingCanvas.height) s.y = 0;
         
-        const alpha = s.opacity * (Math.sin(s.twinkle) * 0.3 + 0.7);
-        ctx.fillStyle = `rgba(74, 222, 128, ${alpha})`;
-        ctx.fillRect(s.x, s.y, s.size, s.size);
+        const alpha = s.opacity * (Math.sin(s.twinkle) * 0.4 + 0.6);
+        const blur = (1 - s.depth) * 3; // Background sparkles more blurred
+        
+        ctx.shadowBlur = blur;
+        ctx.shadowColor = '#4ade80';
+        ctx.globalAlpha = alpha * s.depth;
+        ctx.fillStyle = '#4ade80';
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.size * s.depth, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
       });
+      ctx.globalAlpha = 1;
       
-      // Spawn mini enemies
+      // Spawn enemies
       enemyTimer++;
-      if (enemyTimer > 80 && miniEnemies.length < 4) {
+      if (enemyTimer > 70 && miniEnemies.length < 5) {
         enemyTimer = 0;
         miniEnemies.push(new MiniEnemy());
       }
       
-      // Update ship
+      // Update and draw ship
       miniShips.forEach(ship => {
         ship.update();
         ship.draw();
       });
       
-      // Update enemies
+      // Update and draw enemies
       for (let i = miniEnemies.length - 1; i >= 0; i--) {
         if (!miniEnemies[i].update()) {
           miniEnemies.splice(i, 1);
@@ -11290,65 +11450,146 @@
         }
       }
       
-      // Update bullets
+      // Update and draw bullets with enhanced trails
       for (let i = miniBullets.length - 1; i >= 0; i--) {
         const b = miniBullets[i];
         b.x += b.vx;
+        b.y += b.vy;
         b.life++;
         
-        if (b.x > loadingCanvas.width + 50 || b.life > 150) {
+        // Add bullet trail
+        if (!b.trail) b.trail = [];
+        b.trail.push({ x: b.x, y: b.y, life: 10 });
+        if (b.trail.length > 8) b.trail.shift();
+        b.trail.forEach(t => t.life--);
+        b.trail = b.trail.filter(t => t.life > 0);
+        
+        if (b.x > loadingCanvas.width + 60 || b.life > 180) {
           miniBullets.splice(i, 1);
           continue;
         }
         
-        // Check collision with enemies
+        // Check collisions with cinematic effects
         for (let j = miniEnemies.length - 1; j >= 0; j--) {
           const e = miniEnemies[j];
           const dx = b.x - e.x;
           const dy = b.y - e.y;
           if (Math.sqrt(dx * dx + dy * dy) < b.size + e.size) {
-            // Hit!
+            // Hit! Create cinematic explosion
             miniBullets.splice(i, 1);
             miniEnemies.splice(j, 1);
             
-            // Small explosion
-            for (let k = 0; k < 8; k++) {
-              const angle = (k / 8) * Math.PI * 2;
+            // Camera shake on hit
+            cameraShake.intensity = 3;
+            cameraShake.x = (Math.random() - 0.5) * cameraShake.intensity;
+            cameraShake.y = (Math.random() - 0.5) * cameraShake.intensity;
+            
+            // Enhanced explosion particles
+            for (let k = 0; k < 15; k++) {
+              const angle = (k / 15) * Math.PI * 2;
+              const speed = Math.random() * 3 + 2;
               sparkles.push({
                 x: e.x,
                 y: e.y,
-                size: 2,
-                vx: Math.cos(angle) * 2,
-                vy: Math.sin(angle) * 2,
-                opacity: 0.8,
+                size: Math.random() * 3 + 2,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                opacity: 1,
                 twinkle: 0,
-                lifetime: 30
+                lifetime: 30 + Math.random() * 20,
+                depth: 1,
+                color: k % 3 === 0 ? '#fbbf24' : (k % 3 === 1 ? '#f97316' : '#ef4444')
               });
             }
             break;
           }
         }
         
-        // Draw bullet
+        // Draw bullet trail
+        b.trail.forEach((t, idx) => {
+          const alpha = (t.life / 10) * 0.7;
+          const size = (t.life / 10) * b.size;
+          ctx.globalAlpha = alpha;
+          ctx.shadowBlur = 10;
+          ctx.shadowColor = b.color;
+          ctx.fillStyle = b.color;
+          ctx.beginPath();
+          ctx.arc(t.x, t.y, size, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        ctx.globalAlpha = 1;
+        ctx.shadowBlur = 0;
+        
+        // Draw bullet with enhanced effects
         const pulse = Math.sin(b.life / 3) * 0.3 + 0.7;
+        
+        // Muzzle flash
+        if (b.muzzleFlash && b.muzzleFlash > 0) {
+          b.muzzleFlash--;
+          ctx.globalAlpha = b.muzzleFlash / 10;
+          const flashGrad = ctx.createRadialGradient(b.x - 10, b.y, 0, b.x - 10, b.y, 20);
+          flashGrad.addColorStop(0, '#fef08a');
+          flashGrad.addColorStop(1, 'rgba(253, 224, 71, 0)');
+          ctx.fillStyle = flashGrad;
+          ctx.fillRect(b.x - 30, b.y - 20, 40, 40);
+          ctx.globalAlpha = 1;
+        }
+        
+        // Bullet bloom
         ctx.shadowColor = b.color;
-        ctx.shadowBlur = 8;
-        ctx.fillStyle = b.color;
+        ctx.shadowBlur = 20 * pulse;
+        const bulletGrad = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.size * 2 * pulse);
+        bulletGrad.addColorStop(0, b.color);
+        bulletGrad.addColorStop(0.5, b.color);
+        bulletGrad.addColorStop(1, `${b.color}00`);
+        ctx.fillStyle = bulletGrad;
         ctx.beginPath();
-        ctx.arc(b.x, b.y, b.size * pulse, 0, Math.PI * 2);
+        ctx.arc(b.x, b.y, b.size * 2 * pulse, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Bullet core
+        ctx.fillStyle = '#fef08a';
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.size * 0.6, 0, Math.PI * 2);
         ctx.fill();
         ctx.shadowBlur = 0;
       }
       
-      // Clean up explosion sparkles
+      // Clean up explosion particles
       for (let i = sparkles.length - 1; i >= 0; i--) {
         if (sparkles[i].lifetime !== undefined) {
           sparkles[i].lifetime--;
           if (sparkles[i].lifetime <= 0) {
             sparkles.splice(i, 1);
+          } else {
+            // Draw explosion particle
+            const s = sparkles[i];
+            const alpha = s.lifetime / 50;
+            ctx.globalAlpha = alpha;
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = s.color;
+            ctx.fillStyle = s.color;
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.globalAlpha = 1;
           }
         }
       }
+      
+      // Decay camera shake
+      cameraShake.intensity *= 0.9;
+      if (cameraShake.intensity < 0.1) {
+        cameraShake.x = 0;
+        cameraShake.y = 0;
+        cameraShake.intensity = 0;
+      } else {
+        cameraShake.x = (Math.random() - 0.5) * cameraShake.intensity;
+        cameraShake.y = (Math.random() - 0.5) * cameraShake.intensity;
+      }
+      
+      ctx.restore();
       
       loadingAnimationFrame = requestAnimationFrame(animateLoading);
     };
@@ -11364,7 +11605,7 @@
     }, 2000);
   };
 
-  // Start screen animated background - GAMEPLAY PREVIEW
+  // Start screen animated background - CINEMATIC GAMEPLAY SHOWCASE
   const initStartScreenBackground = () => {
     const canvas = document.getElementById('startBackgroundCanvas');
     if (!canvas) return;
@@ -11377,124 +11618,185 @@
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
     
-    // Gameplay-inspired animation system
+    // Cinematic elements
     const ships = [];
     const enemies = [];
     const bullets = [];
     const explosionParticles = [];
     const bgStars = [];
+    const lightBeams = [];
+    const cameraShake = { x: 0, y: 0, intensity: 0 };
+    let slowMotionFactor = 1;
+    let cinematicEventTimer = 0;
     
-    // Background stars for depth
-    for (let i = 0; i < 100; i++) {
+    // Enhanced background stars with depth layers
+    for (let i = 0; i < 150; i++) {
       bgStars.push({
         x: Math.random() * canvas.width,
         y: Math.random() * canvas.height,
-        size: Math.random() * 1.5 + 0.5,
-        speed: Math.random() * 0.3 + 0.1,
-        opacity: Math.random() * 0.5 + 0.3
+        size: Math.random() * 2 + 0.3,
+        speed: Math.random() * 0.5 + 0.1,
+        opacity: Math.random() * 0.7 + 0.2,
+        depth: Math.random() // For parallax and depth of field
       });
     }
     
-    // Player ship class (exaggerated)
+    // Add cinematic light beams
+    for (let i = 0; i < 8; i++) {
+      lightBeams.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        length: Math.random() * 400 + 300,
+        angle: Math.random() * Math.PI * 2,
+        width: Math.random() * 3 + 1,
+        opacity: Math.random() * 0.1 + 0.05,
+        speed: Math.random() * 0.3 + 0.2,
+        color: Math.random() > 0.5 ? 'rgba(74, 222, 128' : 'rgba(14, 165, 233'
+      });
+    }
+    
+    // Enhanced player ship class with motion trails
     class PreviewShip {
       constructor() {
         this.x = canvas.width * 0.3;
         this.y = canvas.height * 0.5;
-        this.size = 24;
+        this.size = 28;
         this.angle = 0;
         this.thrustPhase = 0;
         this.shootTimer = 0;
+        this.trail = [];
+        this.boostIntensity = 1;
       }
       
       update() {
         // Dramatic weaving motion
-        this.y = canvas.height * 0.5 + Math.sin(Date.now() / 800) * 60;
+        this.y = canvas.height * 0.5 + Math.sin(Date.now() / 800) * 70;
         this.thrustPhase += 0.3;
         this.angle = Math.sin(Date.now() / 1200) * 0.15;
+        this.boostIntensity = 0.7 + Math.sin(Date.now() / 150) * 0.3;
         
-        // Auto-fire bullets
+        // Add motion trail
+        this.trail.push({ x: this.x - 15, y: this.y, life: 25, angle: this.angle });
+        if (this.trail.length > 20) this.trail.shift();
+        this.trail.forEach(t => t.life--);
+        this.trail = this.trail.filter(t => t.life > 0);
+        
+        // Auto-fire bullets with variation
         this.shootTimer++;
-        if (this.shootTimer > 8) {
+        if (this.shootTimer > 7) {
           this.shootTimer = 0;
-          bullets.push(new PreviewBullet(this.x + 30, this.y, false));
+          bullets.push(new PreviewBullet(this.x + 35, this.y + (Math.random() - 0.5) * 8, false));
         }
       }
       
       draw() {
         ctx.save();
+        
+        // Draw motion trail first
+        this.trail.forEach((t, i) => {
+          const alpha = (t.life / 25) * 0.5;
+          const size = (t.life / 25) * this.size * 0.9;
+          ctx.globalAlpha = alpha;
+          
+          const trailGrad = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, size);
+          trailGrad.addColorStop(0, 'rgba(249, 115, 22, 0.9)');
+          trailGrad.addColorStop(0.6, 'rgba(249, 115, 22, 0.3)');
+          trailGrad.addColorStop(1, 'rgba(249, 115, 22, 0)');
+          ctx.fillStyle = trailGrad;
+          ctx.fillRect(t.x - size, t.y - size, size * 2, size * 2);
+        });
+        ctx.globalAlpha = 1;
+        
         ctx.translate(this.x, this.y);
         ctx.rotate(this.angle);
         
-        // Boost glow (exaggerated)
+        // Enhanced boost glow with multiple layers
         ctx.shadowColor = '#f97316';
-        ctx.shadowBlur = 25;
-        ctx.globalAlpha = 0.6;
-        ctx.fillStyle = '#f97316';
+        ctx.shadowBlur = 40 * this.boostIntensity;
+        ctx.globalAlpha = 0.8 * this.boostIntensity;
+        
+        const boostGrad = ctx.createRadialGradient(-this.size * 0.7, 0, 0, -this.size * 0.7, 0, this.size * 2);
+        boostGrad.addColorStop(0, '#fef08a');
+        boostGrad.addColorStop(0.3, '#fbbf24');
+        boostGrad.addColorStop(0.6, '#f97316');
+        boostGrad.addColorStop(1, 'rgba(249, 115, 22, 0)');
+        ctx.fillStyle = boostGrad;
         ctx.beginPath();
-        ctx.arc(-this.size * 0.5, 0, this.size * 0.8, 0, Math.PI * 2);
+        ctx.arc(-this.size * 0.7, 0, this.size * 2, 0, Math.PI * 2);
         ctx.fill();
         ctx.globalAlpha = 1;
-        ctx.shadowBlur = 0;
         
-        // Ship body (blue - Vanguard style)
-        ctx.fillStyle = '#0ea5e9';
+        // Ship body with gradient and enhanced details
+        const shipGrad = ctx.createLinearGradient(-this.size, 0, this.size, 0);
+        shipGrad.addColorStop(0, '#0369a1');
+        shipGrad.addColorStop(0.5, '#0ea5e9');
+        shipGrad.addColorStop(1, '#38bdf8');
+        ctx.fillStyle = shipGrad;
         ctx.strokeStyle = '#7dd3fc';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2.5;
         ctx.shadowColor = '#0ea5e9';
-        ctx.shadowBlur = 15;
+        ctx.shadowBlur = 25;
         ctx.beginPath();
-        ctx.moveTo(this.size * 1.2, 0);
-        ctx.lineTo(this.size * 0.3, -this.size * 0.3);
-        ctx.lineTo(-this.size * 0.4, -this.size * 0.3);
-        ctx.lineTo(-this.size * 0.7, 0);
-        ctx.lineTo(-this.size * 0.4, this.size * 0.3);
-        ctx.lineTo(this.size * 0.3, this.size * 0.3);
+        ctx.moveTo(this.size * 1.3, 0);
+        ctx.lineTo(this.size * 0.4, -this.size * 0.35);
+        ctx.lineTo(-this.size * 0.5, -this.size * 0.35);
+        ctx.lineTo(-this.size * 0.8, 0);
+        ctx.lineTo(-this.size * 0.5, this.size * 0.35);
+        ctx.lineTo(this.size * 0.4, this.size * 0.35);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
-        ctx.shadowBlur = 0;
         
-        // Thruster flames (animated)
-        const thrustIntensity = Math.sin(this.thrustPhase) * 0.3 + 0.7;
-        ctx.fillStyle = `rgba(249, 115, 22, ${thrustIntensity})`;
-        ctx.shadowColor = '#f97316';
-        ctx.shadowBlur = 20;
+        // Cockpit with highlight
+        ctx.fillStyle = 'rgba(125, 211, 252, 0.9)';
+        ctx.shadowBlur = 15;
         ctx.beginPath();
-        ctx.moveTo(-this.size * 0.7, -this.size * 0.15);
-        ctx.lineTo(-this.size * (1.2 + thrustIntensity * 0.3), 0);
-        ctx.lineTo(-this.size * 0.7, this.size * 0.15);
-        ctx.closePath();
+        ctx.arc(this.size * 0.35, 0, this.size * 0.22, 0, Math.PI * 2);
         ctx.fill();
-        ctx.shadowBlur = 0;
         
+        // Cockpit bright center
+        ctx.fillStyle = 'rgba(254, 240, 138, 0.8)';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.arc(this.size * 0.4, -this.size * 0.05, this.size * 0.1, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.shadowBlur = 0;
         ctx.restore();
       }
     }
     
-    // Enemy class (dramatic red)
+    // Enhanced enemy class with trails
     class PreviewEnemy {
       constructor() {
         this.x = canvas.width + 50;
         this.y = Math.random() * canvas.height;
-        this.size = 16;
-        this.vx = -(Math.random() * 2 + 1.5);
-        this.vy = (Math.random() - 0.5) * 0.5;
+        this.size = 18;
+        this.vx = -(Math.random() * 2.5 + 2);
+        this.vy = (Math.random() - 0.5) * 0.7;
         this.angle = Math.PI;
         this.pulse = Math.random() * Math.PI * 2;
         this.shootTimer = Math.random() * 60;
         this.health = 3;
+        this.trail = [];
       }
       
       update() {
-        this.x += this.vx;
-        this.y += this.vy;
-        this.pulse += 0.1;
+        this.x += this.vx * slowMotionFactor;
+        this.y += this.vy * slowMotionFactor;
+        this.pulse += 0.12;
+        
+        // Add trail
+        this.trail.push({ x: this.x + 10, y: this.y, life: 18 });
+        if (this.trail.length > 12) this.trail.shift();
+        this.trail.forEach(t => t.life--);
+        this.trail = this.trail.filter(t => t.life > 0);
         
         // Shoot at player ship occasionally
         this.shootTimer--;
         if (this.shootTimer <= 0 && this.x < canvas.width * 0.8) {
-          this.shootTimer = 40 + Math.random() * 40;
-          bullets.push(new PreviewBullet(this.x - 20, this.y, true));
+          this.shootTimer = 45 + Math.random() * 50;
+          bullets.push(new PreviewBullet(this.x - 25, this.y, true));
         }
         
         return this.x > -100;
@@ -11502,31 +11804,57 @@
       
       draw() {
         ctx.save();
+        
+        // Draw enemy trail
+        this.trail.forEach((t, i) => {
+          const alpha = (t.life / 18) * 0.6;
+          const size = (t.life / 18) * this.size * 0.8;
+          ctx.globalAlpha = alpha;
+          
+          const trailGrad = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, size);
+          trailGrad.addColorStop(0, 'rgba(220, 38, 38, 0.9)');
+          trailGrad.addColorStop(0.6, 'rgba(220, 38, 38, 0.4)');
+          trailGrad.addColorStop(1, 'rgba(220, 38, 38, 0)');
+          ctx.fillStyle = trailGrad;
+          ctx.fillRect(t.x - size, t.y - size, size * 2, size * 2);
+        });
+        ctx.globalAlpha = 1;
+        
         ctx.translate(this.x, this.y);
         ctx.rotate(this.angle);
         
-        // Enemy glow (pulsing red)
-        const pulseIntensity = Math.sin(this.pulse) * 0.3 + 0.7;
+        // Enhanced enemy glow with bloom
+        const pulseIntensity = Math.sin(this.pulse) * 0.5 + 0.8;
         ctx.shadowColor = '#dc2626';
-        ctx.shadowBlur = 20 * pulseIntensity;
-        ctx.globalAlpha = 0.5;
-        ctx.fillStyle = '#dc2626';
+        ctx.shadowBlur = 35 * pulseIntensity;
+        ctx.globalAlpha = 0.7 * pulseIntensity;
+        
+        const enemyGlow = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size * 2.2);
+        enemyGlow.addColorStop(0, '#fca5a5');
+        enemyGlow.addColorStop(0.3, '#ef4444');
+        enemyGlow.addColorStop(0.6, '#dc2626');
+        enemyGlow.addColorStop(1, 'rgba(220, 38, 38, 0)');
+        ctx.fillStyle = enemyGlow;
         ctx.beginPath();
-        ctx.arc(0, 0, this.size * 1.2, 0, Math.PI * 2);
+        ctx.arc(0, 0, this.size * 2.2, 0, Math.PI * 2);
         ctx.fill();
         ctx.globalAlpha = 1;
         
-        // Enemy body
-        ctx.fillStyle = '#b91c1c';
+        // Enemy body with gradient
+        const bodyGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size);
+        bodyGrad.addColorStop(0, '#dc2626');
+        bodyGrad.addColorStop(0.7, '#b91c1c');
+        bodyGrad.addColorStop(1, '#7f1d1d');
+        ctx.fillStyle = bodyGrad;
         ctx.strokeStyle = '#ef4444';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2.5;
         ctx.beginPath();
-        ctx.moveTo(this.size, 0);
-        ctx.lineTo(this.size * 0.3, -this.size * 0.4);
-        ctx.lineTo(-this.size * 0.5, -this.size * 0.3);
-        ctx.lineTo(-this.size * 0.8, 0);
-        ctx.lineTo(-this.size * 0.5, this.size * 0.3);
-        ctx.lineTo(this.size * 0.3, this.size * 0.4);
+        ctx.moveTo(this.size * 1.1, 0);
+        ctx.lineTo(this.size * 0.4, -this.size * 0.45);
+        ctx.lineTo(-this.size * 0.6, -this.size * 0.4);
+        ctx.lineTo(-this.size * 0.9, 0);
+        ctx.lineTo(-this.size * 0.6, this.size * 0.4);
+        ctx.lineTo(this.size * 0.4, this.size * 0.45);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
@@ -11536,40 +11864,90 @@
       }
     }
     
-    // Bullet class
+    // Enhanced bullet class with motion trails
     class PreviewBullet {
       constructor(x, y, isEnemy) {
         this.x = x;
         this.y = y;
         this.isEnemy = isEnemy;
-        this.size = 5;
-        this.vx = isEnemy ? -6 : 8;
-        this.vy = (Math.random() - 0.5) * 0.5;
+        this.size = 6;
+        this.vx = isEnemy ? -7 : 9;
+        this.vy = (Math.random() - 0.5) * 0.6;
         this.life = 0;
         this.color = isEnemy ? '#dc2626' : '#fde047';
+        this.trail = [];
+        this.muzzleFlash = isEnemy ? 0 : 12;
       }
       
       update() {
-        this.x += this.vx;
-        this.y += this.vy;
+        this.x += this.vx * slowMotionFactor;
+        this.y += this.vy * slowMotionFactor;
         this.life++;
-        return this.x > -50 && this.x < canvas.width + 50 && this.life < 200;
+        
+        // Add trail point
+        this.trail.push({ x: this.x, y: this.y, life: 12 });
+        if (this.trail.length > 10) this.trail.shift();
+        this.trail.forEach(t => t.life--);
+        this.trail = this.trail.filter(t => t.life > 0);
+        
+        return this.x > -50 && this.x < canvas.width + 50 && this.life < 250;
       }
       
       draw() {
-        const pulse = Math.sin(this.life / 3) * 0.3 + 0.7;
+        // Draw motion trail
+        this.trail.forEach((t, i) => {
+          const alpha = (t.life / 12) * 0.6;
+          const size = (t.life / 12) * this.size * 0.8;
+          ctx.globalAlpha = alpha;
+          ctx.shadowBlur = 15;
+          ctx.shadowColor = this.color;
+          ctx.fillStyle = this.color;
+          ctx.beginPath();
+          ctx.arc(t.x, t.y, size, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        ctx.globalAlpha = 1;
+        ctx.shadowBlur = 0;
+        
+        // Muzzle flash effect
+        if (this.muzzleFlash > 0) {
+          this.muzzleFlash--;
+          ctx.globalAlpha = this.muzzleFlash / 12;
+          const flashGrad = ctx.createRadialGradient(this.x - 15, this.y, 0, this.x - 15, this.y, 25);
+          flashGrad.addColorStop(0, '#fef08a');
+          flashGrad.addColorStop(0.5, '#fbbf24');
+          flashGrad.addColorStop(1, 'rgba(253, 224, 71, 0)');
+          ctx.fillStyle = flashGrad;
+          ctx.fillRect(this.x - 40, this.y - 25, 50, 50);
+          ctx.globalAlpha = 1;
+        }
+        
+        // Enhanced bullet bloom
+        const pulse = Math.sin(this.life / 3) * 0.4 + 0.8;
         ctx.shadowColor = this.color;
-        ctx.shadowBlur = 15 * pulse;
-        ctx.fillStyle = this.color;
+        ctx.shadowBlur = 25 * pulse;
+        
+        const bulletGrad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size * 2.5 * pulse);
+        bulletGrad.addColorStop(0, this.color);
+        bulletGrad.addColorStop(0.4, this.color);
+        bulletGrad.addColorStop(1, `${this.color}00`);
+        ctx.fillStyle = bulletGrad;
         ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size * pulse, 0, Math.PI * 2);
+        ctx.arc(this.x, this.y, this.size * 2.5 * pulse, 0, Math.PI * 2);
         ctx.fill();
         
-        // Inner bright core
+        // Bullet core with bright center
         ctx.fillStyle = this.isEnemy ? '#fca5a5' : '#fef08a';
         ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size * 0.5, 0, Math.PI * 2);
+        ctx.arc(this.x, this.y, this.size * 0.7, 0, Math.PI * 2);
         ctx.fill();
+        
+        // Ultra-bright center
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size * 0.3, 0, Math.PI * 2);
+        ctx.fill();
+        
         ctx.shadowBlur = 0;
       }
     }
@@ -11613,35 +11991,112 @@
     }
     
     // Create explosion
-    const createExplosion = (x, y, color, count = 15) => {
+    // Enhanced cinematic explosion
+    const createExplosion = (x, y, color, count = 20) => {
+      // Trigger camera shake
+      cameraShake.intensity = 6;
+      cameraShake.x = (Math.random() - 0.5) * cameraShake.intensity;
+      cameraShake.y = (Math.random() - 0.5) * cameraShake.intensity;
+      
+      // Trigger slow motion for dramatic effect
+      slowMotionFactor = 0.25;
+      
+      // Create more diverse particles
       for (let i = 0; i < count; i++) {
         explosionParticles.push(new ExplosionParticle(x, y, color));
       }
       
-      // Add ring effect
+      // Add secondary fire particles
+      for (let i = 0; i < count / 2; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 2 + 0.5;
+        explosionParticles.push({
+          x, y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          size: Math.random() * 5 + 3,
+          color: '#fbbf24',
+          life: 40,
+          maxLife: 40,
+          update() {
+            this.x += this.vx * slowMotionFactor;
+            this.y += this.vy * slowMotionFactor;
+            this.vx *= 0.96;
+            this.vy *= 0.96;
+            this.life--;
+            return this.life > 0;
+          },
+          draw() {
+            const alpha = this.life / this.maxLife;
+            ctx.globalAlpha = alpha;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = this.color;
+            ctx.fillStyle = this.color;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+          }
+        });
+      }
+      
+      // Add multiple expanding rings
+      for (let i = 0; i < 2; i++) {
+        explosionParticles.push({
+          x, y,
+          radius: i * 15,
+          maxRadius: 60 + i * 20,
+          color,
+          life: 25,
+          maxLife: 25,
+          delay: i * 5,
+          update() {
+            if (this.delay > 0) {
+              this.delay--;
+              return true;
+            }
+            this.radius += 3 * slowMotionFactor;
+            this.life--;
+            return this.life > 0 && this.radius < this.maxRadius;
+          },
+          draw() {
+            if (this.delay > 0) return;
+            const alpha = this.life / this.maxLife;
+            ctx.globalAlpha = alpha * 0.9;
+            ctx.strokeStyle = this.color;
+            ctx.lineWidth = 4;
+            ctx.shadowColor = this.color;
+            ctx.shadowBlur = 20;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+          }
+        });
+      }
+      
+      // Add bright flash at center
       explosionParticles.push({
         x, y,
-        radius: 5,
-        maxRadius: 40,
-        color,
-        life: 20,
-        maxLife: 20,
+        size: 40,
+        life: 15,
+        maxLife: 15,
         update() {
-          this.radius += 2;
           this.life--;
+          this.size *= 0.9;
           return this.life > 0;
         },
         draw() {
           const alpha = this.life / this.maxLife;
           ctx.globalAlpha = alpha * 0.8;
-          ctx.strokeStyle = this.color;
-          ctx.lineWidth = 3;
-          ctx.shadowColor = this.color;
-          ctx.shadowBlur = 15;
-          ctx.beginPath();
-          ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-          ctx.stroke();
-          ctx.globalAlpha = 1;
+          const flashGrad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size);
+          flashGrad.addColorStop(0, '#ffffff');
+          flashGrad.addColorStop(0.3, color);
+          flashGrad.addColorStop(1, `${color}00`);
+          ctx.fillStyle = flashGrad;
+          ctx.shadowBlur = 30;
+          ctx.shadowColor = '#ffffff';
+          ctx.fillRect(this.x - this.size, this.y - this.size, this.size * 2, this.size * 2);
           ctx.shadowBlur = 0;
         }
       });
@@ -11649,9 +12104,6 @@
     
     // Initialize one player ship
     ships.push(new PreviewShip());
-    
-    // Spawn enemies periodically
-    let enemySpawnTimer = 0;
     
     // Collision detection (simplified)
     const checkCollisions = () => {
@@ -11683,27 +12135,76 @@
       }
     };
     
-    // Animation loop
+    // Cinematic animation loop
     let startAnimationFrame;
+    let enemySpawnTimer = 0;
+    
     const animate = () => {
-      // Clear with subtle fade
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+      // Motion blur effect
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
-      // Draw background stars
+      // Apply camera shake
+      ctx.save();
+      ctx.translate(cameraShake.x, cameraShake.y);
+      
+      // Draw cinematic light beams
+      lightBeams.forEach(beam => {
+        beam.x += Math.cos(beam.angle) * beam.speed;
+        beam.y += Math.sin(beam.angle) * beam.speed;
+        
+        // Wrap around
+        if (beam.x < -beam.length) beam.x = canvas.width + beam.length;
+        if (beam.x > canvas.width + beam.length) beam.x = -beam.length;
+        if (beam.y < -beam.length) beam.y = canvas.height + beam.length;
+        if (beam.y > canvas.height + beam.length) beam.y = -beam.length;
+        
+        ctx.globalAlpha = beam.opacity;
+        ctx.strokeStyle = `${beam.color}, ${beam.opacity})`;
+        ctx.lineWidth = beam.width;
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = beam.color.replace('rgba', 'rgb').replace(/, \d+\.\d+\)/, ')');
+        ctx.beginPath();
+        ctx.moveTo(beam.x, beam.y);
+        ctx.lineTo(
+          beam.x + Math.cos(beam.angle) * beam.length,
+          beam.y + Math.sin(beam.angle) * beam.length
+        );
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      });
+      ctx.globalAlpha = 1;
+      
+      // Draw enhanced background stars with depth of field
       bgStars.forEach(star => {
-        star.x -= star.speed;
+        star.x -= star.speed * star.depth;
         if (star.x < 0) star.x = canvas.width;
         
-        ctx.globalAlpha = star.opacity;
+        const blur = (1 - star.depth) * 2;
+        ctx.shadowBlur = blur;
+        ctx.shadowColor = '#c8dcff';
+        ctx.globalAlpha = star.opacity * star.depth;
         ctx.fillStyle = '#c8dcff';
-        ctx.fillRect(star.x, star.y, star.size, star.size);
-        ctx.globalAlpha = 1;
+        ctx.beginPath();
+        ctx.arc(star.x, star.y, star.size * star.depth, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
       });
+      ctx.globalAlpha = 1;
       
-      // Spawn enemies
+      // Cinematic event system (occasional slow motion)
+      cinematicEventTimer++;
+      if (cinematicEventTimer > 600 && slowMotionFactor === 1) {
+        slowMotionFactor = 0.3; // Slow motion
+        cinematicEventTimer = 0;
+      }
+      if (slowMotionFactor < 1) {
+        slowMotionFactor = Math.min(1, slowMotionFactor + 0.015); // Gradual return to normal
+      }
+      
+      // Spawn enemies more aggressively
       enemySpawnTimer++;
-      if (enemySpawnTimer > 50 && enemies.length < 8) {
+      if (enemySpawnTimer > 45 && enemies.length < 10) {
         enemySpawnTimer = 0;
         enemies.push(new PreviewEnemy());
       }
@@ -11732,7 +12233,7 @@
         }
       }
       
-      // Check collisions
+      // Check collisions with enhanced effects
       checkCollisions();
       
       // Update and draw explosion particles
@@ -11743,6 +12244,19 @@
           explosionParticles[i].draw();
         }
       }
+      
+      // Decay camera shake
+      cameraShake.intensity *= 0.88;
+      if (cameraShake.intensity < 0.1) {
+        cameraShake.x = 0;
+        cameraShake.y = 0;
+        cameraShake.intensity = 0;
+      } else {
+        cameraShake.x = (Math.random() - 0.5) * cameraShake.intensity;
+        cameraShake.y = (Math.random() - 0.5) * cameraShake.intensity;
+      }
+      
+      ctx.restore();
       
       startAnimationFrame = requestAnimationFrame(animate);
     };
