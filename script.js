@@ -842,6 +842,10 @@
   let readyUpLevel = 0; // Level displayed during ready-up
   const camera = { x: 0, y: 0 };
 
+  // 3D Rendering System
+  let game3DInstance = null;
+  let use3DMode = true; // Enable 3D by default
+
   // Difficulty system
   let currentDifficulty = 'normal';
   let currentLeaderboardFilter = 'all';
@@ -2011,6 +2015,11 @@
   const shakeScreen = (power = 4, duration = 120) => {
     shakeUntil = Math.max(shakeUntil, performance.now() + duration);
     shakePower = power;
+    
+    // Also trigger 3D shake if active
+    if (use3DMode && game3DInstance) {
+      game3DInstance.shake(power);
+    }
   };
 
   // Phase 1: Spawn floating damage number
@@ -2496,9 +2505,12 @@
 
   class Asteroid {
     constructor(x, y, r, variant = 'rock') {
+      this.id = `asteroid_${entityIdCounter++}`;
       this.x = x;
       this.y = y;
       this.r = r;
+      this.size = r; // Add size property for 3D system
+      this.seed = Math.random() * 1000; // Random seed for 3D geometry variation
       this.variant = variant;
       this.rot = rand(0, Math.PI * 2);
       this.vx = rand(-0.45, 0.45);
@@ -4232,8 +4244,13 @@
   };
 
   /* ====== ENTITY CLASSES ====== */
+  
+  // Entity ID counter for 3D tracking
+  let entityIdCounter = 0;
+  
   class Bullet {
     constructor(x, y, vel, damage, color = '#fde047', speed = BASE.BULLET_SPEED, size = BASE.BULLET_SIZE, pierce = 0, isEnemy = false) {
+      this.id = `bullet_${entityIdCounter++}`;
       this.x = x;
       this.y = y;
       this.size = size;
@@ -4362,6 +4379,7 @@
 
   class Enemy {
     constructor(x, y, kind = 'chaser', isElite = false, isBoss = false) {
+      this.id = `enemy_${entityIdCounter++}`;
       this.x = x;
       this.y = y;
       this.kind = kind;
@@ -4815,9 +4833,11 @@
 
   class Coin {
     constructor(x, y) {
+      this.id = `coin_${entityIdCounter++}`;
       this.x = x;
       this.y = y;
       this.r = BASE.COIN_SIZE;
+      this.size = BASE.COIN_SIZE; // Add size property for 3D system
       this.created = performance.now();
       this.life = BASE.COIN_LIFETIME;
     }
@@ -7973,6 +7993,59 @@
   /* ====== RENDERING ====== */
   const drawGame = () => {
     if (!dom.ctx) return;
+    
+    // Check if 3D mode is active
+    if (use3DMode && game3DInstance && game3DInstance.isActive()) {
+      // Get current ship configuration
+      const shipConfig = Save.data.shipConfig || SHIP_TEMPLATES[0];
+      
+      // Update 3D entities (sync 2D state to 3D)
+      game3DInstance.update({
+        player: player,
+        bullets: bullets,
+        enemies: enemies,
+        obstacles: obstacles,
+        coins: coins,
+        shipData: {
+          shape: shipConfig.shape || 'spear',
+          scale: shipConfig.scale || 1,
+          colors: shipConfig.colors || {
+            primary: '#0ea5e9',
+            accent: '#38bdf8',
+            thruster: '#f97316',
+            trim: '#f8fafc',
+            canopy: '#7dd3fc'
+          }
+        },
+        boosting: keys.boost || false,
+        camera: camera
+      });
+      
+      // Update particles
+      game3DInstance.updateParticles(16.67);
+      
+      // Render 3D scene
+      game3DInstance.render();
+      
+      // Note: HUD and overlays are still rendered separately in 2D (updateHUD())
+      // Draw FPS counter on top of 3D if enabled
+      if (showFPS && fps > 0) {
+        const ctx = dom.ctx;
+        ctx.save();
+        ctx.font = 'bold 16px monospace';
+        ctx.fillStyle = fps >= 55 ? '#4ade80' : fps >= 30 ? '#fbbf24' : '#ef4444';
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 3;
+        ctx.textAlign = 'right';
+        ctx.strokeText(`${fps} FPS`, dom.canvas.width - 10, 30);
+        ctx.fillText(`${fps} FPS`, dom.canvas.width - 10, 30);
+        ctx.restore();
+      }
+      
+      return; // Exit early, 3D rendering is done
+    }
+    
+    // Fallback to 2D rendering
     const ctx = dom.ctx;
     const canvas = dom.canvas;
     
@@ -9130,6 +9203,12 @@
       camera.x = player.x - dom.canvas.width / 2;
       camera.y = player.y - dom.canvas.height / 2;
     }
+    
+    // Resize 3D renderer if active
+    if (game3DInstance) {
+      game3DInstance.resize();
+    }
+    
     drawStartGraphic();
   };
 
@@ -9390,6 +9469,38 @@
   };
 
   /* ====== INITIALISATION ====== */
+  
+  // Initialize 3D rendering system
+  const init3DSystem = () => {
+    if (typeof window.__VOID_RIFT_3D__ !== 'undefined') {
+      try {
+        const initialized = window.__VOID_RIFT_3D__.init(dom.canvas);
+        if (initialized) {
+          game3DInstance = window.__VOID_RIFT_3D__;
+          
+          // Try to load 3D preference from localStorage
+          try {
+            const saved3DPref = localStorage.getItem('void_rift_3d_mode');
+            if (saved3DPref !== null) {
+              use3DMode = saved3DPref === 'true';
+            }
+          } catch (e) {
+            // Ignore localStorage errors
+          }
+          
+          game3DInstance.setEnabled(use3DMode);
+          console.log('3D mode initialized:', use3DMode ? 'Enabled' : 'Disabled');
+          return true;
+        }
+      } catch (error) {
+        console.warn('3D initialization failed, using 2D fallback:', error);
+        use3DMode = false;
+        game3DInstance = null;
+      }
+    }
+    return false;
+  };
+  
   const ready = () => {
     assignDomRefs();
     Save.load();
@@ -9402,6 +9513,10 @@
     loadControlSettings(); // Load and apply control settings
     setupInput();
     resizeCanvas();
+    
+    // Initialize 3D system after canvas is ready
+    init3DSystem();
+    
     drawStartGraphic();
     updateHUD();
   };
