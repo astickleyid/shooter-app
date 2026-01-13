@@ -8,6 +8,9 @@
     "ecmaVersion": 2022,
     "sourceType": "script"
   },
+  "globals": {
+    "THREE": "readonly"
+  },
   "rules": {
     "no-unused-vars": ["warn", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
     "no-console": ["warn", { "allow": ["warn", "error"] }],
