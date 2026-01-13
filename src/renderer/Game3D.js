@@ -8,6 +8,9 @@ import { Background3D } from './Background3D.js';
 import { Ship3D } from '../entities3d/Ship3D.js';
 import { Bullet3D } from '../entities3d/Bullet3D.js';
 import { Enemy3D } from '../entities3d/Enemy3D.js';
+import { Asteroid3D } from '../entities3d/Asteroid3D.js';
+import { Coin3D } from '../entities3d/Coin3D.js';
+import { Particles3D } from '../entities3d/Particles3D.js';
 import { supportsWebGL } from '../utils/webgl.js';
 
 export class Game3D {
@@ -16,6 +19,7 @@ export class Game3D {
     this.renderer3D = null;
     this.background3D = null;
     this.playerShip3D = null;
+    this.particles3D = null;
     
     // Entity maps (2D entity -> 3D entity)
     this.bullets3D = new Map();
@@ -55,6 +59,10 @@ export class Game3D {
       // Create background
       this.background3D = new Background3D(this.renderer3D);
       this.background3D.init();
+
+      // Create particle system
+      this.particles3D = new Particles3D(this.renderer3D);
+      this.particles3D.init();
 
       this.initialized = true;
       this.enabled = true;
@@ -205,6 +213,97 @@ export class Game3D {
   }
 
   /**
+   * Sync 3D asteroids with 2D asteroids
+   * @param {Array} asteroids2D - Array of 2D asteroid entities
+   */
+  syncAsteroids(asteroids2D) {
+    if (!this.enabled) return;
+
+    const activeAsteroids = new Set();
+
+    asteroids2D.forEach(asteroid => {
+      const asteroidId = asteroid.id || asteroid;
+      activeAsteroids.add(asteroidId);
+
+      if (!this.asteroids3D.has(asteroidId)) {
+        const asteroid3D = new Asteroid3D(
+          asteroid.x,
+          asteroid.y,
+          asteroid.size || 30,
+          asteroid.seed || Math.random() * 1000,
+          this.renderer3D
+        );
+        this.asteroids3D.set(asteroidId, asteroid3D);
+      } else {
+        const asteroid3D = this.asteroids3D.get(asteroidId);
+        asteroid3D.update(asteroid.x, asteroid.y);
+      }
+    });
+
+    for (const [asteroidId, asteroid3D] of this.asteroids3D.entries()) {
+      if (!activeAsteroids.has(asteroidId)) {
+        asteroid3D.dispose();
+        this.asteroids3D.delete(asteroidId);
+      }
+    }
+  }
+
+  /**
+   * Sync 3D coins with 2D coins
+   * @param {Array} coins2D - Array of 2D coin entities
+   */
+  syncCoins(coins2D) {
+    if (!this.enabled) return;
+
+    const activeCoins = new Set();
+    const currentTime = performance.now();
+
+    coins2D.forEach(coin => {
+      const coinId = coin.id || coin;
+      activeCoins.add(coinId);
+
+      if (!this.coins3D.has(coinId)) {
+        const coin3D = new Coin3D(
+          coin.x,
+          coin.y,
+          this.renderer3D
+        );
+        this.coins3D.set(coinId, coin3D);
+      } else {
+        const coin3D = this.coins3D.get(coinId);
+        coin3D.update(coin.x, coin.y, currentTime);
+      }
+    });
+
+    for (const [coinId, coin3D] of this.coins3D.entries()) {
+      if (!activeCoins.has(coinId)) {
+        coin3D.dispose();
+        this.coins3D.delete(coinId);
+      }
+    }
+  }
+
+  /**
+   * Add particle effect
+   * @param {object} config - Particle configuration
+   */
+  addParticleEffect(config) {
+    if (!this.enabled || !this.particles3D) return;
+
+    this.particles3D.addParticles(config);
+  }
+
+  /**
+   * Update particles
+   * @param {number} dt - Delta time
+   */
+  updateParticles(dt) {
+    if (!this.enabled || !this.particles3D) return;
+
+    this.particles3D.update(dt);
+  }
+
+  /**
    * Update camera to follow player
    * @param {object} player - Player entity
    */
@@ -261,16 +360,22 @@ export class Game3D {
     }
     this.enemies3D.clear();
 
-    // Clear other entities...
+    // Clear asteroids
     for (const asteroid3D of this.asteroids3D.values()) {
       asteroid3D.dispose();
     }
     this.asteroids3D.clear();
 
+    // Clear coins
     for (const coin3D of this.coins3D.values()) {
       coin3D.dispose();
     }
     this.coins3D.clear();
+
+    // Clear particles
+    if (this.particles3D) {
+      this.particles3D.dispose();
+    }
   }
 
   /**
