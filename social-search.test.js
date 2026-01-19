@@ -22,6 +22,7 @@ describe('Social Hub Search Debouncing', () => {
 
     // Load SocialHub
     SocialHub = {
+      SEARCH_DEBOUNCE_MS: 400,
       searchDebounceTimer: null,
       searchAbortController: null,
       
@@ -47,7 +48,7 @@ describe('Social Hub Search Debouncing', () => {
 
         this.searchDebounceTimer = setTimeout(() => {
           this.searchPlayers(query, resultsEl);
-        }, 400);
+        }, this.SEARCH_DEBOUNCE_MS);
       },
 
       async searchPlayers(query, resultsEl) {

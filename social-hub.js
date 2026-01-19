@@ -5,7 +5,8 @@
  */
 
 const SocialHub = {
-  // Debounce timer and abort controller for search
+  // Debounce configuration and state for search
+  SEARCH_DEBOUNCE_MS: 400,
   searchDebounceTimer: null,
   searchAbortController: null,
 
@@ -702,10 +703,10 @@ const SocialHub = {
     // Show loading indicator immediately
     resultsEl.innerHTML = '<div class="search-loading">🔍 Searching...</div>';
 
-    // Debounce the actual search by 400ms
+    // Debounce the actual search
     this.searchDebounceTimer = setTimeout(() => {
       this.searchPlayers(query, resultsEl);
-    }, 400);
+    }, this.SEARCH_DEBOUNCE_MS);
   },
 
   // Search players (now called by debounced handler)

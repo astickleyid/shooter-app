@@ -14,23 +14,19 @@ const SocialAPI = {
   // Helper: Make API request
   async request(endpoint, options = {}) {
     try {
-      // Use provided signal or create a timeout-based one
-      let controller;
-      let timeout;
-      
-      if (options.signal) {
-        // Use external abort signal (for debounced search)
-        controller = null;
-        timeout = null;
-      } else {
-        // Create timeout-based abort controller
-        controller = new AbortController();
-        timeout = setTimeout(() => controller.abort(), SOCIAL_CONFIG.TIMEOUT_MS);
-      }
-
       const authHeaders = this.currentUser?.sessionToken
         ? { Authorization: `Bearer ${this.currentUser.sessionToken}` }
         : {};
+
+      // Setup abort signal: use provided signal or create timeout-based one
+      let signal = options.signal;
+      let timeout = null;
+      
+      if (!signal) {
+        const controller = new AbortController();
+        timeout = setTimeout(() => controller.abort(), SOCIAL_CONFIG.TIMEOUT_MS);
+        signal = controller.signal;
+      }
 
       const response = await fetch(`${SOCIAL_CONFIG.API_BASE}${endpoint}`, {
         ...options,
@@ -39,7 +35,7 @@ const SocialAPI = {
           ...authHeaders,
           ...options.headers
         },
-        signal: options.signal || (controller ? controller.signal : undefined)
+        signal
       });
 
       if (timeout) clearTimeout(timeout);
