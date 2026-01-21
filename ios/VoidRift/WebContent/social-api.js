@@ -14,12 +14,19 @@ const SocialAPI = {
   // Helper: Make API request
   async request(endpoint, options = {}) {
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), SOCIAL_CONFIG.TIMEOUT_MS);
-
       const authHeaders = this.currentUser?.sessionToken
         ? { Authorization: `Bearer ${this.currentUser.sessionToken}` }
         : {};
+
+      // Setup abort signal: use provided signal or create timeout-based one
+      let signal = options.signal;
+      let timeout = null;
+      
+      if (!signal) {
+        const controller = new AbortController();
+        timeout = setTimeout(() => controller.abort(), SOCIAL_CONFIG.TIMEOUT_MS);
+        signal = controller.signal;
+      }
 
       const response = await fetch(`${SOCIAL_CONFIG.API_BASE}${endpoint}`, {
         ...options,
@@ -28,10 +35,10 @@ const SocialAPI = {
           ...authHeaders,
           ...options.headers
         },
-        signal: controller.signal
+        signal
       });
 
-      clearTimeout(timeout);
+      if (timeout) clearTimeout(timeout);
 
       const data = await response.json();
       
@@ -142,9 +149,10 @@ const SocialAPI = {
     return data;
   },
 
-  async searchUsers(query, limit = 20) {
+  async searchUsers(query, limit = 20, signal = null) {
     const params = new URLSearchParams({ action: 'search', query, limit });
-    const data = await this.request(`/users?${params}`);
+    const options = signal ? { signal } : {};
+    const data = await this.request(`/users?${params}`, options);
     return data.users;
   },
 

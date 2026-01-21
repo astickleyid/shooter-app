@@ -5,6 +5,11 @@
  */
 
 const SocialHub = {
+  // Debounce configuration and state for search
+  SEARCH_DEBOUNCE_MS: 400,
+  searchDebounceTimer: null,
+  searchAbortController: null,
+
   // Show login/register modal - unified with main game auth
   showAuthModal(mode = 'login') {
     // Remove any existing auth modal first to avoid duplicate IDs
@@ -586,7 +591,7 @@ const SocialHub = {
             <div class="friends-list">
               <h3>Friends (${friends.length})</h3>
               <div class="friend-search">
-                <input type="text" id="friendSearchInput" placeholder="🔍 Search players..." onkeyup="SocialHub.searchPlayers(event)">
+                <input type="text" id="friendSearchInput" placeholder="🔍 Search players..." oninput="SocialHub.handleSearchInput(event)">
                 <div id="searchResults"></div>
               </div>
 
@@ -673,18 +678,44 @@ const SocialHub = {
     }
   },
 
-  // Search players
-  async searchPlayers(event) {
+  // Handle search input with debouncing
+  handleSearchInput(event) {
     const query = event.target.value.trim();
     const resultsEl = document.getElementById('searchResults');
 
+    // Clear previous timer
+    if (this.searchDebounceTimer) {
+      clearTimeout(this.searchDebounceTimer);
+    }
+
+    // Cancel any pending request
+    if (this.searchAbortController) {
+      this.searchAbortController.abort();
+      this.searchAbortController = null;
+    }
+
+    // Clear results if query is too short
     if (query.length < 2) {
       resultsEl.innerHTML = '';
       return;
     }
 
+    // Show loading indicator immediately
+    resultsEl.innerHTML = '<div class="search-loading">🔍 Searching...</div>';
+
+    // Debounce the actual search
+    this.searchDebounceTimer = setTimeout(() => {
+      this.searchPlayers(query, resultsEl);
+    }, this.SEARCH_DEBOUNCE_MS);
+  },
+
+  // Search players (now called by debounced handler)
+  async searchPlayers(query, resultsEl) {
+    // Create new abort controller for this request
+    this.searchAbortController = new AbortController();
+
     try {
-      const users = await SocialAPI.searchUsers(query, 10);
+      const users = await SocialAPI.searchUsers(query, 10, this.searchAbortController.signal);
       
       resultsEl.innerHTML = users.length > 0 ? `
         <div class="search-results-dropdown">
@@ -700,7 +731,12 @@ const SocialHub = {
         </div>
       ` : '<div class="search-no-results">No players found</div>';
     } catch (error) {
+      // Ignore abort errors (they're expected when user types quickly)
+      if (error.name === 'AbortError') {
+        return;
+      }
       console.error('Search failed:', error);
+      resultsEl.innerHTML = '<div class="search-error">Search failed. Please try again.</div>';
     }
   },
 

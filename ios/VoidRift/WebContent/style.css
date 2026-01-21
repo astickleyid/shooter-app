@@ -2953,6 +2953,26 @@ html, body {
   font-size: 13px;
 }
 
+.search-loading {
+  padding: 20px;
+  text-align: center;
+  color: #60a5fa;
+  font-size: 13px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.search-error {
+  padding: 20px;
+  text-align: center;
+  color: #ef4444;
+  font-size: 13px;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 .no-friends,
 .no-activity {
   text-align: center;
