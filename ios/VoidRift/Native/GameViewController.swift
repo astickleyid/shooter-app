@@ -40,8 +40,7 @@ class GameViewController: UIViewController {
         config.allowsInlineMediaPlayback = true
         config.mediaTypesRequiringUserActionForPlayback = []
         
-        // Performance optimizations
-        config.preferences.javaScriptEnabled = true
+        // Performance optimizations - javaScriptEnabled is deprecated, JS is enabled by default
         config.preferences.javaScriptCanOpenWindowsAutomatically = false
         
         webView = WKWebView(frame: view.bounds, configuration: config)
