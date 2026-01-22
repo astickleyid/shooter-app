@@ -17,6 +17,7 @@
 		AA0008 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BB0008 /* Assets.xcassets */; };
 		AA0009 /* WebContent in Resources */ = {isa = PBXBuildFile; fileRef = BB0009 /* WebContent */; };
 		AA0010 /* GameCenterManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0011 /* GameCenterManager.swift */; };
+		AA0011 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = BB0012 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -32,6 +33,7 @@
 		BB0009 /* WebContent */ = {isa = PBXFileReference; lastKnownFileType = folder; path = WebContent; sourceTree = "<group>"; };
 		BB0010 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		BB0011 /* GameCenterManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCenterManager.swift; sourceTree = "<group>"; };
+		BB0012 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -90,6 +92,7 @@
 			isa = PBXGroup;
 			children = (
 				BB0010 /* Info.plist */,
+				BB0012 /* PrivacyInfo.xcprivacy */,
 				DD0006 /* Base.lproj */,
 			);
 			path = Supporting;
@@ -164,6 +167,7 @@
 				AA0007 /* LaunchScreen.storyboard in Resources */,
 				AA0008 /* Assets.xcassets in Resources */,
 				AA0009 /* WebContent in Resources */,
+				AA0011 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -314,11 +318,14 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = NCG387GT8Y;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = VoidRift/Supporting/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Void Rift";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.games";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIStatusBarHidden = YES;
@@ -342,11 +349,14 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = VoidRift/Supporting/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Void Rift";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.games";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIStatusBarHidden = YES;
