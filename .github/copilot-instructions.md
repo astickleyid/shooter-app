@@ -1,5 +1,20 @@
 # Copilot Instructions for VOID RIFT
 
+> These instructions guide GitHub Copilot in understanding the project structure, coding conventions, and development workflows for VOID RIFT. They are optimized for the coding agent to provide relevant assistance.
+
+## Quick Start
+
+Before contributing, ensure you have:
+- **Node.js**: 14.0.0+ installed
+- **Python 3**: For local development server
+- **Xcode 14+**: For iOS development (macOS only)
+
+Setup steps:
+1. Clone the repository
+2. Run `npm install` to install dependencies
+3. Run `npm test` to verify setup
+4. Run `npm start` to start local development server
+
 ## Project Overview
 
 VOID RIFT is a **mobile-first iOS twin-stick shooter** built with vanilla HTML, CSS, and JavaScript running in a native iOS WKWebView wrapper. The project prioritizes iOS/mobile optimization and performance, with the Vercel web deployment serving primarily as a development and testing platform.
@@ -105,6 +120,29 @@ shooter-app/
 - Avoid `console.log` (use `console.warn` or `console.error` for errors)
 - Follow the ESLint configuration in `.eslintrc.json`
 
+Example:
+```javascript
+// Good: Clear naming, const/let, JSDoc
+/**
+ * Calculate distance between two points
+ * @param {Object} p1 - First point with x, y properties
+ * @param {Object} p2 - Second point with x, y properties
+ * @returns {number} Distance between points
+ */
+function distance(p1, p2) {
+  const dx = p2.x - p1.x;
+  const dy = p2.y - p1.y;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+// Bad: var usage, poor naming, no documentation
+function d(a, b) {
+  var x = b.x - a.x;
+  var y = b.y - a.y;
+  return Math.sqrt(x * x + y * y);
+}
+```
+
 ### Swift Style (iOS Native Code)
 - Follow Swift naming conventions (camelCase for properties/methods)
 - Use proper access control (`private`, `internal`, `public`)
@@ -143,6 +181,15 @@ Follow conventional commits format:
 - `test:` Adding or updating tests
 - `chore:` Maintenance tasks
 
+Examples:
+```
+feat: Add particle explosion effect for asteroids
+fix: Correct touch input dead zone on landscape mode
+docs: Update iOS build guide with Xcode 15 requirements
+test: Add tests for collision detection edge cases
+perf: Optimize particle system for 60 FPS on iPhone 8
+```
+
 ## Git Workflow
 
 1. Create a new branch for your feature: `git checkout -b feature/your-feature-name`
@@ -150,6 +197,29 @@ Follow conventional commits format:
 3. Lint your code: `npm run lint:fix`
 4. Commit with a clear message following conventional commits
 5. Push your branch and create a pull request
+
+## Common Development Tasks
+
+### Adding a New Game Feature
+1. Update game logic in `script.js` or create a module in `src/`
+2. Add tests in a corresponding `.test.js` file
+3. Update `style.css` if UI changes are needed
+4. Test in browser with `npm start`
+5. Sync to iOS with `./sync-ios-content.sh`
+6. Test on actual iOS device
+
+### Fixing a Bug
+1. Write a failing test that reproduces the bug
+2. Fix the bug in the appropriate file
+3. Verify the test now passes with `npm test`
+4. Run linter with `npm run lint:fix`
+5. Test manually in both web and iOS (if applicable)
+
+### Adding a New Test
+1. Create or modify a `*.test.js` file
+2. Follow existing test patterns in the codebase
+3. Run the specific test: `npm test yourfile.test.js`
+4. Run all tests to ensure no regressions: `npm test`
 
 ## Files to Avoid Modifying
 
