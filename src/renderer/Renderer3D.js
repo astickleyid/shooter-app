@@ -83,16 +83,17 @@ export class Renderer3D {
     }
 
     // DEBUG: Add test cube at origin to verify rendering
-    const testGeometry = new THREE.BoxGeometry(50, 50, 50);
-    const testMaterial = new THREE.MeshStandardMaterial({
-      color: '#00ff00',
-      emissive: '#00ff00',
-      emissiveIntensity: 0.5
+    const testGeometry = new THREE.BoxGeometry(200, 200, 200);
+    const testMaterial = new THREE.MeshBasicMaterial({
+      color: 0x00ff00,  // Bright green - impossible to miss
+      wireframe: false
     });
     const testCube = new THREE.Mesh(testGeometry, testMaterial);
     testCube.position.set(0, 0, 0);
     this.layers.gameplay.add(testCube);
-    console.log('DEBUG: Added test cube at origin (0,0,0)');
+    console.log('DEBUG: Added HUGE test cube (200x200x200) at origin with bright green color');
+    console.log('DEBUG: Scene has', this.scene.children.length, 'children');
+    console.log('DEBUG: Gameplay layer has', this.layers.gameplay.children.length, 'children');
 
     this.initialized = true;
   }
@@ -152,6 +153,11 @@ export class Renderer3D {
    * Set up post-processing effects
    */
   setupPostProcessing() {
+    // TEMPORARILY DISABLED - Test direct rendering first
+    console.log('DEBUG: Post-processing DISABLED for testing - using direct render');
+    return;
+    
+    /* eslint-disable no-unreachable */
     this.composer = new EffectComposer(this.renderer);
     
     // Main render pass
@@ -199,7 +205,21 @@ export class Renderer3D {
    * Render the scene
    */
   render() {
-    if (!this.initialized) return;
+    if (!this.initialized) {
+      console.warn('Renderer not initialized');
+      return;
+    }
+
+    // Log render call (only first few times)
+    if (!this._renderCount) this._renderCount = 0;
+    this._renderCount++;
+    
+    if (this._renderCount <= 5 || this._renderCount % 60 === 0) {
+      console.log(`[3D RENDER #${this._renderCount}] Camera:`, 
+        this.camera.position.toArray(), 
+        'Scene children:', this.scene.children.length,
+        'Using composer:', !!this.composer);
+    }
 
     if (this.composer) {
       this.composer.render();

@@ -24,7 +24,7 @@
   "dependencies": {
     "@vercel/kv": "^3.0.0",
     "ioredis": "^5.8.2",
-    "three": "^0.182.0"
+    "three": "^0.162.0"
   },
   "devDependencies": {
     "eslint": "^8.57.0",
