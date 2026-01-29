@@ -218,7 +218,7 @@ perf: Optimize particle system for 60 FPS on iPhone 8
 ### Adding a New Test
 1. Create or modify a `*.test.js` file
 2. Follow existing test patterns in the codebase
-3. Run the specific test: `npm test yourfile.test.js`
+3. Run the specific test: `npm test -- yourfile.test.js`
 4. Run all tests to ensure no regressions: `npm test`
 
 ## Files to Avoid Modifying
@@ -483,7 +483,7 @@ The backend uses Vercel Serverless Functions located in the `api/` directory:
 npm test
 
 # Run specific test file
-npm test game-utils.test.js
+npm test -- game-utils.test.js
 
 # Run tests in watch mode
 npm run test:watch
