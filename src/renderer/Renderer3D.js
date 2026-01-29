@@ -45,19 +45,22 @@ export class Renderer3D {
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,
       antialias: this.qualitySettings.antialias,
-      alpha: false,
-      powerPreference: 'high-performance'
+      alpha: false,  // No transparency - solid background
+      powerPreference: 'high-performance',
+      premultipliedAlpha: false
     });
     
     this.renderer.setPixelRatio(this.qualitySettings.pixelRatio);
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.setClearColor(0x030712, 1); // Match 2D background color
+    this.renderer.setClearColor(0x030712, 1.0); // Dark blue background, fully opaque
     
     // Enable shadows if supported
     if (this.qualitySettings.shadows) {
       this.renderer.shadowMap.enabled = true;
       this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     }
+    
+    console.log('DEBUG: Renderer created with opaque background');
 
     // Create scene
     this.scene = new THREE.Scene();
@@ -78,6 +81,18 @@ export class Renderer3D {
     if (this.qualitySettings.postProcessing) {
       this.setupPostProcessing();
     }
+
+    // DEBUG: Add test cube at origin to verify rendering
+    const testGeometry = new THREE.BoxGeometry(50, 50, 50);
+    const testMaterial = new THREE.MeshStandardMaterial({
+      color: '#00ff00',
+      emissive: '#00ff00',
+      emissiveIntensity: 0.5
+    });
+    const testCube = new THREE.Mesh(testGeometry, testMaterial);
+    testCube.position.set(0, 0, 0);
+    this.layers.gameplay.add(testCube);
+    console.log('DEBUG: Added test cube at origin (0,0,0)');
 
     this.initialized = true;
   }
