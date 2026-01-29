@@ -17,6 +17,7 @@ export class Renderer3D {
     this.renderer = null;
     this.composer = null;
     this.qualitySettings = getRecommendedQualitySettings();
+    this.testCube = null; // Reference to test cube for debugging
     
     // Scene layers for organized rendering
     this.layers = {
@@ -85,26 +86,14 @@ export class Renderer3D {
     // DEBUG: Add test cube at origin to verify rendering
     const testGeometry = new THREE.BoxGeometry(200, 200, 200);
     const testMaterial = new THREE.MeshBasicMaterial({
-      color: 0x00ff00,  // Bright green - impossible to miss
+      color: 0xffffff,  // Pure white - impossible to miss!
       wireframe: false
     });
-    const testCube = new THREE.Mesh(testGeometry, testMaterial);
-    testCube.position.set(0, 0, 0);
-    testCube.name = 'testCubeOrigin';
-    this.layers.gameplay.add(testCube);
-    console.log('DEBUG: Added HUGE test cube (200x200x200) at origin with bright green color');
-    
-    // DEBUG: Add ANOTHER test cube directly in front of camera (relative position)
-    const testCube2Geometry = new THREE.BoxGeometry(100, 100, 100);
-    const testCube2Material = new THREE.MeshBasicMaterial({
-      color: 0xff0000,  // Bright red
-      wireframe: false
-    });
-    const testCube2 = new THREE.Mesh(testCube2Geometry, testCube2Material);
-    testCube2.position.set(0, 50, 0); // In front of camera's view
-    testCube2.name = 'testCubeFront';
-    this.scene.add(testCube2); // Add directly to scene, not layer
-    console.log('DEBUG: Added RED test cube (100x100x100) at camera origin (0, 50, 0)');
+    this.testCube = new THREE.Mesh(testGeometry, testMaterial);
+    this.testCube.position.set(0, 0, 0);
+    this.testCube.name = 'testCubeOrigin';
+    this.layers.gameplay.add(this.testCube);
+    console.log('DEBUG: Added HUGE test cube (200x200x200) at origin with WHITE color, will follow camera');
     
     console.log('DEBUG: Scene has', this.scene.children.length, 'children');
     console.log('DEBUG: Gameplay layer has', this.layers.gameplay.children.length, 'children');
@@ -232,14 +221,21 @@ export class Renderer3D {
       console.log(`[3D RENDER #${this._renderCount}] Camera:`, 
         this.camera.position.toArray(), 
         'Scene children:', this.scene.children.length,
-        'Using composer:', !!this.composer);
+        'Using composer:', !!this.composer,
+        'Test cube visible:', this.testCube ? 'yes' : 'no');
+      
+      // Update test cube to be at camera position
+      if (this.testCube && this.camera) {
+        // Position test cube directly in front of camera
+        const camX = this.camera.position.x;
+        const camZ = this.camera.position.z;
+        this.testCube.position.set(camX, 0, camZ - 200); // 200 units in front
+        console.log(`[3D RENDER] Test cube moved to:`, this.testCube.position.toArray());
+      }
     }
 
-    if (this.composer) {
-      this.composer.render();
-    } else {
-      this.renderer.render(this.scene, this.camera);
-    }
+    // ALWAYS use direct rendering for now (no post-processing)
+    this.renderer.render(this.scene, this.camera);
   }
 
   /**
