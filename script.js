@@ -7994,9 +7994,7 @@
 
   /* ====== RENDERING ====== */
   const drawGame = () => {
-    if (!dom.ctx) return;
-    
-    // Check if 3D mode is active
+    // Check if 3D mode is active first (before ctx check)
     if (use3DMode && game3DInstance && game3DInstance.isActive()) {
       // Get current ship configuration
       const shipConfig = Save.data.shipConfig || SHIP_TEMPLATES[0];
@@ -8019,33 +8017,20 @@
             canopy: '#7dd3fc'
           }
         },
-        boosting: keys.boost || false,
+        boosting: false, // TODO: Track boosting state properly
         camera: camera
       });
-      
-      // Update particles
-      game3DInstance.updateParticles(16.67);
       
       // Render 3D scene
       game3DInstance.render();
       
       // Note: HUD and overlays are still rendered separately in 2D (updateHUD())
-      // Draw FPS counter on top of 3D if enabled
-      if (showFPS && fps > 0) {
-        const ctx = dom.ctx;
-        ctx.save();
-        ctx.font = 'bold 16px monospace';
-        ctx.fillStyle = fps >= 55 ? '#4ade80' : fps >= 30 ? '#fbbf24' : '#ef4444';
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 3;
-        ctx.textAlign = 'right';
-        ctx.strokeText(`${fps} FPS`, dom.canvas.width - 10, 30);
-        ctx.fillText(`${fps} FPS`, dom.canvas.width - 10, 30);
-        ctx.restore();
-      }
       
       return; // Exit early, 3D rendering is done
     }
+    
+    // 2D mode - need context
+    if (!dom.ctx) return;
     
     // Fallback to 2D rendering
     const ctx = dom.ctx;
