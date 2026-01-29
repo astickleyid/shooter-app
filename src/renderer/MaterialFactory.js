@@ -45,15 +45,17 @@ export class MaterialFactory {
   /**
    * Create bullet material with intense glow
    * @param {string} color - Bullet color (hex)
-   * @returns {THREE.MeshBasicMaterial} Material
+   * @returns {THREE.MeshStandardMaterial} Material
    */
   createBulletMaterial(color) {
     const key = `bullet_${color}`;
     return this.get(key, () => {
-      return new THREE.MeshBasicMaterial({
+      return new THREE.MeshStandardMaterial({
         color: color,
         emissive: color,
-        emissiveIntensity: 1.0
+        emissiveIntensity: 0.8,
+        metalness: 0.3,
+        roughness: 0.1
       });
     });
   }
