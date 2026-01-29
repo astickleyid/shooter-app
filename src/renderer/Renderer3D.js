@@ -53,7 +53,7 @@ export class Renderer3D {
     
     this.renderer.setPixelRatio(this.qualitySettings.pixelRatio);
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.setClearColor(0xff0000, 1.0); // BRIGHT RED for testing - if we see red, renderer works
+    this.renderer.setClearColor(0x030712, 1.0); // Dark blue space color
     
     // Enable shadows if supported
     if (this.qualitySettings.shadows) {
@@ -61,7 +61,7 @@ export class Renderer3D {
       this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     }
     
-    console.log('DEBUG: Renderer created with RED clear color for testing');
+    console.log('DEBUG: Renderer created with dark space background');
 
     // Create scene
     this.scene = new THREE.Scene();
@@ -84,16 +84,16 @@ export class Renderer3D {
     }
 
     // DEBUG: Add test cube at origin to verify rendering
-    const testGeometry = new THREE.BoxGeometry(200, 200, 200);
+    const testGeometry = new THREE.BoxGeometry(50, 50, 50);
     const testMaterial = new THREE.MeshBasicMaterial({
-      color: 0xffffff,  // Pure white - impossible to miss!
+      color: 0x00ff00,  // Green cube for testing
       wireframe: false
     });
     this.testCube = new THREE.Mesh(testGeometry, testMaterial);
     this.testCube.position.set(0, 0, 0);
-    this.testCube.name = 'testCubeOrigin';
+    this.testCube.name = 'testCube';
     this.layers.gameplay.add(this.testCube);
-    console.log('DEBUG: Added HUGE test cube (200x200x200) at origin with WHITE color, will follow camera');
+    console.log('DEBUG: Added small test cube (50x50x50) - will follow camera');
     
     console.log('DEBUG: Scene has', this.scene.children.length, 'children');
     console.log('DEBUG: Gameplay layer has', this.layers.gameplay.children.length, 'children');
@@ -156,11 +156,9 @@ export class Renderer3D {
    * Set up post-processing effects
    */
   setupPostProcessing() {
-    // TEMPORARILY DISABLED - Test direct rendering first
-    console.log('DEBUG: Post-processing DISABLED for testing - using direct render');
-    return;
+    // Enable post-processing for glow/bloom effects
+    console.log('DEBUG: Setting up post-processing with bloom');
     
-    /* eslint-disable no-unreachable */
     this.composer = new EffectComposer(this.renderer);
     
     // Main render pass
@@ -213,29 +211,19 @@ export class Renderer3D {
       return;
     }
 
-    // Log render call (only first few times)
-    if (!this._renderCount) this._renderCount = 0;
-    this._renderCount++;
-    
-    if (this._renderCount <= 5 || this._renderCount % 60 === 0) {
-      console.log(`[3D RENDER #${this._renderCount}] Camera:`, 
-        this.camera.position.toArray(), 
-        'Scene children:', this.scene.children.length,
-        'Using composer:', !!this.composer,
-        'Test cube visible:', this.testCube ? 'yes' : 'no');
-      
-      // Update test cube to be at camera position
-      if (this.testCube && this.camera) {
-        // Position test cube directly in front of camera
-        const camX = this.camera.position.x;
-        const camZ = this.camera.position.z;
-        this.testCube.position.set(camX, 0, camZ - 200); // 200 units in front
-        console.log(`[3D RENDER] Test cube moved to:`, this.testCube.position.toArray());
-      }
+    // Update test cube to follow camera
+    if (this.testCube && this.camera) {
+      const camX = this.camera.position.x;
+      const camZ = this.camera.position.z;
+      this.testCube.position.set(camX, 0, camZ - 100); // 100 units in front
     }
 
-    // ALWAYS use direct rendering for now (no post-processing)
-    this.renderer.render(this.scene, this.camera);
+    // Use composer if available, otherwise direct render
+    if (this.composer) {
+      this.composer.render();
+    } else {
+      this.renderer.render(this.scene, this.camera);
+    }
   }
 
   /**
