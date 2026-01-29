@@ -41,10 +41,13 @@ npm run lint
 npm run lint:fix
 
 # Run tests
-npx jest
+npm test
+
+# Run tests in watch mode
+npm run test:watch
 
 # Run tests with coverage
-npx jest --coverage
+npm run test:coverage
 
 # Start local development server
 npm start
@@ -123,7 +126,7 @@ shooter-app/
 ### Web/Jest Testing
 - Test files use the pattern `*.test.js`
 - Tests are written using Jest
-- Run `npx jest` before submitting changes
+- Run `npm test` before submitting changes
 - Test in multiple browsers (Chrome, Firefox, Safari, Edge) for web version
 - Web tests primarily verify game logic, not platform-specific features
 
@@ -407,16 +410,16 @@ The backend uses Vercel Serverless Functions located in the `api/` directory:
 ### Running Tests
 ```bash
 # Run all tests
-npx jest
+npm test
 
 # Run specific test file
-npx jest game-utils.test.js
+npm test game-utils.test.js
 
 # Run tests in watch mode
-npx jest --watch
+npm run test:watch
 
 # Run with coverage report
-npx jest --coverage
+npm run test:coverage
 ```
 
 ### Test Files
