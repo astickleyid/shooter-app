@@ -9505,10 +9505,12 @@
     syncCredits();
     loadControlSettings(); // Load and apply control settings
     setupInput();
-    resizeCanvas();
     
-    // Initialize 3D system after canvas is ready
+    // Initialize 3D system FIRST, before any canvas setup
     init3DSystem();
+    
+    // Then resize canvas (which may create 2D context if 3D failed)
+    resizeCanvas();
     
     drawStartGraphic();
     updateHUD();

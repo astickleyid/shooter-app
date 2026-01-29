@@ -52,7 +52,7 @@ export class Renderer3D {
     
     this.renderer.setPixelRatio(this.qualitySettings.pixelRatio);
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.setClearColor(0x030712, 1.0); // Dark blue background, fully opaque
+    this.renderer.setClearColor(0xff0000, 1.0); // BRIGHT RED for testing - if we see red, renderer works
     
     // Enable shadows if supported
     if (this.qualitySettings.shadows) {
@@ -60,7 +60,7 @@ export class Renderer3D {
       this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     }
     
-    console.log('DEBUG: Renderer created with opaque background');
+    console.log('DEBUG: Renderer created with RED clear color for testing');
 
     // Create scene
     this.scene = new THREE.Scene();
@@ -90,8 +90,22 @@ export class Renderer3D {
     });
     const testCube = new THREE.Mesh(testGeometry, testMaterial);
     testCube.position.set(0, 0, 0);
+    testCube.name = 'testCubeOrigin';
     this.layers.gameplay.add(testCube);
     console.log('DEBUG: Added HUGE test cube (200x200x200) at origin with bright green color');
+    
+    // DEBUG: Add ANOTHER test cube directly in front of camera (relative position)
+    const testCube2Geometry = new THREE.BoxGeometry(100, 100, 100);
+    const testCube2Material = new THREE.MeshBasicMaterial({
+      color: 0xff0000,  // Bright red
+      wireframe: false
+    });
+    const testCube2 = new THREE.Mesh(testCube2Geometry, testCube2Material);
+    testCube2.position.set(0, 50, 0); // In front of camera's view
+    testCube2.name = 'testCubeFront';
+    this.scene.add(testCube2); // Add directly to scene, not layer
+    console.log('DEBUG: Added RED test cube (100x100x100) at camera origin (0, 50, 0)');
+    
     console.log('DEBUG: Scene has', this.scene.children.length, 'children');
     console.log('DEBUG: Gameplay layer has', this.layers.gameplay.children.length, 'children');
 
