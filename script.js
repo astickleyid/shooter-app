@@ -740,7 +740,8 @@
     dom.startGraphicCanvas = document.getElementById('startGraphicCanvas');
     dom.gameContainer = document.getElementById('gameContainer');
     dom.canvas = document.getElementById('gameCanvas');
-    dom.ctx = dom.canvas ? dom.canvas.getContext('2d') : null;
+    // Note: Don't create 2D context yet - wait for 3D check first
+    dom.ctx = null;
     dom.scoreValue = document.getElementById('scoreValue');
     dom.levelValue = document.getElementById('levelValue');
     dom.healthBar = document.getElementById('healthBar');
@@ -841,6 +842,10 @@
   let readyUpPhase = false; // NEW: Phase where player can shop before countdown
   let readyUpLevel = 0; // Level displayed during ready-up
   const camera = { x: 0, y: 0 };
+
+  // 3D Rendering System
+  let game3DInstance = null;
+  let use3DMode = true; // Enable 3D by default
 
   // Difficulty system
   let currentDifficulty = 'normal';
@@ -2011,6 +2016,11 @@
   const shakeScreen = (power = 4, duration = 120) => {
     shakeUntil = Math.max(shakeUntil, performance.now() + duration);
     shakePower = power;
+    
+    // Also trigger 3D shake if active
+    if (use3DMode && game3DInstance) {
+      game3DInstance.shake(power);
+    }
   };
 
   // Phase 1: Spawn floating damage number
@@ -2496,9 +2506,12 @@
 
   class Asteroid {
     constructor(x, y, r, variant = 'rock') {
+      this.id = `asteroid_${entityIdCounter++}`;
       this.x = x;
       this.y = y;
       this.r = r;
+      this.size = r; // Add size property for 3D system
+      this.seed = Math.random() * 1000; // Random seed for 3D geometry variation
       this.variant = variant;
       this.rot = rand(0, Math.PI * 2);
       this.vx = rand(-0.45, 0.45);
@@ -4232,8 +4245,13 @@
   };
 
   /* ====== ENTITY CLASSES ====== */
+  
+  // Entity ID counter for 3D tracking
+  let entityIdCounter = 0;
+  
   class Bullet {
     constructor(x, y, vel, damage, color = '#fde047', speed = BASE.BULLET_SPEED, size = BASE.BULLET_SIZE, pierce = 0, isEnemy = false) {
+      this.id = `bullet_${entityIdCounter++}`;
       this.x = x;
       this.y = y;
       this.size = size;
@@ -4362,6 +4380,7 @@
 
   class Enemy {
     constructor(x, y, kind = 'chaser', isElite = false, isBoss = false) {
+      this.id = `enemy_${entityIdCounter++}`;
       this.x = x;
       this.y = y;
       this.kind = kind;
@@ -4815,9 +4834,11 @@
 
   class Coin {
     constructor(x, y) {
+      this.id = `coin_${entityIdCounter++}`;
       this.x = x;
       this.y = y;
       this.r = BASE.COIN_SIZE;
+      this.size = BASE.COIN_SIZE; // Add size property for 3D system
       this.created = performance.now();
       this.life = BASE.COIN_LIFETIME;
     }
@@ -7244,6 +7265,7 @@
     const canvas = dom.startGraphicCanvas;
     if (!canvas) return;
     const g = canvas.getContext('2d');
+    if (!g) return;
     const width = (canvas.width = canvas.clientWidth);
     const height = (canvas.height = canvas.clientHeight);
     g.fillStyle = '#000';
@@ -7972,7 +7994,45 @@
 
   /* ====== RENDERING ====== */
   const drawGame = () => {
+    // Check if 3D mode is active first (before ctx check)
+    if (use3DMode && game3DInstance && game3DInstance.isActive()) {
+      // Get current ship configuration
+      const shipConfig = Save.data.shipConfig || SHIP_TEMPLATES[0];
+      
+      // Update 3D entities (sync 2D state to 3D)
+      game3DInstance.update({
+        player: player,
+        bullets: bullets,
+        enemies: enemies,
+        obstacles: obstacles,
+        coins: coins,
+        shipData: {
+          shape: shipConfig.shape || 'spear',
+          scale: shipConfig.scale || 1,
+          colors: shipConfig.colors || {
+            primary: '#0ea5e9',
+            accent: '#38bdf8',
+            thruster: '#f97316',
+            trim: '#f8fafc',
+            canopy: '#7dd3fc'
+          }
+        },
+        boosting: false, // TODO: Track boosting state properly
+        camera: camera
+      });
+      
+      // Render 3D scene
+      game3DInstance.render();
+      
+      // Note: HUD and overlays are still rendered separately in 2D (updateHUD())
+      
+      return; // Exit early, 3D rendering is done
+    }
+    
+    // 2D mode - need context
     if (!dom.ctx) return;
+    
+    // Fallback to 2D rendering
     const ctx = dom.ctx;
     const canvas = dom.canvas;
     
@@ -8531,7 +8591,15 @@
     dom.canvas.height = Math.floor(window.innerHeight * dpr);
     dom.canvas.style.width = '100%';
     dom.canvas.style.height = '100%';
-    dom.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    
+    // Create 2D context if needed (for 2D mode or for star initialization even in 3D mode)
+    if (!dom.ctx && dom.canvas && !use3DMode) {
+      dom.ctx = dom.canvas.getContext('2d');
+    }
+    
+    if (dom.ctx) {
+      dom.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
     return dpr;
   };
 
@@ -9125,11 +9193,19 @@
     dom.canvas.height = Math.floor(window.innerHeight * dpr);
     dom.canvas.style.width = '100%';
     dom.canvas.style.height = '100%';
-    dom.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (dom.ctx) {
+      dom.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
     if (player) {
       camera.x = player.x - dom.canvas.width / 2;
       camera.y = player.y - dom.canvas.height / 2;
     }
+    
+    // Resize 3D renderer if active
+    if (game3DInstance) {
+      game3DInstance.resize();
+    }
+    
     drawStartGraphic();
   };
 
@@ -9390,6 +9466,34 @@
   };
 
   /* ====== INITIALISATION ====== */
+  
+  // Initialize 3D rendering system
+  const init3DSystem = () => {
+    if (typeof window.__VOID_RIFT_3D__ !== 'undefined') {
+      try {
+        const initialized = window.__VOID_RIFT_3D__.init(dom.canvas);
+        if (initialized) {
+          game3DInstance = window.__VOID_RIFT_3D__;
+          use3DMode = true;
+          console.log('3D mode enabled');
+          return true;
+        }
+      } catch (error) {
+        console.warn('3D initialization failed, using 2D fallback:', error);
+        use3DMode = false;
+        game3DInstance = null;
+      }
+    }
+    
+    // If 3D failed or not available, create 2D context
+    if (!dom.ctx && dom.canvas) {
+      dom.ctx = dom.canvas.getContext('2d');
+      console.log('Using 2D Canvas rendering');
+    }
+    
+    return false;
+  };
+  
   const ready = () => {
     assignDomRefs();
     Save.load();
@@ -9401,7 +9505,13 @@
     syncCredits();
     loadControlSettings(); // Load and apply control settings
     setupInput();
+    
+    // Initialize 3D system FIRST, before any canvas setup
+    init3DSystem();
+    
+    // Then resize canvas (which may create 2D context if 3D failed)
     resizeCanvas();
+    
     drawStartGraphic();
     updateHUD();
   };

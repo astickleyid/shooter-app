@@ -45,3 +45,6 @@ temp/
 
 # Vercel
 .vercel
+
+# Three.js libraries (served from node_modules)
+libs/
