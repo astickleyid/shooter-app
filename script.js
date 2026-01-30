@@ -12035,18 +12035,19 @@
     };
   };
   // Initialize on page load
+  let startScreenBackgroundCleanup;
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       initLoadingScreen();
       setTimeout(() => {
-        initStartScreenBackground();
+        startScreenBackgroundCleanup = initStartScreenBackground();
         initGameplayHints();
       }, 2000);
     });
   } else {
     initLoadingScreen();
     setTimeout(() => {
-      initStartScreenBackground();
+      startScreenBackgroundCleanup = initStartScreenBackground();
       initGameplayHints();
     }, 2000);
   }
