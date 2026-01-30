@@ -17,6 +17,234 @@ html, body {
   background: #000;
 }
 
+/* ==========================================
+   INITIAL LOADING OVERLAY
+   ========================================== */
+
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at center, #0a0a0a 0%, #000000 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: loadingFadeOut 0.8s ease 2s forwards;
+  pointer-events: auto;
+}
+
+.loading-overlay.loaded {
+  animation: loadingFadeOut 0.8s ease forwards;
+}
+
+@keyframes loadingFadeOut {
+  0% {
+    opacity: 1;
+    visibility: visible;
+  }
+  99% {
+    opacity: 0;
+    visibility: visible;
+  }
+  100% {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+.loading-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  opacity: 0.6;
+}
+
+.loading-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+}
+
+.loading-logo {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo-glow {
+  position: absolute;
+  inset: -40px;
+  background: radial-gradient(circle, rgba(74, 222, 128, 0.3) 0%, transparent 70%);
+  animation: logoGlowPulse 2s ease-in-out infinite;
+  filter: blur(30px);
+}
+
+@keyframes logoGlowPulse {
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+.loading-title {
+  font-size: clamp(48px, 12vw, 96px);
+  font-weight: 900;
+  color: #4ade80;
+  letter-spacing: 0.15em;
+  text-shadow: 
+    0 0 20px rgba(74, 222, 128, 0.8),
+    0 0 40px rgba(74, 222, 128, 0.6),
+    0 0 60px rgba(74, 222, 128, 0.4),
+    0 4px 8px rgba(0, 0, 0, 0.8);
+  display: flex;
+  gap: 0.1em;
+  margin: 0;
+}
+
+.loading-letter {
+  display: inline-block;
+  animation: letterFloat 1.5s ease-in-out infinite;
+  animation-delay: calc(var(--i) * 0.1s);
+}
+
+.loading-letter:nth-child(1) { --i: 0; }
+.loading-letter:nth-child(2) { --i: 1; }
+.loading-letter:nth-child(3) { --i: 2; }
+.loading-letter:nth-child(4) { --i: 3; }
+.loading-letter:nth-child(5) { --i: 4; }
+.loading-letter:nth-child(6) { --i: 5; }
+.loading-letter:nth-child(7) { --i: 6; }
+.loading-letter:nth-child(8) { --i: 7; }
+
+.loading-space {
+  width: 0.3em;
+}
+
+@keyframes letterFloat {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-10px) scale(1.05);
+  }
+}
+
+.loading-spinner {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spinner-ring {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border: 3px solid transparent;
+  border-top-color: #4ade80;
+  border-radius: 50%;
+  animation: spinnerRotate 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+}
+
+.spinner-ring:nth-child(1) {
+  animation-delay: -0.45s;
+  border-width: 3px;
+}
+
+.spinner-ring:nth-child(2) {
+  animation-delay: -0.3s;
+  width: 70%;
+  height: 70%;
+  border-width: 2px;
+  border-top-color: #22c55e;
+}
+
+.spinner-ring:nth-child(3) {
+  animation-delay: -0.15s;
+  width: 40%;
+  height: 40%;
+  border-width: 2px;
+  border-top-color: #86efac;
+}
+
+@keyframes spinnerRotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: #86efac;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  animation: textPulse 1.5s ease-in-out infinite;
+  text-shadow: 0 0 10px rgba(134, 239, 172, 0.5);
+}
+
+@keyframes textPulse {
+  0%, 100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.loading-bar {
+  width: min(400px, 80vw);
+  height: 4px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 2px;
+  overflow: hidden;
+  border: 1px solid rgba(74, 222, 128, 0.3);
+  box-shadow: 0 0 10px rgba(74, 222, 128, 0.2);
+}
+
+.loading-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4ade80, #22c55e, #4ade80);
+  background-size: 200% 100%;
+  border-radius: 2px;
+  animation: loadingBarProgress 2s ease-out forwards, loadingBarShimmer 1.5s linear infinite;
+  box-shadow: 0 0 10px rgba(74, 222, 128, 0.6);
+}
+
+@keyframes loadingBarProgress {
+  0% {
+    width: 0%;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
+@keyframes loadingBarShimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
 /* START SCREEN - Refined Compact Design */
 #startScreen {
   position: absolute;
@@ -29,12 +257,38 @@ html, body {
   gap: 20px;
   z-index: 20;
   padding: 16px;
+  overflow: hidden;
+}
+
+/* Animated Background Canvas */
+.start-background-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  opacity: 0.7;
+  pointer-events: none;
 }
 
 /* Header with title and tagline */
 .start-header {
   text-align: center;
   margin-bottom: 4px;
+  position: relative;
+  z-index: 1;
+  animation: fadeSlideDown 1s ease-out 0.5s both;
+}
+
+@keyframes fadeSlideDown {
+  0% {
+    opacity: 0;
+    transform: translateY(-30px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 #gameTitle {
@@ -44,11 +298,47 @@ html, body {
   letter-spacing: 0.12em;
   text-shadow: 0 0 30px rgba(74, 222, 128, 0.6), 0 2px 0 #0f172a;
   line-height: 1;
+  animation: titlePulseGlow 3s ease-in-out infinite;
+}
+
+@keyframes titlePulseGlow {
+  0%, 100% {
+    text-shadow: 
+      0 0 30px rgba(74, 222, 128, 0.6),
+      0 0 60px rgba(74, 222, 128, 0.3),
+      0 2px 0 #0f172a;
+  }
+  50% {
+    text-shadow: 
+      0 0 40px rgba(74, 222, 128, 0.8),
+      0 0 80px rgba(74, 222, 128, 0.5),
+      0 0 120px rgba(74, 222, 128, 0.2),
+      0 2px 0 #0f172a;
+  }
 }
 
 .title-accent {
   color: #4ade80;
   text-shadow: 0 0 40px rgba(74, 222, 128, 0.9), 0 0 80px rgba(74, 222, 128, 0.4);
+  display: inline-block;
+  animation: titleAccentFloat 4s ease-in-out infinite;
+}
+
+.title-accent:first-child {
+  animation-delay: 0s;
+}
+
+.title-accent:last-child {
+  animation-delay: 0.2s;
+}
+
+@keyframes titleAccentFloat {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
 }
 
 .title-tagline {
@@ -58,6 +348,60 @@ html, body {
   letter-spacing: 0.35em;
   margin-top: 6px;
   text-transform: uppercase;
+  animation: fadeIn 1s ease-out 1s both;
+}
+
+.gameplay-hint {
+  margin-top: 16px;
+  padding: 8px 20px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(74, 222, 128, 0.3);
+  border-radius: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  backdrop-filter: blur(10px);
+  animation: fadeIn 1s ease-out 1.5s both, hintFloat 3s ease-in-out infinite 2s;
+}
+
+@keyframes hintFloat {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.hint-icon {
+  font-size: 16px;
+  animation: hintIconSpin 10s linear infinite;
+}
+
+@keyframes hintIconSpin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.hint-text {
+  font-size: 11px;
+  font-weight: 600;
+  color: #86efac;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
 }
 
 #startGraphicCanvas {
@@ -76,6 +420,20 @@ html, body {
   align-items: center;
   gap: 10px;
   margin: 8px 0;
+  position: relative;
+  z-index: 1;
+  animation: fadeSlideUp 1s ease-out 0.8s both;
+}
+
+@keyframes fadeSlideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .startButton-primary {
@@ -92,11 +450,50 @@ html, body {
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 0 30px rgba(74, 222, 128, 0.5), 0 4px 20px rgba(74, 222, 128, 0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+  box-shadow: 
+    0 0 30px rgba(74, 222, 128, 0.5), 
+    0 4px 20px rgba(74, 222, 128, 0.3), 
+    inset 0 1px 0 rgba(255,255,255,0.2);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   position: relative;
   min-width: 260px;
+  overflow: hidden;
+  animation: buttonPulse 2s ease-in-out infinite;
+}
+
+@keyframes buttonPulse {
+  0%, 100% {
+    box-shadow: 
+      0 0 30px rgba(74, 222, 128, 0.5), 
+      0 4px 20px rgba(74, 222, 128, 0.3), 
+      inset 0 1px 0 rgba(255,255,255,0.2);
+  }
+  50% {
+    box-shadow: 
+      0 0 40px rgba(74, 222, 128, 0.7), 
+      0 6px 30px rgba(74, 222, 128, 0.5),
+      0 0 60px rgba(74, 222, 128, 0.3),
+      inset 0 1px 0 rgba(255,255,255,0.3);
+  }
+}
+
+.startButton-primary::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.3) 50%, transparent 70%);
+  transform: translateX(-100%);
+  animation: buttonShine 3s ease-in-out infinite;
+}
+
+@keyframes buttonShine {
+  0%, 100% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(100%);
+  }
 }
 
 .startButton-primary .btn-icon {
@@ -219,6 +616,9 @@ html, body {
   display: flex;
   gap: 8px;
   margin-top: 4px;
+  position: relative;
+  z-index: 1;
+  animation: fadeSlideUp 1s ease-out 1.1s both;
 }
 
 .nav-btn {
@@ -234,6 +634,21 @@ html, body {
   transition: all 0.2s ease;
   min-width: 80px;
   backdrop-filter: blur(10px);
+  position: relative;
+  overflow: hidden;
+}
+
+.nav-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(74, 222, 128, 0.2), transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.nav-btn:hover::before {
+  opacity: 1;
 }
 
 .nav-btn:hover {
@@ -250,6 +665,11 @@ html, body {
 .nav-icon {
   font-size: 18px;
   line-height: 1;
+  transition: transform 0.2s ease;
+}
+
+.nav-btn:hover .nav-icon {
+  transform: scale(1.1);
 }
 
 .nav-label {
@@ -258,6 +678,7 @@ html, body {
   color: #6b7280;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  transition: color 0.2s ease;
 }
 
 .nav-btn:hover .nav-label {
@@ -272,6 +693,9 @@ html, body {
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid rgba(100, 116, 139, 0.15);
+  position: relative;
+  z-index: 1;
+  animation: fadeIn 1s ease-out 1.4s both;
 }
 
 .footer-btn {
@@ -288,6 +712,22 @@ html, body {
   transition: all 0.2s ease;
   color: #6b7280;
   backdrop-filter: blur(5px);
+  position: relative;
+}
+
+.footer-btn::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(74, 222, 128, 0.3), transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: -1;
+}
+
+.footer-btn:hover::after {
+  opacity: 1;
 }
 
 .footer-btn:hover {
