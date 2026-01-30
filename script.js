@@ -11678,7 +11678,6 @@
     // Create 3D bullet with trail
     const createBullet = (isEnemy = false) => {
       const color = isEnemy ? 0xdc2626 : 0xfde047;
-      const emissiveColor = isEnemy ? 0x991b1b : 0xfbbf24;
       
       const geometry = new THREE.SphereGeometry(0.12, 8, 8);
       const material = new THREE.MeshBasicMaterial({
