@@ -8776,6 +8776,12 @@
     
     initShipSelection();
     
+    // Clean up 3D WebGL start screen background
+    if (startScreenBackgroundCleanup) {
+      startScreenBackgroundCleanup();
+      startScreenBackgroundCleanup = null;
+    }
+    
     // Add smooth transition effect
     dom.startScreen.style.transition = 'opacity 0.6s ease-out, transform 0.6s ease-out';
     dom.startScreen.style.opacity = '0';
@@ -9262,6 +9268,11 @@
       dom.startScreen.style.display = 'flex';
       dom.startScreen.style.opacity = '0';
       dom.startScreen.style.transform = 'scale(0.95)';
+      
+      // Restart 3D WebGL start screen background
+      if (!startScreenBackgroundCleanup) {
+        startScreenBackgroundCleanup = initStartScreenBackground();
+      }
       
       requestAnimationFrame(() => {
         dom.startScreen.style.transition = 'opacity 0.5s ease-out, transform 0.5s ease-out';

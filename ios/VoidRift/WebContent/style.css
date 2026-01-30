@@ -30,7 +30,7 @@ html, body {
   justify-content: center;
   z-index: 10000;
   animation: loadingFadeOut 0.8s ease 2s forwards;
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 .loading-overlay.loaded {
