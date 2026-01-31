@@ -820,6 +820,20 @@
   let hazards = [];          // Environmental hazards (black holes, portals, etc.)
   let celestialBodies = [];  // Background celestial objects (moons, planets)
   let timedEffects = [];
+  
+  /* ====== 3D RENDERING SYSTEM ====== */
+  // Three.js scene for TRUE 3D gameplay rendering
+  let gameScene = null;
+  let gameCamera = null;
+  let gameRenderer = null;
+  let game3DEnabled = false; // Flag to enable 3D rendering
+  
+  // 3D mesh pools for game entities
+  const playerMeshGroup = { mesh: null, lights: [] };
+  const enemyMeshes = new Map(); // Map enemy ID to mesh
+  const bulletMeshes = new Map(); // Map bullet to mesh
+  const particleSystems = [];
+  let starField3D = null;
   let score = 0;
   let level = 1;
   let enemiesToKill = 15;  // Increased from 10 for better pacing
@@ -7973,6 +7987,14 @@
 
   /* ====== RENDERING ====== */
   const drawGame = () => {
+    // If 3D rendering is enabled, use Three.js instead of 2D canvas
+    if (game3DEnabled && gameRenderer && gameScene) {
+      render3DScene();
+      // Still need 2D context for UI overlays
+      return;
+    }
+    
+    // Fallback to 2D rendering if 3D not available
     if (!dom.ctx) return;
     const ctx = dom.ctx;
     const canvas = dom.canvas;
@@ -8554,6 +8576,14 @@
     }
     enemiesToKill = baseEnemies;
     setupCanvas();
+    
+    // Initialize 3D scene for gameplay (ENABLE TRUE 3D)
+    if (!game3DEnabled) {
+      const success = init3DGameplayScene();
+      if (!success) {
+        console.warn('3D initialization failed, using 2D fallback');
+      }
+    }
     
     // Initialize player position based on game mode
     if (currentGameMode === 'planetary' && currentPlanet) {
@@ -12050,6 +12080,346 @@
       renderer.dispose();
     };
   };
+  
+  /* ====== 3D GAMEPLAY SCENE INITIALIZATION ====== */
+  const init3DGameplayScene = () => {
+    const canvas = dom.canvas;
+    if (!canvas || typeof THREE === 'undefined') {
+      console.warn('Three.js not available for 3D gameplay - falling back to 2D');
+      game3DEnabled = false;
+      return false;
+    }
+    
+    console.log('🎮 Initializing TRUE 3D gameplay rendering...');
+    
+    // Create Three.js scene for gameplay
+    gameScene = new THREE.Scene();
+    gameScene.fog = new THREE.FogExp2(0x000000, 0.0008); // Pure black void with minimal fog
+    
+    // Create orthographic camera for 2.5D perspective (maintains gameplay feel)
+    const aspect = window.innerWidth / window.innerHeight;
+    const frustumSize = 800;
+    gameCamera = new THREE.OrthographicCamera(
+      frustumSize * aspect / -2,  // left
+      frustumSize * aspect / 2,   // right
+      frustumSize / 2,            // top
+      frustumSize / -2,           // bottom
+      0.1,                        // near
+      2000                        // far
+    );
+    gameCamera.position.z = 500; // View from above
+    
+    // Create WebGL renderer (reuse same canvas)
+    gameRenderer = new THREE.WebGLRenderer({
+      canvas: canvas,
+      antialias: true,
+      alpha: false
+    });
+    gameRenderer.setSize(window.innerWidth, window.innerHeight);
+    gameRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    gameRenderer.setClearColor(0x000000, 1); // Pure black background
+    
+    // Enable shadows for depth
+    gameRenderer.shadowMap.enabled = true;
+    gameRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    
+    // Minimal ambient lighting (dark void aesthetic)
+    const ambientLight = new THREE.AmbientLight(0x0a0a0a, 0.1);
+    gameScene.add(ambientLight);
+    
+    // Create 3D starfield
+    create3DStarField();
+    
+    // Handle window resize
+    const handleResize = () => {
+      const aspect = window.innerWidth / window.innerHeight;
+      gameCamera.left = frustumSize * aspect / -2;
+      gameCamera.right = frustumSize * aspect / 2;
+      gameCamera.top = frustumSize / 2;
+      gameCamera.bottom = frustumSize / -2;
+      gameCamera.updateProjectionMatrix();
+      gameRenderer.setSize(window.innerWidth, window.innerHeight);
+    };
+    window.addEventListener('resize', handleResize);
+    
+    game3DEnabled = true;
+    console.log('✅ 3D gameplay scene initialized successfully');
+    return true;
+  };
+  
+  // Create 3D starfield for background
+  const create3DStarField = () => {
+    if (!gameScene) return;
+    
+    const geometry = new THREE.BufferGeometry();
+    const vertices = [];
+    const colors = [];
+    const count = 1000; // Rich starfield
+    
+    for (let i = 0; i < count; i++) {
+      // Spread stars across large area
+      vertices.push(
+        (Math.random() - 0.5) * 3000,
+        (Math.random() - 0.5) * 3000,
+        -Math.random() * 1000 // Behind gameplay plane
+      );
+      
+      // Bright white stars with minimal tint
+      const brightness = Math.random() * 0.3 + 0.7;
+      const tint = Math.random() * 0.1;
+      colors.push(brightness, brightness - tint * 0.05, brightness - tint * 0.1);
+    }
+    
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    
+    const material = new THREE.PointsMaterial({
+      size: 3,
+      transparent: true,
+      opacity: 1.0,
+      vertexColors: true,
+      sizeAttenuation: true
+    });
+    
+    starField3D = new THREE.Points(geometry, material);
+    gameScene.add(starField3D);
+  };
+  
+  // Create 3D player ship mesh
+  const create3DPlayerShip = () => {
+    if (!gameScene) return null;
+    
+    const group = new THREE.Group();
+    
+    // Main ship body with enhanced glow
+    const bodyGeometry = new THREE.ConeGeometry(8, 24, 6);
+    const bodyMaterial = new THREE.MeshPhongMaterial({
+      color: 0x0ea5e9,
+      emissive: 0x0ea5e9,
+      emissiveIntensity: 0.8,
+      shininess: 150,
+      specular: 0x7dd3fc
+    });
+    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    body.rotation.x = Math.PI / 2; // Point forward
+    body.castShadow = true;
+    group.add(body);
+    
+    // Glowing cockpit
+    const cockpitGeometry = new THREE.SphereGeometry(3, 8, 8);
+    const cockpitMaterial = new THREE.MeshPhongMaterial({
+      color: 0x7dd3fc,
+      emissive: 0x7dd3fc,
+      emissiveIntensity: 1.5,
+      transparent: true,
+      opacity: 0.9
+    });
+    const cockpit = new THREE.Mesh(cockpitGeometry, cockpitMaterial);
+    cockpit.position.z = 4;
+    group.add(cockpit);
+    
+    // Wings
+    const wingGeometry = new THREE.BoxGeometry(28, 2, 10);
+    const wing = new THREE.Mesh(wingGeometry, bodyMaterial);
+    wing.position.z = -4;
+    wing.castShadow = true;
+    group.add(wing);
+    
+    // Engine glow effects (dual engines)
+    for (let i = 0; i < 2; i++) {
+      const side = i === 0 ? -10 : 10;
+      
+      // Engine glow sphere
+      const glowGeometry = new THREE.SphereGeometry(2.5, 8, 8);
+      const glowMaterial = new THREE.MeshBasicMaterial({
+        color: 0xfbbf24,
+        transparent: true,
+        opacity: 0.8
+      });
+      const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+      glow.position.set(side, 0, -12);
+      group.add(glow);
+      
+      // Engine point light (primary illumination source)
+      const engineLight = new THREE.PointLight(0xf97316, 4, 100);
+      engineLight.position.set(side, 0, -12);
+      engineLight.castShadow = true;
+      group.add(engineLight);
+      
+      playerMeshGroup.lights.push(engineLight);
+    }
+    
+    playerMeshGroup.mesh = group;
+    gameScene.add(group);
+    return group;
+  };
+  
+  // Create 3D enemy mesh
+  const create3DEnemyMesh = (enemy) => {
+    if (!gameScene) return null;
+    
+    const group = new THREE.Group();
+    
+    // Enemy body with menacing glow
+    const bodyGeometry = new THREE.OctahedronGeometry(enemy.size * 0.8, 1);
+    const bodyMaterial = new THREE.MeshPhongMaterial({
+      color: 0xdc2626,
+      emissive: 0xdc2626,
+      emissiveIntensity: 1.0,
+      shininess: 80,
+      specular: 0xef4444
+    });
+    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    body.castShadow = true;
+    group.add(body);
+    
+    // Glow aura
+    const glowGeometry = new THREE.SphereGeometry(enemy.size, 16, 16);
+    const glowMaterial = new THREE.MeshBasicMaterial({
+      color: 0xdc2626,
+      transparent: true,
+      opacity: 0.4
+    });
+    const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+    group.add(glow);
+    
+    // Enemy light (illumination source)
+    const enemyLight = new THREE.PointLight(0xdc2626, 3, 80);
+    group.add(enemyLight);
+    
+    group.position.set(enemy.x, enemy.y, 0);
+    gameScene.add(group);
+    return group;
+  };
+  
+  // Create 3D bullet mesh
+  const create3DBulletMesh = (bullet) => {
+    if (!gameScene) return null;
+    
+    const color = bullet.isEnemy ? 0xdc2626 : 0xfde047;
+    
+    const geometry = new THREE.SphereGeometry(bullet.size, 8, 8);
+    const material = new THREE.MeshBasicMaterial({
+      color: color,
+      transparent: true,
+      opacity: 1
+    });
+    const bulletMesh = new THREE.Mesh(geometry, material);
+    
+    // Outer glow
+    const glowGeometry = new THREE.SphereGeometry(bullet.size * 1.8, 8, 8);
+    const glowMaterial = new THREE.MeshBasicMaterial({
+      color: color,
+      transparent: true,
+      opacity: 0.7
+    });
+    const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+    bulletMesh.add(glow);
+    
+    // Bullet light
+    const bulletLight = new THREE.PointLight(color, 2, 30);
+    bulletMesh.add(bulletLight);
+    
+    bulletMesh.position.set(bullet.x, bullet.y, 0);
+    gameScene.add(bulletMesh);
+    return bulletMesh;
+  };
+  
+  // Update 3D scene with game state
+  const update3DScene = () => {
+    if (!game3DEnabled || !gameScene || !player) return;
+    
+    // Update camera to follow player
+    if (gameCamera) {
+      gameCamera.position.x = player.x;
+      gameCamera.position.y = player.y;
+    }
+    
+    // Update player mesh
+    if (!playerMeshGroup.mesh && player) {
+      create3DPlayerShip();
+    }
+    if (playerMeshGroup.mesh) {
+      playerMeshGroup.mesh.position.set(player.x, player.y, 0);
+      playerMeshGroup.mesh.rotation.z = player.lookAngle - Math.PI / 2;
+      
+      // Animate engine lights based on boost
+      if (playerMeshGroup.lights && input.isBoosting) {
+        const pulse = Math.sin(performance.now() / 50) * 0.5 + 1;
+        playerMeshGroup.lights.forEach(light => {
+          light.intensity = 6 * pulse;
+        });
+      } else if (playerMeshGroup.lights) {
+        playerMeshGroup.lights.forEach(light => {
+          light.intensity = 4;
+        });
+      }
+    }
+    
+    // Update enemy meshes
+    enemies.forEach(enemy => {
+      if (!enemy._id) enemy._id = `enemy_${Math.random()}`;
+      
+      if (!enemyMeshes.has(enemy._id)) {
+        const mesh = create3DEnemyMesh(enemy);
+        if (mesh) enemyMeshes.set(enemy._id, mesh);
+      }
+      
+      const mesh = enemyMeshes.get(enemy._id);
+      if (mesh) {
+        mesh.position.set(enemy.x, enemy.y, 0);
+        mesh.rotation.z += 0.02; // Slow rotation for menacing effect
+      }
+    });
+    
+    // Remove dead enemy meshes
+    for (const [id, mesh] of enemyMeshes.entries()) {
+      if (!enemies.find(e => e._id === id)) {
+        gameScene.remove(mesh);
+        mesh.traverse((child) => {
+          if (child.geometry) child.geometry.dispose();
+          if (child.material) child.material.dispose();
+        });
+        enemyMeshes.delete(id);
+      }
+    }
+    
+    // Update bullet meshes
+    bullets.forEach(bullet => {
+      if (!bullet._id) bullet._id = `bullet_${Math.random()}`;
+      
+      if (!bulletMeshes.has(bullet._id)) {
+        const mesh = create3DBulletMesh(bullet);
+        if (mesh) bulletMeshes.set(bullet._id, mesh);
+      }
+      
+      const mesh = bulletMeshes.get(bullet._id);
+      if (mesh) {
+        mesh.position.set(bullet.x, bullet.y, 0);
+      }
+    });
+    
+    // Remove old bullet meshes
+    for (const [id, mesh] of bulletMeshes.entries()) {
+      if (!bullets.find(b => b._id === id)) {
+        gameScene.remove(mesh);
+        mesh.traverse((child) => {
+          if (child.geometry) child.geometry.dispose();
+          if (child.material) child.material.dispose();
+        });
+        bulletMeshes.delete(id);
+      }
+    }
+  };
+  
+  // Render 3D scene
+  const render3DScene = () => {
+    if (!game3DEnabled || !gameRenderer || !gameScene || !gameCamera) return;
+    
+    update3DScene();
+    gameRenderer.render(gameScene, gameCamera);
+  };
+  
   // Initialize on page load
   let startScreenBackgroundCleanup;
   if (document.readyState === 'loading') {
