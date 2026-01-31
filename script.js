@@ -9479,6 +9479,7 @@
             console.log('3D mode enabled');
             return true;
           }
+          return false;
         }
       } catch (error) {
         console.warn('3D initialization failed, using 2D fallback:', error);
