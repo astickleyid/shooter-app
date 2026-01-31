@@ -9474,9 +9474,11 @@
         const initialized = window.__VOID_RIFT_3D__.init(dom.canvas);
         if (initialized) {
           game3DInstance = window.__VOID_RIFT_3D__;
-          use3DMode = true;
-          console.log('3D mode enabled');
-          return true;
+          use3DMode = game3DInstance.isActive();
+          if (use3DMode) {
+            console.log('3D mode enabled');
+            return true;
+          }
         }
       } catch (error) {
         console.warn('3D initialization failed, using 2D fallback:', error);
