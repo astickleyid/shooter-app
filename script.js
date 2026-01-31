@@ -820,6 +820,20 @@
   let hazards = [];          // Environmental hazards (black holes, portals, etc.)
   let celestialBodies = [];  // Background celestial objects (moons, planets)
   let timedEffects = [];
+  
+  /* ====== 3D RENDERING SYSTEM ====== */
+  // Three.js scene for TRUE 3D gameplay rendering
+  let gameScene = null;
+  let gameCamera = null;
+  let gameRenderer = null;
+  let game3DEnabled = false; // Flag to enable 3D rendering
+  
+  // 3D mesh pools for game entities
+  const playerMeshGroup = { mesh: null, lights: [] };
+  const enemyMeshes = new Map(); // Map enemy ID to mesh
+  const bulletMeshes = new Map(); // Map bullet to mesh
+  const particleSystems = [];
+  let starField3D = null;
   let score = 0;
   let level = 1;
   let enemiesToKill = 15;  // Increased from 10 for better pacing
@@ -2359,8 +2373,8 @@
   const drawStarsLayer = (ctx, arr, parallaxFactor) => {
     ctx.fillStyle = '#fff';
     for (const star of arr) {
-      // Smaller stars appear dimmer (realistic)
-      ctx.globalAlpha = clamp(star.s / 2.2, 0.15, 0.85);
+      // Brighter stars with better visibility
+      ctx.globalAlpha = clamp(star.s / 1.8, 0.3, 1.0); // Increased from 0.15-0.85 range
       ctx.fillRect(star.x, star.y, star.s, star.s);
       
       // Very subtle individual drift (stars appear nearly static like real space)
@@ -2399,13 +2413,13 @@
   // Enhanced star layer with subtle twinkle for realistic space appearance
   const drawEnhancedStarsLayer = (ctx, arr, parallaxFactor) => {
     for (const star of arr) {
-      let alpha = clamp(star.s / 2.2, 0.15, 0.85) * (star.baseAlpha || 1);
+      let alpha = clamp(star.s / 1.5, 0.4, 1.0) * (star.baseAlpha || 1); // Brighter range
       
       // Apply subtle twinkling effect
       if (star.twinkle) {
         star.twinklePhase += star.twinkleSpeed * 16.67;
-        // More subtle twinkle range for realism
-        alpha *= 0.75 + 0.25 * Math.sin(star.twinklePhase);
+        // Subtle twinkle with brighter minimum
+        alpha *= 0.8 + 0.2 * Math.sin(star.twinklePhase); // Higher minimum (0.8 vs 0.75)
       }
       
       ctx.globalAlpha = alpha;
@@ -2461,26 +2475,26 @@
     }
   };
 
-  // Initialize realistic star layers for dark space aesthetic
+  // Initialize realistic star layers for dark void aesthetic with bright stars
   const initStarLayers = () => {
-    // Layer 1: Deep space stars (very distant, faint, nearly static)
-    starsDeepSpace = makeEnhancedStars(300, {
-      colors: ['#ffffff', '#e5e7eb', '#d1d5db'],  // Subtle white/gray tones
-      minSize: 0.2,
-      maxSize: 0.6,
-      baseAlpha: 0.3,
+    // Layer 1: Deep space stars (very distant, brighter, nearly static)
+    starsDeepSpace = makeEnhancedStars(400, { // More stars
+      colors: ['#ffffff', '#f5f5f5', '#fafafa'],  // Brighter white tones (less gray)
+      minSize: 0.3, // Slightly larger
+      maxSize: 0.8,
+      baseAlpha: 0.5, // Increased from 0.3 for better visibility
       twinkle: true
     });
-    // Layer 2-4: Main star layers (varying distances)
-    starsFar = makeStars(150);   // Most distant, smallest
-    starsMid = makeStars(100);   // Middle distance
-    starsNear = makeStars(60);   // Closer stars
-    // Layer 5: Occasional bright stars (rare, prominent)
-    starsBright = makeEnhancedStars(12, {
-      colors: ['#ffffff', '#fef9c3', '#e0f2fe'],  // Pure white with slight color variance
-      minSize: 1.2,
-      maxSize: 2.0,
-      baseAlpha: 0.8,
+    // Layer 2-4: Main star layers (varying distances) - more stars, brighter
+    starsFar = makeStars(200);   // Increased from 150
+    starsMid = makeStars(150);   // Increased from 100
+    starsNear = makeStars(100);  // Increased from 60
+    // Layer 5: Occasional bright stars (rare, prominent) - more visible
+    starsBright = makeEnhancedStars(20, { // Increased from 12
+      colors: ['#ffffff', '#fffef0', '#f0f9ff'],  // Pure white with minimal warm/cool tints
+      minSize: 1.5, // Larger for prominence
+      maxSize: 2.5, // Increased from 2.0
+      baseAlpha: 1.0, // Full brightness (increased from 0.8)
       twinkle: true
     });
   };
@@ -5737,12 +5751,12 @@
       ctx.ellipse(-size * 0.75, size * 0.78, size * 0.08, size * 0.04, 0.2, -Math.PI * 1.8, -Math.PI);
       ctx.fill();
       
-      // Main fuselage body - ENHANCED: wider and more substantial
+      // Main fuselage body - ENHANCED: wider and more substantial with intense glow
       ctx.fillStyle = primary;
       ctx.strokeStyle = trim;
       ctx.lineWidth = Math.max(2, size * 0.1);
       ctx.shadowColor = primary;
-      ctx.shadowBlur = 15;
+      ctx.shadowBlur = 25; // Increased from 15 for more dramatic glow
       ctx.beginPath();
       ctx.moveTo(size * 1.3, 0);
       ctx.quadraticCurveTo(size * 0.8, -size * 0.25, size * 0.3, -size * 0.35);
@@ -5830,11 +5844,11 @@
       ctx.arc(size * 0.5, -size * 0.06, size * 0.12, Math.PI * 0.8, Math.PI * 1.3);
       ctx.stroke();
       
-      // Engine exhausts with glow - ENHANCED: more powerful looking
+      // Engine exhausts with intense glow - ENHANCED: award-winning illumination
       const enginePulse = Math.sin(now / 100) * 0.2 + 0.85;
       ctx.save();
       ctx.shadowColor = thruster;
-      ctx.shadowBlur = 22;
+      ctx.shadowBlur = 35; // Increased from 22 for dramatic glow
       ctx.fillStyle = thruster;
       ctx.globalAlpha = enginePulse;
       // Twin main engines - larger
@@ -5847,9 +5861,10 @@
       ctx.ellipse(-size * 0.88, 0, size * 0.12, size * 0.08, 0, 0, Math.PI * 2);
       ctx.fill();
       
-      // Inner engine glow
+      // Inner engine glow - brighter core
       ctx.fillStyle = '#fff';
-      ctx.globalAlpha = enginePulse * 0.6;
+      ctx.globalAlpha = enginePulse * 0.9; // Increased from 0.6 for brighter core
+      ctx.shadowBlur = 20; // Add extra glow to white core
       ctx.beginPath();
       ctx.ellipse(-size * 0.72, -size * 0.75, size * 0.08, size * 0.06, 0, 0, Math.PI * 2);
       ctx.ellipse(-size * 0.72, size * 0.75, size * 0.08, size * 0.06, 0, 0, Math.PI * 2);
@@ -5864,10 +5879,10 @@
       ctx.rect(size * 1.05, size * 0.035, size * 0.25, size * 0.025);
       ctx.fill();
       
-      // Weapon barrel tips with glow
+      // Weapon barrel tips with enhanced glow
       ctx.fillStyle = accent;
       ctx.shadowColor = accent;
-      ctx.shadowBlur = 8;
+      ctx.shadowBlur = 15; // Increased from 8
       ctx.beginPath();
       ctx.rect(size * 1.28, -size * 0.055, size * 0.04, size * 0.015);
       ctx.rect(size * 1.28, size * 0.04, size * 0.04, size * 0.015);
@@ -7972,6 +7987,14 @@
 
   /* ====== RENDERING ====== */
   const drawGame = () => {
+    // If 3D rendering is enabled, use Three.js instead of 2D canvas
+    if (game3DEnabled && gameRenderer && gameScene) {
+      render3DScene();
+      // Still need 2D context for UI overlays
+      return;
+    }
+    
+    // Fallback to 2D rendering if 3D not available
     if (!dom.ctx) return;
     const ctx = dom.ctx;
     const canvas = dom.canvas;
@@ -7981,8 +8004,8 @@
       // Planetary mode: Draw planet-specific background
       drawPlanetaryBackground(ctx);
     } else {
-      // Space mode: Dark space background
-      ctx.fillStyle = '#030712';
+      // Space mode: Pure black void background - illumination only from game objects
+      ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
     
@@ -8553,6 +8576,14 @@
     }
     enemiesToKill = baseEnemies;
     setupCanvas();
+    
+    // Initialize 3D scene for gameplay (ENABLE TRUE 3D)
+    if (!game3DEnabled) {
+      const success = init3DGameplayScene();
+      if (!success) {
+        console.warn('3D initialization failed, using 2D fallback');
+      }
+    }
     
     // Initialize player position based on game mode
     if (currentGameMode === 'planetary' && currentPlanet) {
@@ -11533,9 +11564,9 @@
       return;
     }
     
-    // Setup Three.js scene with enhanced visuals
+    // Setup Three.js scene with dark void aesthetic
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x000510, 0.0015);
+    scene.fog = new THREE.FogExp2(0x000000, 0.0008); // Pure black void with minimal fog
     
     // First-person camera setup
     const camera = new THREE.PerspectiveCamera(
@@ -11557,20 +11588,20 @@
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     
-    // Enhanced lighting for dramatic effect
-    const ambientLight = new THREE.AmbientLight(0x1a1a2e, 0.3);
+    // Minimal ambient lighting for dark void - illumination from objects only
+    const ambientLight = new THREE.AmbientLight(0x0a0a0a, 0.05); // Near-black ambient
     scene.add(ambientLight);
     
-    // Dynamic colored lights
-    const blueLight = new THREE.PointLight(0x0ea5e9, 3, 50);
+    // Dynamic colored lights with higher intensity for dark void
+    const blueLight = new THREE.PointLight(0x0ea5e9, 5, 60); // Increased intensity
     blueLight.position.set(10, 5, 10);
     scene.add(blueLight);
     
-    const redLight = new THREE.PointLight(0xdc2626, 2, 40);
+    const redLight = new THREE.PointLight(0xdc2626, 4, 50); // Increased intensity
     redLight.position.set(-10, -5, 5);
     scene.add(redLight);
     
-    const greenLight = new THREE.PointLight(0x4ade80, 1.5, 30);
+    const greenLight = new THREE.PointLight(0x4ade80, 3, 40); // Increased intensity
     greenLight.position.set(0, 10, -10);
     scene.add(greenLight);
     
@@ -11578,12 +11609,12 @@
     const createPlayerShip = () => {
       const group = new THREE.Group();
       
-      // Main body - sleek fighter design
+      // Main body - sleek fighter design with enhanced glow
       const bodyGeometry = new THREE.ConeGeometry(0.4, 1.5, 6);
       const bodyMaterial = new THREE.MeshPhongMaterial({
         color: 0x0ea5e9,
-        emissive: 0x0369a1,
-        emissiveIntensity: 0.4,
+        emissive: 0x0ea5e9, // Brighter emissive color
+        emissiveIntensity: 0.8, // Increased from 0.4 for award-winning glow
         shininess: 150,
         specular: 0x7dd3fc
       });
@@ -11592,12 +11623,12 @@
       body.castShadow = true;
       group.add(body);
       
-      // Cockpit
+      // Cockpit with intense glow
       const cockpitGeometry = new THREE.SphereGeometry(0.2, 8, 8);
       const cockpitMaterial = new THREE.MeshPhongMaterial({
         color: 0x7dd3fc,
-        emissive: 0x38bdf8,
-        emissiveIntensity: 0.8,
+        emissive: 0x7dd3fc, // Full brightness emissive
+        emissiveIntensity: 1.5, // Increased from 0.8 for brilliant glow
         transparent: true,
         opacity: 0.9
       });
@@ -11612,33 +11643,33 @@
       wing.castShadow = true;
       group.add(wing);
       
-      // Engine cores (dual)
+      // Engine cores (dual) with enhanced brightness
       for (let i = 0; i < 2; i++) {
         const side = i === 0 ? -0.7 : 0.7;
         const engineGeometry = new THREE.CylinderGeometry(0.15, 0.2, 0.5, 8);
         const engineMaterial = new THREE.MeshBasicMaterial({
-          color: 0xf97316,
+          color: 0xfbbf24, // Brighter orange-yellow
           transparent: true,
-          opacity: 0.9
+          opacity: 1.0 // Full opacity
         });
         const engine = new THREE.Mesh(engineGeometry, engineMaterial);
         engine.rotation.x = Math.PI / 2;
         engine.position.set(side, 0, -0.8);
         group.add(engine);
         
-        // Engine glow
-        const glowGeometry = new THREE.SphereGeometry(0.25, 8, 8);
+        // Engine glow with increased intensity
+        const glowGeometry = new THREE.SphereGeometry(0.35, 8, 8); // Larger glow
         const glowMaterial = new THREE.MeshBasicMaterial({
           color: 0xfbbf24,
           transparent: true,
-          opacity: 0.6
+          opacity: 0.8 // Increased from 0.6
         });
         const glow = new THREE.Mesh(glowGeometry, glowMaterial);
         glow.position.set(side, 0, -1);
         group.add(glow);
         
-        // Engine light
-        const engineLight = new THREE.PointLight(0xf97316, 2, 8);
+        // Engine light with dramatically increased power
+        const engineLight = new THREE.PointLight(0xf97316, 4, 12); // Doubled intensity and range
         engineLight.position.set(side, 0, -1);
         group.add(engineLight);
       }
@@ -11646,16 +11677,16 @@
       return group;
     };
     
-    // Create enhanced 3D enemy
+    // Create enhanced 3D enemy with dramatic illumination
     const createEnemy = () => {
       const group = new THREE.Group();
       
-      // Main body - menacing design
+      // Main body - menacing design with intense glow
       const bodyGeometry = new THREE.OctahedronGeometry(0.5, 1);
       const bodyMaterial = new THREE.MeshPhongMaterial({
         color: 0xdc2626,
-        emissive: 0x991b1b,
-        emissiveIntensity: 0.6,
+        emissive: 0xdc2626, // Full red emissive
+        emissiveIntensity: 1.0, // Increased from 0.6 for menacing glow
         shininess: 80,
         specular: 0xef4444
       });
@@ -11669,24 +11700,24 @@
       armor.castShadow = true;
       group.add(armor);
       
-      // Glow aura
-      const glowGeometry = new THREE.SphereGeometry(0.7, 16, 16);
+      // Glow aura with increased visibility
+      const glowGeometry = new THREE.SphereGeometry(0.8, 16, 16); // Larger glow
       const glowMaterial = new THREE.MeshBasicMaterial({
         color: 0xdc2626,
         transparent: true,
-        opacity: 0.2
+        opacity: 0.4 // Increased from 0.2
       });
       const glow = new THREE.Mesh(glowGeometry, glowMaterial);
       group.add(glow);
       
-      // Enemy light
-      const enemyLight = new THREE.PointLight(0xdc2626, 1.5, 8);
+      // Enemy light with dramatically increased power
+      const enemyLight = new THREE.PointLight(0xdc2626, 3, 12); // Doubled intensity and range
       group.add(enemyLight);
       
       return group;
     };
     
-    // Create 3D bullet with trail
+    // Create 3D bullet with intense glow trail
     const createBullet = (isEnemy = false) => {
       const color = isEnemy ? 0xdc2626 : 0xfde047;
       
@@ -11698,48 +11729,53 @@
       });
       const bullet = new THREE.Mesh(geometry, material);
       
-      // Outer glow
-      const glowGeometry = new THREE.SphereGeometry(0.2, 8, 8);
+      // Outer glow with increased intensity
+      const glowGeometry = new THREE.SphereGeometry(0.25, 8, 8); // Larger glow
       const glowMaterial = new THREE.MeshBasicMaterial({
         color,
         transparent: true,
-        opacity: 0.5
+        opacity: 0.7 // Increased from 0.5
       });
       const glow = new THREE.Mesh(glowGeometry, glowMaterial);
       bullet.add(glow);
       
-      // Bullet light
-      const bulletLight = new THREE.PointLight(color, 1, 3);
+      // Bullet light with increased power
+      const bulletLight = new THREE.PointLight(color, 2, 5); // Doubled intensity and range
       bullet.add(bulletLight);
       
       return bullet;
     };
     
-    // Enhanced star field
+    // Enhanced star field with brighter, whiter stars
     const createStarField = () => {
       const geometry = new THREE.BufferGeometry();
       const vertices = [];
       const colors = [];
       
-      for (let i = 0; i < 500; i++) {
+      for (let i = 0; i < 800; i++) { // More stars for richer starfield
         vertices.push(
           (Math.random() - 0.5) * 200,
           (Math.random() - 0.5) * 200,
           (Math.random() - 0.5) * 200
         );
         
-        // Varied star colors
-        const brightness = Math.random() * 0.5 + 0.5;
-        colors.push(brightness, brightness * 0.9, brightness);
+        // Brighter white stars with subtle color variation
+        const brightness = Math.random() * 0.3 + 0.7; // Brighter range (0.7-1.0)
+        const tint = Math.random() * 0.1; // Minimal color tint
+        colors.push(
+          brightness, 
+          brightness - tint * 0.05, // Very subtle blue reduction
+          brightness - tint * 0.1 // Even less yellow tint
+        );
       }
       
       geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
       geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
       
       const material = new THREE.PointsMaterial({
-        size: 0.15,
+        size: 0.2, // Slightly larger stars
         transparent: true,
-        opacity: 0.9,
+        opacity: 1.0, // Full opacity for brighter stars
         vertexColors: true,
         sizeAttenuation: true
       });
@@ -12044,6 +12080,346 @@
       renderer.dispose();
     };
   };
+  
+  /* ====== 3D GAMEPLAY SCENE INITIALIZATION ====== */
+  const init3DGameplayScene = () => {
+    const canvas = dom.canvas;
+    if (!canvas || typeof THREE === 'undefined') {
+      console.warn('Three.js not available for 3D gameplay - falling back to 2D');
+      game3DEnabled = false;
+      return false;
+    }
+    
+    console.log('🎮 Initializing TRUE 3D gameplay rendering...');
+    
+    // Create Three.js scene for gameplay
+    gameScene = new THREE.Scene();
+    gameScene.fog = new THREE.FogExp2(0x000000, 0.0008); // Pure black void with minimal fog
+    
+    // Create orthographic camera for 2.5D perspective (maintains gameplay feel)
+    const aspect = window.innerWidth / window.innerHeight;
+    const frustumSize = 800;
+    gameCamera = new THREE.OrthographicCamera(
+      frustumSize * aspect / -2,  // left
+      frustumSize * aspect / 2,   // right
+      frustumSize / 2,            // top
+      frustumSize / -2,           // bottom
+      0.1,                        // near
+      2000                        // far
+    );
+    gameCamera.position.z = 500; // View from above
+    
+    // Create WebGL renderer (reuse same canvas)
+    gameRenderer = new THREE.WebGLRenderer({
+      canvas: canvas,
+      antialias: true,
+      alpha: false
+    });
+    gameRenderer.setSize(window.innerWidth, window.innerHeight);
+    gameRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    gameRenderer.setClearColor(0x000000, 1); // Pure black background
+    
+    // Enable shadows for depth
+    gameRenderer.shadowMap.enabled = true;
+    gameRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    
+    // Minimal ambient lighting (dark void aesthetic)
+    const ambientLight = new THREE.AmbientLight(0x0a0a0a, 0.1);
+    gameScene.add(ambientLight);
+    
+    // Create 3D starfield
+    create3DStarField();
+    
+    // Handle window resize
+    const handleResize = () => {
+      const aspect = window.innerWidth / window.innerHeight;
+      gameCamera.left = frustumSize * aspect / -2;
+      gameCamera.right = frustumSize * aspect / 2;
+      gameCamera.top = frustumSize / 2;
+      gameCamera.bottom = frustumSize / -2;
+      gameCamera.updateProjectionMatrix();
+      gameRenderer.setSize(window.innerWidth, window.innerHeight);
+    };
+    window.addEventListener('resize', handleResize);
+    
+    game3DEnabled = true;
+    console.log('✅ 3D gameplay scene initialized successfully');
+    return true;
+  };
+  
+  // Create 3D starfield for background
+  const create3DStarField = () => {
+    if (!gameScene) return;
+    
+    const geometry = new THREE.BufferGeometry();
+    const vertices = [];
+    const colors = [];
+    const count = 1000; // Rich starfield
+    
+    for (let i = 0; i < count; i++) {
+      // Spread stars across large area
+      vertices.push(
+        (Math.random() - 0.5) * 3000,
+        (Math.random() - 0.5) * 3000,
+        -Math.random() * 1000 // Behind gameplay plane
+      );
+      
+      // Bright white stars with minimal tint
+      const brightness = Math.random() * 0.3 + 0.7;
+      const tint = Math.random() * 0.1;
+      colors.push(brightness, brightness - tint * 0.05, brightness - tint * 0.1);
+    }
+    
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    
+    const material = new THREE.PointsMaterial({
+      size: 3,
+      transparent: true,
+      opacity: 1.0,
+      vertexColors: true,
+      sizeAttenuation: true
+    });
+    
+    starField3D = new THREE.Points(geometry, material);
+    gameScene.add(starField3D);
+  };
+  
+  // Create 3D player ship mesh
+  const create3DPlayerShip = () => {
+    if (!gameScene) return null;
+    
+    const group = new THREE.Group();
+    
+    // Main ship body with enhanced glow
+    const bodyGeometry = new THREE.ConeGeometry(8, 24, 6);
+    const bodyMaterial = new THREE.MeshPhongMaterial({
+      color: 0x0ea5e9,
+      emissive: 0x0ea5e9,
+      emissiveIntensity: 0.8,
+      shininess: 150,
+      specular: 0x7dd3fc
+    });
+    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    body.rotation.x = Math.PI / 2; // Point forward
+    body.castShadow = true;
+    group.add(body);
+    
+    // Glowing cockpit
+    const cockpitGeometry = new THREE.SphereGeometry(3, 8, 8);
+    const cockpitMaterial = new THREE.MeshPhongMaterial({
+      color: 0x7dd3fc,
+      emissive: 0x7dd3fc,
+      emissiveIntensity: 1.5,
+      transparent: true,
+      opacity: 0.9
+    });
+    const cockpit = new THREE.Mesh(cockpitGeometry, cockpitMaterial);
+    cockpit.position.z = 4;
+    group.add(cockpit);
+    
+    // Wings
+    const wingGeometry = new THREE.BoxGeometry(28, 2, 10);
+    const wing = new THREE.Mesh(wingGeometry, bodyMaterial);
+    wing.position.z = -4;
+    wing.castShadow = true;
+    group.add(wing);
+    
+    // Engine glow effects (dual engines)
+    for (let i = 0; i < 2; i++) {
+      const side = i === 0 ? -10 : 10;
+      
+      // Engine glow sphere
+      const glowGeometry = new THREE.SphereGeometry(2.5, 8, 8);
+      const glowMaterial = new THREE.MeshBasicMaterial({
+        color: 0xfbbf24,
+        transparent: true,
+        opacity: 0.8
+      });
+      const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+      glow.position.set(side, 0, -12);
+      group.add(glow);
+      
+      // Engine point light (primary illumination source)
+      const engineLight = new THREE.PointLight(0xf97316, 4, 100);
+      engineLight.position.set(side, 0, -12);
+      engineLight.castShadow = true;
+      group.add(engineLight);
+      
+      playerMeshGroup.lights.push(engineLight);
+    }
+    
+    playerMeshGroup.mesh = group;
+    gameScene.add(group);
+    return group;
+  };
+  
+  // Create 3D enemy mesh
+  const create3DEnemyMesh = (enemy) => {
+    if (!gameScene) return null;
+    
+    const group = new THREE.Group();
+    
+    // Enemy body with menacing glow
+    const bodyGeometry = new THREE.OctahedronGeometry(enemy.size * 0.8, 1);
+    const bodyMaterial = new THREE.MeshPhongMaterial({
+      color: 0xdc2626,
+      emissive: 0xdc2626,
+      emissiveIntensity: 1.0,
+      shininess: 80,
+      specular: 0xef4444
+    });
+    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    body.castShadow = true;
+    group.add(body);
+    
+    // Glow aura
+    const glowGeometry = new THREE.SphereGeometry(enemy.size, 16, 16);
+    const glowMaterial = new THREE.MeshBasicMaterial({
+      color: 0xdc2626,
+      transparent: true,
+      opacity: 0.4
+    });
+    const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+    group.add(glow);
+    
+    // Enemy light (illumination source)
+    const enemyLight = new THREE.PointLight(0xdc2626, 3, 80);
+    group.add(enemyLight);
+    
+    group.position.set(enemy.x, enemy.y, 0);
+    gameScene.add(group);
+    return group;
+  };
+  
+  // Create 3D bullet mesh
+  const create3DBulletMesh = (bullet) => {
+    if (!gameScene) return null;
+    
+    const color = bullet.isEnemy ? 0xdc2626 : 0xfde047;
+    
+    const geometry = new THREE.SphereGeometry(bullet.size, 8, 8);
+    const material = new THREE.MeshBasicMaterial({
+      color: color,
+      transparent: true,
+      opacity: 1
+    });
+    const bulletMesh = new THREE.Mesh(geometry, material);
+    
+    // Outer glow
+    const glowGeometry = new THREE.SphereGeometry(bullet.size * 1.8, 8, 8);
+    const glowMaterial = new THREE.MeshBasicMaterial({
+      color: color,
+      transparent: true,
+      opacity: 0.7
+    });
+    const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+    bulletMesh.add(glow);
+    
+    // Bullet light
+    const bulletLight = new THREE.PointLight(color, 2, 30);
+    bulletMesh.add(bulletLight);
+    
+    bulletMesh.position.set(bullet.x, bullet.y, 0);
+    gameScene.add(bulletMesh);
+    return bulletMesh;
+  };
+  
+  // Update 3D scene with game state
+  const update3DScene = () => {
+    if (!game3DEnabled || !gameScene || !player) return;
+    
+    // Update camera to follow player
+    if (gameCamera) {
+      gameCamera.position.x = player.x;
+      gameCamera.position.y = player.y;
+    }
+    
+    // Update player mesh
+    if (!playerMeshGroup.mesh && player) {
+      create3DPlayerShip();
+    }
+    if (playerMeshGroup.mesh) {
+      playerMeshGroup.mesh.position.set(player.x, player.y, 0);
+      playerMeshGroup.mesh.rotation.z = player.lookAngle - Math.PI / 2;
+      
+      // Animate engine lights based on boost
+      if (playerMeshGroup.lights && input.isBoosting) {
+        const pulse = Math.sin(performance.now() / 50) * 0.5 + 1;
+        playerMeshGroup.lights.forEach(light => {
+          light.intensity = 6 * pulse;
+        });
+      } else if (playerMeshGroup.lights) {
+        playerMeshGroup.lights.forEach(light => {
+          light.intensity = 4;
+        });
+      }
+    }
+    
+    // Update enemy meshes
+    enemies.forEach(enemy => {
+      if (!enemy._id) enemy._id = `enemy_${Math.random()}`;
+      
+      if (!enemyMeshes.has(enemy._id)) {
+        const mesh = create3DEnemyMesh(enemy);
+        if (mesh) enemyMeshes.set(enemy._id, mesh);
+      }
+      
+      const mesh = enemyMeshes.get(enemy._id);
+      if (mesh) {
+        mesh.position.set(enemy.x, enemy.y, 0);
+        mesh.rotation.z += 0.02; // Slow rotation for menacing effect
+      }
+    });
+    
+    // Remove dead enemy meshes
+    for (const [id, mesh] of enemyMeshes.entries()) {
+      if (!enemies.find(e => e._id === id)) {
+        gameScene.remove(mesh);
+        mesh.traverse((child) => {
+          if (child.geometry) child.geometry.dispose();
+          if (child.material) child.material.dispose();
+        });
+        enemyMeshes.delete(id);
+      }
+    }
+    
+    // Update bullet meshes
+    bullets.forEach(bullet => {
+      if (!bullet._id) bullet._id = `bullet_${Math.random()}`;
+      
+      if (!bulletMeshes.has(bullet._id)) {
+        const mesh = create3DBulletMesh(bullet);
+        if (mesh) bulletMeshes.set(bullet._id, mesh);
+      }
+      
+      const mesh = bulletMeshes.get(bullet._id);
+      if (mesh) {
+        mesh.position.set(bullet.x, bullet.y, 0);
+      }
+    });
+    
+    // Remove old bullet meshes
+    for (const [id, mesh] of bulletMeshes.entries()) {
+      if (!bullets.find(b => b._id === id)) {
+        gameScene.remove(mesh);
+        mesh.traverse((child) => {
+          if (child.geometry) child.geometry.dispose();
+          if (child.material) child.material.dispose();
+        });
+        bulletMeshes.delete(id);
+      }
+    }
+  };
+  
+  // Render 3D scene
+  const render3DScene = () => {
+    if (!game3DEnabled || !gameRenderer || !gameScene || !gameCamera) return;
+    
+    update3DScene();
+    gameRenderer.render(gameScene, gameCamera);
+  };
+  
   // Initialize on page load
   let startScreenBackgroundCleanup;
   if (document.readyState === 'loading') {
