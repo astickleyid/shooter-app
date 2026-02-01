@@ -11,8 +11,16 @@ const AUTH_CONFIG = {
   SESSION_TIMEOUT: 24 * 60 * 60 * 1000, // 24 hours
   TIMEOUT_MS: 10000, // Increased to 10s for reliability
   RETRY_ATTEMPTS: 3, // Retry failed requests
-  RETRY_DELAY: 1000 // 1 second between retries
+  RETRY_DELAY: 1000, // 1 second between retries
+  DEBUG: true // Enable detailed logging
 };
+
+// Log configuration on load
+console.log('🔧 Auth Config:', {
+  apiBase: AUTH_CONFIG.API_BASE,
+  timeout: `${AUTH_CONFIG.TIMEOUT_MS / 1000}s`,
+  retries: AUTH_CONFIG.RETRY_ATTEMPTS
+});
 
 /**
  * Unified Auth System
@@ -67,6 +75,8 @@ const AuthSystem = {
    * @returns {Promise<{success: boolean, error?: string}>}
    */
   async register(username, password) {
+    if (AUTH_CONFIG.DEBUG) console.log('🔐 Register attempt:', username);
+    
     try {
       // Validate input
       if (!username || username.trim().length < 3) {
@@ -78,11 +88,15 @@ const AuthSystem = {
       
       const cleanUsername = username.trim();
       
+      if (AUTH_CONFIG.DEBUG) console.log('📡 Sending registration to backend...');
+      
       // Backend registration - REQUIRED for production
       const response = await this._apiRequest('/users?action=register', {
         method: 'POST',
         body: JSON.stringify({ username: cleanUsername, password })
       });
+      
+      if (AUTH_CONFIG.DEBUG) console.log('✅ Registration response:', response);
       
       if (response.success) {
         // Create session from backend response
@@ -101,16 +115,31 @@ const AuthSystem = {
         this.saveSession();
         this.notifyAuthChange();
         
+        console.log('✅ User registered successfully:', cleanUsername);
         return { success: true };
       }
       
       return { success: false, error: response.error || 'Registration failed' };
     } catch (error) {
-      console.error('Registration error:', error);
-      // Return network error for user feedback
-      if (error.message.includes('fetch') || error.message.includes('network')) {
-        return { success: false, error: 'Unable to connect to server. Please check your internet connection.' };
+      console.error('❌ Registration error:', error);
+      
+      // Provide detailed error messages
+      if (error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
+        return { 
+          success: false, 
+          error: '⚠️ Unable to connect to server.\n\nPlease check:\n• Your internet connection\n• The backend is deployed at:\n  ' + AUTH_CONFIG.API_BASE 
+        };
       }
+      if (error.message.includes('aborted') || error.message.includes('timeout')) {
+        return { 
+          success: false, 
+          error: '⏱️ Request timed out.\n\nThe server took too long to respond. Please try again.' 
+        };
+      }
+      if (error.message.includes('409') || error.message.includes('already taken')) {
+        return { success: false, error: 'Username already taken. Please choose another.' };
+      }
+      
       return { success: false, error: error.message || 'Registration failed. Please try again.' };
     }
   },
@@ -122,6 +151,8 @@ const AuthSystem = {
    * @returns {Promise<{success: boolean, error?: string}>}
    */
   async login(username, password) {
+    if (AUTH_CONFIG.DEBUG) console.log('🔐 Login attempt:', username);
+    
     try {
       if (!username || !password) {
         return { success: false, error: 'Username and password are required' };
@@ -129,11 +160,15 @@ const AuthSystem = {
       
       const cleanUsername = username.trim();
       
+      if (AUTH_CONFIG.DEBUG) console.log('📡 Sending login to backend...');
+      
       // Backend login - REQUIRED for production
       const response = await this._apiRequest('/users?action=login', {
         method: 'POST',
         body: JSON.stringify({ username: cleanUsername, password })
       });
+      
+      if (AUTH_CONFIG.DEBUG) console.log('✅ Login response:', response);
       
       if (response.success) {
         // Create session from backend response
@@ -155,16 +190,31 @@ const AuthSystem = {
         this.saveSession();
         this.notifyAuthChange();
         
+        console.log('✅ User logged in successfully:', cleanUsername);
         return { success: true };
       }
       
       return { success: false, error: response.error || 'Invalid credentials' };
     } catch (error) {
-      console.error('Login error:', error);
-      // Return network error for user feedback
-      if (error.message.includes('fetch') || error.message.includes('network')) {
-        return { success: false, error: 'Unable to connect to server. Please check your internet connection.' };
+      console.error('❌ Login error:', error);
+      
+      // Provide detailed error messages
+      if (error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
+        return { 
+          success: false, 
+          error: '⚠️ Unable to connect to server.\n\nPlease check:\n• Your internet connection\n• The backend is deployed at:\n  ' + AUTH_CONFIG.API_BASE 
+        };
       }
+      if (error.message.includes('aborted') || error.message.includes('timeout')) {
+        return { 
+          success: false, 
+          error: '⏱️ Request timed out.\n\nThe server took too long to respond. Please try again.' 
+        };
+      }
+      if (error.message.includes('401') || error.message.includes('Invalid')) {
+        return { success: false, error: 'Invalid username or password.' };
+      }
+      
       return { success: false, error: error.message || 'Login failed. Please try again.' };
     }
   },
