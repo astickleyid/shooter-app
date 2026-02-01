@@ -9154,11 +9154,11 @@
     
     initShipSelection();
     
-    // Clean up 3D WebGL start screen background
-    if (startScreenBackgroundCleanup) {
-      startScreenBackgroundCleanup();
-      startScreenBackgroundCleanup = null;
-    }
+    // Clean up 3D WebGL start screen background - REMOVED (no longer using 3D background)
+    // if (startScreenBackgroundCleanup) {
+    //   startScreenBackgroundCleanup();
+    //   startScreenBackgroundCleanup = null;
+    // }
     
     // Add smooth transition effect
     dom.startScreen.style.transition = 'opacity 0.6s ease-out, transform 0.6s ease-out';
@@ -9655,10 +9655,10 @@
       dom.startScreen.style.opacity = '0';
       dom.startScreen.style.transform = 'scale(0.95)';
       
-      // Restart 3D WebGL start screen background
-      if (!startScreenBackgroundCleanup) {
-        startScreenBackgroundCleanup = initStartScreenBackground();
-      }
+      // Restart 3D WebGL start screen background - REMOVED (no longer using 3D background)
+      // if (!startScreenBackgroundCleanup) {
+      //   startScreenBackgroundCleanup = initStartScreenBackground();
+      // }
       
       requestAnimationFrame(() => {
         dom.startScreen.style.transition = 'opacity 0.5s ease-out, transform 0.5s ease-out';
@@ -11573,94 +11573,225 @@
   // ===================================================================
   
   /**
-   * Elegant 2D Loading Screen
-   * - Animated logo with letter reveals
-   * - Smooth progress bar
-   * - Subtle particle sparkles
-   * - Clean, minimal aesthetic
+   * New Loading Screen with Progress Bar and Terminal Logs
+   * - Black background
+   * - Large title "VOID RIFT" with streaming effect
+   * - Real facts in terminal logs (developer info, date/time)
+   * - Minimal progress bar with Vanguard ship indicator
+   * - 10 second animation
    */
   const initLoadingScreen = () => {
     const loadingOverlay = document.getElementById('loadingOverlay');
-    const loadingCanvas = document.getElementById('loadingCanvas');
+    const loadingTitle = document.getElementById('loadingTitle');
+    const loadingShipCanvas = document.getElementById('loadingShipCanvas');
+    const loadingBarFill = document.querySelector('.loading-bar-fill');
+    const terminalLogs = document.getElementById('terminalLogs');
     
-    if (!loadingCanvas || !loadingOverlay) {
-      console.warn('Loading canvas not found');
+    if (!loadingShipCanvas || !loadingOverlay || !loadingBarFill || !terminalLogs || !loadingTitle) {
       return () => {};
     }
     
-    const ctx = loadingCanvas.getContext('2d');
-    loadingCanvas.width = window.innerWidth;
-    loadingCanvas.height = window.innerHeight;
+    const ctx = loadingShipCanvas.getContext('2d');
+    const shipSize = 32; // Smaller ship for minimal progress bar
+    loadingShipCanvas.width = shipSize;
+    loadingShipCanvas.height = shipSize;
     
-    // Particle system for subtle sparkles
-    const particles = [];
-    for (let i = 0; i < 40; i++) {
-      particles.push({
-        x: Math.random() * loadingCanvas.width,
-        y: Math.random() * loadingCanvas.height,
-        size: Math.random() * 2 + 1,
-        speedY: Math.random() * 0.3 + 0.1,
-        opacity: Math.random() * 0.5 + 0.3,
-        twinkle: Math.random() * Math.PI * 2
-      });
-    }
+    // Get current date and time
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+    const timeStr = now.toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit', 
+      second: '2-digit',
+      hour12: true 
+    });
+    
+    // Terminal log messages with real facts
+    const logMessages = [
+      { time: 0, msg: '═══════════════════════════════════════', type: 'info' },
+      { time: 100, msg: 'VOID RIFT - COMBAT SYSTEM v2.0.1', type: 'highlight' },
+      { time: 200, msg: '═══════════════════════════════════════', type: 'info' },
+      { time: 500, msg: 'SYSTEM BOOT SEQUENCE INITIATED', type: 'info' },
+      { time: 800, msg: `Date: ${dateStr}`, type: 'info' },
+      { time: 1100, msg: `Time: ${timeStr}`, type: 'info' },
+      { time: 1400, msg: 'Built by Austin Michael Stickley', type: 'highlight' },
+      { time: 1700, msg: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', type: 'info' },
+      { time: 2000, msg: '> Initializing weapon systems... OK', type: 'ok' },
+      { time: 2300, msg: '> Loading navigation database... OK', type: 'ok' },
+      { time: 2600, msg: '> Calibrating targeting matrix... OK', type: 'ok' },
+      { time: 2900, msg: '> Establishing tactical uplink... OK', type: 'ok' },
+      { time: 3200, msg: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', type: 'info' },
+      { time: 3500, msg: '> Scanning hostile signatures... CLEAR', type: 'ok' },
+      { time: 3800, msg: '> Shield generators online... OK', type: 'ok' },
+      { time: 4100, msg: '> Life support systems nominal... OK', type: 'ok' },
+      { time: 4400, msg: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', type: 'info' },
+      { time: 4700, msg: '> VANGUARD-CLASS ship detected... OK', type: 'ok' },
+      { time: 5000, msg: '> Thruster systems ready... OK', type: 'ok' },
+      { time: 5300, msg: '> Reactor core stable... OK', type: 'ok' },
+      { time: 5600, msg: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', type: 'info' },
+      { time: 5900, msg: '> Command center uplink established... OK', type: 'ok' },
+      { time: 6200, msg: '> Mission parameters loaded... OK', type: 'ok' },
+      { time: 6500, msg: '> HUD interface initialized... OK', type: 'ok' },
+      { time: 6800, msg: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', type: 'info' },
+      { time: 7100, msg: '> Audio systems online... OK', type: 'ok' },
+      { time: 7400, msg: '> Input systems calibrated... OK', type: 'ok' },
+      { time: 7700, msg: '> Communications array active... OK', type: 'ok' },
+      { time: 8000, msg: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', type: 'info' },
+      { time: 8300, msg: 'Finalizing initialization sequence...', type: 'info' },
+      { time: 8600, msg: 'ALL SYSTEMS NOMINAL', type: 'ok' },
+      { time: 8900, msg: 'PILOT READY FOR DEPLOYMENT', type: 'ok' },
+      { time: 9200, msg: '═══════════════════════════════════════', type: 'info' }
+    ];
+    
+    let currentLogIndex = 0;
+    const startTime = Date.now();
+    const duration = 10000; // 10 seconds
+    
+    // Title streaming effect
+    const titleText = 'VOID RIFT';
+    let titleIndex = 0;
+    const streamTitle = () => {
+      if (titleIndex < titleText.length) {
+        loadingTitle.textContent += titleText[titleIndex];
+        titleIndex++;
+        setTimeout(streamTitle, 80); // 80ms per character
+      }
+    };
+    setTimeout(streamTitle, 200); // Start after brief delay
+    
+    // Function to add terminal log with typing effect
+    const addTerminalLog = (msg, type) => {
+      const line = document.createElement('div');
+      line.className = 'terminal-line';
+      
+      const timestamp = document.createElement('span');
+      timestamp.className = 'timestamp';
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      timestamp.textContent = `[${elapsed}s]`;
+      
+      const prompt = document.createElement('span');
+      prompt.className = 'prompt';
+      prompt.textContent = '>';
+      
+      const text = document.createElement('span');
+      text.className = `status-${type}`;
+      
+      line.appendChild(timestamp);
+      line.appendChild(prompt);
+      line.appendChild(text);
+      terminalLogs.appendChild(line);
+      
+      // Typing animation
+      let charIndex = 0;
+      const typeInterval = setInterval(() => {
+        if (charIndex < msg.length) {
+          text.textContent += msg[charIndex];
+          charIndex++;
+          // Auto-scroll to bottom
+          terminalLogs.scrollTop = terminalLogs.scrollHeight;
+        } else {
+          clearInterval(typeInterval);
+        }
+      }, 15); // Faster typing - 15ms per character
+    };
+    
+    // Draw Vanguard ship on canvas (smaller for minimal bar)
+    const drawVanguardShip = () => {
+      ctx.clearRect(0, 0, shipSize, shipSize);
+      ctx.save();
+      ctx.translate(shipSize / 2, shipSize / 2);
+      ctx.rotate(-Math.PI / 2); // Point right
+      
+      const scale = shipSize / 32;
+      
+      // Engine glow
+      ctx.shadowColor = '#f97316';
+      ctx.shadowBlur = 12;
+      ctx.fillStyle = '#f97316';
+      ctx.globalAlpha = 0.7;
+      ctx.beginPath();
+      ctx.arc(-8 * scale, 0, 3.5 * scale, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.shadowBlur = 0;
+      
+      // Main hull
+      ctx.fillStyle = '#0ea5e9';
+      ctx.beginPath();
+      ctx.moveTo(12 * scale, 0);
+      ctx.lineTo(-8 * scale, -6 * scale);
+      ctx.lineTo(-8 * scale, 6 * scale);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Canopy
+      ctx.fillStyle = '#7dd3fc';
+      ctx.beginPath();
+      ctx.arc(4 * scale, 0, 2.5 * scale, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Wing accents
+      ctx.strokeStyle = '#f8fafc';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(8 * scale, 0);
+      ctx.lineTo(-4 * scale, -4 * scale);
+      ctx.moveTo(8 * scale, 0);
+      ctx.lineTo(-4 * scale, 4 * scale);
+      ctx.stroke();
+      
+      ctx.restore();
+    };
+    
+    drawVanguardShip();
     
     // Animation loop
     let animationFrame;
     const animate = () => {
-      // Clear with fade effect for trails
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
-      ctx.fillRect(0, 0, loadingCanvas.width, loadingCanvas.height);
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
       
-      // Update and draw particles
-      particles.forEach(particle => {
-        particle.y -= particle.speedY;
-        particle.twinkle += 0.02;
-        
-        // Wrap around
-        if (particle.y < 0) {
-          particle.y = loadingCanvas.height;
-          particle.x = Math.random() * loadingCanvas.width;
+      // Update progress bar with smooth easing
+      loadingBarFill.style.width = `${progress * 100}%`;
+      
+      // Update ship position
+      loadingShipCanvas.style.left = `${progress * 100}%`;
+      
+      // Add log messages at appropriate times
+      if (currentLogIndex < logMessages.length) {
+        const nextLog = logMessages[currentLogIndex];
+        if (elapsed >= nextLog.time) {
+          addTerminalLog(nextLog.msg, nextLog.type);
+          currentLogIndex++;
         }
-        
-        // Draw particle with twinkle
-        const alpha = particle.opacity * (0.5 + Math.sin(particle.twinkle) * 0.5);
-        ctx.fillStyle = `rgba(74, 222, 128, ${alpha})`; // Green sparkles
-        ctx.beginPath();
-        ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Add glow
-        const gradient = ctx.createRadialGradient(
-          particle.x, particle.y, 0,
-          particle.x, particle.y, particle.size * 3
-        );
-        gradient.addColorStop(0, `rgba(74, 222, 128, ${alpha * 0.5})`);
-        gradient.addColorStop(1, 'rgba(74, 222, 128, 0)');
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(particle.x, particle.y, particle.size * 3, 0, Math.PI * 2);
-        ctx.fill();
-      });
+      }
       
-      animationFrame = requestAnimationFrame(animate);
+      // Continue animation until completion
+      if (progress < 1) {
+        animationFrame = requestAnimationFrame(animate);
+      } else {
+        // Mark as loaded after 10 seconds
+        setTimeout(() => {
+          loadingOverlay.classList.add('loaded');
+        }, 300);
+      }
     };
     
     animate();
     
-    // Handle window resize
-    const handleResize = () => {
-      loadingCanvas.width = window.innerWidth;
-      loadingCanvas.height = window.innerHeight;
-    };
-    window.addEventListener('resize', handleResize);
-    
     // Return cleanup function
     return () => {
-      cancelAnimationFrame(animationFrame);
-      window.removeEventListener('resize', handleResize);
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+      }
     };
   };
+
   
   /**
    * Start Screen: Spinning Ship Loader with 3D Space Elements
@@ -11671,8 +11802,10 @@
    * - 8 rotating asteroids in 3D space
    * - 2 time portal wormholes with vortex effects
    * - High-fidelity immersive sci-fi atmosphere
+   * 
+   * NOTE: This function is no longer used - kept for reference only
    */
-  const initStartScreenBackground = () => {
+  const _initStartScreenBackground = () => {
     const canvas = document.getElementById('startBackgroundCanvas');
     if (!canvas) {
       console.warn('Start background canvas not found');
@@ -12026,21 +12159,21 @@
   };
   
   // Initialize on page load
-  let startScreenBackgroundCleanup;
+  // startScreenBackgroundCleanup removed - no longer using 3D background
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       initLoadingScreen();
       setTimeout(() => {
-        startScreenBackgroundCleanup = initStartScreenBackground();
+        // startScreenBackgroundCleanup = initStartScreenBackground(); // REMOVED
         initGameplayHints();
-      }, 2000);
+      }, 10000); // Changed to 10000 to wait for loading screen
     });
   } else {
     initLoadingScreen();
     setTimeout(() => {
-      startScreenBackgroundCleanup = initStartScreenBackground();
+      // startScreenBackgroundCleanup = initStartScreenBackground(); // REMOVED
       initGameplayHints();
-    }, 2000);
+    }, 10000); // Changed to 10000 to wait for loading screen
   }
 
   // Cycling gameplay hints on start screen
