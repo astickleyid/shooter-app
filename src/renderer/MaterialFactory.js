@@ -23,7 +23,8 @@ export class MaterialFactory {
   }
 
   /**
-   * Create ship material with glow effect
+   * Create ship material with realistic metallic glow effect
+   * Enhanced with better metalness and reflections
    * @param {string} primaryColor - Primary color (hex)
    * @param {string} emissiveColor - Emissive color (hex)
    * @returns {THREE.MeshStandardMaterial} Material
@@ -34,47 +35,81 @@ export class MaterialFactory {
       return new THREE.MeshStandardMaterial({
         color: primaryColor,
         emissive: emissiveColor || primaryColor,
-        emissiveIntensity: 0.3,
-        metalness: 0.8,
-        roughness: 0.2,
-        flatShading: false
-      });
-    });
-  }
-
-  /**
-   * Create bullet material with intense glow
-   * @param {string} color - Bullet color (hex)
-   * @returns {THREE.MeshStandardMaterial} Material
-   */
-  createBulletMaterial(color) {
-    const key = `bullet_${color}`;
-    return this.get(key, () => {
-      return new THREE.MeshStandardMaterial({
-        color: color,
-        emissive: color,
-        emissiveIntensity: 0.8,
-        metalness: 0.3,
-        roughness: 0.1
-      });
-    });
-  }
-
-  /**
-   * Create enemy material
-   * @param {string} color - Enemy color (hex)
-   * @returns {THREE.MeshStandardMaterial} Material
-   */
-  createEnemyMaterial(color) {
-    const key = `enemy_${color}`;
-    return this.get(key, () => {
-      return new THREE.MeshStandardMaterial({
-        color: color,
-        emissive: color,
         emissiveIntensity: 0.4,
-        metalness: 0.5,
-        roughness: 0.5
+        metalness: 0.9,
+        roughness: 0.15,
+        flatShading: false,
+        envMapIntensity: 1.5
       });
+    });
+  }
+
+  /**
+   * Create enemy material based on type
+   * Enhanced with type-specific properties
+   * @param {string} color - Enemy color (hex)
+   * @param {string} type - Enemy type for specialized materials
+   * @returns {THREE.MeshStandardMaterial} Material
+   */
+  createEnemyMaterial(color, type = 'default') {
+    const key = `enemy_${color}_${type}`;
+    return this.get(key, () => {
+      const baseProps = {
+        color: color,
+        emissive: color
+      };
+      
+      switch(type) {
+        case 'drone':
+          // Metallic, mechanical
+          return new THREE.MeshStandardMaterial({
+            ...baseProps,
+            emissiveIntensity: 0.5,
+            metalness: 0.85,
+            roughness: 0.3
+          });
+          
+        case 'chaser':
+          // Organic, slightly translucent
+          return new THREE.MeshStandardMaterial({
+            ...baseProps,
+            emissiveIntensity: 0.6,
+            metalness: 0.3,
+            roughness: 0.7,
+            transparent: true,
+            opacity: 0.95
+          });
+          
+        case 'heavy':
+          // Crystalline, high metallic
+          return new THREE.MeshStandardMaterial({
+            ...baseProps,
+            emissiveIntensity: 0.7,
+            metalness: 0.95,
+            roughness: 0.1,
+            transparent: true,
+            opacity: 0.9
+          });
+          
+        case 'swarmer':
+          // Bioluminescent, glowing
+          return new THREE.MeshStandardMaterial({
+            ...baseProps,
+            emissiveIntensity: 0.8,
+            metalness: 0.2,
+            roughness: 0.8,
+            transparent: true,
+            opacity: 0.85
+          });
+          
+        default:
+          return new THREE.MeshStandardMaterial({
+            ...baseProps,
+            emissiveIntensity: 0.4,
+            metalness: 0.5,
+            roughness: 0.5
+          });
+      }
     });
   }
 

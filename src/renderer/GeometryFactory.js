@@ -3,6 +3,7 @@
  */
 
 import * as THREE from 'three';
+import { BufferGeometryUtils } from 'three/addons/utils/BufferGeometryUtils.js';
 
 export class GeometryFactory {
   constructor() {
@@ -72,139 +73,174 @@ export class GeometryFactory {
   }
 
   /**
-   * Create spear-shaped hull (triangular, balanced)
+   * Create spear-shaped hull (triangular, balanced fighter)
+   * Enhanced with more detail and realistic proportions
    * @param {number} size - Ship size
    * @returns {THREE.BufferGeometry} Geometry
    */
   createSpearHull(size) {
-    const shape = new THREE.Shape();
+    const group = new THREE.Group();
     
-    // Front point
-    shape.moveTo(size * 1.2, 0);
-    // Top edge
-    shape.lineTo(size * 0.4, -size * 0.4);
-    // Back top
-    shape.lineTo(-size * 0.5, -size * 0.35);
-    // Back center (engine notch)
-    shape.lineTo(-size * 0.6, 0);
-    // Back bottom
-    shape.lineTo(-size * 0.5, size * 0.35);
-    // Bottom edge
-    shape.lineTo(size * 0.4, size * 0.4);
-    // Close
-    shape.lineTo(size * 1.2, 0);
+    // Main fuselage body
+    const bodyShape = new THREE.Shape();
+    bodyShape.moveTo(size * 1.3, 0);
+    bodyShape.lineTo(size * 0.5, -size * 0.4);
+    bodyShape.lineTo(-size * 0.4, -size * 0.38);
+    bodyShape.lineTo(-size * 0.7, -size * 0.25);
+    bodyShape.lineTo(-size * 0.8, 0);
+    bodyShape.lineTo(-size * 0.7, size * 0.25);
+    bodyShape.lineTo(-size * 0.4, size * 0.38);
+    bodyShape.lineTo(size * 0.5, size * 0.4);
+    bodyShape.lineTo(size * 1.3, 0);
     
-    // Extrude the shape to create 3D geometry
-    const extrudeSettings = {
-      steps: 1,
-      depth: size * 0.3,
+    const bodyExtrudeSettings = {
+      steps: 2,
+      depth: size * 0.35,
       bevelEnabled: true,
-      bevelThickness: size * 0.05,
-      bevelSize: size * 0.05,
+      bevelThickness: size * 0.06,
+      bevelSize: size * 0.06,
+      bevelSegments: 3
+    };
+    
+    const bodyGeometry = new THREE.ExtrudeGeometry(bodyShape, bodyExtrudeSettings);
+    bodyGeometry.center();
+    
+    // Swept wings
+    const wingShape = new THREE.Shape();
+    wingShape.moveTo(size * 0.2, -size * 0.4);
+    wingShape.lineTo(-size * 0.2, -size * 1.2);
+    wingShape.lineTo(-size * 0.8, -size * 1.0);
+    wingShape.lineTo(-size * 0.5, -size * 0.35);
+    wingShape.lineTo(size * 0.2, -size * 0.4);
+    
+    const wingExtrudeSettings = {
+      steps: 1,
+      depth: size * 0.15,
+      bevelEnabled: true,
+      bevelThickness: size * 0.03,
+      bevelSize: size * 0.03,
       bevelSegments: 2
     };
     
-    return new THREE.ExtrudeGeometry(shape, extrudeSettings);
+    const wingGeometry = new THREE.ExtrudeGeometry(wingShape, wingExtrudeSettings);
+    wingGeometry.center();
+    const wingGeometry2 = wingGeometry.clone();
+    wingGeometry2.scale(1, -1, 1); // Mirror for bottom wing
+    
+    // Combine all geometries
+    const geometries = [bodyGeometry, wingGeometry, wingGeometry2];
+    const mergedGeometry = BufferGeometryUtils.mergeGeometries(geometries);
+    
+    return mergedGeometry;
   }
 
   /**
-   * Create needle-shaped hull (thin, fast)
+   * Create needle-shaped hull (thin, fast interceptor)
+   * Enhanced with sleek aerodynamic profile
    * @param {number} size - Ship size
    * @returns {THREE.BufferGeometry} Geometry
    */
   createNeedleHull(size) {
-    const shape = new THREE.Shape();
+    const bodyShape = new THREE.Shape();
     
-    // Very pointed front
-    shape.moveTo(size * 1.3, 0);
-    // Thin top edge
-    shape.lineTo(size * 0.3, -size * 0.25);
-    // Back
-    shape.lineTo(-size * 0.6, -size * 0.2);
-    shape.lineTo(-size * 0.65, 0);
-    shape.lineTo(-size * 0.6, size * 0.2);
-    // Thin bottom edge
-    shape.lineTo(size * 0.3, size * 0.25);
-    shape.lineTo(size * 1.3, 0);
-    
-    const extrudeSettings = {
-      steps: 1,
-      depth: size * 0.2,
-      bevelEnabled: true,
-      bevelThickness: size * 0.03,
-      bevelSize: size * 0.03,
-      bevelSegments: 1
-    };
-    
-    return new THREE.ExtrudeGeometry(shape, extrudeSettings);
-  }
-
-  /**
-   * Create brick-shaped hull (bulky, armored)
-   * @param {number} size - Ship size
-   * @returns {THREE.BufferGeometry} Geometry
-   */
-  createBrickHull(size) {
-    const shape = new THREE.Shape();
-    
-    // Blunt front
-    shape.moveTo(size * 0.9, 0);
-    shape.lineTo(size * 0.7, -size * 0.5);
-    // Flat top
-    shape.lineTo(-size * 0.3, -size * 0.5);
-    // Back
-    shape.lineTo(-size * 0.5, -size * 0.4);
-    shape.lineTo(-size * 0.6, 0);
-    shape.lineTo(-size * 0.5, size * 0.4);
-    // Flat bottom
-    shape.lineTo(-size * 0.3, size * 0.5);
-    shape.lineTo(size * 0.7, size * 0.5);
-    shape.lineTo(size * 0.9, 0);
+    // Ultra-sleek pointed design
+    bodyShape.moveTo(size * 1.4, 0);
+    bodyShape.quadraticCurveTo(size * 0.8, -size * 0.15, size * 0.3, -size * 0.28);
+    bodyShape.lineTo(-size * 0.5, -size * 0.24);
+    bodyShape.lineTo(-size * 0.7, -size * 0.18);
+    bodyShape.lineTo(-size * 0.75, 0);
+    bodyShape.lineTo(-size * 0.7, size * 0.18);
+    bodyShape.lineTo(-size * 0.5, size * 0.24);
+    bodyShape.lineTo(size * 0.3, size * 0.28);
+    bodyShape.quadraticCurveTo(size * 0.8, size * 0.15, size * 1.4, 0);
     
     const extrudeSettings = {
-      steps: 1,
-      depth: size * 0.5,
-      bevelEnabled: true,
-      bevelThickness: size * 0.08,
-      bevelSize: size * 0.08,
-      bevelSegments: 2
-    };
-    
-    return new THREE.ExtrudeGeometry(shape, extrudeSettings);
-  }
-
-  /**
-   * Create razor-shaped hull (aggressive, forward-swept)
-   * @param {number} size - Ship size
-   * @returns {THREE.BufferGeometry} Geometry
-   */
-  createRazorHull(size) {
-    const shape = new THREE.Shape();
-    
-    // Sharp front
-    shape.moveTo(size * 1.4, 0);
-    // Forward-swept top wing
-    shape.lineTo(size * 0.5, -size * 0.2);
-    shape.lineTo(size * 0.3, -size * 0.7);
-    shape.lineTo(-size * 0.4, -size * 0.5);
-    // Back
-    shape.lineTo(-size * 0.7, 0);
-    // Forward-swept bottom wing
-    shape.lineTo(-size * 0.4, size * 0.5);
-    shape.lineTo(size * 0.3, size * 0.7);
-    shape.lineTo(size * 0.5, size * 0.2);
-    shape.lineTo(size * 1.4, 0);
-    
-    const extrudeSettings = {
-      steps: 1,
-      depth: size * 0.25,
+      steps: 2,
+      depth: size * 0.22,
       bevelEnabled: true,
       bevelThickness: size * 0.04,
       bevelSize: size * 0.04,
       bevelSegments: 2
     };
     
-    return new THREE.ExtrudeGeometry(shape, extrudeSettings);
+    const geometry = new THREE.ExtrudeGeometry(bodyShape, extrudeSettings);
+    geometry.center();
+    
+    return geometry;
+  }
+
+  /**
+   * Create brick-shaped hull (bulky, armored gunship)
+   * Enhanced with heavy plating and robust structure
+   * @param {number} size - Ship size
+   * @returns {THREE.BufferGeometry} Geometry
+   */
+  createBrickHull(size) {
+    const bodyShape = new THREE.Shape();
+    
+    // Blunt, armored profile
+    bodyShape.moveTo(size * 1.0, 0);
+    bodyShape.lineTo(size * 0.8, -size * 0.55);
+    bodyShape.lineTo(-size * 0.2, -size * 0.58);
+    bodyShape.lineTo(-size * 0.5, -size * 0.48);
+    bodyShape.lineTo(-size * 0.65, -size * 0.35);
+    bodyShape.lineTo(-size * 0.7, 0);
+    bodyShape.lineTo(-size * 0.65, size * 0.35);
+    bodyShape.lineTo(-size * 0.5, size * 0.48);
+    bodyShape.lineTo(-size * 0.2, size * 0.58);
+    bodyShape.lineTo(size * 0.8, size * 0.55);
+    bodyShape.lineTo(size * 1.0, 0);
+    
+    const extrudeSettings = {
+      steps: 2,
+      depth: size * 0.55,
+      bevelEnabled: true,
+      bevelThickness: size * 0.1,
+      bevelSize: size * 0.1,
+      bevelSegments: 3
+    };
+    
+    const geometry = new THREE.ExtrudeGeometry(bodyShape, extrudeSettings);
+    geometry.center();
+    
+    return geometry;
+  }
+
+  /**
+   * Create razor-shaped hull (aggressive, forward-swept fighter)
+   * Enhanced with sharp, aggressive lines
+   * @param {number} size - Ship size
+   * @returns {THREE.BufferGeometry} Geometry
+   */
+  createRazorHull(size) {
+    const bodyShape = new THREE.Shape();
+    
+    // Sharp, aggressive forward-swept design
+    bodyShape.moveTo(size * 1.5, 0);
+    bodyShape.lineTo(size * 0.6, -size * 0.24);
+    bodyShape.lineTo(size * 0.4, -size * 0.75);
+    bodyShape.lineTo(-size * 0.3, -size * 0.58);
+    bodyShape.lineTo(-size * 0.6, -size * 0.25);
+    bodyShape.lineTo(-size * 0.8, 0);
+    bodyShape.lineTo(-size * 0.6, size * 0.25);
+    bodyShape.lineTo(-size * 0.3, size * 0.58);
+    bodyShape.lineTo(size * 0.4, size * 0.75);
+    bodyShape.lineTo(size * 0.6, size * 0.24);
+    bodyShape.lineTo(size * 1.5, 0);
+    
+    const extrudeSettings = {
+      steps: 2,
+      depth: size * 0.28,
+      bevelEnabled: true,
+      bevelThickness: size * 0.05,
+      bevelSize: size * 0.05,
+      bevelSegments: 2
+    };
+    
+    const geometry = new THREE.ExtrudeGeometry(bodyShape, extrudeSettings);
+    geometry.center();
+    
+    return geometry;
   }
 
   /**
@@ -221,15 +257,120 @@ export class GeometryFactory {
   }
 
   /**
-   * Create enemy geometry
+   * Create enemy geometry based on type
+   * Enhanced with unique shapes for each enemy type
    * @param {number} size - Enemy size
+   * @param {string} type - Enemy type (drone, chaser, heavy, swarmer)
    * @returns {THREE.BufferGeometry} Geometry
    */
-  createEnemyGeometry(size) {
-    const key = `enemy_${size}`;
+  createEnemyGeometry(size, type = 'default') {
+    const key = `enemy_${size}_${type}`;
     return this.get(key, () => {
-      // Octahedron for enemy (diamond shape)
-      return new THREE.OctahedronGeometry(size, 0);
+      switch(type) {
+        case 'drone':
+          // Angular mechanical design - diamond with extensions
+          const droneGeometry = new THREE.BufferGeometry();
+          const droneVertices = new Float32Array([
+            // Front point
+            size * 1.2, 0, 0,
+            // Top wing tips
+            0, -size * 0.8, 0,
+            -size * 0.6, -size * 0.6, 0,
+            // Bottom wing tips
+            0, size * 0.8, 0,
+            -size * 0.6, size * 0.6, 0,
+            // Back center
+            -size * 0.5, 0, 0
+          ]);
+          
+          const droneIndices = [
+            0, 1, 2,  // Top wing
+            0, 3, 4,  // Bottom wing
+            2, 5, 4,  // Back
+            1, 2, 5,  // Top back
+            3, 4, 5   // Bottom back
+          ];
+          
+          droneGeometry.setAttribute('position', new THREE.BufferAttribute(droneVertices, 3));
+          droneGeometry.setIndex(droneIndices);
+          droneGeometry.computeVertexNormals();
+          return droneGeometry;
+          
+        case 'chaser':
+          // Organic insectoid shape - elongated with segments
+          const chaserGroup = new THREE.Group();
+          
+          // Main body segments
+          for (let i = 0; i < 3; i++) {
+            const segmentSize = size * (1.0 - i * 0.2);
+            const segmentGeom = new THREE.SphereGeometry(segmentSize * 0.5, 8, 8);
+            const segment = new THREE.Mesh(segmentGeom);
+            segment.position.x = -size * 0.6 * i;
+            segment.scale.set(1.4, 0.8, 0.8); // Elongated
+            chaserGroup.add(segment);
+          }
+          
+          // Head with mandibles
+          const headGeom = new THREE.ConeGeometry(size * 0.6, size * 0.8, 8);
+          const head = new THREE.Mesh(headGeom);
+          head.rotation.z = -Math.PI / 2;
+          head.position.x = size * 0.6;
+          chaserGroup.add(head);
+          
+          // Merge into single geometry
+          const chaserGeometries = [];
+          chaserGroup.traverse((child) => {
+            if (child.geometry) {
+              const geom = child.geometry.clone();
+              geom.applyMatrix4(child.matrixWorld);
+              chaserGeometries.push(geom);
+            }
+          });
+          
+          return BufferGeometryUtils.mergeGeometries(chaserGeometries);
+          
+        case 'heavy':
+          // Crystalline fortress - complex polyhedron
+          const heavyGeometry = new THREE.IcosahedronGeometry(size, 1);
+          
+          // Deform for crystal appearance
+          const positions = heavyGeometry.attributes.position;
+          for (let i = 0; i < positions.count; i++) {
+            const x = positions.getX(i);
+            const y = positions.getY(i);
+            const z = positions.getZ(i);
+            
+            // Make it more angular/crystalline
+            const scale = 1 + Math.abs(x) * 0.2;
+            positions.setXYZ(i, x * scale, y * 0.8, z * 0.8);
+          }
+          
+          heavyGeometry.computeVertexNormals();
+          return heavyGeometry;
+          
+        case 'swarmer':
+          // Organic blob - amoeba-like
+          const swarmerGeometry = new THREE.TetrahedronGeometry(size, 2);
+          
+          // Deform for organic appearance
+          const swarmerPositions = swarmerGeometry.attributes.position;
+          for (let i = 0; i < swarmerPositions.count; i++) {
+            const x = swarmerPositions.getX(i);
+            const y = swarmerPositions.getY(i);
+            const z = swarmerPositions.getZ(i);
+            
+            // Irregular wobble
+            const wobble = 1 + Math.sin(i) * 0.3;
+            swarmerPositions.setXYZ(i, x * wobble, y * wobble * 0.8, z * wobble * 0.8);
+          }
+          
+          swarmerGeometry.computeVertexNormals();
+          return swarmerGeometry;
+          
+        default:
+          // Default octahedron for generic enemies
+          return new THREE.OctahedronGeometry(size, 0);
+      }
     });
   }
 

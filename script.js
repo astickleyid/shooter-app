@@ -4529,7 +4529,7 @@
         ctx.beginPath();
         ctx.moveTo(this.size * 0.8, 0);
         ctx.lineTo(this.size * 0.2, -this.size * 0.5);
-        ctx.lineTo(this.size * 0.2, size * 0.5);
+        ctx.lineTo(this.size * 0.2, this.size * 0.5);
         ctx.closePath();
         ctx.fill();
         
@@ -4919,6 +4919,8 @@
       const dist = Math.hypot(dx, dy) || 1;
       let ax = 0;
       let ay = 0;
+      
+      // Obstacle avoidance
       for (const o of obstacles) {
         const ox = o.x;
         const oy = o.y;
@@ -4932,8 +4934,117 @@
           ay += (ddy / (d || 1)) * f * 2.4;
         }
       }
-      const nx = dx / dist + ax;
-      const ny = dy / dist + ay;
+      
+      // Unique movement patterns based on enemy type
+      let movementX = dx / dist;
+      let movementY = dy / dist;
+      
+      if (this.kind === 'drone') {
+        // Erratic zigzag pattern - quick direction changes
+        if (!this.zigzagTimer) this.zigzagTimer = 0;
+        this.zigzagTimer += dt;
+        
+        if (this.zigzagTimer > 300) { // Change direction every 300ms
+          this.zigzagAngle = (this.zigzagAngle || 0) + (Math.random() - 0.5) * Math.PI;
+          this.zigzagTimer = 0;
+        }
+        
+        const zigzagStrength = 0.7;
+        movementX += Math.cos(this.zigzagAngle || 0) * zigzagStrength;
+        movementY += Math.sin(this.zigzagAngle || 0) * zigzagStrength;
+        
+      } else if (this.kind === 'chaser') {
+        // Predatory circling - maintains distance while circling
+        if (!this.circlePhase) this.circlePhase = Math.random() * Math.PI * 2;
+        this.circlePhase += dt * 0.002;
+        
+        const optimalDist = 150; // Preferred stalking distance
+        const distFactor = Math.min(1, Math.max(0, (dist - optimalDist) / optimalDist));
+        
+        // Circle around player when at optimal distance
+        if (dist > optimalDist * 0.8 && dist < optimalDist * 1.5) {
+          const circleStrength = 0.8;
+          movementX = dx / dist * distFactor + Math.cos(this.circlePhase) * circleStrength;
+          movementY = dy / dist * distFactor + Math.sin(this.circlePhase) * circleStrength;
+        }
+        
+        // Add lunging behavior
+        if (!this.lungeTimer) this.lungeTimer = Math.random() * 2000;
+        this.lungeTimer += dt;
+        
+        if (this.lungeTimer > 2000 && dist < 200) {
+          // Sudden lunge towards player
+          movementX = dx / dist * 2;
+          movementY = dy / dist * 2;
+          this.lungeTimer = -500; // Cooldown period
+        }
+        
+      } else if (this.kind === 'heavy') {
+        // Slow, deliberate movement with charge attacks
+        if (!this.chargePhase) this.chargePhase = 0;
+        if (!this.chargeTimer) this.chargeTimer = Math.random() * 3000;
+        this.chargeTimer += dt;
+        
+        if (this.chargePhase === 0) {
+          // Normal slow approach
+          movementX = dx / dist * 0.6;
+          movementY = dy / dist * 0.6;
+          
+          // Wind up for charge
+          if (this.chargeTimer > 3000 && dist < 300) {
+            this.chargePhase = 1;
+            this.chargeTimer = 0;
+            this.chargeAngle = Math.atan2(dy, dx);
+          }
+        } else if (this.chargePhase === 1) {
+          // Charging wind-up (slow down)
+          movementX *= 0.2;
+          movementY *= 0.2;
+          
+          if (this.chargeTimer > 500) {
+            this.chargePhase = 2;
+            this.chargeTimer = 0;
+          }
+        } else if (this.chargePhase === 2) {
+          // Execute charge!
+          movementX = Math.cos(this.chargeAngle) * 3;
+          movementY = Math.sin(this.chargeAngle) * 3;
+          
+          if (this.chargeTimer > 800) {
+            this.chargePhase = 0;
+            this.chargeTimer = 0;
+          }
+        }
+        
+      } else if (this.kind === 'swarmer') {
+        // Cluster formation with coordinated swoops
+        if (!this.swarmPhase) this.swarmPhase = Math.random() * Math.PI * 2;
+        this.swarmPhase += dt * 0.003;
+        
+        // Create wave-like formation with other swarmers
+        const waveX = Math.cos(this.swarmPhase) * 0.5;
+        const waveY = Math.sin(this.swarmPhase * 1.3) * 0.5;
+        
+        movementX = dx / dist * 1.2 + waveX;
+        movementY = dy / dist * 1.2 + waveY;
+        
+        // Periodic swooping dive
+        if (!this.swoopTimer) this.swoopTimer = Math.random() * 1500;
+        this.swoopTimer += dt;
+        
+        if (this.swoopTimer > 1500 && dist < 250) {
+          const swoopIntensity = Math.sin(this.swoopTimer / 100) * 2;
+          movementX += Math.cos(this.swarmPhase) * swoopIntensity;
+          movementY += Math.sin(this.swarmPhase) * swoopIntensity;
+          
+          if (this.swoopTimer > 2000) {
+            this.swoopTimer = 0;
+          }
+        }
+      }
+      
+      const nx = movementX + ax;
+      const ny = movementY + ay;
       const nm = Math.hypot(nx, ny) || 1;
       this.x += (nx / nm) * this.speed * (dt / 16.67);
       this.y += (ny / nm) * this.speed * (dt / 16.67);
