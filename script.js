@@ -2369,8 +2369,8 @@
   const drawStarsLayer = (ctx, arr, parallaxFactor) => {
     ctx.fillStyle = '#fff';
     for (const star of arr) {
-      // Smaller stars appear dimmer (realistic)
-      ctx.globalAlpha = clamp(star.s / 2.2, 0.15, 0.85);
+      // Brighter stars with better visibility
+      ctx.globalAlpha = clamp(star.s / 1.8, 0.3, 1.0); // Increased from 0.15-0.85 range
       ctx.fillRect(star.x, star.y, star.s, star.s);
       
       // Very subtle individual drift (stars appear nearly static like real space)
@@ -2409,13 +2409,13 @@
   // Enhanced star layer with subtle twinkle for realistic space appearance
   const drawEnhancedStarsLayer = (ctx, arr, parallaxFactor) => {
     for (const star of arr) {
-      let alpha = clamp(star.s / 2.2, 0.15, 0.85) * (star.baseAlpha || 1);
+      let alpha = clamp(star.s / 1.5, 0.4, 1.0) * (star.baseAlpha || 1); // Brighter range
       
       // Apply subtle twinkling effect
       if (star.twinkle) {
         star.twinklePhase += star.twinkleSpeed * 16.67;
-        // More subtle twinkle range for realism
-        alpha *= 0.75 + 0.25 * Math.sin(star.twinklePhase);
+        // Subtle twinkle with brighter minimum
+        alpha *= 0.8 + 0.2 * Math.sin(star.twinklePhase); // Higher minimum (0.8 vs 0.75)
       }
       
       ctx.globalAlpha = alpha;
@@ -2471,26 +2471,26 @@
     }
   };
 
-  // Initialize realistic star layers for dark space aesthetic
+  // Initialize realistic star layers for dark void aesthetic with bright stars
   const initStarLayers = () => {
-    // Layer 1: Deep space stars (very distant, faint, nearly static)
-    starsDeepSpace = makeEnhancedStars(300, {
-      colors: ['#ffffff', '#e5e7eb', '#d1d5db'],  // Subtle white/gray tones
-      minSize: 0.2,
-      maxSize: 0.6,
-      baseAlpha: 0.3,
+    // Layer 1: Deep space stars (very distant, brighter, nearly static)
+    starsDeepSpace = makeEnhancedStars(400, { // More stars
+      colors: ['#ffffff', '#f5f5f5', '#fafafa'],  // Brighter white tones (less gray)
+      minSize: 0.3, // Slightly larger
+      maxSize: 0.8,
+      baseAlpha: 0.5, // Increased from 0.3 for better visibility
       twinkle: true
     });
-    // Layer 2-4: Main star layers (varying distances)
-    starsFar = makeStars(150);   // Most distant, smallest
-    starsMid = makeStars(100);   // Middle distance
-    starsNear = makeStars(60);   // Closer stars
-    // Layer 5: Occasional bright stars (rare, prominent)
-    starsBright = makeEnhancedStars(12, {
-      colors: ['#ffffff', '#fef9c3', '#e0f2fe'],  // Pure white with slight color variance
-      minSize: 1.2,
-      maxSize: 2.0,
-      baseAlpha: 0.8,
+    // Layer 2-4: Main star layers (varying distances) - more stars, brighter
+    starsFar = makeStars(200);   // Increased from 150
+    starsMid = makeStars(150);   // Increased from 100
+    starsNear = makeStars(100);  // Increased from 60
+    // Layer 5: Occasional bright stars (rare, prominent) - more visible
+    starsBright = makeEnhancedStars(20, { // Increased from 12
+      colors: ['#ffffff', '#fffef0', '#f0f9ff'],  // Pure white with minimal warm/cool tints
+      minSize: 1.5, // Larger for prominence
+      maxSize: 2.5, // Increased from 2.0
+      baseAlpha: 1.0, // Full brightness (increased from 0.8)
       twinkle: true
     });
   };
@@ -6107,13 +6107,12 @@
       ctx.ellipse(-size * 0.75, size * 0.78, size * 0.08, size * 0.04, 0.2, -Math.PI * 1.8, -Math.PI);
       ctx.fill();
       
-      // Main fuselage body - ENHANCED: metallic gradient and more substantial
-      ctx.save();
-      ctx.fillStyle = createMetallicGradient(ctx, size * 1.3, -size * 0.35, -size * 0.85, size * 0.35, primary);
+      // Main fuselage body - ENHANCED: wider and more substantial with intense glow
+      ctx.fillStyle = primary;
       ctx.strokeStyle = trim;
       ctx.lineWidth = Math.max(2, size * 0.1);
       ctx.shadowColor = primary;
-      ctx.shadowBlur = 15;
+      ctx.shadowBlur = 25; // Increased from 15 for more dramatic glow
       ctx.beginPath();
       ctx.moveTo(size * 1.3, 0);
       ctx.quadraticCurveTo(size * 0.8, -size * 0.25, size * 0.3, -size * 0.35);
@@ -6215,11 +6214,11 @@
       ctx.arc(size * 0.5, -size * 0.06, size * 0.12, Math.PI * 0.8, Math.PI * 1.3);
       ctx.stroke();
       
-      // Engine exhausts with glow - ENHANCED: more powerful looking
+      // Engine exhausts with intense glow - ENHANCED: award-winning illumination
       const enginePulse = Math.sin(now / 100) * 0.2 + 0.85;
       ctx.save();
       ctx.shadowColor = thruster;
-      ctx.shadowBlur = 22;
+      ctx.shadowBlur = 35; // Increased from 22 for dramatic glow
       ctx.fillStyle = thruster;
       ctx.globalAlpha = enginePulse;
       // Twin main engines - larger
@@ -6232,9 +6231,10 @@
       ctx.ellipse(-size * 0.88, 0, size * 0.12, size * 0.08, 0, 0, Math.PI * 2);
       ctx.fill();
       
-      // Inner engine glow
+      // Inner engine glow - brighter core
       ctx.fillStyle = '#fff';
-      ctx.globalAlpha = enginePulse * 0.6;
+      ctx.globalAlpha = enginePulse * 0.9; // Increased from 0.6 for brighter core
+      ctx.shadowBlur = 20; // Add extra glow to white core
       ctx.beginPath();
       ctx.ellipse(-size * 0.72, -size * 0.75, size * 0.08, size * 0.06, 0, 0, Math.PI * 2);
       ctx.ellipse(-size * 0.72, size * 0.75, size * 0.08, size * 0.06, 0, 0, Math.PI * 2);
@@ -6249,10 +6249,10 @@
       ctx.rect(size * 1.05, size * 0.035, size * 0.25, size * 0.025);
       ctx.fill();
       
-      // Weapon barrel tips with glow
+      // Weapon barrel tips with enhanced glow
       ctx.fillStyle = accent;
       ctx.shadowColor = accent;
-      ctx.shadowBlur = 8;
+      ctx.shadowBlur = 15; // Increased from 8
       ctx.beginPath();
       ctx.rect(size * 1.28, -size * 0.055, size * 0.04, size * 0.015);
       ctx.rect(size * 1.28, size * 0.04, size * 0.04, size * 0.015);
@@ -8429,8 +8429,8 @@
       // Planetary mode: Draw planet-specific background
       drawPlanetaryBackground(ctx);
     } else {
-      // Space mode: Dark space background
-      ctx.fillStyle = '#030712';
+      // Space mode: Pure black void background - illumination only from game objects
+      ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
     
@@ -9231,9 +9231,30 @@
     currentPlanet = null;
     
     initShipSelection();
-    dom.startScreen.style.display = 'none';
-    dom.gameContainer.style.display = 'block';
-    dom.messageBox.style.display = 'none';
+    
+    // Clean up 3D WebGL start screen background
+    if (startScreenBackgroundCleanup) {
+      startScreenBackgroundCleanup();
+      startScreenBackgroundCleanup = null;
+    }
+    
+    // Add smooth transition effect
+    dom.startScreen.style.transition = 'opacity 0.6s ease-out, transform 0.6s ease-out';
+    dom.startScreen.style.opacity = '0';
+    dom.startScreen.style.transform = 'scale(0.95)';
+    
+    setTimeout(() => {
+      dom.startScreen.style.display = 'none';
+      dom.gameContainer.style.display = 'block';
+      dom.messageBox.style.display = 'none';
+      
+      // Reset transition for next time
+      setTimeout(() => {
+        dom.startScreen.style.transition = '';
+        dom.startScreen.style.opacity = '';
+        dom.startScreen.style.transform = '';
+      }, 50);
+    }, 600);
     
     // Initialize audio system on user interaction (required for Chrome autoplay policy)
     if (typeof AudioManager !== 'undefined') {
@@ -9241,7 +9262,10 @@
       AudioManager.startMusic();
     }
     
-    startLevel(1, true);
+    // Start level after transition begins
+    setTimeout(() => {
+      startLevel(1, true);
+    }, 100);
   };
 
   /* ====== PAUSE MENU & GAME STATE MANAGEMENT ====== */
@@ -9695,11 +9719,35 @@
     closeLeaderboardModal();
     closeAuthModal();
     
-    // Hide game container
-    dom.gameContainer.style.display = 'none';
+    // Hide game container with fade
+    dom.gameContainer.style.transition = 'opacity 0.4s ease-out';
+    dom.gameContainer.style.opacity = '0';
     
-    // Show start screen
-    dom.startScreen.style.display = 'flex';
+    setTimeout(() => {
+      dom.gameContainer.style.display = 'none';
+      dom.gameContainer.style.transition = '';
+      dom.gameContainer.style.opacity = '';
+      
+      // Show start screen with fade in
+      dom.startScreen.style.display = 'flex';
+      dom.startScreen.style.opacity = '0';
+      dom.startScreen.style.transform = 'scale(0.95)';
+      
+      // Restart 3D WebGL start screen background
+      if (!startScreenBackgroundCleanup) {
+        startScreenBackgroundCleanup = initStartScreenBackground();
+      }
+      
+      requestAnimationFrame(() => {
+        dom.startScreen.style.transition = 'opacity 0.5s ease-out, transform 0.5s ease-out';
+        dom.startScreen.style.opacity = '1';
+        dom.startScreen.style.transform = 'scale(1)';
+        
+        setTimeout(() => {
+          dom.startScreen.style.transition = '';
+        }, 500);
+      });
+    }, 400);
     
     // Reset game state
     gameRunning = false;
@@ -11592,5 +11640,530 @@
     
     // Initialize equipment dock interaction listeners
     initEquipmentDockListeners();
+  };
+
+  /* ==========================================
+     3D WEBGL LOADING SCREEN & START SCREEN
+     ========================================== */
+
+  // ===================================================================
+  // MINIMAL HIGH-FIDELITY LOADING & START SCREEN ANIMATIONS (2D)
+  // ===================================================================
+  
+  /**
+   * Elegant 2D Loading Screen
+   * - Animated logo with letter reveals
+   * - Smooth progress bar
+   * - Subtle particle sparkles
+   * - Clean, minimal aesthetic
+   */
+  const initLoadingScreen = () => {
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const loadingCanvas = document.getElementById('loadingCanvas');
+    
+    if (!loadingCanvas || !loadingOverlay) {
+      console.warn('Loading canvas not found');
+      return () => {};
+    }
+    
+    const ctx = loadingCanvas.getContext('2d');
+    loadingCanvas.width = window.innerWidth;
+    loadingCanvas.height = window.innerHeight;
+    
+    // Particle system for subtle sparkles
+    const particles = [];
+    for (let i = 0; i < 40; i++) {
+      particles.push({
+        x: Math.random() * loadingCanvas.width,
+        y: Math.random() * loadingCanvas.height,
+        size: Math.random() * 2 + 1,
+        speedY: Math.random() * 0.3 + 0.1,
+        opacity: Math.random() * 0.5 + 0.3,
+        twinkle: Math.random() * Math.PI * 2
+      });
+    }
+    
+    // Animation loop
+    let animationFrame;
+    const animate = () => {
+      // Clear with fade effect for trails
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+      ctx.fillRect(0, 0, loadingCanvas.width, loadingCanvas.height);
+      
+      // Update and draw particles
+      particles.forEach(particle => {
+        particle.y -= particle.speedY;
+        particle.twinkle += 0.02;
+        
+        // Wrap around
+        if (particle.y < 0) {
+          particle.y = loadingCanvas.height;
+          particle.x = Math.random() * loadingCanvas.width;
+        }
+        
+        // Draw particle with twinkle
+        const alpha = particle.opacity * (0.5 + Math.sin(particle.twinkle) * 0.5);
+        ctx.fillStyle = `rgba(74, 222, 128, ${alpha})`; // Green sparkles
+        ctx.beginPath();
+        ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Add glow
+        const gradient = ctx.createRadialGradient(
+          particle.x, particle.y, 0,
+          particle.x, particle.y, particle.size * 3
+        );
+        gradient.addColorStop(0, `rgba(74, 222, 128, ${alpha * 0.5})`);
+        gradient.addColorStop(1, 'rgba(74, 222, 128, 0)');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(particle.x, particle.y, particle.size * 3, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      
+      animationFrame = requestAnimationFrame(animate);
+    };
+    
+    animate();
+    
+    // Handle window resize
+    const handleResize = () => {
+      loadingCanvas.width = window.innerWidth;
+      loadingCanvas.height = window.innerHeight;
+    };
+    window.addEventListener('resize', handleResize);
+    
+    // Return cleanup function
+    return () => {
+      cancelAnimationFrame(animationFrame);
+      window.removeEventListener('resize', handleResize);
+    };
+  };
+  
+  /**
+   * Start Screen: Spinning Ship Loader with 3D Space Elements
+   * - Centered spinning Vanguard ship with progress bar
+   * - Pure black background
+   * - 5 planets with atmospheric glow
+   * - 150 parallax stars with depth
+   * - 8 rotating asteroids in 3D space
+   * - 2 time portal wormholes with vortex effects
+   * - High-fidelity immersive sci-fi atmosphere
+   */
+  const initStartScreenBackground = () => {
+    const canvas = document.getElementById('startBackgroundCanvas');
+    if (!canvas) {
+      console.warn('Start background canvas not found');
+      return () => {};
+    }
+    
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    
+    // Spinning ship loader
+    const ship = {
+      size: 80,
+      rotation: 0,
+      rotationSpeed: (Math.PI * 2) / 240 // 4 second full rotation at 60fps
+    };
+    
+    // Progress bar
+    const progressBar = {
+      width: 200,
+      height: 8,
+      progress: 0,
+      maxProgress: 1,
+      speed: 1 / 180 // Complete in 3 seconds at 60fps
+    };
+    
+    // Parallax stars (150 particles with depth)
+    const stars = [];
+    for (let i = 0; i < 150; i++) {
+      stars.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        size: Math.random() * 2 + 0.5,
+        speed: Math.random() * 0.2 + 0.05,
+        depth: Math.random(), // 0 = far, 1 = close
+        twinkle: Math.random() * Math.PI * 2,
+        twinkleSpeed: Math.random() * 0.03 + 0.01
+      });
+    }
+    
+    // 5 Planets with atmospheric glow
+    const planets = [
+      { x: canvas.width * 0.15, y: canvas.height * 0.2, size: 50, color: '#c2410c', detail: '#7c2d12', depth: 0.3 }, // Mars-like
+      { x: canvas.width * 0.85, y: canvas.height * 0.3, size: 70, color: '#1e40af', detail: '#1e3a8a', depth: 0.5 }, // Gas giant blue
+      { x: canvas.width * 0.12, y: canvas.height * 0.75, size: 40, color: '#059669', detail: '#047857', depth: 0.7 }, // Earth-like
+      { x: canvas.width * 0.88, y: canvas.height * 0.7, size: 100, color: '#7c3aed', detail: '#6d28d9', depth: 0.2 }, // Gas giant purple
+      { x: canvas.width * 0.5, y: canvas.height * 0.1, size: 45, color: '#ea580c', detail: '#c2410c', depth: 0.4 }  // Orange planet
+    ];
+    
+    // 8 Rotating asteroids
+    const asteroids = [];
+    for (let i = 0; i < 8; i++) {
+      asteroids.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        size: Math.random() * 13 + 12,
+        rotation: Math.random() * Math.PI * 2,
+        rotationSpeed: (Math.random() - 0.5) * 0.04,
+        speed: Math.random() * 0.3 + 0.1,
+        angle: Math.random() * Math.PI * 2,
+        depth: Math.random() * 0.5 + 0.3,
+        color: i % 2 === 0 ? '#6b7280' : '#78716c'
+      });
+    }
+    
+    // 2 Time portals / wormholes
+    const portals = [
+      {
+        x: canvas.width * 0.25,
+        y: canvas.height * 0.5,
+        size: 60,
+        color: '#8b5cf6', // Purple
+        rotation: 0,
+        pulse: 1
+      },
+      {
+        x: canvas.width * 0.75,
+        y: canvas.height * 0.5,
+        size: 80,
+        color: '#06b6d4', // Cyan
+        rotation: 0,
+        pulse: 1
+      }
+    ];
+    
+    // Draw spinning Vanguard ship
+    const drawShip = (x, y, size, rotation) => {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(rotation);
+      
+      const scale = size / 16; // Base size is 16px
+      
+      // Engine glow (animated)
+      const thrusterPulse = 0.7 + Math.sin(Date.now() / 150) * 0.3;
+      ctx.shadowColor = '#f97316';
+      ctx.shadowBlur = 20 * thrusterPulse;
+      
+      // Engine thrusters (dual)
+      ctx.fillStyle = '#f97316';
+      ctx.beginPath();
+      ctx.ellipse(-8 * scale, -3 * scale, 3 * scale * thrusterPulse, 6 * scale * thrusterPulse, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(-8 * scale, 3 * scale, 3 * scale * thrusterPulse, 6 * scale * thrusterPulse, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.shadowBlur = 0;
+      
+      // Ship body (spear shape - Vanguard)
+      ctx.fillStyle = '#0ea5e9';
+      ctx.shadowColor = '#0ea5e9';
+      ctx.shadowBlur = 15;
+      ctx.beginPath();
+      ctx.moveTo(10 * scale, 0);
+      ctx.lineTo(-8 * scale, -6 * scale);
+      ctx.lineTo(-6 * scale, 0);
+      ctx.lineTo(-8 * scale, 6 * scale);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Cockpit glow
+      ctx.fillStyle = '#7dd3fc';
+      ctx.shadowColor = '#7dd3fc';
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.arc(2 * scale, 0, 3 * scale, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.shadowBlur = 0;
+      ctx.restore();
+    };
+    
+    // Draw planet with atmosphere
+    const drawPlanet = (planet) => {
+      // Atmospheric glow
+      const gradient = ctx.createRadialGradient(
+        planet.x, planet.y, 0,
+        planet.x, planet.y, planet.size * 1.3
+      );
+      gradient.addColorStop(0, planet.color);
+      gradient.addColorStop(0.6, planet.detail);
+      gradient.addColorStop(0.85, 'rgba(0,0,0,0.5)');
+      gradient.addColorStop(1, 'rgba(0,0,0,0)');
+      
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(planet.x, planet.y, planet.size * 1.3, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Surface detail ring
+      ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(planet.x, planet.y, planet.size * 0.7, 0, Math.PI * 2);
+      ctx.stroke();
+    };
+    
+    // Draw asteroid
+    const drawAsteroid = (asteroid) => {
+      ctx.save();
+      ctx.translate(asteroid.x, asteroid.y);
+      ctx.rotate(asteroid.rotation);
+      
+      const depthScale = 0.5 + asteroid.depth * 0.5;
+      const size = asteroid.size * depthScale;
+      
+      // Rocky irregular shape
+      ctx.fillStyle = asteroid.color;
+      ctx.shadowColor = '#000';
+      ctx.shadowBlur = 5;
+      ctx.beginPath();
+      for (let i = 0; i < 8; i++) {
+        const angle = (i / 8) * Math.PI * 2;
+        const radius = size * (0.7 + Math.random() * 0.3);
+        const x = Math.cos(angle) * radius;
+        const y = Math.sin(angle) * radius;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.fill();
+      
+      // Crater details
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      ctx.beginPath();
+      ctx.arc(size * 0.3, -size * 0.2, size * 0.15, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.shadowBlur = 0;
+      ctx.restore();
+    };
+    
+    // Draw time portal / wormhole
+    const drawPortal = (portal) => {
+      portal.rotation += 0.02;
+      portal.pulse = 1 + Math.sin(Date.now() / 800) * 0.15;
+      
+      // Orbital rings (swirling)
+      for (let ring = 0; ring < 8; ring++) {
+        const ringRadius = (portal.size / 8) * (ring + 1) * portal.pulse;
+        const ringAngle = portal.rotation + (ring * Math.PI / 4);
+        
+        ctx.strokeStyle = portal.color + (20 - ring * 2).toString(16).padStart(2, '0');
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(portal.x, portal.y, ringRadius, ringAngle, ringAngle + Math.PI);
+        ctx.stroke();
+      }
+      
+      // Central vortex core
+      const coreGradient = ctx.createRadialGradient(
+        portal.x, portal.y, 0,
+        portal.x, portal.y, portal.size * 0.4 * portal.pulse
+      );
+      coreGradient.addColorStop(0, '#ffffff');
+      coreGradient.addColorStop(0.3, portal.color);
+      coreGradient.addColorStop(0.7, portal.color === '#8b5cf6' ? '#4c1d95' : '#164e63');
+      coreGradient.addColorStop(1, 'rgba(0,0,0,0)');
+      
+      ctx.fillStyle = coreGradient;
+      ctx.beginPath();
+      ctx.arc(portal.x, portal.y, portal.size * 0.4 * portal.pulse, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Event horizon glow
+      ctx.shadowColor = portal.color;
+      ctx.shadowBlur = 30;
+      ctx.strokeStyle = portal.color;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(portal.x, portal.y, portal.size * portal.pulse, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    };
+    
+    // Animation loop
+    let animationFrame;
+    const animate = () => {
+      // Pure black background
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Draw stars with parallax and twinkling
+      stars.forEach(star => {
+        star.y += star.speed * (0.5 + star.depth * 0.5);
+        star.twinkle += star.twinkleSpeed;
+        
+        if (star.y > canvas.height) {
+          star.y = 0;
+          star.x = Math.random() * canvas.width;
+        }
+        
+        const depthSize = star.size * (0.3 + star.depth * 0.7);
+        const twinkleAlpha = 0.3 + Math.sin(star.twinkle) * 0.3;
+        const alpha = twinkleAlpha * (0.4 + star.depth * 0.6);
+        
+        ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+        ctx.beginPath();
+        ctx.arc(star.x, star.y, depthSize, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Glow for closer stars
+        if (star.depth > 0.6) {
+          const gradient = ctx.createRadialGradient(
+            star.x, star.y, 0,
+            star.x, star.y, depthSize * 3
+          );
+          gradient.addColorStop(0, `rgba(200, 230, 255, ${alpha * 0.5})`);
+          gradient.addColorStop(1, 'rgba(200, 230, 255, 0)');
+          ctx.fillStyle = gradient;
+          ctx.beginPath();
+          ctx.arc(star.x, star.y, depthSize * 3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      });
+      
+      // Draw planets
+      planets.forEach(drawPlanet);
+      
+      // Draw time portals / wormholes
+      portals.forEach(drawPortal);
+      
+      // Draw and update asteroids
+      asteroids.forEach(asteroid => {
+        asteroid.rotation += asteroid.rotationSpeed;
+        asteroid.x += Math.cos(asteroid.angle) * asteroid.speed;
+        asteroid.y += Math.sin(asteroid.angle) * asteroid.speed;
+        
+        // Wrap around
+        if (asteroid.x < -50) asteroid.x = canvas.width + 50;
+        if (asteroid.x > canvas.width + 50) asteroid.x = -50;
+        if (asteroid.y < -50) asteroid.y = canvas.height + 50;
+        if (asteroid.y > canvas.height + 50) asteroid.y = -50;
+        
+        drawAsteroid(asteroid);
+      });
+      
+      // Update and draw spinning ship
+      ship.rotation += ship.rotationSpeed;
+      drawShip(centerX, centerY - 50, ship.size, ship.rotation);
+      
+      // Update and draw progress bar
+      if (progressBar.progress < progressBar.maxProgress) {
+        progressBar.progress += progressBar.speed;
+      } else {
+        progressBar.progress = 0; // Loop
+      }
+      
+      const barX = centerX - progressBar.width / 2;
+      const barY = centerY + 80;
+      
+      // Progress bar background
+      ctx.fillStyle = '#1a1a1a';
+      ctx.fillRect(barX, barY, progressBar.width, progressBar.height);
+      
+      // Progress bar fill
+      const fillWidth = progressBar.width * progressBar.progress;
+      const barGradient = ctx.createLinearGradient(barX, barY, barX + fillWidth, barY);
+      barGradient.addColorStop(0, '#22c55e');
+      barGradient.addColorStop(0.5, '#4ade80');
+      barGradient.addColorStop(1, '#22c55e');
+      ctx.fillStyle = barGradient;
+      ctx.fillRect(barX, barY, fillWidth, progressBar.height);
+      
+      // Progress bar border
+      ctx.strokeStyle = '#4ade80';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(barX, barY, progressBar.width, progressBar.height);
+      
+      animationFrame = requestAnimationFrame(animate);
+    };
+    
+    animate();
+    
+    // Handle window resize
+    const handleResize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    window.addEventListener('resize', handleResize);
+    
+    // Return cleanup function
+    return () => {
+      cancelAnimationFrame(animationFrame);
+      window.removeEventListener('resize', handleResize);
+    };
+  };
+  
+  // Initialize on page load
+  let startScreenBackgroundCleanup;
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      initLoadingScreen();
+      setTimeout(() => {
+        startScreenBackgroundCleanup = initStartScreenBackground();
+        initGameplayHints();
+      }, 2000);
+    });
+  } else {
+    initLoadingScreen();
+    setTimeout(() => {
+      startScreenBackgroundCleanup = initStartScreenBackground();
+      initGameplayHints();
+    }, 2000);
+  }
+
+  // Cycling gameplay hints on start screen
+  const initGameplayHints = () => {
+    const hintElement = document.getElementById('gameplayHint');
+    if (!hintElement) return;
+    
+    const hints = [
+      { icon: '💫', text: 'Twin-stick action awaits' },
+      { icon: '🚀', text: 'Upgrade your ship & weapons' },
+      { icon: '⚡', text: 'Master powerful abilities' },
+      { icon: '🌟', text: 'Compete on global leaderboards' },
+      { icon: '🎯', text: 'Survive endless enemy waves' },
+      { icon: '💎', text: 'Collect credits to unlock gear' },
+      { icon: '🔥', text: 'Chain combos for high scores' }
+    ];
+    
+    let currentHintIndex = 0;
+    
+    const updateHint = () => {
+      const hint = hints[currentHintIndex];
+      const iconElement = hintElement.querySelector('.hint-icon');
+      const textElement = hintElement.querySelector('.hint-text');
+      
+      if (iconElement && textElement) {
+        // Fade out
+        hintElement.style.transition = 'opacity 0.3s ease-out, transform 0.3s ease-out';
+        hintElement.style.opacity = '0';
+        hintElement.style.transform = 'translateY(10px)';
+        
+        setTimeout(() => {
+          // Update content
+          iconElement.textContent = hint.icon;
+          textElement.textContent = hint.text;
+          
+          // Fade in
+          hintElement.style.opacity = '1';
+          hintElement.style.transform = 'translateY(0)';
+          
+          currentHintIndex = (currentHintIndex + 1) % hints.length;
+        }, 300);
+      }
+    };
+    
+    // Change hint every 4 seconds
+    setInterval(updateHint, 4000);
   };
 })();
