@@ -9,6 +9,17 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <title>VOID RIFT</title>
+  
+  <!-- Import Map for Three.js ES6 modules (local serving) -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./libs/three.module.js",
+        "three/addons/": "./libs/three-examples/jsm/"
+      }
+    }
+  </script>
+  
   <!-- Link external styles -->
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -16,38 +27,18 @@
   <!-- INITIAL LOADING OVERLAY -->
   <div id="loadingOverlay" class="loading-overlay">
     <div class="loading-content">
-      <div class="loading-logo">
-        <div class="logo-glow"></div>
-        <h1 class="loading-title">
-          <span class="loading-letter">V</span>
-          <span class="loading-letter">O</span>
-          <span class="loading-letter">I</span>
-          <span class="loading-letter">D</span>
-          <span class="loading-space"></span>
-          <span class="loading-letter">R</span>
-          <span class="loading-letter">I</span>
-          <span class="loading-letter">F</span>
-          <span class="loading-letter">T</span>
-        </h1>
+      <div class="loading-bar-container">
+        <div class="loading-bar">
+          <canvas id="loadingShipCanvas" class="loading-ship-canvas"></canvas>
+          <div class="loading-bar-fill"></div>
+        </div>
       </div>
-      <div class="loading-spinner">
-        <div class="spinner-ring"></div>
-        <div class="spinner-ring"></div>
-        <div class="spinner-ring"></div>
-      </div>
-      <div class="loading-text">Initializing Systems...</div>
-      <div class="loading-bar">
-        <div class="loading-bar-fill"></div>
-      </div>
+      <div class="terminal-logs" id="terminalLogs"></div>
     </div>
-    <canvas id="loadingCanvas" class="loading-canvas"></canvas>
   </div>
 
   <!-- START SCREEN -->
   <div id="startScreen">
-    <!-- Animated Background Canvas -->
-    <canvas id="startBackgroundCanvas" class="start-background-canvas"></canvas>
-    
     <div class="start-header">
       <div id="gameTitle"><span class="title-accent">VOID</span><span class="title-accent">RIFT</span></div>
       <div class="title-tagline">CREATED BY AUSTIN STICKLEY</div>
@@ -575,6 +566,8 @@
   <script src="social-integration.js"></script>
   <script src="unified-social.js"></script>
   <script src="audio-manager.js"></script>
+  <!-- 3D Rendering System -->
+  <script type="module" src="game-3d-integration.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

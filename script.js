@@ -11619,9 +11619,7 @@
     ];
     
     let currentLogIndex = 0;
-    let currentLogText = '';
-    let currentLogChars = 0;
-    let startTime = Date.now();
+    const startTime = Date.now();
     const duration = 10000; // 10 seconds
     
     // Function to add terminal log with typing effect
@@ -11762,8 +11760,10 @@
    * - 8 rotating asteroids in 3D space
    * - 2 time portal wormholes with vortex effects
    * - High-fidelity immersive sci-fi atmosphere
+   * 
+   * NOTE: This function is no longer used - kept for reference only
    */
-  const initStartScreenBackground = () => {
+  const _initStartScreenBackground = () => {
     const canvas = document.getElementById('startBackgroundCanvas');
     if (!canvas) {
       console.warn('Start background canvas not found');
