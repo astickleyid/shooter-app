@@ -11575,52 +11575,94 @@
   /**
    * New Loading Screen with Progress Bar and Terminal Logs
    * - Black background
-   * - Large horizontal progress bar with Vanguard ship indicator
-   * - Terminal logs with streaming text effect
+   * - Large title "VOID RIFT" with streaming effect
+   * - Real facts in terminal logs (developer info, date/time)
+   * - Minimal progress bar with Vanguard ship indicator
    * - 10 second animation
    */
   const initLoadingScreen = () => {
     const loadingOverlay = document.getElementById('loadingOverlay');
+    const loadingTitle = document.getElementById('loadingTitle');
     const loadingShipCanvas = document.getElementById('loadingShipCanvas');
     const loadingBarFill = document.querySelector('.loading-bar-fill');
     const terminalLogs = document.getElementById('terminalLogs');
     
-    if (!loadingShipCanvas || !loadingOverlay || !loadingBarFill || !terminalLogs) {
+    if (!loadingShipCanvas || !loadingOverlay || !loadingBarFill || !terminalLogs || !loadingTitle) {
       return () => {};
     }
     
     const ctx = loadingShipCanvas.getContext('2d');
-    const shipSize = 60;
+    const shipSize = 32; // Smaller ship for minimal progress bar
     loadingShipCanvas.width = shipSize;
     loadingShipCanvas.height = shipSize;
     
-    // Terminal log messages
+    // Get current date and time
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+    const timeStr = now.toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit', 
+      second: '2-digit',
+      hour12: true 
+    });
+    
+    // Terminal log messages with real facts
     const logMessages = [
-      { time: 0, msg: 'SYSTEM BOOT SEQUENCE INITIATED...', type: 'info' },
-      { time: 500, msg: 'Loading core systems...', type: 'info' },
-      { time: 1000, msg: '> Initializing weapon systems... OK', type: 'ok' },
-      { time: 1500, msg: '> Loading navigation systems... OK', type: 'ok' },
-      { time: 2000, msg: '> Calibrating targeting matrix... OK', type: 'ok' },
-      { time: 2500, msg: 'Establishing tactical uplink...', type: 'info' },
-      { time: 3000, msg: '> Scanning for hostile signatures... CLEAR', type: 'ok' },
-      { time: 3500, msg: '> Shield generators online... OK', type: 'ok' },
-      { time: 4000, msg: 'Loading ship configurations...', type: 'info' },
-      { time: 4500, msg: '> VANGUARD-CLASS detected... OK', type: 'ok' },
-      { time: 5000, msg: '> Thruster systems nominal... OK', type: 'ok' },
-      { time: 5500, msg: 'Connecting to command center...', type: 'info' },
-      { time: 6000, msg: '> Uplink established... OK', type: 'ok' },
-      { time: 6500, msg: '> Loading mission parameters... OK', type: 'ok' },
-      { time: 7000, msg: 'Preparing combat interface...', type: 'info' },
-      { time: 7500, msg: '> HUD systems ready... OK', type: 'ok' },
-      { time: 8000, msg: '> Audio systems online... OK', type: 'ok' },
-      { time: 8500, msg: 'Finalizing initialization...', type: 'info' },
-      { time: 9000, msg: 'ALL SYSTEMS NOMINAL', type: 'ok' },
-      { time: 9500, msg: 'READY FOR DEPLOYMENT', type: 'ok' }
+      { time: 0, msg: '═══════════════════════════════════════', type: 'info' },
+      { time: 100, msg: 'VOID RIFT - COMBAT SYSTEM v2.0.1', type: 'highlight' },
+      { time: 200, msg: '═══════════════════════════════════════', type: 'info' },
+      { time: 500, msg: 'SYSTEM BOOT SEQUENCE INITIATED', type: 'info' },
+      { time: 800, msg: `Date: ${dateStr}`, type: 'info' },
+      { time: 1100, msg: `Time: ${timeStr}`, type: 'info' },
+      { time: 1400, msg: 'Built by Austin Michael Stickley', type: 'highlight' },
+      { time: 1700, msg: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', type: 'info' },
+      { time: 2000, msg: '> Initializing weapon systems... OK', type: 'ok' },
+      { time: 2300, msg: '> Loading navigation database... OK', type: 'ok' },
+      { time: 2600, msg: '> Calibrating targeting matrix... OK', type: 'ok' },
+      { time: 2900, msg: '> Establishing tactical uplink... OK', type: 'ok' },
+      { time: 3200, msg: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', type: 'info' },
+      { time: 3500, msg: '> Scanning hostile signatures... CLEAR', type: 'ok' },
+      { time: 3800, msg: '> Shield generators online... OK', type: 'ok' },
+      { time: 4100, msg: '> Life support systems nominal... OK', type: 'ok' },
+      { time: 4400, msg: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', type: 'info' },
+      { time: 4700, msg: '> VANGUARD-CLASS ship detected... OK', type: 'ok' },
+      { time: 5000, msg: '> Thruster systems ready... OK', type: 'ok' },
+      { time: 5300, msg: '> Reactor core stable... OK', type: 'ok' },
+      { time: 5600, msg: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', type: 'info' },
+      { time: 5900, msg: '> Command center uplink established... OK', type: 'ok' },
+      { time: 6200, msg: '> Mission parameters loaded... OK', type: 'ok' },
+      { time: 6500, msg: '> HUD interface initialized... OK', type: 'ok' },
+      { time: 6800, msg: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', type: 'info' },
+      { time: 7100, msg: '> Audio systems online... OK', type: 'ok' },
+      { time: 7400, msg: '> Input systems calibrated... OK', type: 'ok' },
+      { time: 7700, msg: '> Communications array active... OK', type: 'ok' },
+      { time: 8000, msg: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', type: 'info' },
+      { time: 8300, msg: 'Finalizing initialization sequence...', type: 'info' },
+      { time: 8600, msg: 'ALL SYSTEMS NOMINAL', type: 'ok' },
+      { time: 8900, msg: 'PILOT READY FOR DEPLOYMENT', type: 'ok' },
+      { time: 9200, msg: '═══════════════════════════════════════', type: 'info' }
     ];
     
     let currentLogIndex = 0;
     const startTime = Date.now();
     const duration = 10000; // 10 seconds
+    
+    // Title streaming effect
+    const titleText = 'VOID RIFT';
+    let titleIndex = 0;
+    const streamTitle = () => {
+      if (titleIndex < titleText.length) {
+        loadingTitle.textContent += titleText[titleIndex];
+        titleIndex++;
+        setTimeout(streamTitle, 80); // 80ms per character
+      }
+    };
+    setTimeout(streamTitle, 200); // Start after brief delay
     
     // Function to add terminal log with typing effect
     const addTerminalLog = (msg, type) => {
@@ -11655,10 +11697,10 @@
         } else {
           clearInterval(typeInterval);
         }
-      }, 20); // Type each character every 20ms
+      }, 15); // Faster typing - 15ms per character
     };
     
-    // Draw Vanguard ship on canvas
+    // Draw Vanguard ship on canvas (smaller for minimal bar)
     const drawVanguardShip = () => {
       ctx.clearRect(0, 0, shipSize, shipSize);
       ctx.save();
@@ -11669,11 +11711,11 @@
       
       // Engine glow
       ctx.shadowColor = '#f97316';
-      ctx.shadowBlur = 15;
+      ctx.shadowBlur = 12;
       ctx.fillStyle = '#f97316';
-      ctx.globalAlpha = 0.6;
+      ctx.globalAlpha = 0.7;
       ctx.beginPath();
-      ctx.arc(-8 * scale, 0, 4 * scale, 0, Math.PI * 2);
+      ctx.arc(-8 * scale, 0, 3.5 * scale, 0, Math.PI * 2);
       ctx.fill();
       ctx.globalAlpha = 1;
       ctx.shadowBlur = 0;
@@ -11690,12 +11732,12 @@
       // Canopy
       ctx.fillStyle = '#7dd3fc';
       ctx.beginPath();
-      ctx.arc(4 * scale, 0, 3 * scale, 0, Math.PI * 2);
+      ctx.arc(4 * scale, 0, 2.5 * scale, 0, Math.PI * 2);
       ctx.fill();
       
       // Wing accents
       ctx.strokeStyle = '#f8fafc';
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = 1.2;
       ctx.beginPath();
       ctx.moveTo(8 * scale, 0);
       ctx.lineTo(-4 * scale, -4 * scale);
@@ -11714,7 +11756,7 @@
       const elapsed = Date.now() - startTime;
       const progress = Math.min(elapsed / duration, 1);
       
-      // Update progress bar
+      // Update progress bar with smooth easing
       loadingBarFill.style.width = `${progress * 100}%`;
       
       // Update ship position

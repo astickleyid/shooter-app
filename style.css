@@ -58,100 +58,84 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 40px;
+  gap: 32px;
   width: 90%;
-  max-width: 800px;
+  max-width: 900px;
+  padding: 40px 20px;
 }
 
-.loading-bar-container {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
+/* Title with streaming effect */
+.loading-title-main {
+  font-size: clamp(56px, 12vw, 120px);
+  font-weight: 900;
+  color: #4ade80;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  text-align: center;
+  margin: 0 0 20px 0;
+  text-shadow: 
+    0 0 30px rgba(74, 222, 128, 0.8),
+    0 0 60px rgba(74, 222, 128, 0.5),
+    0 0 90px rgba(74, 222, 128, 0.3),
+    0 4px 12px rgba(0, 0, 0, 0.9);
+  opacity: 0;
+  transform: translateY(-20px);
+  animation: titleReveal 1s ease-out forwards;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
 }
 
-.loading-bar {
-  position: relative;
-  width: 100%;
-  height: 40px;
-  background: rgba(20, 20, 20, 0.8);
-  border: 2px solid rgba(74, 222, 128, 0.4);
-  border-radius: 20px;
-  overflow: visible;
-  box-shadow: 
-    0 0 20px rgba(74, 222, 128, 0.3),
-    inset 0 2px 10px rgba(0, 0, 0, 0.8);
+@keyframes titleReveal {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.loading-bar-fill {
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(90deg, 
-    rgba(74, 222, 128, 0.4) 0%, 
-    rgba(74, 222, 128, 0.6) 50%, 
-    rgba(74, 222, 128, 0.4) 100%);
-  border-radius: 18px;
-  box-shadow: 
-    0 0 15px rgba(74, 222, 128, 0.6),
-    inset 0 1px 3px rgba(255, 255, 255, 0.3);
-}
-
-.loading-ship-canvas {
-  position: absolute;
-  top: 50%;
-  left: 0%;
-  transform: translate(-50%, -50%);
-  width: 60px;
-  height: 60px;
-  pointer-events: none;
-  z-index: 10;
-}
-
+/* Terminal logs - larger, more prominent */
 .terminal-logs {
   width: 100%;
-  min-height: 200px;
-  max-height: 300px;
-  background: rgba(0, 0, 0, 0.6);
-  border: 1px solid rgba(74, 222, 128, 0.3);
-  border-radius: 8px;
-  padding: 16px;
-  font-family: 'Courier New', monospace;
-  font-size: 13px;
+  min-height: 260px;
+  max-height: 360px;
+  background: rgba(5, 5, 5, 0.85);
+  border: 1px solid rgba(74, 222, 128, 0.4);
+  border-radius: 12px;
+  padding: 20px 24px;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Courier New', monospace;
+  font-size: 15px;
   color: #4ade80;
   overflow-y: auto;
-  line-height: 1.6;
-  text-shadow: 0 0 5px rgba(74, 222, 128, 0.5);
+  line-height: 1.8;
+  text-shadow: 0 0 8px rgba(74, 222, 128, 0.6);
   box-shadow: 
-    0 0 20px rgba(74, 222, 128, 0.2),
-    inset 0 2px 10px rgba(0, 0, 0, 0.5);
+    0 0 30px rgba(74, 222, 128, 0.25),
+    inset 0 2px 15px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
 }
 
 .terminal-logs::-webkit-scrollbar {
-  width: 8px;
+  width: 10px;
 }
 
 .terminal-logs::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.4);
-  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 5px;
 }
 
 .terminal-logs::-webkit-scrollbar-thumb {
-  background: rgba(74, 222, 128, 0.4);
-  border-radius: 4px;
+  background: rgba(74, 222, 128, 0.5);
+  border-radius: 5px;
+  border: 2px solid rgba(0, 0, 0, 0.3);
 }
 
 .terminal-logs::-webkit-scrollbar-thumb:hover {
-  background: rgba(74, 222, 128, 0.6);
+  background: rgba(74, 222, 128, 0.7);
 }
 
 .terminal-line {
-  margin-bottom: 4px;
+  margin-bottom: 6px;
   opacity: 0;
-  animation: terminalFadeIn 0.3s ease forwards;
+  animation: terminalFadeIn 0.4s ease forwards;
+  font-weight: 500;
 }
 
 @keyframes terminalFadeIn {
@@ -162,24 +146,88 @@ html, body {
 
 .terminal-line .prompt {
   color: #22c55e;
-  margin-right: 8px;
+  margin-right: 10px;
+  font-weight: 700;
 }
 
 .terminal-line .timestamp {
   color: #86efac;
-  margin-right: 8px;
+  margin-right: 10px;
+  opacity: 0.8;
+  font-size: 14px;
 }
 
 .terminal-line .status-ok {
   color: #4ade80;
+  font-weight: 500;
 }
 
 .terminal-line .status-warn {
   color: #fbbf24;
+  font-weight: 600;
 }
 
 .terminal-line .status-info {
   color: #60a5fa;
+  font-weight: 500;
+}
+
+.terminal-line .status-highlight {
+  color: #a78bfa;
+  font-weight: 600;
+  text-shadow: 0 0 10px rgba(167, 139, 250, 0.6);
+}
+
+/* Progress bar - smaller and minimal */
+.loading-bar-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.loading-bar {
+  position: relative;
+  width: 100%;
+  max-width: 600px;
+  height: 8px;
+  background: rgba(20, 20, 20, 0.9);
+  border: 1px solid rgba(74, 222, 128, 0.3);
+  border-radius: 4px;
+  overflow: visible;
+  box-shadow: 
+    0 0 15px rgba(74, 222, 128, 0.2),
+    inset 0 1px 5px rgba(0, 0, 0, 0.8);
+}
+
+.loading-bar-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, 
+    rgba(74, 222, 128, 0.6) 0%, 
+    rgba(74, 222, 128, 0.9) 50%, 
+    rgba(74, 222, 128, 0.6) 100%);
+  border-radius: 3px;
+  box-shadow: 
+    0 0 12px rgba(74, 222, 128, 0.7),
+    inset 0 1px 2px rgba(255, 255, 255, 0.4);
+  transition: width 0.3s ease-out;
+}
+
+.loading-ship-canvas {
+  position: absolute;
+  top: 50%;
+  left: 0%;
+  transform: translate(-50%, -50%);
+  width: 32px;
+  height: 32px;
+  pointer-events: none;
+  z-index: 10;
+  filter: drop-shadow(0 0 8px rgba(14, 165, 233, 0.8));
 }
 
 /* START SCREEN - Refined Compact Design */
