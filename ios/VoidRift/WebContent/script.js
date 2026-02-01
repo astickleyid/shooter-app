@@ -740,7 +740,8 @@
     dom.startGraphicCanvas = document.getElementById('startGraphicCanvas');
     dom.gameContainer = document.getElementById('gameContainer');
     dom.canvas = document.getElementById('gameCanvas');
-    dom.ctx = dom.canvas ? dom.canvas.getContext('2d') : null;
+    // Note: Don't create 2D context yet - wait for 3D check first
+    dom.ctx = null;
     dom.scoreValue = document.getElementById('scoreValue');
     dom.levelValue = document.getElementById('levelValue');
     dom.healthBar = document.getElementById('healthBar');
@@ -841,6 +842,10 @@
   let readyUpPhase = false; // NEW: Phase where player can shop before countdown
   let readyUpLevel = 0; // Level displayed during ready-up
   const camera = { x: 0, y: 0 };
+
+  // 3D Rendering System
+  let game3DInstance = null;
+  let use3DMode = true; // Enable 3D by default
 
   // Difficulty system
   let currentDifficulty = 'normal';
@@ -2011,6 +2016,11 @@
   const shakeScreen = (power = 4, duration = 120) => {
     shakeUntil = Math.max(shakeUntil, performance.now() + duration);
     shakePower = power;
+    
+    // Also trigger 3D shake if active
+    if (use3DMode && game3DInstance) {
+      game3DInstance.shake(power);
+    }
   };
 
   // Phase 1: Spawn floating damage number
@@ -2496,9 +2506,12 @@
 
   class Asteroid {
     constructor(x, y, r, variant = 'rock') {
+      this.id = `asteroid_${entityIdCounter++}`;
       this.x = x;
       this.y = y;
       this.r = r;
+      this.size = r; // Add size property for 3D system
+      this.seed = Math.random() * 1000; // Random seed for 3D geometry variation
       this.variant = variant;
       this.rot = rand(0, Math.PI * 2);
       this.vx = rand(-0.45, 0.45);
@@ -4232,8 +4245,13 @@
   };
 
   /* ====== ENTITY CLASSES ====== */
+  
+  // Entity ID counter for 3D tracking
+  let entityIdCounter = 0;
+  
   class Bullet {
     constructor(x, y, vel, damage, color = '#fde047', speed = BASE.BULLET_SPEED, size = BASE.BULLET_SIZE, pierce = 0, isEnemy = false) {
+      this.id = `bullet_${entityIdCounter++}`;
       this.x = x;
       this.y = y;
       this.size = size;
@@ -4362,6 +4380,7 @@
 
   class Enemy {
     constructor(x, y, kind = 'chaser', isElite = false, isBoss = false) {
+      this.id = `enemy_${entityIdCounter++}`;
       this.x = x;
       this.y = y;
       this.kind = kind;
@@ -4815,9 +4834,11 @@
 
   class Coin {
     constructor(x, y) {
+      this.id = `coin_${entityIdCounter++}`;
       this.x = x;
       this.y = y;
       this.r = BASE.COIN_SIZE;
+      this.size = BASE.COIN_SIZE; // Add size property for 3D system
       this.created = performance.now();
       this.life = BASE.COIN_LIFETIME;
     }
@@ -7245,6 +7266,7 @@
     const canvas = dom.startGraphicCanvas;
     if (!canvas) return;
     const g = canvas.getContext('2d');
+    if (!g) return;
     const width = (canvas.width = canvas.clientWidth);
     const height = (canvas.height = canvas.clientHeight);
     g.fillStyle = '#000';
@@ -7973,7 +7995,45 @@
 
   /* ====== RENDERING ====== */
   const drawGame = () => {
+    // Check if 3D mode is active first (before ctx check)
+    if (use3DMode && game3DInstance && game3DInstance.isActive()) {
+      // Get current ship configuration
+      const shipConfig = Save.data.shipConfig || SHIP_TEMPLATES[0];
+      
+      // Update 3D entities (sync 2D state to 3D)
+      game3DInstance.update({
+        player: player,
+        bullets: bullets,
+        enemies: enemies,
+        obstacles: obstacles,
+        coins: coins,
+        shipData: {
+          shape: shipConfig.shape || 'spear',
+          scale: shipConfig.scale || 1,
+          colors: shipConfig.colors || {
+            primary: '#0ea5e9',
+            accent: '#38bdf8',
+            thruster: '#f97316',
+            trim: '#f8fafc',
+            canopy: '#7dd3fc'
+          }
+        },
+        boosting: false, // TODO: Track boosting state properly
+        camera: camera
+      });
+      
+      // Render 3D scene
+      game3DInstance.render();
+      
+      // Note: HUD and overlays are still rendered separately in 2D (updateHUD())
+      
+      return; // Exit early, 3D rendering is done
+    }
+    
+    // 2D mode - need context
     if (!dom.ctx) return;
+    
+    // Fallback to 2D rendering
     const ctx = dom.ctx;
     const canvas = dom.canvas;
     
@@ -8532,7 +8592,15 @@
     dom.canvas.height = Math.floor(window.innerHeight * dpr);
     dom.canvas.style.width = '100%';
     dom.canvas.style.height = '100%';
-    dom.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    
+    // Create 2D context if needed (for 2D mode or for star initialization even in 3D mode)
+    if (!dom.ctx && dom.canvas && !use3DMode) {
+      dom.ctx = dom.canvas.getContext('2d');
+    }
+    
+    if (dom.ctx) {
+      dom.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
     return dpr;
   };
 
@@ -8597,7 +8665,7 @@
     loop(lastTime);
   };
 
-  // NEW: Draw ready-up overlay AFTER HUD - Mobile-focused design, covers everything
+  // NEW: Draw ready-up overlay AFTER HUD - Command Center style minimal design
   const drawReadyUpOverlay = () => {
     if (!readyUpPhase || !dom.ctx) return;
     
@@ -8609,160 +8677,154 @@
     const screenHeight = window.innerHeight;
     const isPortrait = screenHeight > screenWidth;
     
-    // FULL OPACITY overlay to completely cover game
-    const overlayOpacity = 0.98;
-    const gradient = ctx.createRadialGradient(
-      screenWidth / 2, screenHeight * 0.5, 0,
-      screenWidth / 2, screenHeight * 0.5, Math.max(screenWidth, screenHeight) * 0.8
-    );
-    gradient.addColorStop(0, `rgba(5, 10, 20, ${overlayOpacity})`);
-    gradient.addColorStop(0.4, `rgba(10, 15, 25, ${overlayOpacity})`);
-    gradient.addColorStop(0.7, `rgba(15, 23, 42, ${overlayOpacity})`);
-    gradient.addColorStop(1, `rgba(0, 0, 0, ${overlayOpacity + 0.02})`);
-    ctx.fillStyle = gradient;
+    // Pure black background - command center aesthetic
+    ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, screenWidth, screenHeight);
     
-    // Scan lines for tech aesthetic
-    ctx.fillStyle = 'rgba(74, 222, 128, 0.05)';
-    const scanLineOffset = (now / 25) % 10;
-    for (let y = scanLineOffset; y < screenHeight; y += 10) {
-      ctx.fillRect(0, y, screenWidth, 2);
+    // Subtle scan lines for tech aesthetic
+    ctx.fillStyle = 'rgba(74, 222, 128, 0.03)';
+    const scanLineOffset = (now / 30) % 8;
+    for (let y = scanLineOffset; y < screenHeight; y += 8) {
+      ctx.fillRect(0, y, screenWidth, 1);
     }
     
-    // Corner accents
-    ctx.strokeStyle = 'rgba(74, 222, 128, 0.6)';
-    ctx.lineWidth = 4;
-    const cornerSize = isPortrait ? 50 : 70;
+    // Simple corner brackets - minimal design
+    ctx.strokeStyle = '#4ade80';
+    ctx.lineWidth = 2;
+    const cornerSize = isPortrait ? 40 : 60;
+    const margin = 20;
     
     ['tl', 'tr', 'bl', 'br'].forEach(corner => {
       ctx.beginPath();
       if (corner === 'tl') {
-        ctx.moveTo(25, 25 + cornerSize);
-        ctx.lineTo(25, 25);
-        ctx.lineTo(25 + cornerSize, 25);
+        ctx.moveTo(margin, margin + cornerSize);
+        ctx.lineTo(margin, margin);
+        ctx.lineTo(margin + cornerSize, margin);
       } else if (corner === 'tr') {
-        ctx.moveTo(screenWidth - 25 - cornerSize, 25);
-        ctx.lineTo(screenWidth - 25, 25);
-        ctx.lineTo(screenWidth - 25, 25 + cornerSize);
+        ctx.moveTo(screenWidth - margin - cornerSize, margin);
+        ctx.lineTo(screenWidth - margin, margin);
+        ctx.lineTo(screenWidth - margin, margin + cornerSize);
       } else if (corner === 'bl') {
-        ctx.moveTo(25, screenHeight - 25 - cornerSize);
-        ctx.lineTo(25, screenHeight - 25);
-        ctx.lineTo(25 + cornerSize, screenHeight - 25);
+        ctx.moveTo(margin, screenHeight - margin - cornerSize);
+        ctx.lineTo(margin, screenHeight - margin);
+        ctx.lineTo(margin + cornerSize, screenHeight - margin);
       } else {
-        ctx.moveTo(screenWidth - 25 - cornerSize, screenHeight - 25);
-        ctx.lineTo(screenWidth - 25, screenHeight - 25);
-        ctx.lineTo(screenWidth - 25, screenHeight - 25 - cornerSize);
+        ctx.moveTo(screenWidth - margin - cornerSize, screenHeight - margin);
+        ctx.lineTo(screenWidth - margin, screenHeight - margin);
+        ctx.lineTo(screenWidth - margin, screenHeight - margin - cornerSize);
       }
       ctx.stroke();
     });
     
-    // Decorative border frame
-    ctx.strokeStyle = 'rgba(74, 222, 128, 0.3)';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(35, 35, screenWidth - 70, screenHeight - 70);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    const padding = isPortrait ? 50 : 80;
+    const lineHeight = isPortrait ? 28 : 36;
+    let yPos = padding;
     
+    // Monospace font for command center aesthetic
+    const monoFont = 'Courier New, monospace';
+    const headerSize = isPortrait ? 20 : 26;
+    const textSize = isPortrait ? 14 : 18;
+    
+    // Header: MISSION BRIEFING
+    ctx.font = `bold ${headerSize}px ${monoFont}`;
+    ctx.fillStyle = '#4ade80';
+    ctx.fillText('> MISSION BRIEFING', padding, yPos);
+    yPos += lineHeight * 1.5;
+    
+    // Separator line
+    ctx.fillStyle = '#4ade80';
+    ctx.fillRect(padding, yPos, screenWidth - padding * 2, 1);
+    yPos += lineHeight;
+    
+    // Level info
+    ctx.font = `${textSize}px ${monoFont}`;
+    ctx.fillStyle = '#4ade80';
+    ctx.fillText(`LEVEL:     ${readyUpLevel} COMPLETE`, padding, yPos);
+    yPos += lineHeight;
+    
+    ctx.fillText(`NEXT:      LEVEL ${readyUpLevel + 1}`, padding, yPos);
+    yPos += lineHeight;
+    
+    const diff = getDifficulty();
+    ctx.fillText(`MODE:      ${diff.name.toUpperCase()}`, padding, yPos);
+    yPos += lineHeight * 1.5;
+    
+    // Resources
+    ctx.fillText(`CREDITS:   ${Save.data.credits} CR`, padding, yPos);
+    yPos += lineHeight;
+    
+    ctx.fillText(`SCORE:     ${score}`, padding, yPos);
+    yPos += lineHeight * 1.5;
+    
+    // Active upgrades section
+    ctx.font = `bold ${headerSize}px ${monoFont}`;
+    ctx.fillText('> ACTIVE UPGRADES', padding, yPos);
+    yPos += lineHeight * 1.2;
+    
+    // Separator
+    ctx.fillStyle = '#4ade80';
+    ctx.fillRect(padding, yPos, screenWidth - padding * 2, 1);
+    yPos += lineHeight * 0.8;
+    
+    // Get top upgrades to display
+    ctx.font = `${textSize}px ${monoFont}`;
+    const activeUpgrades = UPGRADES
+      .map(u => ({ ...u, level: Save.getUpgradeLevel(u.id) }))
+      .filter(u => u.level > 0)
+      .sort((a, b) => b.level - a.level)
+      .slice(0, isPortrait ? 4 : 6);
+    
+    if (activeUpgrades.length > 0) {
+      activeUpgrades.forEach(upgrade => {
+        const shortName = upgrade.name.substring(0, isPortrait ? 14 : 20);
+        const lvlText = `LV${upgrade.level}/${upgrade.max}`;
+        ctx.fillText(`${shortName.padEnd(isPortrait ? 14 : 20, ' ')} ${lvlText}`, padding, yPos);
+        yPos += lineHeight;
+      });
+    } else {
+      ctx.fillStyle = 'rgba(74, 222, 128, 0.5)';
+      ctx.fillText('NO UPGRADES PURCHASED', padding, yPos);
+      ctx.fillStyle = '#4ade80';
+      yPos += lineHeight;
+    }
+    
+    // Center bottom: TAP TO START button with pulse effect
     ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
     const centerX = screenWidth / 2;
-    const centerY = screenHeight * 0.5;
+    const bottomY = screenHeight - (isPortrait ? 100 : 120);
     
-    // MOBILE-SIZED: Smaller "LEVEL COMPLETE" text
-    const completeFontSize = isPortrait ? 32 : 42;
-    ctx.font = `900 ${completeFontSize}px Arial, sans-serif`;
-    ctx.fillStyle = '#4ade80';
+    // Pulsing effect
+    const pulsePhase = Math.sin(now / 400) * 0.1 + 1;
+    const buttonWidth = isPortrait ? 280 : 360;
+    const buttonHeight = isPortrait ? 50 : 60;
+    
+    // Button box with glow
     ctx.shadowColor = '#4ade80';
-    ctx.shadowBlur = 30;
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
-    ctx.lineWidth = 3;
-    ctx.strokeText('LEVEL COMPLETE', centerX, centerY - (isPortrait ? 140 : 160));
-    ctx.fillText('LEVEL COMPLETE', centerX, centerY - (isPortrait ? 140 : 160));
-    
-    // Decorative line
+    ctx.shadowBlur = 25 * pulsePhase;
     ctx.strokeStyle = '#4ade80';
     ctx.lineWidth = 2;
-    ctx.shadowBlur = 12;
-    ctx.beginPath();
-    const lineWidth = isPortrait ? 150 : 220;
-    ctx.moveTo(centerX - lineWidth / 2, centerY - (isPortrait ? 110 : 125));
-    ctx.lineTo(centerX + lineWidth / 2, centerY - (isPortrait ? 110 : 125));
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-    
-    // MOBILE-SIZED: Level number
-    const levelFontSize = isPortrait ? 24 : 32;
-    ctx.font = `bold ${levelFontSize}px Arial, sans-serif`;
-    ctx.fillStyle = '#cbd5e1';
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
-    ctx.lineWidth = 2;
-    ctx.strokeText(`Level ${readyUpLevel}`, centerX, centerY - (isPortrait ? 80 : 95));
-    ctx.fillText(`Level ${readyUpLevel}`, centerX, centerY - (isPortrait ? 80 : 95));
-    
-    // MOBILE-SIZED: Credits display
-    const infoFontSize = isPortrait ? 18 : 24;
-    ctx.font = `bold ${infoFontSize}px Arial, sans-serif`;
-    ctx.fillStyle = '#fbbf24';
-    ctx.shadowColor = '#fbbf24';
-    ctx.shadowBlur = 8;
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
-    ctx.lineWidth = 2;
-    ctx.strokeText(`💰 ${Save.data.credits} Credits`, centerX, centerY - (isPortrait ? 45 : 55));
-    ctx.fillText(`💰 ${Save.data.credits} Credits`, centerX, centerY - (isPortrait ? 45 : 55));
-    ctx.shadowBlur = 0;
-    
-    // MOBILE-SIZED: Action button
-    const pulsePhase = Math.sin(now / 350) * 0.12 + 1;
-    const buttonWidth = isPortrait ? 240 : 320;
-    const buttonHeight = isPortrait ? 65 : 80;
-    
-    // Button glow
-    ctx.shadowColor = '#4ade80';
-    ctx.shadowBlur = 35 * pulsePhase;
-    
-    // Button background with gradient
-    const btnGradient = ctx.createLinearGradient(
-      centerX - buttonWidth / 2, centerY - buttonHeight / 2,
-      centerX + buttonWidth / 2, centerY + buttonHeight / 2
+    ctx.strokeRect(
+      centerX - buttonWidth / 2,
+      bottomY - buttonHeight / 2,
+      buttonWidth,
+      buttonHeight
     );
-    btnGradient.addColorStop(0, `rgba(34, 197, 94, ${0.3 * pulsePhase})`);
-    btnGradient.addColorStop(0.5, `rgba(74, 222, 128, ${0.25 * pulsePhase})`);
-    btnGradient.addColorStop(1, `rgba(34, 197, 94, ${0.3 * pulsePhase})`);
-    ctx.fillStyle = btnGradient;
-    ctx.beginPath();
-    ctx.roundRect(centerX - (buttonWidth * pulsePhase) / 2, centerY - (buttonHeight * pulsePhase) / 2, 
-                   buttonWidth * pulsePhase, buttonHeight * pulsePhase, 14);
-    ctx.fill();
-    
-    // Button border
-    ctx.strokeStyle = '#4ade80';
-    ctx.lineWidth = 3;
-    ctx.stroke();
     ctx.shadowBlur = 0;
     
-    // Button text - MOBILE-SIZED
-    const buttonTextSize = isPortrait ? 28 : 36;
-    ctx.font = `900 ${buttonTextSize}px Arial, sans-serif`;
+    // Button text
+    const btnTextSize = isPortrait ? 22 : 28;
+    ctx.font = `bold ${btnTextSize}px ${monoFont}`;
+    ctx.textBaseline = 'middle';
     ctx.fillStyle = '#4ade80';
-    ctx.shadowColor = '#4ade80';
-    ctx.shadowBlur = 18;
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
-    ctx.lineWidth = 3;
-    ctx.strokeText('TAP TO START', centerX, centerY);
-    ctx.fillText('TAP TO START', centerX, centerY);
+    ctx.fillText('[ TAP TO START ]', centerX, bottomY);
     
-    // MOBILE-FOCUSED: Single tap instruction (removed keyboard references)
-    const instructSize = isPortrait ? 15 : 18;
-    ctx.font = `${instructSize}px Arial, sans-serif`;
-    ctx.fillStyle = '#e2e8f0';
-    ctx.shadowBlur = 4;
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
-    ctx.fillText('Tap anywhere to continue', centerX, centerY + (isPortrait ? 60 : 70));
-    
-    // Shop hint - MOBILE-SIZED (updated to reference menu)
-    ctx.font = `bold ${instructSize}px Arial, sans-serif`;
-    ctx.fillStyle = '#60a5fa';
-    ctx.shadowColor = '#60a5fa';
-    ctx.shadowBlur = 6;
-    ctx.fillText('Open menu (top right) for shop & upgrades', centerX, centerY + (isPortrait ? 90 : 105));
+    // Instruction text
+    const instructSize = isPortrait ? 12 : 14;
+    ctx.font = `${instructSize}px ${monoFont}`;
+    ctx.fillStyle = 'rgba(74, 222, 128, 0.6)';
+    ctx.fillText('TAP ANYWHERE TO CONTINUE', centerX, bottomY + (isPortrait ? 45 : 55));
     
     ctx.restore();
   };
@@ -9150,11 +9212,19 @@
     dom.canvas.height = Math.floor(window.innerHeight * dpr);
     dom.canvas.style.width = '100%';
     dom.canvas.style.height = '100%';
-    dom.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (dom.ctx) {
+      dom.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
     if (player) {
       camera.x = player.x - dom.canvas.width / 2;
       camera.y = player.y - dom.canvas.height / 2;
     }
+    
+    // Resize 3D renderer if active
+    if (game3DInstance) {
+      game3DInstance.resize();
+    }
+    
     drawStartGraphic();
   };
 
@@ -9439,6 +9509,34 @@
   };
 
   /* ====== INITIALISATION ====== */
+  
+  // Initialize 3D rendering system
+  const init3DSystem = () => {
+    if (typeof window.__VOID_RIFT_3D__ !== 'undefined') {
+      try {
+        const initialized = window.__VOID_RIFT_3D__.init(dom.canvas);
+        if (initialized) {
+          game3DInstance = window.__VOID_RIFT_3D__;
+          use3DMode = true;
+          console.log('3D mode enabled');
+          return true;
+        }
+      } catch (error) {
+        console.warn('3D initialization failed, using 2D fallback:', error);
+        use3DMode = false;
+        game3DInstance = null;
+      }
+    }
+    
+    // If 3D failed or not available, create 2D context
+    if (!dom.ctx && dom.canvas) {
+      dom.ctx = dom.canvas.getContext('2d');
+      console.log('Using 2D Canvas rendering');
+    }
+    
+    return false;
+  };
+  
   const ready = () => {
     assignDomRefs();
     Save.load();
@@ -9450,7 +9548,13 @@
     syncCredits();
     loadControlSettings(); // Load and apply control settings
     setupInput();
+    
+    // Initialize 3D system FIRST, before any canvas setup
+    init3DSystem();
+    
+    // Then resize canvas (which may create 2D context if 3D failed)
     resizeCanvas();
+    
     drawStartGraphic();
     updateHUD();
   };
