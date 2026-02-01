@@ -11244,11 +11244,14 @@
   };
   
   /**
-   * Elegant 2D Start Screen Background
-   * - Animated particle field with parallax
-   * - Gradient glow effects
-   * - Smooth, ambient movement
-   * - Minimal yet beautiful
+   * Start Screen: Spinning Ship Loader with 3D Space Elements
+   * - Centered spinning Vanguard ship with progress bar
+   * - Pure black background
+   * - 5 planets with atmospheric glow
+   * - 150 parallax stars with depth
+   * - 8 rotating asteroids in 3D space
+   * - 2 time portal wormholes with vortex effects
+   * - High-fidelity immersive sci-fi atmosphere
    */
   const initStartScreenBackground = () => {
     const canvas = document.getElementById('startBackgroundCanvas');
@@ -11261,105 +11264,328 @@
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     
-    // Create particle field with depth layers for parallax
-    const particles = [];
-    for (let i = 0; i < 120; i++) {
-      particles.push({
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    
+    // Spinning ship loader
+    const ship = {
+      size: 80,
+      rotation: 0,
+      rotationSpeed: (Math.PI * 2) / 240 // 4 second full rotation at 60fps
+    };
+    
+    // Progress bar
+    const progressBar = {
+      width: 200,
+      height: 8,
+      progress: 0,
+      maxProgress: 1,
+      speed: 1 / 180 // Complete in 3 seconds at 60fps
+    };
+    
+    // Parallax stars (150 particles with depth)
+    const stars = [];
+    for (let i = 0; i < 150; i++) {
+      stars.push({
         x: Math.random() * canvas.width,
         y: Math.random() * canvas.height,
-        size: Math.random() * 2.5 + 0.5,
-        speedX: (Math.random() - 0.5) * 0.2,
-        speedY: Math.random() * 0.3 + 0.1,
+        size: Math.random() * 2 + 0.5,
+        speed: Math.random() * 0.2 + 0.05,
         depth: Math.random(), // 0 = far, 1 = close
-        opacity: Math.random() * 0.6 + 0.2,
         twinkle: Math.random() * Math.PI * 2,
-        twinkleSpeed: Math.random() * 0.02 + 0.01
+        twinkleSpeed: Math.random() * 0.03 + 0.01
       });
     }
     
-    // Floating glow orbs for ambient effect
-    const glowOrbs = [];
-    for (let i = 0; i < 3; i++) {
-      glowOrbs.push({
+    // 5 Planets with atmospheric glow
+    const planets = [
+      { x: canvas.width * 0.15, y: canvas.height * 0.2, size: 50, color: '#c2410c', detail: '#7c2d12', depth: 0.3 }, // Mars-like
+      { x: canvas.width * 0.85, y: canvas.height * 0.3, size: 70, color: '#1e40af', detail: '#1e3a8a', depth: 0.5 }, // Gas giant blue
+      { x: canvas.width * 0.12, y: canvas.height * 0.75, size: 40, color: '#059669', detail: '#047857', depth: 0.7 }, // Earth-like
+      { x: canvas.width * 0.88, y: canvas.height * 0.7, size: 100, color: '#7c3aed', detail: '#6d28d9', depth: 0.2 }, // Gas giant purple
+      { x: canvas.width * 0.5, y: canvas.height * 0.1, size: 45, color: '#ea580c', detail: '#c2410c', depth: 0.4 }  // Orange planet
+    ];
+    
+    // 8 Rotating asteroids
+    const asteroids = [];
+    for (let i = 0; i < 8; i++) {
+      asteroids.push({
         x: Math.random() * canvas.width,
         y: Math.random() * canvas.height,
-        size: Math.random() * 100 + 80,
-        speedX: (Math.random() - 0.5) * 0.15,
-        speedY: (Math.random() - 0.5) * 0.15,
-        color: i === 0 ? '74, 222, 128' : i === 1 ? '14, 165, 233' : '34, 197, 94',
-        opacity: 0.08 + Math.random() * 0.05
+        size: Math.random() * 13 + 12,
+        rotation: Math.random() * Math.PI * 2,
+        rotationSpeed: (Math.random() - 0.5) * 0.04,
+        speed: Math.random() * 0.3 + 0.1,
+        angle: Math.random() * Math.PI * 2,
+        depth: Math.random() * 0.5 + 0.3,
+        color: i % 2 === 0 ? '#6b7280' : '#78716c'
       });
     }
     
+    // 2 Time portals / wormholes
+    const portals = [
+      {
+        x: canvas.width * 0.25,
+        y: canvas.height * 0.5,
+        size: 60,
+        color: '#8b5cf6', // Purple
+        rotation: 0,
+        pulse: 1
+      },
+      {
+        x: canvas.width * 0.75,
+        y: canvas.height * 0.5,
+        size: 80,
+        color: '#06b6d4', // Cyan
+        rotation: 0,
+        pulse: 1
+      }
+    ];
+    
+    // Draw spinning Vanguard ship
+    const drawShip = (x, y, size, rotation) => {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(rotation);
+      
+      const scale = size / 16; // Base size is 16px
+      
+      // Engine glow (animated)
+      const thrusterPulse = 0.7 + Math.sin(Date.now() / 150) * 0.3;
+      ctx.shadowColor = '#f97316';
+      ctx.shadowBlur = 20 * thrusterPulse;
+      
+      // Engine thrusters (dual)
+      ctx.fillStyle = '#f97316';
+      ctx.beginPath();
+      ctx.ellipse(-8 * scale, -3 * scale, 3 * scale * thrusterPulse, 6 * scale * thrusterPulse, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(-8 * scale, 3 * scale, 3 * scale * thrusterPulse, 6 * scale * thrusterPulse, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.shadowBlur = 0;
+      
+      // Ship body (spear shape - Vanguard)
+      ctx.fillStyle = '#0ea5e9';
+      ctx.shadowColor = '#0ea5e9';
+      ctx.shadowBlur = 15;
+      ctx.beginPath();
+      ctx.moveTo(10 * scale, 0);
+      ctx.lineTo(-8 * scale, -6 * scale);
+      ctx.lineTo(-6 * scale, 0);
+      ctx.lineTo(-8 * scale, 6 * scale);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Cockpit glow
+      ctx.fillStyle = '#7dd3fc';
+      ctx.shadowColor = '#7dd3fc';
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.arc(2 * scale, 0, 3 * scale, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.shadowBlur = 0;
+      ctx.restore();
+    };
+    
+    // Draw planet with atmosphere
+    const drawPlanet = (planet) => {
+      // Atmospheric glow
+      const gradient = ctx.createRadialGradient(
+        planet.x, planet.y, 0,
+        planet.x, planet.y, planet.size * 1.3
+      );
+      gradient.addColorStop(0, planet.color);
+      gradient.addColorStop(0.6, planet.detail);
+      gradient.addColorStop(0.85, 'rgba(0,0,0,0.5)');
+      gradient.addColorStop(1, 'rgba(0,0,0,0)');
+      
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(planet.x, planet.y, planet.size * 1.3, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Surface detail ring
+      ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(planet.x, planet.y, planet.size * 0.7, 0, Math.PI * 2);
+      ctx.stroke();
+    };
+    
+    // Draw asteroid
+    const drawAsteroid = (asteroid) => {
+      ctx.save();
+      ctx.translate(asteroid.x, asteroid.y);
+      ctx.rotate(asteroid.rotation);
+      
+      const depthScale = 0.5 + asteroid.depth * 0.5;
+      const size = asteroid.size * depthScale;
+      
+      // Rocky irregular shape
+      ctx.fillStyle = asteroid.color;
+      ctx.shadowColor = '#000';
+      ctx.shadowBlur = 5;
+      ctx.beginPath();
+      for (let i = 0; i < 8; i++) {
+        const angle = (i / 8) * Math.PI * 2;
+        const radius = size * (0.7 + Math.random() * 0.3);
+        const x = Math.cos(angle) * radius;
+        const y = Math.sin(angle) * radius;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.fill();
+      
+      // Crater details
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      ctx.beginPath();
+      ctx.arc(size * 0.3, -size * 0.2, size * 0.15, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.shadowBlur = 0;
+      ctx.restore();
+    };
+    
+    // Draw time portal / wormhole
+    const drawPortal = (portal) => {
+      portal.rotation += 0.02;
+      portal.pulse = 1 + Math.sin(Date.now() / 800) * 0.15;
+      
+      // Orbital rings (swirling)
+      for (let ring = 0; ring < 8; ring++) {
+        const ringRadius = (portal.size / 8) * (ring + 1) * portal.pulse;
+        const ringAngle = portal.rotation + (ring * Math.PI / 4);
+        
+        ctx.strokeStyle = portal.color + (20 - ring * 2).toString(16).padStart(2, '0');
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(portal.x, portal.y, ringRadius, ringAngle, ringAngle + Math.PI);
+        ctx.stroke();
+      }
+      
+      // Central vortex core
+      const coreGradient = ctx.createRadialGradient(
+        portal.x, portal.y, 0,
+        portal.x, portal.y, portal.size * 0.4 * portal.pulse
+      );
+      coreGradient.addColorStop(0, '#ffffff');
+      coreGradient.addColorStop(0.3, portal.color);
+      coreGradient.addColorStop(0.7, portal.color === '#8b5cf6' ? '#4c1d95' : '#164e63');
+      coreGradient.addColorStop(1, 'rgba(0,0,0,0)');
+      
+      ctx.fillStyle = coreGradient;
+      ctx.beginPath();
+      ctx.arc(portal.x, portal.y, portal.size * 0.4 * portal.pulse, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Event horizon glow
+      ctx.shadowColor = portal.color;
+      ctx.shadowBlur = 30;
+      ctx.strokeStyle = portal.color;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(portal.x, portal.y, portal.size * portal.pulse, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    };
+    
+    // Animation loop
     let animationFrame;
     const animate = () => {
-      // Clear with minimal fade for smooth trails
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.02)';
+      // Pure black background
+      ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
-      // Draw floating glow orbs first (background layer)
-      glowOrbs.forEach(orb => {
-        orb.x += orb.speedX;
-        orb.y += orb.speedY;
+      // Draw stars with parallax and twinkling
+      stars.forEach(star => {
+        star.y += star.speed * (0.5 + star.depth * 0.5);
+        star.twinkle += star.twinkleSpeed;
         
-        // Bounce off edges
-        if (orb.x < -orb.size || orb.x > canvas.width + orb.size) orb.speedX *= -1;
-        if (orb.y < -orb.size || orb.y > canvas.height + orb.size) orb.speedY *= -1;
-        
-        // Draw soft glow
-        const gradient = ctx.createRadialGradient(
-          orb.x, orb.y, 0,
-          orb.x, orb.y, orb.size
-        );
-        gradient.addColorStop(0, `rgba(${orb.color}, ${orb.opacity})`);
-        gradient.addColorStop(0.5, `rgba(${orb.color}, ${orb.opacity * 0.3})`);
-        gradient.addColorStop(1, `rgba(${orb.color}, 0)`);
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(orb.x, orb.y, orb.size, 0, Math.PI * 2);
-        ctx.fill();
-      });
-      
-      // Draw particles with parallax and twinkling
-      particles.forEach(particle => {
-        // Move with depth-based speed (parallax)
-        particle.x += particle.speedX * (0.5 + particle.depth * 0.5);
-        particle.y -= particle.speedY * (0.5 + particle.depth * 0.5);
-        particle.twinkle += particle.twinkleSpeed;
-        
-        // Wrap around edges
-        if (particle.x < 0) particle.x = canvas.width;
-        if (particle.x > canvas.width) particle.x = 0;
-        if (particle.y < 0) {
-          particle.y = canvas.height;
-          particle.x = Math.random() * canvas.width;
+        if (star.y > canvas.height) {
+          star.y = 0;
+          star.x = Math.random() * canvas.width;
         }
         
-        // Calculate size and opacity based on depth and twinkle
-        const depthSize = particle.size * (0.3 + particle.depth * 0.7);
-        const twinkleAlpha = 0.4 + Math.sin(particle.twinkle) * 0.3;
-        const alpha = particle.opacity * twinkleAlpha * (0.5 + particle.depth * 0.5);
+        const depthSize = star.size * (0.3 + star.depth * 0.7);
+        const twinkleAlpha = 0.3 + Math.sin(star.twinkle) * 0.3;
+        const alpha = twinkleAlpha * (0.4 + star.depth * 0.6);
         
-        // Draw particle core
-        ctx.fillStyle = `rgba(200, 220, 255, ${alpha})`;
+        ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
         ctx.beginPath();
-        ctx.arc(particle.x, particle.y, depthSize, 0, Math.PI * 2);
+        ctx.arc(star.x, star.y, depthSize, 0, Math.PI * 2);
         ctx.fill();
         
-        // Add glow for closer particles
-        if (particle.depth > 0.5) {
+        // Glow for closer stars
+        if (star.depth > 0.6) {
           const gradient = ctx.createRadialGradient(
-            particle.x, particle.y, 0,
-            particle.x, particle.y, depthSize * 4
+            star.x, star.y, 0,
+            star.x, star.y, depthSize * 3
           );
-          gradient.addColorStop(0, `rgba(74, 222, 128, ${alpha * 0.4})`);
-          gradient.addColorStop(1, 'rgba(74, 222, 128, 0)');
+          gradient.addColorStop(0, `rgba(200, 230, 255, ${alpha * 0.5})`);
+          gradient.addColorStop(1, 'rgba(200, 230, 255, 0)');
           ctx.fillStyle = gradient;
           ctx.beginPath();
-          ctx.arc(particle.x, particle.y, depthSize * 4, 0, Math.PI * 2);
+          ctx.arc(star.x, star.y, depthSize * 3, 0, Math.PI * 2);
           ctx.fill();
         }
       });
+      
+      // Draw planets
+      planets.forEach(drawPlanet);
+      
+      // Draw time portals / wormholes
+      portals.forEach(drawPortal);
+      
+      // Draw and update asteroids
+      asteroids.forEach(asteroid => {
+        asteroid.rotation += asteroid.rotationSpeed;
+        asteroid.x += Math.cos(asteroid.angle) * asteroid.speed;
+        asteroid.y += Math.sin(asteroid.angle) * asteroid.speed;
+        
+        // Wrap around
+        if (asteroid.x < -50) asteroid.x = canvas.width + 50;
+        if (asteroid.x > canvas.width + 50) asteroid.x = -50;
+        if (asteroid.y < -50) asteroid.y = canvas.height + 50;
+        if (asteroid.y > canvas.height + 50) asteroid.y = -50;
+        
+        drawAsteroid(asteroid);
+      });
+      
+      // Update and draw spinning ship
+      ship.rotation += ship.rotationSpeed;
+      drawShip(centerX, centerY - 50, ship.size, ship.rotation);
+      
+      // Update and draw progress bar
+      if (progressBar.progress < progressBar.maxProgress) {
+        progressBar.progress += progressBar.speed;
+      } else {
+        progressBar.progress = 0; // Loop
+      }
+      
+      const barX = centerX - progressBar.width / 2;
+      const barY = centerY + 80;
+      
+      // Progress bar background
+      ctx.fillStyle = '#1a1a1a';
+      ctx.fillRect(barX, barY, progressBar.width, progressBar.height);
+      
+      // Progress bar fill
+      const fillWidth = progressBar.width * progressBar.progress;
+      const barGradient = ctx.createLinearGradient(barX, barY, barX + fillWidth, barY);
+      barGradient.addColorStop(0, '#22c55e');
+      barGradient.addColorStop(0.5, '#4ade80');
+      barGradient.addColorStop(1, '#22c55e');
+      ctx.fillStyle = barGradient;
+      ctx.fillRect(barX, barY, fillWidth, progressBar.height);
+      
+      // Progress bar border
+      ctx.strokeStyle = '#4ade80';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(barX, barY, progressBar.width, progressBar.height);
       
       animationFrame = requestAnimationFrame(animate);
     };
