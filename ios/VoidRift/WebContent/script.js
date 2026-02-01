@@ -740,7 +740,8 @@
     dom.startGraphicCanvas = document.getElementById('startGraphicCanvas');
     dom.gameContainer = document.getElementById('gameContainer');
     dom.canvas = document.getElementById('gameCanvas');
-    dom.ctx = dom.canvas ? dom.canvas.getContext('2d') : null;
+    // Note: Don't create 2D context yet - wait for 3D check first
+    dom.ctx = null;
     dom.scoreValue = document.getElementById('scoreValue');
     dom.levelValue = document.getElementById('levelValue');
     dom.healthBar = document.getElementById('healthBar');
@@ -841,6 +842,10 @@
   let readyUpPhase = false; // NEW: Phase where player can shop before countdown
   let readyUpLevel = 0; // Level displayed during ready-up
   const camera = { x: 0, y: 0 };
+
+  // 3D Rendering System
+  let game3DInstance = null;
+  let use3DMode = true; // Enable 3D by default
 
   // Difficulty system
   let currentDifficulty = 'normal';
@@ -2011,6 +2016,11 @@
   const shakeScreen = (power = 4, duration = 120) => {
     shakeUntil = Math.max(shakeUntil, performance.now() + duration);
     shakePower = power;
+    
+    // Also trigger 3D shake if active
+    if (use3DMode && game3DInstance) {
+      game3DInstance.shake(power);
+    }
   };
 
   // Phase 1: Spawn floating damage number
@@ -2496,9 +2506,12 @@
 
   class Asteroid {
     constructor(x, y, r, variant = 'rock') {
+      this.id = `asteroid_${entityIdCounter++}`;
       this.x = x;
       this.y = y;
       this.r = r;
+      this.size = r; // Add size property for 3D system
+      this.seed = Math.random() * 1000; // Random seed for 3D geometry variation
       this.variant = variant;
       this.rot = rand(0, Math.PI * 2);
       this.vx = rand(-0.45, 0.45);
@@ -4232,8 +4245,13 @@
   };
 
   /* ====== ENTITY CLASSES ====== */
+  
+  // Entity ID counter for 3D tracking
+  let entityIdCounter = 0;
+  
   class Bullet {
     constructor(x, y, vel, damage, color = '#fde047', speed = BASE.BULLET_SPEED, size = BASE.BULLET_SIZE, pierce = 0, isEnemy = false) {
+      this.id = `bullet_${entityIdCounter++}`;
       this.x = x;
       this.y = y;
       this.size = size;
@@ -4362,6 +4380,7 @@
 
   class Enemy {
     constructor(x, y, kind = 'chaser', isElite = false, isBoss = false) {
+      this.id = `enemy_${entityIdCounter++}`;
       this.x = x;
       this.y = y;
       this.kind = kind;
@@ -4815,9 +4834,11 @@
 
   class Coin {
     constructor(x, y) {
+      this.id = `coin_${entityIdCounter++}`;
       this.x = x;
       this.y = y;
       this.r = BASE.COIN_SIZE;
+      this.size = BASE.COIN_SIZE; // Add size property for 3D system
       this.created = performance.now();
       this.life = BASE.COIN_LIFETIME;
     }
@@ -7245,6 +7266,7 @@
     const canvas = dom.startGraphicCanvas;
     if (!canvas) return;
     const g = canvas.getContext('2d');
+    if (!g) return;
     const width = (canvas.width = canvas.clientWidth);
     const height = (canvas.height = canvas.clientHeight);
     g.fillStyle = '#000';
@@ -7903,6 +7925,7 @@
     // Set up level after countdown
     queueTimedEffect(3000, () => {
       countdownActive = false;
+      restoreUIElements(); // Restore UI elements when countdown ends
       spawnObstacles();
       spawnHazards();
       
@@ -7973,7 +7996,45 @@
 
   /* ====== RENDERING ====== */
   const drawGame = () => {
+    // Check if 3D mode is active first (before ctx check)
+    if (use3DMode && game3DInstance && game3DInstance.isActive()) {
+      // Get current ship configuration
+      const shipConfig = Save.data.shipConfig || SHIP_TEMPLATES[0];
+      
+      // Update 3D entities (sync 2D state to 3D)
+      game3DInstance.update({
+        player: player,
+        bullets: bullets,
+        enemies: enemies,
+        obstacles: obstacles,
+        coins: coins,
+        shipData: {
+          shape: shipConfig.shape || 'spear',
+          scale: shipConfig.scale || 1,
+          colors: shipConfig.colors || {
+            primary: '#0ea5e9',
+            accent: '#38bdf8',
+            thruster: '#f97316',
+            trim: '#f8fafc',
+            canopy: '#7dd3fc'
+          }
+        },
+        boosting: false, // TODO: Track boosting state properly
+        camera: camera
+      });
+      
+      // Render 3D scene
+      game3DInstance.render();
+      
+      // Note: HUD and overlays are still rendered separately in 2D (updateHUD())
+      
+      return; // Exit early, 3D rendering is done
+    }
+    
+    // 2D mode - need context
     if (!dom.ctx) return;
+    
+    // Fallback to 2D rendering
     const ctx = dom.ctx;
     const canvas = dom.canvas;
     
@@ -8237,8 +8298,11 @@
     
     // Ready-up overlay is drawn separately after HUD (see drawReadyUpOverlay function)
     
-    // Draw countdown - ENHANCED: Better positioning and styling to prevent overlap
+    // Draw countdown - Command Center style to match mission briefing
     if (countdownActive) {
+      // Dim UI elements to make countdown overlay more prominent
+      dimUIElements(0.2);
+      
       const timeRemaining = countdownEnd - performance.now();
       const now = performance.now();
       
@@ -8249,232 +8313,131 @@
       const screenHeight = window.innerHeight;
       const isPortrait = screenHeight > screenWidth;
       
-      // ENHANCED: Semi-transparent overlay that adapts to screen size
-      const overlayOpacity = isPortrait ? 0.96 : 0.94;
-      const gradientCenterY = screenHeight * 0.42;
-      const gradient = ctx.createRadialGradient(
-        screenWidth / 2, gradientCenterY, 0,
-        screenWidth / 2, gradientCenterY, Math.max(screenWidth, screenHeight) * 0.75
-      );
-      gradient.addColorStop(0, `rgba(10, 15, 25, ${overlayOpacity})`);
-      gradient.addColorStop(0.5, `rgba(15, 23, 42, ${overlayOpacity})`);
-      gradient.addColorStop(1, `rgba(0, 0, 0, ${overlayOpacity + 0.02})`);
-      ctx.fillStyle = gradient;
+      // Pure black background - command center aesthetic (semi-transparent to show game slightly)
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.92)';
       ctx.fillRect(0, 0, screenWidth, screenHeight);
       
-      // ENHANCED: Animated scan lines effect (subtle)
-      ctx.fillStyle = 'rgba(74, 222, 128, 0.02)';
-      const scanLineOffset = (now / 25) % 10;
-      for (let y = scanLineOffset; y < screenHeight; y += 10) {
+      // Subtle scan lines for tech aesthetic
+      ctx.fillStyle = 'rgba(74, 222, 128, 0.03)';
+      const scanLineOffset = (now / 30) % 8;
+      for (let y = scanLineOffset; y < screenHeight; y += 8) {
         ctx.fillRect(0, y, screenWidth, 1);
       }
       
-      // ENHANCED: Glowing corner accent lines with better visibility
-      ctx.strokeStyle = 'rgba(74, 222, 128, 0.4)';
-      ctx.lineWidth = 3;
-      const cornerSize = isPortrait ? 35 : 45;
+      // Simple corner brackets - minimal design (matching mission briefing)
+      ctx.strokeStyle = '#4ade80';
+      ctx.lineWidth = 2;
+      const cornerSize = isPortrait ? 40 : 60;
+      const margin = 20;
       
-      // Top-left corner
-      ctx.beginPath();
-      ctx.moveTo(20, 20 + cornerSize);
-      ctx.lineTo(20, 20);
-      ctx.lineTo(20 + cornerSize, 20);
-      ctx.stroke();
+      ['tl', 'tr', 'bl', 'br'].forEach(corner => {
+        ctx.beginPath();
+        if (corner === 'tl') {
+          ctx.moveTo(margin, margin + cornerSize);
+          ctx.lineTo(margin, margin);
+          ctx.lineTo(margin + cornerSize, margin);
+        } else if (corner === 'tr') {
+          ctx.moveTo(screenWidth - margin - cornerSize, margin);
+          ctx.lineTo(screenWidth - margin, margin);
+          ctx.lineTo(screenWidth - margin, margin + cornerSize);
+        } else if (corner === 'bl') {
+          ctx.moveTo(margin, screenHeight - margin - cornerSize);
+          ctx.lineTo(margin, screenHeight - margin);
+          ctx.lineTo(margin + cornerSize, screenHeight - margin);
+        } else {
+          ctx.moveTo(screenWidth - margin - cornerSize, screenHeight - margin);
+          ctx.lineTo(screenWidth - margin, screenHeight - margin);
+          ctx.lineTo(screenWidth - margin, screenHeight - margin - cornerSize);
+        }
+        ctx.stroke();
+      });
       
-      // Top-right corner
-      ctx.beginPath();
-      ctx.moveTo(screenWidth - 20 - cornerSize, 20);
-      ctx.lineTo(screenWidth - 20, 20);
-      ctx.lineTo(screenWidth - 20, 20 + cornerSize);
-      ctx.stroke();
-      
-      // Bottom-left corner
-      ctx.beginPath();
-      ctx.moveTo(20, screenHeight - 20 - cornerSize);
-      ctx.lineTo(20, screenHeight - 20);
-      ctx.lineTo(20 + cornerSize, screenHeight - 20);
-      ctx.stroke();
-      
-      // Bottom-right corner
-      ctx.beginPath();
-      ctx.moveTo(screenWidth - 20 - cornerSize, screenHeight - 20);
-      ctx.lineTo(screenWidth - 20, screenHeight - 20);
-      ctx.lineTo(screenWidth - 20, screenHeight - 20 - cornerSize);
-      ctx.stroke();
+      // Monospace font for command center aesthetic
+      const monoFont = 'Courier New, monospace';
+      const centerX = screenWidth / 2;
+      const centerY = screenHeight * 0.5;
       
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       
-      // Center coordinates for text and elements - ENHANCED: better positioning
-      const centerX = screenWidth / 2;
-      const centerY = isPortrait ? screenHeight * 0.45 : screenHeight * 0.5;
-      
-      // First 0.5 seconds: Show "LEVEL COMPLETE" - ENHANCED
+      // First 0.5 seconds: Show "LEVEL COMPLETE"
       if (timeRemaining > 2500) {
         const appearPhase = Math.min(1, (3000 - timeRemaining) / 400);
-        const bounceScale = 1 + Math.sin(appearPhase * Math.PI) * 0.12;
         
-        // Decorative line above - ENHANCED
-        const lineWidth = Math.min(250, screenWidth * 0.6) * appearPhase;
-        ctx.strokeStyle = `rgba(74, 222, 128, ${0.7 * appearPhase})`;
-        ctx.lineWidth = 4;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(centerX - lineWidth / 2, centerY - (isPortrait ? 80 : 100));
-        ctx.lineTo(centerX + lineWidth / 2, centerY - (isPortrait ? 80 : 100));
-        ctx.stroke();
-        
-        // "LEVEL COMPLETE" text with glow - ENHANCED: better sizing for mobile
-        const completeFontSize = isPortrait ? 40 : 52;
-        ctx.font = `900 ${Math.floor(completeFontSize * bounceScale)}px Arial, sans-serif`;
-        ctx.shadowColor = '#4ade80';
-        ctx.shadowBlur = 45;
-        
-        // Double glow for extra pop
+        // Header with separator
+        const headerSize = isPortrait ? 22 : 28;
+        ctx.font = `bold ${headerSize}px ${monoFont}`;
         ctx.fillStyle = '#4ade80';
-        ctx.fillText('LEVEL COMPLETE', centerX, centerY - (isPortrait ? 40 : 50));
-        ctx.shadowBlur = 25;
-        ctx.fillText('LEVEL COMPLETE', centerX, centerY - (isPortrait ? 40 : 50));
+        ctx.fillText('> LEVEL COMPLETE', centerX, centerY - (isPortrait ? 100 : 120));
         
-        // Text outline for better contrast
-        ctx.strokeStyle = 'rgba(0,0,0,0.7)';
-        ctx.lineWidth = 3;
-        ctx.shadowBlur = 0;
-        ctx.strokeText('LEVEL COMPLETE', centerX, centerY - (isPortrait ? 40 : 50));
-        ctx.shadowBlur = 0;
+        // Separator line
+        const lineWidth = Math.min(screenWidth * 0.7, isPortrait ? 280 : 400) * appearPhase;
+        ctx.fillStyle = '#4ade80';
+        ctx.fillRect(centerX - lineWidth / 2, centerY - (isPortrait ? 70 : 85), lineWidth, 1);
         
-        // Level number badge - ENHANCED
-        const badgeWidth = isPortrait ? 140 : 170;
-        const badgeHeight = isPortrait ? 45 : 55;
-        ctx.fillStyle = 'rgba(74, 222, 128, 0.18)';
-        ctx.beginPath();
-        ctx.roundRect(centerX - badgeWidth / 2, centerY - 8, badgeWidth, badgeHeight, 10);
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(74, 222, 128, 0.6)';
-        ctx.lineWidth = 3;
-        ctx.stroke();
+        // Level number in monospace
+        const levelSize = isPortrait ? 18 : 24;
+        ctx.font = `${levelSize}px ${monoFont}`;
+        ctx.fillStyle = '#4ade80';
+        ctx.fillText(`LEVEL ${countdownCompletedLevel} STATUS: CLEARED`, centerX, centerY - (isPortrait ? 40 : 50));
         
-        const levelFontSize = isPortrait ? 24 : 30;
-        ctx.font = `bold ${levelFontSize}px Arial, sans-serif`;
-        ctx.fillStyle = '#fff';
-        ctx.shadowColor = '#4ade80';
-        ctx.shadowBlur = 10;
-        ctx.fillText(`Level ${countdownCompletedLevel}`, centerX, centerY + (isPortrait ? 14 : 20));
-        ctx.shadowBlur = 0;
-        
-        // "Get Ready" with animated dots - ENHANCED
+        // "Get Ready" with animated dots
         const dotCount = Math.floor((now / 400) % 4);
         const dots = '.'.repeat(dotCount);
-        const readyFontSize = isPortrait ? 16 : 18;
-        ctx.font = `${readyFontSize}px Arial, sans-serif`;
-        ctx.fillStyle = '#94a3b8';
-        ctx.fillText(`Get Ready${dots}`, centerX, centerY + (isPortrait ? 55 : 70));
-        
-        // Decorative line below - ENHANCED
-        const bottomLineY = isPortrait ? 80 : 100;
-        ctx.strokeStyle = `rgba(74, 222, 128, ${0.5 * appearPhase})`;
-        ctx.lineWidth = 3;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(centerX - lineWidth / 2, centerY + bottomLineY);
-        ctx.lineTo(centerX + lineWidth / 2, centerY + bottomLineY);
-        ctx.stroke();
+        const readySize = isPortrait ? 14 : 18;
+        ctx.font = `${readySize}px ${monoFont}`;
+        ctx.fillStyle = 'rgba(74, 222, 128, 0.6)';
+        ctx.fillText(`PREPARING NEXT LEVEL${dots}`, centerX, centerY + (isPortrait ? 10 : 20));
       } 
-      // Remaining time: Show countdown and next level - ENHANCED
+      // Remaining time: Show countdown
       else if (timeRemaining > 0) {
         const countdown = Math.ceil(timeRemaining / 1000);
         const countdownFraction = (timeRemaining / 1000) % 1;
-        const pulseScale = 1 + (1 - countdownFraction) * 0.18;
-        const pulseOpacity = 0.4 + countdownFraction * 0.6;
+        const pulseScale = 1 + (1 - countdownFraction) * 0.08;
         
-        // "LEVEL X" header with accent - ENHANCED
-        const levelHeaderSize = isPortrait ? 28 : 36;
-        ctx.font = `900 ${levelHeaderSize}px Arial, sans-serif`;
-        ctx.fillStyle = '#60a5fa';
-        ctx.shadowColor = '#60a5fa';
-        ctx.shadowBlur = 18;
-        ctx.fillText(`LEVEL ${level}`, centerX, centerY - (isPortrait ? 80 : 100));
-        
-        // Outline for better contrast
-        ctx.strokeStyle = 'rgba(0,0,0,0.7)';
-        ctx.lineWidth = 2;
-        ctx.shadowBlur = 0;
-        ctx.strokeText(`LEVEL ${level}`, centerX, centerY - (isPortrait ? 80 : 100));
-        ctx.shadowBlur = 0;
-        
-        // Small accent line under header - ENHANCED
-        const accentLineWidth = isPortrait ? 50 : 70;
-        ctx.strokeStyle = 'rgba(96, 165, 250, 0.6)';
-        ctx.lineWidth = 3;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(centerX - accentLineWidth, centerY - (isPortrait ? 60 : 75));
-        ctx.lineTo(centerX + accentLineWidth, centerY - (isPortrait ? 60 : 75));
-        ctx.stroke();
-        
-        // REMOVED: "Starting in" text as requested
-        
-        // Countdown circle ring - ENHANCED: adaptive sizing
-        const ringRadius = isPortrait ? 60 : 75;
-        const ringY = isPortrait ? 15 : 20;
-        ctx.strokeStyle = 'rgba(74, 222, 128, 0.25)';
-        ctx.lineWidth = 8;
-        ctx.beginPath();
-        ctx.arc(centerX, centerY + ringY, ringRadius, 0, Math.PI * 2);
-        ctx.stroke();
-        
-        // Animated progress ring - ENHANCED
-        const progressAngle = (1 - countdownFraction) * Math.PI * 2;
-        ctx.strokeStyle = '#4ade80';
-        ctx.lineWidth = 8;
-        ctx.lineCap = 'round';
-        ctx.shadowColor = '#4ade80';
-        ctx.shadowBlur = 15;
-        ctx.beginPath();
-        ctx.arc(centerX, centerY + ringY, ringRadius, -Math.PI / 2, -Math.PI / 2 + progressAngle);
-        ctx.stroke();
-        ctx.lineCap = 'butt';
-        ctx.shadowBlur = 0;
-        
-        // Pulsing glow circle behind number - ENHANCED
-        ctx.beginPath();
-        ctx.arc(centerX, centerY + ringY, 50 * pulseScale, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(74, 222, 128, ${0.15 * pulseOpacity})`;
-        ctx.fill();
-        
-        // Big countdown number - ENHANCED: better sizing and effects
-        const countdownSize = isPortrait ? 75 : 95;
-        ctx.font = `900 ${Math.floor(countdownSize * pulseScale)}px Arial, sans-serif`;
+        // Header
+        const headerSize = isPortrait ? 22 : 28;
+        ctx.font = `bold ${headerSize}px ${monoFont}`;
         ctx.fillStyle = '#4ade80';
+        ctx.fillText('> DEPLOYMENT COUNTDOWN', centerX, centerY - (isPortrait ? 100 : 120));
+        
+        // Separator line
+        const lineWidth = isPortrait ? 280 : 400;
+        ctx.fillStyle = '#4ade80';
+        ctx.fillRect(centerX - lineWidth / 2, centerY - (isPortrait ? 70 : 85), lineWidth, 1);
+        
+        // Level info
+        const levelSize = isPortrait ? 16 : 20;
+        ctx.font = `${levelSize}px ${monoFont}`;
+        ctx.fillStyle = '#4ade80';
+        ctx.fillText(`NEXT LEVEL: ${level}`, centerX, centerY - (isPortrait ? 45 : 55));
+        
+        // Countdown number with bracket styling
+        const countdownSize = isPortrait ? 80 : 100;
+        ctx.font = `bold ${Math.floor(countdownSize * pulseScale)}px ${monoFont}`;
+        
+        // Pulsing glow effect
         ctx.shadowColor = '#4ade80';
-        ctx.shadowBlur = 35 * pulseOpacity;
-        ctx.fillText(countdown, centerX, centerY + (isPortrait ? 25 : 32));
-        
-        // Number outline for better contrast
-        ctx.strokeStyle = 'rgba(0,0,0,0.8)';
-        ctx.lineWidth = 4;
-        ctx.shadowBlur = 0;
-        ctx.strokeText(countdown, centerX, centerY + (isPortrait ? 25 : 32));
+        ctx.shadowBlur = 25 * (1 - countdownFraction);
+        ctx.fillStyle = '#4ade80';
+        ctx.fillText(`[ ${countdown} ]`, centerX, centerY + (isPortrait ? 20 : 30));
         ctx.shadowBlur = 0;
         
-        // Small decorative particles around the ring - ENHANCED
-        ctx.fillStyle = 'rgba(74, 222, 128, 0.7)';
-        ctx.shadowColor = 'rgba(74, 222, 128, 0.5)';
-        ctx.shadowBlur = 5;
-        const particleCount = 10;
-        for (let i = 0; i < particleCount; i++) {
-          const angle = (i / particleCount) * Math.PI * 2 + (now / 2000);
-          const px = centerX + Math.cos(angle) * (ringRadius + 18);
-          const py = centerY + ringY + Math.sin(angle) * (ringRadius + 18);
-          const particleSize = 2.5 + Math.sin(now / 200 + i) * 1.2;
-          ctx.beginPath();
-          ctx.arc(px, py, particleSize, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        ctx.shadowBlur = 0;
+        // Status text
+        const statusSize = isPortrait ? 14 : 18;
+        ctx.font = `${statusSize}px ${monoFont}`;
+        ctx.fillStyle = 'rgba(74, 222, 128, 0.6)';
+        ctx.fillText('STAND BY...', centerX, centerY + (isPortrait ? 80 : 100));
+        
+        // Bottom separator line
+        ctx.fillStyle = '#4ade80';
+        ctx.fillRect(centerX - lineWidth / 2, centerY + (isPortrait ? 110 : 130), lineWidth, 1);
       }
       
       ctx.restore();
+    } else {
+      // Restore UI elements when countdown is not active
+      restoreUIElements();
     }
   };
 
@@ -8532,7 +8495,15 @@
     dom.canvas.height = Math.floor(window.innerHeight * dpr);
     dom.canvas.style.width = '100%';
     dom.canvas.style.height = '100%';
-    dom.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    
+    // Create 2D context if needed (for 2D mode or for star initialization even in 3D mode)
+    if (!dom.ctx && dom.canvas && !use3DMode) {
+      dom.ctx = dom.canvas.getContext('2d');
+    }
+    
+    if (dom.ctx) {
+      dom.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
     return dpr;
   };
 
@@ -8597,9 +8568,34 @@
     loop(lastTime);
   };
 
-  // NEW: Draw ready-up overlay AFTER HUD - Mobile-focused design, covers everything
+  // Helper function to dim UI elements during overlays
+  const dimUIElements = (opacity = 0.2) => {
+    const uiPanel = document.getElementById('uiPanel');
+    const equipmentIndicator = document.getElementById('equipmentIndicator');
+    const mobileControls = document.getElementById('mobileControls');
+    
+    if (uiPanel) uiPanel.style.opacity = opacity;
+    if (equipmentIndicator) equipmentIndicator.style.opacity = opacity;
+    if (mobileControls) mobileControls.style.opacity = opacity;
+  };
+  
+  // Helper function to restore UI elements opacity
+  const restoreUIElements = () => {
+    const uiPanel = document.getElementById('uiPanel');
+    const equipmentIndicator = document.getElementById('equipmentIndicator');
+    const mobileControls = document.getElementById('mobileControls');
+    
+    if (uiPanel) uiPanel.style.opacity = '1';
+    if (equipmentIndicator) equipmentIndicator.style.opacity = '1';
+    if (mobileControls) mobileControls.style.opacity = '1';
+  };
+
+  // NEW: Draw ready-up overlay AFTER HUD - Command Center style minimal design
   const drawReadyUpOverlay = () => {
     if (!readyUpPhase || !dom.ctx) return;
+    
+    // Dim UI elements to make overlay more prominent
+    dimUIElements(0.2);
     
     const ctx = dom.ctx;
     const now = performance.now();
@@ -8609,160 +8605,154 @@
     const screenHeight = window.innerHeight;
     const isPortrait = screenHeight > screenWidth;
     
-    // FULL OPACITY overlay to completely cover game
-    const overlayOpacity = 0.98;
-    const gradient = ctx.createRadialGradient(
-      screenWidth / 2, screenHeight * 0.5, 0,
-      screenWidth / 2, screenHeight * 0.5, Math.max(screenWidth, screenHeight) * 0.8
-    );
-    gradient.addColorStop(0, `rgba(5, 10, 20, ${overlayOpacity})`);
-    gradient.addColorStop(0.4, `rgba(10, 15, 25, ${overlayOpacity})`);
-    gradient.addColorStop(0.7, `rgba(15, 23, 42, ${overlayOpacity})`);
-    gradient.addColorStop(1, `rgba(0, 0, 0, ${overlayOpacity + 0.02})`);
-    ctx.fillStyle = gradient;
+    // Pure black background - command center aesthetic
+    ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, screenWidth, screenHeight);
     
-    // Scan lines for tech aesthetic
-    ctx.fillStyle = 'rgba(74, 222, 128, 0.05)';
-    const scanLineOffset = (now / 25) % 10;
-    for (let y = scanLineOffset; y < screenHeight; y += 10) {
-      ctx.fillRect(0, y, screenWidth, 2);
+    // Subtle scan lines for tech aesthetic
+    ctx.fillStyle = 'rgba(74, 222, 128, 0.03)';
+    const scanLineOffset = (now / 30) % 8;
+    for (let y = scanLineOffset; y < screenHeight; y += 8) {
+      ctx.fillRect(0, y, screenWidth, 1);
     }
     
-    // Corner accents
-    ctx.strokeStyle = 'rgba(74, 222, 128, 0.6)';
-    ctx.lineWidth = 4;
-    const cornerSize = isPortrait ? 50 : 70;
+    // Simple corner brackets - minimal design
+    ctx.strokeStyle = '#4ade80';
+    ctx.lineWidth = 2;
+    const cornerSize = isPortrait ? 40 : 60;
+    const margin = 20;
     
     ['tl', 'tr', 'bl', 'br'].forEach(corner => {
       ctx.beginPath();
       if (corner === 'tl') {
-        ctx.moveTo(25, 25 + cornerSize);
-        ctx.lineTo(25, 25);
-        ctx.lineTo(25 + cornerSize, 25);
+        ctx.moveTo(margin, margin + cornerSize);
+        ctx.lineTo(margin, margin);
+        ctx.lineTo(margin + cornerSize, margin);
       } else if (corner === 'tr') {
-        ctx.moveTo(screenWidth - 25 - cornerSize, 25);
-        ctx.lineTo(screenWidth - 25, 25);
-        ctx.lineTo(screenWidth - 25, 25 + cornerSize);
+        ctx.moveTo(screenWidth - margin - cornerSize, margin);
+        ctx.lineTo(screenWidth - margin, margin);
+        ctx.lineTo(screenWidth - margin, margin + cornerSize);
       } else if (corner === 'bl') {
-        ctx.moveTo(25, screenHeight - 25 - cornerSize);
-        ctx.lineTo(25, screenHeight - 25);
-        ctx.lineTo(25 + cornerSize, screenHeight - 25);
+        ctx.moveTo(margin, screenHeight - margin - cornerSize);
+        ctx.lineTo(margin, screenHeight - margin);
+        ctx.lineTo(margin + cornerSize, screenHeight - margin);
       } else {
-        ctx.moveTo(screenWidth - 25 - cornerSize, screenHeight - 25);
-        ctx.lineTo(screenWidth - 25, screenHeight - 25);
-        ctx.lineTo(screenWidth - 25, screenHeight - 25 - cornerSize);
+        ctx.moveTo(screenWidth - margin - cornerSize, screenHeight - margin);
+        ctx.lineTo(screenWidth - margin, screenHeight - margin);
+        ctx.lineTo(screenWidth - margin, screenHeight - margin - cornerSize);
       }
       ctx.stroke();
     });
     
-    // Decorative border frame
-    ctx.strokeStyle = 'rgba(74, 222, 128, 0.3)';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(35, 35, screenWidth - 70, screenHeight - 70);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    const padding = isPortrait ? 50 : 80;
+    const lineHeight = isPortrait ? 28 : 36;
+    let yPos = padding;
     
+    // Monospace font for command center aesthetic
+    const monoFont = 'Courier New, monospace';
+    const headerSize = isPortrait ? 20 : 26;
+    const textSize = isPortrait ? 14 : 18;
+    
+    // Header: MISSION BRIEFING
+    ctx.font = `bold ${headerSize}px ${monoFont}`;
+    ctx.fillStyle = '#4ade80';
+    ctx.fillText('> MISSION BRIEFING', padding, yPos);
+    yPos += lineHeight * 1.5;
+    
+    // Separator line
+    ctx.fillStyle = '#4ade80';
+    ctx.fillRect(padding, yPos, screenWidth - padding * 2, 1);
+    yPos += lineHeight;
+    
+    // Level info
+    ctx.font = `${textSize}px ${monoFont}`;
+    ctx.fillStyle = '#4ade80';
+    ctx.fillText(`LEVEL:     ${readyUpLevel} COMPLETE`, padding, yPos);
+    yPos += lineHeight;
+    
+    ctx.fillText(`NEXT:      LEVEL ${readyUpLevel + 1}`, padding, yPos);
+    yPos += lineHeight;
+    
+    const diff = getDifficulty();
+    ctx.fillText(`MODE:      ${diff.name.toUpperCase()}`, padding, yPos);
+    yPos += lineHeight * 1.5;
+    
+    // Resources
+    ctx.fillText(`CREDITS:   ${Save.data.credits} CR`, padding, yPos);
+    yPos += lineHeight;
+    
+    ctx.fillText(`SCORE:     ${score}`, padding, yPos);
+    yPos += lineHeight * 1.5;
+    
+    // Active upgrades section
+    ctx.font = `bold ${headerSize}px ${monoFont}`;
+    ctx.fillText('> ACTIVE UPGRADES', padding, yPos);
+    yPos += lineHeight * 1.2;
+    
+    // Separator
+    ctx.fillStyle = '#4ade80';
+    ctx.fillRect(padding, yPos, screenWidth - padding * 2, 1);
+    yPos += lineHeight * 0.8;
+    
+    // Get top upgrades to display
+    ctx.font = `${textSize}px ${monoFont}`;
+    const activeUpgrades = UPGRADES
+      .map(u => ({ ...u, level: Save.getUpgradeLevel(u.id) }))
+      .filter(u => u.level > 0)
+      .sort((a, b) => b.level - a.level)
+      .slice(0, isPortrait ? 4 : 6);
+    
+    if (activeUpgrades.length > 0) {
+      activeUpgrades.forEach(upgrade => {
+        const shortName = upgrade.name.substring(0, isPortrait ? 14 : 20);
+        const lvlText = `LV${upgrade.level}/${upgrade.max}`;
+        ctx.fillText(`${shortName.padEnd(isPortrait ? 14 : 20, ' ')} ${lvlText}`, padding, yPos);
+        yPos += lineHeight;
+      });
+    } else {
+      ctx.fillStyle = 'rgba(74, 222, 128, 0.5)';
+      ctx.fillText('NO UPGRADES PURCHASED', padding, yPos);
+      ctx.fillStyle = '#4ade80';
+      yPos += lineHeight;
+    }
+    
+    // Center bottom: TAP TO START button with pulse effect
     ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
     const centerX = screenWidth / 2;
-    const centerY = screenHeight * 0.5;
+    const bottomY = screenHeight - (isPortrait ? 100 : 120);
     
-    // MOBILE-SIZED: Smaller "LEVEL COMPLETE" text
-    const completeFontSize = isPortrait ? 32 : 42;
-    ctx.font = `900 ${completeFontSize}px Arial, sans-serif`;
-    ctx.fillStyle = '#4ade80';
+    // Pulsing effect
+    const pulsePhase = Math.sin(now / 400) * 0.1 + 1;
+    const buttonWidth = isPortrait ? 280 : 360;
+    const buttonHeight = isPortrait ? 50 : 60;
+    
+    // Button box with glow
     ctx.shadowColor = '#4ade80';
-    ctx.shadowBlur = 30;
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
-    ctx.lineWidth = 3;
-    ctx.strokeText('LEVEL COMPLETE', centerX, centerY - (isPortrait ? 140 : 160));
-    ctx.fillText('LEVEL COMPLETE', centerX, centerY - (isPortrait ? 140 : 160));
-    
-    // Decorative line
+    ctx.shadowBlur = 25 * pulsePhase;
     ctx.strokeStyle = '#4ade80';
     ctx.lineWidth = 2;
-    ctx.shadowBlur = 12;
-    ctx.beginPath();
-    const lineWidth = isPortrait ? 150 : 220;
-    ctx.moveTo(centerX - lineWidth / 2, centerY - (isPortrait ? 110 : 125));
-    ctx.lineTo(centerX + lineWidth / 2, centerY - (isPortrait ? 110 : 125));
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-    
-    // MOBILE-SIZED: Level number
-    const levelFontSize = isPortrait ? 24 : 32;
-    ctx.font = `bold ${levelFontSize}px Arial, sans-serif`;
-    ctx.fillStyle = '#cbd5e1';
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
-    ctx.lineWidth = 2;
-    ctx.strokeText(`Level ${readyUpLevel}`, centerX, centerY - (isPortrait ? 80 : 95));
-    ctx.fillText(`Level ${readyUpLevel}`, centerX, centerY - (isPortrait ? 80 : 95));
-    
-    // MOBILE-SIZED: Credits display
-    const infoFontSize = isPortrait ? 18 : 24;
-    ctx.font = `bold ${infoFontSize}px Arial, sans-serif`;
-    ctx.fillStyle = '#fbbf24';
-    ctx.shadowColor = '#fbbf24';
-    ctx.shadowBlur = 8;
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
-    ctx.lineWidth = 2;
-    ctx.strokeText(`💰 ${Save.data.credits} Credits`, centerX, centerY - (isPortrait ? 45 : 55));
-    ctx.fillText(`💰 ${Save.data.credits} Credits`, centerX, centerY - (isPortrait ? 45 : 55));
-    ctx.shadowBlur = 0;
-    
-    // MOBILE-SIZED: Action button
-    const pulsePhase = Math.sin(now / 350) * 0.12 + 1;
-    const buttonWidth = isPortrait ? 240 : 320;
-    const buttonHeight = isPortrait ? 65 : 80;
-    
-    // Button glow
-    ctx.shadowColor = '#4ade80';
-    ctx.shadowBlur = 35 * pulsePhase;
-    
-    // Button background with gradient
-    const btnGradient = ctx.createLinearGradient(
-      centerX - buttonWidth / 2, centerY - buttonHeight / 2,
-      centerX + buttonWidth / 2, centerY + buttonHeight / 2
+    ctx.strokeRect(
+      centerX - buttonWidth / 2,
+      bottomY - buttonHeight / 2,
+      buttonWidth,
+      buttonHeight
     );
-    btnGradient.addColorStop(0, `rgba(34, 197, 94, ${0.3 * pulsePhase})`);
-    btnGradient.addColorStop(0.5, `rgba(74, 222, 128, ${0.25 * pulsePhase})`);
-    btnGradient.addColorStop(1, `rgba(34, 197, 94, ${0.3 * pulsePhase})`);
-    ctx.fillStyle = btnGradient;
-    ctx.beginPath();
-    ctx.roundRect(centerX - (buttonWidth * pulsePhase) / 2, centerY - (buttonHeight * pulsePhase) / 2, 
-                   buttonWidth * pulsePhase, buttonHeight * pulsePhase, 14);
-    ctx.fill();
-    
-    // Button border
-    ctx.strokeStyle = '#4ade80';
-    ctx.lineWidth = 3;
-    ctx.stroke();
     ctx.shadowBlur = 0;
     
-    // Button text - MOBILE-SIZED
-    const buttonTextSize = isPortrait ? 28 : 36;
-    ctx.font = `900 ${buttonTextSize}px Arial, sans-serif`;
+    // Button text
+    const btnTextSize = isPortrait ? 22 : 28;
+    ctx.font = `bold ${btnTextSize}px ${monoFont}`;
+    ctx.textBaseline = 'middle';
     ctx.fillStyle = '#4ade80';
-    ctx.shadowColor = '#4ade80';
-    ctx.shadowBlur = 18;
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
-    ctx.lineWidth = 3;
-    ctx.strokeText('TAP TO START', centerX, centerY);
-    ctx.fillText('TAP TO START', centerX, centerY);
+    ctx.fillText('[ TAP TO START ]', centerX, bottomY);
     
-    // MOBILE-FOCUSED: Single tap instruction (removed keyboard references)
-    const instructSize = isPortrait ? 15 : 18;
-    ctx.font = `${instructSize}px Arial, sans-serif`;
-    ctx.fillStyle = '#e2e8f0';
-    ctx.shadowBlur = 4;
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
-    ctx.fillText('Tap anywhere to continue', centerX, centerY + (isPortrait ? 60 : 70));
-    
-    // Shop hint - MOBILE-SIZED (updated to reference menu)
-    ctx.font = `bold ${instructSize}px Arial, sans-serif`;
-    ctx.fillStyle = '#60a5fa';
-    ctx.shadowColor = '#60a5fa';
-    ctx.shadowBlur = 6;
-    ctx.fillText('Open menu (top right) for shop & upgrades', centerX, centerY + (isPortrait ? 90 : 105));
+    // Instruction text
+    const instructSize = isPortrait ? 12 : 14;
+    ctx.font = `${instructSize}px ${monoFont}`;
+    ctx.fillStyle = 'rgba(74, 222, 128, 0.6)';
+    ctx.fillText('TAP ANYWHERE TO CONTINUE', centerX, bottomY + (isPortrait ? 45 : 55));
     
     ctx.restore();
   };
@@ -9150,11 +9140,19 @@
     dom.canvas.height = Math.floor(window.innerHeight * dpr);
     dom.canvas.style.width = '100%';
     dom.canvas.style.height = '100%';
-    dom.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (dom.ctx) {
+      dom.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
     if (player) {
       camera.x = player.x - dom.canvas.width / 2;
       camera.y = player.y - dom.canvas.height / 2;
     }
+    
+    // Resize 3D renderer if active
+    if (game3DInstance) {
+      game3DInstance.resize();
+    }
+    
     drawStartGraphic();
   };
 
@@ -9439,6 +9437,34 @@
   };
 
   /* ====== INITIALISATION ====== */
+  
+  // Initialize 3D rendering system
+  const init3DSystem = () => {
+    if (typeof window.__VOID_RIFT_3D__ !== 'undefined') {
+      try {
+        const initialized = window.__VOID_RIFT_3D__.init(dom.canvas);
+        if (initialized) {
+          game3DInstance = window.__VOID_RIFT_3D__;
+          use3DMode = true;
+          console.log('3D mode enabled');
+          return true;
+        }
+      } catch (error) {
+        console.warn('3D initialization failed, using 2D fallback:', error);
+        use3DMode = false;
+        game3DInstance = null;
+      }
+    }
+    
+    // If 3D failed or not available, create 2D context
+    if (!dom.ctx && dom.canvas) {
+      dom.ctx = dom.canvas.getContext('2d');
+      console.log('Using 2D Canvas rendering');
+    }
+    
+    return false;
+  };
+  
   const ready = () => {
     assignDomRefs();
     Save.load();
@@ -9450,7 +9476,13 @@
     syncCredits();
     loadControlSettings(); // Load and apply control settings
     setupInput();
+    
+    // Initialize 3D system FIRST, before any canvas setup
+    init3DSystem();
+    
+    // Then resize canvas (which may create 2D context if 3D failed)
     resizeCanvas();
+    
     drawStartGraphic();
     updateHUD();
   };
