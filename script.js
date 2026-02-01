@@ -4510,19 +4510,20 @@
       ctx.shadowBlur = aggroIntensity;
       
       if (this.kind === 'drone') {
-        // ALIEN SCOUT SHIP - Sleek predatory fighter with visible weapons
-        // Advanced alien hull with gradient metallic sheen
+        // REALISTIC ALIEN INTERCEPTOR - Dark gunmetal spacecraft
+        // Metallic alien hull with realistic lighting
         const hullGradient = ctx.createLinearGradient(-this.size, -this.size, this.size, this.size);
-        hullGradient.addColorStop(0, damaged ? '#4c0519' : '#7c1d33');
-        hullGradient.addColorStop(0.5, damaged ? '#7f1d1d' : '#991b1b');
-        hullGradient.addColorStop(1, damaged ? '#450a0a' : '#5c0a0a');
+        hullGradient.addColorStop(0, damaged ? '#1a1a1a' : '#2d2d2d');
+        hullGradient.addColorStop(0.3, damaged ? '#3a3a3a' : '#4a4a4a');
+        hullGradient.addColorStop(0.7, damaged ? '#2a2a2a' : '#353535');
+        hullGradient.addColorStop(1, damaged ? '#151515' : '#1f1f1f');
         
-        // Main alien scout body - aerodynamic predator shape
+        // Main interceptor hull - sleek alien fighter
         ctx.fillStyle = hullGradient;
-        ctx.strokeStyle = damaged ? '#dc2626' : '#ef4444';
+        ctx.strokeStyle = damaged ? '#555555' : '#6a6a6a';
         ctx.lineWidth = 2.5;
         ctx.beginPath();
-        ctx.moveTo(this.size * 1.3, 0); // Sharp nose
+        ctx.moveTo(this.size * 1.3, 0);
         ctx.bezierCurveTo(this.size * 0.7, -this.size * 0.5, this.size * 0.2, -this.size * 0.8, -this.size * 0.5, -this.size * 0.75);
         ctx.lineTo(-this.size * 0.6, -this.size * 0.5);
         ctx.lineTo(-this.size * 0.4, 0);
@@ -4533,51 +4534,72 @@
         ctx.fill();
         ctx.stroke();
         
-        // Armored cockpit/command section
-        ctx.fillStyle = damaged ? '#1a0404' : '#2a0606';
+        // Metallic highlights and panel lines
+        ctx.strokeStyle = 'rgba(120, 120, 120, 0.6)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(this.size * 0.8, -this.size * 0.3);
+        ctx.lineTo(-this.size * 0.3, -this.size * 0.3);
+        ctx.moveTo(this.size * 0.8, this.size * 0.3);
+        ctx.lineTo(-this.size * 0.3, this.size * 0.3);
+        ctx.stroke();
+        
+        // Dark cockpit canopy
+        ctx.fillStyle = damaged ? '#0a0a0a' : '#121212';
+        ctx.strokeStyle = '#4a4a4a';
+        ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.ellipse(this.size * 0.5, 0, this.size * 0.4, this.size * 0.25, 0, 0, Math.PI * 2);
         ctx.fill();
-        ctx.strokeStyle = damaged ? '#b91c1c' : '#dc2626';
-        ctx.lineWidth = 1.5;
         ctx.stroke();
         
-        // Wing-mounted plasma cannons (visible weapons)
-        ctx.shadowBlur = 8;
-        ctx.shadowColor = '#ef4444';
-        ctx.fillStyle = '#1a0101';
-        ctx.strokeStyle = '#7f1d1d';
+        // Subtle canopy reflection
+        const canopyGradient = ctx.createRadialGradient(this.size * 0.6, -this.size * 0.1, 0, this.size * 0.5, 0, this.size * 0.3);
+        canopyGradient.addColorStop(0, 'rgba(100, 150, 180, 0.3)');
+        canopyGradient.addColorStop(1, 'rgba(100, 150, 180, 0)');
+        ctx.fillStyle = canopyGradient;
+        ctx.beginPath();
+        ctx.ellipse(this.size * 0.5, 0, this.size * 0.4, this.size * 0.25, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Weapon hardpoints - realistic plasma cannons
+        ctx.shadowBlur = 6;
+        ctx.shadowColor = 'rgba(60, 60, 70, 0.8)';
+        ctx.fillStyle = '#1a1a1a';
+        ctx.strokeStyle = '#555555';
         ctx.lineWidth = 2;
-        // Top cannon
         ctx.beginPath();
         ctx.ellipse(-this.size * 0.15, -this.size * 0.6, this.size * 0.25, this.size * 0.12, -0.2, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
-        // Bottom cannon
         ctx.beginPath();
         ctx.ellipse(-this.size * 0.15, this.size * 0.6, this.size * 0.25, this.size * 0.12, 0.2, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
+        ctx.shadowBlur = 0;
         
-        // Weapon barrel tips with charging glow
-        ctx.shadowBlur = 12;
-        ctx.shadowColor = this.canShoot ? '#ff0000' : '#ef4444';
-        ctx.fillStyle = this.canShoot ? '#ff3333' : '#ef4444';
+        // Weapon barrels with charging indicators
+        const weaponGlow = this.canShoot ? '#ff6600' : '#663300';
+        const weaponShadow = this.canShoot ? 12 : 4;
+        ctx.shadowBlur = weaponShadow;
+        ctx.shadowColor = weaponGlow;
+        ctx.fillStyle = this.canShoot ? '#ff4400' : '#442200';
         ctx.beginPath();
         ctx.arc(-this.size * 0.35, -this.size * 0.6, this.size * 0.08 * pulse, 0, Math.PI * 2);
         ctx.arc(-this.size * 0.35, this.size * 0.6, this.size * 0.08 * pulse, 0, Math.PI * 2);
         ctx.fill();
+        ctx.shadowBlur = 0;
         
-        // Alien energy core - hexagonal alien tech
-        ctx.shadowColor = '#ef4444';
-        ctx.shadowBlur = 15;
-        ctx.fillStyle = criticalHealth ? '#fca5a5' : '#fecaca';
-        ctx.strokeStyle = '#ff0000';
+        // Alien power core with subtle cyan glow
+        ctx.shadowColor = 'rgba(100, 200, 255, 0.6)';
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = criticalHealth ? '#ff6600' : 'rgba(120, 180, 220, 0.8)';
+        ctx.strokeStyle = criticalHealth ? '#ff8800' : '#6090b0';
         ctx.lineWidth = 2;
         ctx.beginPath();
         for (let i = 0; i < 6; i++) {
           const angle = (i / 6) * Math.PI * 2;
-          const r = this.size * 0.3 * pulse;
+          const r = this.size * 0.25 * pulse;
           const x = Math.cos(angle) * r;
           const y = Math.sin(angle) * r * 0.7;
           if (i === 0) ctx.moveTo(x, y);
@@ -4586,96 +4608,61 @@
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
+        ctx.shadowBlur = 0;
         
-        // Pulsing reactor core
-        ctx.fillStyle = '#fff';
-        ctx.globalAlpha = pulse * 0.7;
-        ctx.shadowBlur = 20;
-        ctx.beginPath();
-        ctx.arc(0, 0, this.size * 0.12, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.globalAlpha = 1;
-        
-        // Dual alien thrusters with realistic exhaust
-        ctx.shadowBlur = 12;
+        // Engine exhausts - blue ion thrust
         const thrusterGlow = Math.sin(performance.now() / 80) * 0.3 + 0.7;
-        ctx.fillStyle = `rgba(255, 69, 0, ${thrusterGlow})`;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = 'rgba(100, 150, 255, 0.8)';
+        ctx.fillStyle = `rgba(120, 180, 255, ${thrusterGlow * 0.8})`;
         ctx.beginPath();
         ctx.ellipse(-this.size * 0.5, -this.size * 0.5, this.size * 0.15, this.size * 0.1, 0, 0, Math.PI * 2);
         ctx.ellipse(-this.size * 0.5, this.size * 0.5, this.size * 0.15, this.size * 0.1, 0, 0, Math.PI * 2);
         ctx.fill();
         
-        // Thruster plasma trails
+        // Engine trails
         if (thrusterGlow > 0.8) {
-          ctx.globalAlpha = 0.6;
-          ctx.fillStyle = '#ff6600';
-          ctx.shadowBlur = 15;
-          ctx.shadowColor = '#ff4500';
+          ctx.globalAlpha = 0.5;
+          ctx.fillStyle = 'rgba(150, 200, 255, 0.6)';
+          ctx.shadowBlur = 12;
           ctx.beginPath();
           ctx.ellipse(-this.size * 0.7, -this.size * 0.5, this.size * 0.2, this.size * 0.08, 0, 0, Math.PI * 2);
           ctx.ellipse(-this.size * 0.7, this.size * 0.5, this.size * 0.2, this.size * 0.08, 0, 0, Math.PI * 2);
           ctx.fill();
           ctx.globalAlpha = 1;
         }
-        
-        // Attack mode indicator - glowing target locks
-        if (this.canShoot && Math.sin(performance.now() / 150) > 0.7) {
-          ctx.strokeStyle = '#ff0000';
-          ctx.lineWidth = 2;
-          ctx.globalAlpha = 0.8;
-          ctx.beginPath();
-          ctx.arc(this.size * 0.9, 0, this.size * 0.15, 0, Math.PI * 2);
-          ctx.moveTo(this.size * 1.05, 0);
-          ctx.lineTo(this.size * 0.75, 0);
-          ctx.moveTo(this.size * 0.9, this.size * 0.15);
-          ctx.lineTo(this.size * 0.9, -this.size * 0.15);
-          ctx.stroke();
-          ctx.globalAlpha = 1;
-        }
+        ctx.shadowBlur = 0;
         
       } else if (this.kind === 'chaser') {
-        // BIOMECHANICAL ALIEN PREDATOR - Insectoid hunter with chitinous armor
+        // REALISTIC XENOMORPH-STYLE ALIEN - Dark biomechanical horror
         const bodyPulse = Math.sin(performance.now() / 200 + this.animPhase) * 0.12 + 1;
         
-        // Segmented alien abdomen/tail with biomechanical texture
-        ctx.fillStyle = damaged ? '#3d1a52' : '#581c87';
-        ctx.strokeStyle = damaged ? '#7e22ce' : '#a855f7';
-        ctx.lineWidth = 2.5;
-        ctx.beginPath();
-        ctx.ellipse(-this.size * 0.5, 0, this.size * 0.9, this.size * 0.7, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-        
-        // Rear armor segments
-        for (let i = 0; i < 3; i++) {
-          ctx.strokeStyle = damaged ? '#6b21a8' : '#9333ea';
-          ctx.lineWidth = 2;
-          const segX = -this.size * (0.3 + i * 0.25);
-          ctx.beginPath();
-          ctx.arc(segX, -this.size * 0.5, this.size * 0.12, 0, Math.PI * 2);
-          ctx.arc(segX, this.size * 0.5, this.size * 0.12, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-        
-        // Main thorax - alien biomechanical body
-        const thoraxGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size * 1.4);
-        thoraxGradient.addColorStop(0, damaged ? '#701a75' : '#a21caf');
-        thoraxGradient.addColorStop(0.7, damaged ? '#581c87' : '#86198f');
-        thoraxGradient.addColorStop(1, damaged ? '#3b0764' : '#581c87');
-        ctx.fillStyle = thoraxGradient;
-        ctx.strokeStyle = damaged ? '#c026d3' : '#e879f9';
+        // Dark alien carapace with realistic bio-armor
+        const carapaceGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size * 1.4);
+        carapaceGradient.addColorStop(0, damaged ? '#2a2a2a' : '#3a3a3a');
+        carapaceGradient.addColorStop(0.5, damaged ? '#1a1a1a' : '#252525');
+        carapaceGradient.addColorStop(1, damaged ? '#0f0f0f' : '#151515');
+        ctx.fillStyle = carapaceGradient;
+        ctx.strokeStyle = damaged ? '#4a4a4a' : '#5a5a5a';
         ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.ellipse(0, 0, this.size * 1.4 * bodyPulse, this.size * 1.0 * pulse, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
         
-        // Chitinous armor plating with alien tech integration
+        // Segmented alien abdomen
+        ctx.fillStyle = damaged ? '#1a1a1a' : '#252525';
+        ctx.strokeStyle = damaged ? '#3a3a3a' : '#4a4a4a';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 0.5, 0, this.size * 0.9, this.size * 0.7, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Biomechanical armor plates
         if (!criticalHealth) {
-          ctx.strokeStyle = '#f0abfc';
+          ctx.strokeStyle = 'rgba(90, 90, 90, 0.8)';
           ctx.lineWidth = 2;
-          ctx.shadowColor = '#c026d3';
-          ctx.shadowBlur = 5;
           for (let i = 0; i < 5; i++) {
             const segmentX = this.size * (0.9 - i * 0.35);
             const segmentR = this.size * (0.8 - i * 0.14);
@@ -4683,34 +4670,34 @@
             ctx.ellipse(segmentX, 0, segmentR, segmentR * 0.65, 0, 0, Math.PI * 2);
             ctx.stroke();
           }
-          ctx.shadowBlur = 0;
         }
         
-        // Alien head/skull structure
-        ctx.fillStyle = damaged ? '#4c1d95' : '#6b21a8';
+        // Alien skull/head structure
+        ctx.fillStyle = damaged ? '#222222' : '#2d2d2d';
+        ctx.strokeStyle = '#4a4a4a';
+        ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.ellipse(this.size * 0.7, 0, this.size * 0.6, this.size * 0.5, 0, 0, Math.PI * 2);
         ctx.fill();
-        ctx.strokeStyle = '#c026d3';
-        ctx.lineWidth = 2;
         ctx.stroke();
         
-        // Terrifying mandibles/jaws with serrated edges
-        ctx.strokeStyle = '#d946ef';
+        // Razor-sharp mandibles - dark metallic
+        ctx.strokeStyle = '#555555';
         ctx.lineWidth = 5;
         ctx.lineCap = 'round';
-        ctx.shadowColor = '#a855f7';
-        ctx.shadowBlur = 8;
+        ctx.shadowColor = 'rgba(60, 60, 60, 0.8)';
+        ctx.shadowBlur = 6;
         const clawWave = Math.sin(performance.now() / 150) * 0.25;
         const clawSnap = Math.abs(Math.sin(performance.now() / 500)) * 0.2;
         
-        // Upper mandible with joints
+        // Upper mandible
         ctx.beginPath();
         ctx.moveTo(this.size * 1.0, -this.size * 0.4);
         ctx.quadraticCurveTo(this.size * (1.4 + clawWave), -this.size * (0.8 + clawSnap), this.size * (1.7 + clawWave), -this.size * (1.1 + clawSnap));
         ctx.stroke();
-        // Serrated pincer tips
+        // Serrated blade edges
         ctx.lineWidth = 3;
+        ctx.strokeStyle = '#6a6a6a';
         for (let i = 0; i < 3; i++) {
           const tipX = this.size * (1.7 + clawWave - i * 0.08);
           const tipY = -this.size * (1.1 + clawSnap + i * 0.03);
@@ -4720,14 +4707,15 @@
           ctx.stroke();
         }
         
-        // Lower mandible with joints
+        // Lower mandible
+        ctx.strokeStyle = '#555555';
         ctx.lineWidth = 5;
         ctx.beginPath();
         ctx.moveTo(this.size * 1.0, this.size * 0.4);
         ctx.quadraticCurveTo(this.size * (1.4 + clawWave), this.size * (0.8 + clawSnap), this.size * (1.7 + clawWave), this.size * (1.1 + clawSnap));
         ctx.stroke();
-        // Serrated pincer tips
         ctx.lineWidth = 3;
+        ctx.strokeStyle = '#6a6a6a';
         for (let i = 0; i < 3; i++) {
           const tipX = this.size * (1.7 + clawWave - i * 0.08);
           const tipY = this.size * (1.1 + clawSnap - i * 0.03);
@@ -4739,47 +4727,30 @@
         ctx.lineCap = 'butt';
         ctx.shadowBlur = 0;
         
-        // Menacing compound eyes - glowing predator vision
-        ctx.shadowColor = criticalHealth ? '#fca5a5' : '#dc2626';
+        // Glowing alien eyes - eerie yellow/green bioluminescence
+        ctx.shadowColor = criticalHealth ? '#ff6600' : 'rgba(180, 200, 100, 0.8)';
         ctx.shadowBlur = 14 + Math.sin(performance.now() / 150) * 6;
-        ctx.fillStyle = criticalHealth ? '#fee2e2' : '#ef4444';
+        ctx.fillStyle = criticalHealth ? '#ff8800' : 'rgba(200, 220, 120, 0.9)';
         ctx.beginPath();
         ctx.arc(this.size * 0.5, -this.size * 0.3, this.size * 0.28 * pulse, 0, Math.PI * 2);
         ctx.arc(this.size * 0.5, this.size * 0.3, this.size * 0.28 * pulse, 0, Math.PI * 2);
         ctx.fill();
         
-        // Hexagonal facet pattern on eyes
+        // Dark pupil slits
         ctx.shadowBlur = 0;
-        ctx.fillStyle = '#450a0a';
-        const facetCount = 7;
-        for (let eye = 0; eye < 2; eye++) {
-          const eyeY = eye === 0 ? -this.size * 0.3 : this.size * 0.3;
-          for (let i = 0; i < facetCount; i++) {
-            const angle = (i / facetCount) * Math.PI * 2 + performance.now() / 1000;
-            const fx = this.size * 0.5 + Math.cos(angle) * this.size * 0.14;
-            const fy = eyeY + Math.sin(angle) * this.size * 0.14;
-            ctx.beginPath();
-            ctx.arc(fx, fy, this.size * 0.035, 0, Math.PI * 2);
-            ctx.fill();
-          }
-        }
-        
-        // Tracking pupils - alien intelligence
-        ctx.fillStyle = '#dc2626';
-        ctx.shadowColor = '#ff0000';
-        ctx.shadowBlur = 10;
+        ctx.fillStyle = '#0a0a0a';
         const pupilOffset = Math.sin(performance.now() / 300) * 0.1;
         ctx.beginPath();
-        ctx.arc(this.size * (0.55 + pupilOffset), -this.size * 0.3, this.size * 0.14, 0, Math.PI * 2);
-        ctx.arc(this.size * (0.55 + pupilOffset), this.size * 0.3, this.size * 0.14, 0, Math.PI * 2);
+        ctx.ellipse(this.size * (0.55 + pupilOffset), -this.size * 0.3, this.size * 0.08, this.size * 0.18, 0.3, 0, Math.PI * 2);
+        ctx.ellipse(this.size * (0.55 + pupilOffset), this.size * 0.3, this.size * 0.08, this.size * 0.18, -0.3, 0, Math.PI * 2);
         ctx.fill();
         ctx.shadowBlur = 0;
         
-        // Multiple articulated legs with biomechanical joints
-        ctx.strokeStyle = 'rgba(192, 38, 211, 0.9)';
+        // Biomechanical limbs - dark chitinous legs
+        ctx.strokeStyle = 'rgba(70, 70, 70, 0.9)';
         ctx.lineWidth = 3.5;
-        ctx.shadowColor = '#a855f7';
-        ctx.shadowBlur = 5;
+        ctx.shadowColor = 'rgba(40, 40, 40, 0.6)';
+        ctx.shadowBlur = 4;
         for (let i = 0; i < 4; i++) {
           const legPhase = performance.now() / 200 + i * Math.PI / 2;
           const legWave = Math.sin(legPhase) * 0.25;
@@ -4787,7 +4758,7 @@
           const legY1 = -this.size * (0.8 + legWave);
           const legY2 = this.size * (0.8 + legWave);
           
-          // Top legs with joints
+          // Top limb with joint
           ctx.beginPath();
           ctx.moveTo(legX, -this.size * 0.6);
           const jointX = legX - this.size * 0.15;
@@ -4796,7 +4767,7 @@
           ctx.lineTo(legX - this.size * 0.3, legY1);
           ctx.stroke();
           
-          // Bottom legs with joints
+          // Bottom limb with joint
           ctx.beginPath();
           ctx.moveTo(legX, this.size * 0.6);
           const jointY2 = this.size * (0.75 + legWave * 0.5);
@@ -4804,8 +4775,8 @@
           ctx.lineTo(legX - this.size * 0.3, legY2);
           ctx.stroke();
           
-          // Leg joints
-          ctx.fillStyle = '#7e22ce';
+          // Joint spheres
+          ctx.fillStyle = '#3a3a3a';
           ctx.beginPath();
           ctx.arc(jointX, jointY1, this.size * 0.08, 0, Math.PI * 2);
           ctx.arc(jointX, jointY2, this.size * 0.08, 0, Math.PI * 2);
@@ -4814,19 +4785,19 @@
         ctx.shadowBlur = 0;
         
       } else if (this.kind === 'heavy') {
-        // ALIEN BATTLECRUISER - Massive armored capital ship with weapon arrays
+        // REALISTIC ALIEN DREADNOUGHT - Massive capital warship
         const rotation = performance.now() / 800;
         
-        // Outer fortress hull with gradient metallic alien armor
+        // Dark metallic hull with realistic ship paneling
         const hullGradient = ctx.createRadialGradient(-this.size * 0.3, 0, 0, 0, 0, this.size * 1.5);
-        hullGradient.addColorStop(0, damaged ? '#052e16' : '#14532d');
-        hullGradient.addColorStop(0.5, damaged ? '#0f3d23' : '#166534');
-        hullGradient.addColorStop(1, damaged ? '#042813' : '#052e16');
+        hullGradient.addColorStop(0, damaged ? '#2a2a2a' : '#353535');
+        hullGradient.addColorStop(0.5, damaged ? '#1f1f1f' : '#282828');
+        hullGradient.addColorStop(1, damaged ? '#151515' : '#1a1a1a');
         ctx.fillStyle = hullGradient;
-        ctx.strokeStyle = damaged ? '#16a34a' : '#22c55e';
+        ctx.strokeStyle = damaged ? '#4a4a4a' : '#5a5a5a';
         ctx.lineWidth = 4;
         
-        // Main battlecruiser hull - imposing geometric fortress
+        // Main capital ship hull - imposing fortress
         ctx.beginPath();
         ctx.moveTo(this.size * 1.4, 0);
         ctx.lineTo(this.size * 0.7, -this.size * 1.15);
@@ -4839,9 +4810,9 @@
         ctx.fill();
         ctx.stroke();
         
-        // Inner armored command deck
-        ctx.fillStyle = damaged ? '#14532d' : '#15803d';
-        ctx.strokeStyle = damaged ? '#22c55e' : '#4ade80';
+        // Inner armored command section
+        ctx.fillStyle = damaged ? '#1a1a1a' : '#252525';
+        ctx.strokeStyle = damaged ? '#3a3a3a' : '#4a4a4a';
         ctx.lineWidth = 2.5;
         ctx.beginPath();
         ctx.moveTo(this.size * 1.0, 0);
@@ -4854,12 +4825,12 @@
         ctx.fill();
         ctx.stroke();
         
-        // Multiple weapon turret mounts - visible armaments
-        ctx.fillStyle = '#052e16';
-        ctx.strokeStyle = '#166534';
+        // Heavy weapon turret batteries
+        ctx.fillStyle = '#1a1a1a';
+        ctx.strokeStyle = '#555555';
         ctx.lineWidth = 2.5;
-        ctx.shadowColor = '#22c55e';
-        ctx.shadowBlur = 8;
+        ctx.shadowColor = 'rgba(60, 60, 60, 0.8)';
+        ctx.shadowBlur = 6;
         const weaponPoints = [
           [this.size * 0.7, -this.size * 1.15],
           [this.size * 1.4, 0],
@@ -4874,17 +4845,18 @@
           ctx.fill();
           ctx.stroke();
           // Weapon barrels
-          ctx.fillStyle = '#042813';
+          ctx.fillStyle = '#0a0a0a';
           ctx.beginPath();
           ctx.arc(x, y, this.size * 0.1, 0, Math.PI * 2);
           ctx.fill();
+          ctx.fillStyle = '#1a1a1a';
         });
         ctx.shadowBlur = 0;
         
-        // Charging weapon indicators
+        // Charging weapon indicators - orange plasma
         if (this.canShoot) {
-          ctx.fillStyle = '#10b981';
-          ctx.shadowColor = '#22c55e';
+          ctx.fillStyle = '#ff6600';
+          ctx.shadowColor = '#ff8800';
           ctx.shadowBlur = 15;
           weaponPoints.forEach(([x, y]) => {
             const chargePulse = Math.sin(performance.now() / 120 + x + y) * 0.3 + 0.7;
@@ -4897,13 +4869,10 @@
           ctx.shadowBlur = 0;
         }
         
-        // Alien tech armor plating with energy channels
+        // Hull plating panel lines
         if (!criticalHealth) {
-          ctx.strokeStyle = '#4ade80';
+          ctx.strokeStyle = 'rgba(80, 80, 80, 0.6)';
           ctx.lineWidth = 2;
-          ctx.shadowColor = '#22c55e';
-          ctx.shadowBlur = 5;
-          // Horizontal armor strips
           for (let i = 0; i < 3; i++) {
             const stripY = this.size * (-0.5 + i * 0.5);
             ctx.beginPath();
@@ -4911,12 +4880,11 @@
             ctx.lineTo(this.size * 0.8, stripY);
             ctx.stroke();
           }
-          ctx.shadowBlur = 0;
         }
         
-        // Damage cracks and battle scars
+        // Battle damage
         if (damaged) {
-          ctx.strokeStyle = '#042813';
+          ctx.strokeStyle = '#0f0f0f';
           ctx.lineWidth = 4;
           ctx.beginPath();
           ctx.moveTo(this.size * 0.8, -this.size * 0.6);
@@ -4926,6 +4894,98 @@
           ctx.moveTo(this.size * 0.3, -this.size * 0.8);
           ctx.lineTo(-this.size * 0.2, -this.size * 0.6);
           ctx.stroke();
+          
+          // Damage sparks
+          if (criticalHealth) {
+            ctx.fillStyle = '#ff8800';
+            ctx.shadowColor = '#ff6600';
+            ctx.shadowBlur = 10;
+            for (let i = 0; i < 4; i++) {
+              const sparkX = this.size * 0.4 + Math.sin(performance.now() / 90 + i) * this.size * 0.5;
+              const sparkY = Math.cos(performance.now() / 130 + i) * this.size * 0.6;
+              ctx.beginPath();
+              ctx.arc(sparkX, sparkY, this.size * 0.06, 0, Math.PI * 2);
+              ctx.fill();
+            }
+            ctx.shadowBlur = 0;
+          }
+        }
+        
+        // Rotating shield generators
+        ctx.strokeStyle = 'rgba(100, 150, 200, 0.5)';
+        ctx.lineWidth = 3;
+        ctx.shadowColor = 'rgba(100, 150, 200, 0.6)';
+        ctx.shadowBlur = 8;
+        ctx.save();
+        ctx.rotate(rotation);
+        ctx.globalAlpha = 0.6;
+        ctx.beginPath();
+        ctx.moveTo(this.size * 0.6, -this.size * 0.8);
+        ctx.lineTo(-this.size * 0.6, -this.size * 0.6);
+        ctx.lineTo(-this.size * 0.6, this.size * 0.6);
+        ctx.lineTo(this.size * 0.6, this.size * 0.8);
+        ctx.closePath();
+        ctx.stroke();
+        
+        // Inner shield layer
+        ctx.strokeStyle = 'rgba(120, 170, 220, 0.4)';
+        ctx.lineWidth = 2;
+        ctx.rotate(rotation * 1.5);
+        ctx.beginPath();
+        ctx.moveTo(this.size * 0.4, 0);
+        ctx.lineTo(0, -this.size * 0.4);
+        ctx.lineTo(-this.size * 0.4, 0);
+        ctx.lineTo(0, this.size * 0.4);
+        ctx.closePath();
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        ctx.restore();
+        ctx.shadowBlur = 0;
+        
+        // Power core - cyan alien reactor
+        const coreGlow = 16 + Math.sin(performance.now() / 100) * 10;
+        const coreGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size * 0.5);
+        coreGradient.addColorStop(0, criticalHealth ? '#ff6600' : 'rgba(100, 200, 255, 0.8)');
+        coreGradient.addColorStop(0.5, criticalHealth ? '#ff4400' : 'rgba(80, 160, 220, 0.6)');
+        coreGradient.addColorStop(1, 'rgba(80, 160, 220, 0)');
+        ctx.fillStyle = coreGradient;
+        ctx.shadowColor = criticalHealth ? '#ff6600' : 'rgba(100, 200, 255, 0.8)';
+        ctx.shadowBlur = coreGlow;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size * 0.45 * pulse, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Reactor containment ring
+        ctx.strokeStyle = criticalHealth ? '#ffaa00' : 'rgba(120, 200, 255, 0.9)';
+        ctx.lineWidth = 3;
+        ctx.shadowBlur = coreGlow * 0.8;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size * 0.32, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // Core stabilizer
+        ctx.strokeStyle = 'rgba(140, 220, 255, 0.7)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size * 0.18, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // Energy discharge
+        if (pulse > 1.05) {
+          ctx.strokeStyle = criticalHealth ? `rgba(255, 102, 0, ${(pulse - 1) * 3})` : `rgba(100, 200, 255, ${(pulse - 1) * 2})`;
+          ctx.lineWidth = 3;
+          ctx.shadowBlur = 15;
+          for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2 + rotation * 2;
+            const innerR = this.size * 0.45;
+            const outerR = this.size * 0.8;
+            ctx.beginPath();
+            ctx.moveTo(Math.cos(angle) * innerR, Math.sin(angle) * innerR);
+            ctx.lineTo(Math.cos(angle) * outerR, Math.sin(angle) * outerR);
+            ctx.stroke();
+          }
+        }
+        ctx.shadowBlur = 0;
           
           // Sparking damage effects
           if (criticalHealth) {
@@ -5020,23 +5080,23 @@
         ctx.shadowBlur = 0;
         
       } else {
-        // ALIEN PROBE/SCOUT FIGHTER - Fast reconnaissance drone with energy field
-        // Sleek spherical probe body with alien tech
+        // REALISTIC ALIEN SCOUT PROBE - Metallic reconnaissance drone
+        // Dark metallic probe shell
         const probeGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size * 1.2);
-        probeGradient.addColorStop(0, damaged ? '#dc2626' : '#ea580c');
-        probeGradient.addColorStop(0.5, damaged ? '#9a3412' : '#c2410c');
-        probeGradient.addColorStop(1, damaged ? '#7c2d12' : '#9a3412');
+        probeGradient.addColorStop(0, damaged ? '#2d2d2d' : '#3a3a3a');
+        probeGradient.addColorStop(0.5, damaged ? '#1f1f1f' : '#282828');
+        probeGradient.addColorStop(1, damaged ? '#151515' : '#1a1a1a');
         ctx.fillStyle = probeGradient;
-        ctx.strokeStyle = damaged ? '#fb923c' : '#fdba74';
+        ctx.strokeStyle = damaged ? '#4a4a4a' : '#5a5a5a';
         ctx.lineWidth = 2.5;
         
-        // Alien probe outer shell with dynamic morphing
-        ctx.shadowColor = '#f97316';
-        ctx.shadowBlur = 10;
+        // Probe outer hull with subtle morphing
+        ctx.shadowColor = 'rgba(60, 60, 60, 0.6)';
+        ctx.shadowBlur = 8;
         ctx.beginPath();
         for (let i = 0; i < 10; i++) {
           const angle = (i / 10) * Math.PI * 2;
-          const wobble = Math.sin(performance.now() / 100 + i + this.animPhase) * 0.2 + 0.9;
+          const wobble = Math.sin(performance.now() / 100 + i + this.animPhase) * 0.15 + 0.92;
           const r = this.size * wobble * pulse;
           const x = Math.cos(angle) * r;
           const y = Math.sin(angle) * r * 0.85;
@@ -5048,11 +5108,11 @@
         ctx.stroke();
         ctx.shadowBlur = 0;
         
-        // Rotating alien sensor arrays
+        // Rotating sensor arrays - metallic struts
         ctx.save();
         const sensorRotation = performance.now() / 600;
         ctx.rotate(sensorRotation);
-        ctx.strokeStyle = '#f97316';
+        ctx.strokeStyle = '#555555';
         ctx.lineWidth = 2;
         for (let i = 0; i < 4; i++) {
           const angle = (i / 4) * Math.PI * 2;
@@ -5064,22 +5124,25 @@
           ctx.moveTo(x1, y1);
           ctx.lineTo(x2, y2);
           ctx.stroke();
-          // Sensor tips
-          ctx.fillStyle = '#fb923c';
+          // Sensor nodes
+          ctx.fillStyle = '#3a3a3a';
+          ctx.strokeStyle = '#6a6a6a';
+          ctx.lineWidth = 1.5;
           ctx.beginPath();
           ctx.arc(x2, y2, this.size * 0.08, 0, Math.PI * 2);
           ctx.fill();
+          ctx.stroke();
         }
         ctx.restore();
         
-        // Pulsing alien energy field layer
-        ctx.fillStyle = 'rgba(251, 146, 60, 0.4)';
-        ctx.shadowColor = '#f97316';
-        ctx.shadowBlur = 12;
+        // Energy shield layer - subtle cyan
+        ctx.fillStyle = 'rgba(100, 150, 180, 0.15)';
+        ctx.shadowColor = 'rgba(100, 150, 200, 0.4)';
+        ctx.shadowBlur = 10;
         ctx.beginPath();
         for (let i = 0; i < 8; i++) {
           const angle = (i / 8) * Math.PI * 2 + performance.now() / 500;
-          const wobble = Math.sin(performance.now() / 150 + i) * 0.15 + 0.85;
+          const wobble = Math.sin(performance.now() / 150 + i) * 0.12 + 0.88;
           const r = this.size * 0.65 * wobble;
           const x = Math.cos(angle) * r;
           const y = Math.sin(angle) * r;
@@ -5090,75 +5153,67 @@
         ctx.fill();
         ctx.shadowBlur = 0;
         
-        // Central alien eye/scanner - menacing sensor
-        ctx.fillStyle = criticalHealth ? '#fee2e2' : '#ef4444';
-        ctx.strokeStyle = '#dc2626';
+        // Central scanner eye - amber/orange sensor
+        ctx.fillStyle = criticalHealth ? '#ff8800' : 'rgba(220, 140, 60, 0.9)';
+        ctx.strokeStyle = criticalHealth ? '#ff6600' : '#b8895e';
         ctx.lineWidth = 2;
-        ctx.shadowColor = '#dc2626';
+        ctx.shadowColor = criticalHealth ? '#ff6600' : 'rgba(220, 140, 60, 0.6)';
         ctx.shadowBlur = 12 + Math.sin(performance.now() / 100) * 6;
         ctx.beginPath();
         ctx.arc(0, 0, this.size * 0.35 * pulse, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
         
-        // Tracking lens with scanning beam
-        ctx.fillStyle = '#450a0a';
+        // Tracking lens aperture
+        ctx.fillStyle = '#1a1a1a';
+        ctx.shadowBlur = 0;
         ctx.beginPath();
         ctx.arc(this.size * 0.08, -this.size * 0.05, this.size * 0.2, 0, Math.PI * 2);
         ctx.fill();
         
-        // Scanning laser indicator
-        ctx.strokeStyle = '#ff0000';
-        ctx.lineWidth = 2;
-        const scanPulse = Math.sin(performance.now() / 120) * 0.5 + 0.5;
-        ctx.globalAlpha = scanPulse;
-        ctx.beginPath();
-        ctx.moveTo(this.size * 0.4, 0);
-        ctx.lineTo(this.size * 1.2, 0);
-        ctx.stroke();
-        ctx.globalAlpha = 1;
-        ctx.shadowBlur = 0;
-        
-        // Alien tech propulsion tendrils - bio-mechanical thrusters
-        ctx.strokeStyle = '#fdba74';
-        ctx.lineWidth = 3;
-        ctx.shadowColor = '#f97316';
-        ctx.shadowBlur = 8;
-        for (let i = 0; i < 6; i++) {
-          const a = (i * Math.PI) / 3;
-          const wave = Math.sin(performance.now() / 150 + i) * 0.35 + 0.7;
-          const bend = Math.sin(performance.now() / 100 + i) * 0.2;
+        // Scanning beam indicator
+        if (this.canShoot) {
+          ctx.strokeStyle = '#ff6600';
+          ctx.lineWidth = 2;
+          const scanPulse = Math.sin(performance.now() / 120) * 0.4 + 0.6;
+          ctx.globalAlpha = scanPulse;
+          ctx.shadowColor = '#ff6600';
+          ctx.shadowBlur = 12;
           ctx.beginPath();
-          ctx.moveTo(Math.cos(a) * this.size * 0.55, Math.sin(a) * this.size * 0.55);
-          const midX = Math.cos(a + bend) * this.size * (0.75 + wave * 0.4);
-          const midY = Math.sin(a + bend) * this.size * (0.75 + wave * 0.4);
-          const endX = Math.cos(a) * this.size * (1.0 + wave);
-          const endY = Math.sin(a) * this.size * (1.0 + wave);
-          ctx.quadraticCurveTo(midX, midY, endX, endY);
-          ctx.stroke();
-          
-          // Thruster tips with energy glow
-          ctx.fillStyle = '#fb923c';
-          ctx.shadowBlur = 10;
-          ctx.beginPath();
-          ctx.arc(endX, endY, this.size * 0.1 * wave, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        ctx.shadowBlur = 0;
-        
-        // Attack mode energy charge indicator
-        if (this.canShoot && Math.sin(performance.now() / 100) > 0.6) {
-          ctx.strokeStyle = '#ff0000';
-          ctx.lineWidth = 3;
-          ctx.shadowColor = '#dc2626';
-          ctx.shadowBlur = 15;
-          ctx.globalAlpha = 0.7;
-          ctx.beginPath();
-          ctx.arc(0, 0, this.size * 1.3, 0, Math.PI * 2);
+          ctx.moveTo(this.size * 0.4, 0);
+          ctx.lineTo(this.size * 1.2, 0);
           ctx.stroke();
           ctx.globalAlpha = 1;
           ctx.shadowBlur = 0;
         }
+        
+        // Propulsion vents - metallic thrusters
+        ctx.strokeStyle = '#555555';
+        ctx.lineWidth = 3;
+        ctx.shadowColor = 'rgba(100, 150, 200, 0.5)';
+        ctx.shadowBlur = 6;
+        for (let i = 0; i < 6; i++) {
+          const a = (i * Math.PI) / 3;
+          const wave = Math.sin(performance.now() / 150 + i) * 0.3 + 0.7;
+          const bend = Math.sin(performance.now() / 100 + i) * 0.15;
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(a) * this.size * 0.55, Math.sin(a) * this.size * 0.55);
+          const midX = Math.cos(a + bend) * this.size * (0.75 + wave * 0.3);
+          const midY = Math.sin(a + bend) * this.size * (0.75 + wave * 0.3);
+          const endX = Math.cos(a) * this.size * (0.95 + wave * 0.4);
+          const endY = Math.sin(a) * this.size * (0.95 + wave * 0.4);
+          ctx.quadraticCurveTo(midX, midY, endX, endY);
+          ctx.stroke();
+          
+          // Thruster exhaust - blue ion glow
+          ctx.fillStyle = `rgba(120, 180, 255, ${wave * 0.6})`;
+          ctx.shadowBlur = 8;
+          ctx.shadowColor = 'rgba(100, 150, 255, 0.8)';
+          ctx.beginPath();
+          ctx.arc(endX, endY, this.size * 0.09 * wave, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.shadowBlur = 0;
       }
       ctx.shadowBlur = 0;
       ctx.restore();
