@@ -11149,907 +11149,237 @@
      3D WEBGL LOADING SCREEN & START SCREEN
      ========================================== */
 
-  // 3D WebGL Loading Screen with First-Person Battle
+  // ===================================================================
+  // MINIMAL HIGH-FIDELITY LOADING & START SCREEN ANIMATIONS (2D)
+  // ===================================================================
+  
+  /**
+   * Elegant 2D Loading Screen
+   * - Animated logo with letter reveals
+   * - Smooth progress bar
+   * - Subtle particle sparkles
+   * - Clean, minimal aesthetic
+   */
   const initLoadingScreen = () => {
     const loadingOverlay = document.getElementById('loadingOverlay');
     const loadingCanvas = document.getElementById('loadingCanvas');
     
-    if (!loadingCanvas || !loadingOverlay || typeof THREE === 'undefined') {
-      console.warn('Three.js not loaded or canvas not found');
-      return;
+    if (!loadingCanvas || !loadingOverlay) {
+      console.warn('Loading canvas not found');
+      return () => {};
     }
     
-    // Setup Three.js scene
-    const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x000000, 0.002);
+    const ctx = loadingCanvas.getContext('2d');
+    loadingCanvas.width = window.innerWidth;
+    loadingCanvas.height = window.innerHeight;
     
-    const camera = new THREE.PerspectiveCamera(
-      75,
-      window.innerWidth / window.innerHeight,
-      0.1,
-      1000
-    );
-    camera.position.z = 5;
-    camera.position.y = 0;
-    
-    const renderer = new THREE.WebGLRenderer({
-      canvas: loadingCanvas,
-      antialias: true,
-      alpha: true
-    });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    
-    // Lighting
-    const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
-    scene.add(ambientLight);
-    
-    const pointLight1 = new THREE.PointLight(0x0ea5e9, 2, 100);
-    pointLight1.position.set(10, 10, 10);
-    scene.add(pointLight1);
-    
-    const pointLight2 = new THREE.PointLight(0xdc2626, 1.5, 100);
-    pointLight2.position.set(-10, -5, 5);
-    scene.add(pointLight2);
-    
-    // Create 3D player ship
-    const createPlayerShip = () => {
-      const group = new THREE.Group();
-      
-      // Main body (blue)
-      const bodyGeometry = new THREE.ConeGeometry(0.3, 1, 4);
-      const bodyMaterial = new THREE.MeshPhongMaterial({
-        color: 0x0ea5e9,
-        emissive: 0x0ea5e9,
-        emissiveIntensity: 0.3,
-        shininess: 100
+    // Particle system for subtle sparkles
+    const particles = [];
+    for (let i = 0; i < 40; i++) {
+      particles.push({
+        x: Math.random() * loadingCanvas.width,
+        y: Math.random() * loadingCanvas.height,
+        size: Math.random() * 2 + 1,
+        speedY: Math.random() * 0.3 + 0.1,
+        opacity: Math.random() * 0.5 + 0.3,
+        twinkle: Math.random() * Math.PI * 2
       });
-      const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-      body.rotation.x = Math.PI / 2;
-      group.add(body);
-      
-      // Wings
-      const wingGeometry = new THREE.BoxGeometry(1.2, 0.1, 0.4);
-      const wing = new THREE.Mesh(wingGeometry, bodyMaterial);
-      wing.position.z = -0.2;
-      group.add(wing);
-      
-      // Engine glow (orange)
-      const engineGeometry = new THREE.SphereGeometry(0.15, 8, 8);
-      const engineMaterial = new THREE.MeshBasicMaterial({
-        color: 0xf97316,
-        transparent: true,
-        opacity: 0.8
-      });
-      const engine = new THREE.Mesh(engineGeometry, engineMaterial);
-      engine.position.z = -0.6;
-      group.add(engine);
-      
-      // Add point light for engine
-      const engineLight = new THREE.PointLight(0xf97316, 1, 5);
-      engineLight.position.z = -0.6;
-      group.add(engineLight);
-      
-      return group;
-    };
-    
-    // Create 3D enemy
-    const createEnemy = () => {
-      const group = new THREE.Group();
-      
-      // Main body (red)
-      const bodyGeometry = new THREE.OctahedronGeometry(0.4);
-      const bodyMaterial = new THREE.MeshPhongMaterial({
-        color: 0xdc2626,
-        emissive: 0xdc2626,
-        emissiveIntensity: 0.5,
-        shininess: 50
-      });
-      const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-      group.add(body);
-      
-      // Add glow
-      const glowGeometry = new THREE.SphereGeometry(0.5, 16, 16);
-      const glowMaterial = new THREE.MeshBasicMaterial({
-        color: 0xdc2626,
-        transparent: true,
-        opacity: 0.3
-      });
-      const glow = new THREE.Mesh(glowGeometry, glowMaterial);
-      group.add(glow);
-      
-      // Add point light
-      const enemyLight = new THREE.PointLight(0xdc2626, 1, 5);
-      group.add(enemyLight);
-      
-      return group;
-    };
-    
-    // Create 3D bullet
-    const createBullet = (isEnemy = false) => {
-      const color = isEnemy ? 0xdc2626 : 0xfde047;
-      const geometry = new THREE.SphereGeometry(0.1, 8, 8);
-      const material = new THREE.MeshBasicMaterial({
-        color,
-        transparent: true,
-        opacity: 0.9
-      });
-      const bullet = new THREE.Mesh(geometry, material);
-      
-      // Add glow
-      const glowGeometry = new THREE.SphereGeometry(0.15, 8, 8);
-      const glowMaterial = new THREE.MeshBasicMaterial({
-        color,
-        transparent: true,
-        opacity: 0.4
-      });
-      const glow = new THREE.Mesh(glowGeometry, glowMaterial);
-      bullet.add(glow);
-      
-      return bullet;
-    };
-    
-    // Create star field
-    const createStarField = () => {
-      const geometry = new THREE.BufferGeometry();
-      const vertices = [];
-      
-      for (let i = 0; i < 200; i++) {
-        vertices.push(
-          (Math.random() - 0.5) * 100,
-          (Math.random() - 0.5) * 100,
-          (Math.random() - 0.5) * 100
-        );
-      }
-      
-      geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-      const material = new THREE.PointsMaterial({
-        color: 0xffffff,
-        size: 0.1,
-        transparent: true,
-        opacity: 0.8
-      });
-      
-      return new THREE.Points(geometry, material);
-    };
-    
-    const starField = createStarField();
-    scene.add(starField);
-    
-    // Game entities
-    const playerShip = createPlayerShip();
-    playerShip.position.set(-3, 0, 0);
-    scene.add(playerShip);
-    
-    const enemies = [];
-    const bullets = [];
-    const explosionParticles = [];
-    
-    // Spawn enemies
-    const spawnEnemy = () => {
-      const enemy = createEnemy();
-      enemy.position.set(
-        Math.random() * 10 + 10,
-        (Math.random() - 0.5) * 5,
-        (Math.random() - 0.5) * 3
-      );
-      enemy.userData = {
-        velocity: new THREE.Vector3(-0.05, 0, 0),
-        rotationSpeed: (Math.random() - 0.5) * 0.05,
-        shootTimer: Math.random() * 100
-      };
-      scene.add(enemy);
-      enemies.push(enemy);
-    };
-    
-    // Spawn initial enemies
-    for (let i = 0; i < 5; i++) {
-      setTimeout(() => spawnEnemy(), i * 300);
     }
-    
-    // Shoot bullet
-    const shootBullet = (from, direction, isEnemy = false) => {
-      const bullet = createBullet(isEnemy);
-      bullet.position.copy(from);
-      bullet.userData = {
-        velocity: direction.clone().multiplyScalar(0.2),
-        life: 0,
-        maxLife: 200,
-        isEnemy
-      };
-      scene.add(bullet);
-      bullets.push(bullet);
-    };
-    
-    // Create explosion
-    const createExplosion = (position) => {
-      for (let i = 0; i < 20; i++) {
-        const geometry = new THREE.SphereGeometry(0.05, 4, 4);
-        const material = new THREE.MeshBasicMaterial({
-          color: Math.random() > 0.5 ? 0xfbbf24 : 0xef4444,
-          transparent: true,
-          opacity: 1
-        });
-        const particle = new THREE.Mesh(geometry, material);
-        particle.position.copy(position);
-        
-        const angle = Math.random() * Math.PI * 2;
-        const speed = Math.random() * 0.1 + 0.05;
-        particle.userData = {
-          velocity: new THREE.Vector3(
-            Math.cos(angle) * speed,
-            Math.sin(angle) * speed,
-            (Math.random() - 0.5) * speed
-          ),
-          life: 60,
-          maxLife: 60
-        };
-        
-        scene.add(particle);
-        explosionParticles.push(particle);
-      }
-    };
     
     // Animation loop
-    let loadingAnimationFrame;
-    let time = 0;
-    let shootTimer = 0;
-    let spawnTimer = 0;
-    
+    let animationFrame;
     const animate = () => {
-      time += 0.016;
-      shootTimer++;
-      spawnTimer++;
+      // Clear with fade effect for trails
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+      ctx.fillRect(0, 0, loadingCanvas.width, loadingCanvas.height);
       
-      // Rotate star field
-      starField.rotation.z += 0.0005;
-      
-      // Update player ship
-      playerShip.position.y = Math.sin(time * 2) * 0.5;
-      playerShip.rotation.z = Math.sin(time * 2) * 0.1;
-      
-      // Player shoots
-      if (shootTimer > 10) {
-        shootTimer = 0;
-        const direction = new THREE.Vector3(1, 0, 0);
-        shootBullet(playerShip.position.clone().add(new THREE.Vector3(0.5, 0, 0)), direction, false);
-      }
-      
-      // Spawn more enemies
-      if (spawnTimer > 80 && enemies.length < 6) {
-        spawnTimer = 0;
-        spawnEnemy();
-      }
-      
-      // Update enemies
-      for (let i = enemies.length - 1; i >= 0; i--) {
-        const enemy = enemies[i];
-        enemy.position.add(enemy.userData.velocity);
-        enemy.rotation.y += enemy.userData.rotationSpeed;
+      // Update and draw particles
+      particles.forEach(particle => {
+        particle.y -= particle.speedY;
+        particle.twinkle += 0.02;
         
-        // Enemy shoots
-        enemy.userData.shootTimer--;
-        if (enemy.userData.shootTimer <= 0 && enemy.position.x < 5) {
-          enemy.userData.shootTimer = 100 + Math.random() * 100;
-          const direction = new THREE.Vector3(-1, 0, 0);
-          shootBullet(enemy.position.clone(), direction, true);
+        // Wrap around
+        if (particle.y < 0) {
+          particle.y = loadingCanvas.height;
+          particle.x = Math.random() * loadingCanvas.width;
         }
         
-        // Remove if off screen
-        if (enemy.position.x < -15) {
-          scene.remove(enemy);
-          enemies.splice(i, 1);
-        }
-      }
-      
-      // Update bullets
-      for (let i = bullets.length - 1; i >= 0; i--) {
-        const bullet = bullets[i];
-        bullet.position.add(bullet.userData.velocity);
-        bullet.userData.life++;
+        // Draw particle with twinkle
+        const alpha = particle.opacity * (0.5 + Math.sin(particle.twinkle) * 0.5);
+        ctx.fillStyle = `rgba(74, 222, 128, ${alpha})`; // Green sparkles
+        ctx.beginPath();
+        ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+        ctx.fill();
         
-        // Remove if expired
-        if (bullet.userData.life > bullet.userData.maxLife || 
-            Math.abs(bullet.position.x) > 20) {
-          scene.remove(bullet);
-          bullets.splice(i, 1);
-          continue;
-        }
-        
-        // Check collisions
-        if (!bullet.userData.isEnemy) {
-          for (let j = enemies.length - 1; j >= 0; j--) {
-            const enemy = enemies[j];
-            if (bullet.position.distanceTo(enemy.position) < 0.6) {
-              // Hit!
-              createExplosion(enemy.position);
-              scene.remove(enemy);
-              enemies.splice(j, 1);
-              scene.remove(bullet);
-              bullets.splice(i, 1);
-              break;
-            }
-          }
-        }
-      }
+        // Add glow
+        const gradient = ctx.createRadialGradient(
+          particle.x, particle.y, 0,
+          particle.x, particle.y, particle.size * 3
+        );
+        gradient.addColorStop(0, `rgba(74, 222, 128, ${alpha * 0.5})`);
+        gradient.addColorStop(1, 'rgba(74, 222, 128, 0)');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(particle.x, particle.y, particle.size * 3, 0, Math.PI * 2);
+        ctx.fill();
+      });
       
-      // Update explosion particles
-      for (let i = explosionParticles.length - 1; i >= 0; i--) {
-        const particle = explosionParticles[i];
-        particle.position.add(particle.userData.velocity);
-        particle.userData.life--;
-        particle.material.opacity = particle.userData.life / particle.userData.maxLife;
-        
-        if (particle.userData.life <= 0) {
-          scene.remove(particle);
-          explosionParticles.splice(i, 1);
-        }
-      }
-      
-      // Camera sway
-      camera.position.y = Math.sin(time) * 0.1;
-      camera.rotation.z = Math.sin(time * 0.5) * 0.02;
-      
-      renderer.render(scene, camera);
-      loadingAnimationFrame = requestAnimationFrame(animate);
+      animationFrame = requestAnimationFrame(animate);
     };
     
     animate();
     
-    // Handle resize
+    // Cleanup on window resize
     const handleResize = () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
+      loadingCanvas.width = window.innerWidth;
+      loadingCanvas.height = window.innerHeight;
     };
     window.addEventListener('resize', handleResize);
     
-    // Hide loading screen after assets load
-    setTimeout(() => {
-      loadingOverlay.classList.add('loaded');
-      setTimeout(() => {
-        cancelAnimationFrame(loadingAnimationFrame);
-        window.removeEventListener('resize', handleResize);
-        // Clean up Three.js
-        scene.traverse((object) => {
-          if (object.geometry) object.geometry.dispose();
-          if (object.material) {
-            if (Array.isArray(object.material)) {
-              object.material.forEach(mat => mat.dispose());
-            } else {
-              object.material.dispose();
-            }
-          }
-        });
-        renderer.dispose();
-      }, 800);
-    }, 2000);
+    // Return cleanup function
+    return () => {
+      cancelAnimationFrame(animationFrame);
+      window.removeEventListener('resize', handleResize);
+    };
   };
-
-  // 3D WebGL Start Screen - First-Person Battle Scene
+  
+  /**
+   * Elegant 2D Start Screen Background
+   * - Animated particle field with parallax
+   * - Gradient glow effects
+   * - Smooth, ambient movement
+   * - Minimal yet beautiful
+   */
   const initStartScreenBackground = () => {
     const canvas = document.getElementById('startBackgroundCanvas');
-    if (!canvas || typeof THREE === 'undefined') {
-      console.warn('Three.js not loaded or canvas not found');
-      return;
+    if (!canvas) {
+      console.warn('Start background canvas not found');
+      return () => {};
     }
     
-    // Setup Three.js scene with dark void aesthetic
-    const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x000000, 0.0008); // Pure black void with minimal fog
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
     
-    // First-person camera setup
-    const camera = new THREE.PerspectiveCamera(
-      90, // Wide FOV for immersive first-person view
-      window.innerWidth / window.innerHeight,
-      0.1,
-      1000
-    );
-    camera.position.set(0, 0, 0); // First-person viewpoint
-    camera.rotation.order = 'YXZ';
-    
-    const renderer = new THREE.WebGLRenderer({
-      canvas,
-      antialias: true,
-      alpha: true
-    });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    
-    // Minimal ambient lighting for dark void - illumination from objects only
-    const ambientLight = new THREE.AmbientLight(0x0a0a0a, 0.05); // Near-black ambient
-    scene.add(ambientLight);
-    
-    // Dynamic colored lights with higher intensity for dark void
-    const blueLight = new THREE.PointLight(0x0ea5e9, 5, 60); // Increased intensity
-    blueLight.position.set(10, 5, 10);
-    scene.add(blueLight);
-    
-    const redLight = new THREE.PointLight(0xdc2626, 4, 50); // Increased intensity
-    redLight.position.set(-10, -5, 5);
-    scene.add(redLight);
-    
-    const greenLight = new THREE.PointLight(0x4ade80, 3, 40); // Increased intensity
-    greenLight.position.set(0, 10, -10);
-    scene.add(greenLight);
-    
-    // Create enhanced 3D player ship
-    const createPlayerShip = () => {
-      const group = new THREE.Group();
-      
-      // Main body - sleek fighter design with enhanced glow
-      const bodyGeometry = new THREE.ConeGeometry(0.4, 1.5, 6);
-      const bodyMaterial = new THREE.MeshPhongMaterial({
-        color: 0x0ea5e9,
-        emissive: 0x0ea5e9, // Brighter emissive color
-        emissiveIntensity: 0.8, // Increased from 0.4 for award-winning glow
-        shininess: 150,
-        specular: 0x7dd3fc
+    // Create particle field with depth layers for parallax
+    const particles = [];
+    for (let i = 0; i < 120; i++) {
+      particles.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        size: Math.random() * 2.5 + 0.5,
+        speedX: (Math.random() - 0.5) * 0.2,
+        speedY: Math.random() * 0.3 + 0.1,
+        depth: Math.random(), // 0 = far, 1 = close
+        opacity: Math.random() * 0.6 + 0.2,
+        twinkle: Math.random() * Math.PI * 2,
+        twinkleSpeed: Math.random() * 0.02 + 0.01
       });
-      const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-      body.rotation.x = Math.PI / 2;
-      body.castShadow = true;
-      group.add(body);
-      
-      // Cockpit with intense glow
-      const cockpitGeometry = new THREE.SphereGeometry(0.2, 8, 8);
-      const cockpitMaterial = new THREE.MeshPhongMaterial({
-        color: 0x7dd3fc,
-        emissive: 0x7dd3fc, // Full brightness emissive
-        emissiveIntensity: 1.5, // Increased from 0.8 for brilliant glow
-        transparent: true,
-        opacity: 0.9
-      });
-      const cockpit = new THREE.Mesh(cockpitGeometry, cockpitMaterial);
-      cockpit.position.z = 0.3;
-      group.add(cockpit);
-      
-      // Wings
-      const wingGeometry = new THREE.BoxGeometry(1.8, 0.15, 0.6);
-      const wing = new THREE.Mesh(wingGeometry, bodyMaterial);
-      wing.position.z = -0.3;
-      wing.castShadow = true;
-      group.add(wing);
-      
-      // Engine cores (dual) with enhanced brightness
-      for (let i = 0; i < 2; i++) {
-        const side = i === 0 ? -0.7 : 0.7;
-        const engineGeometry = new THREE.CylinderGeometry(0.15, 0.2, 0.5, 8);
-        const engineMaterial = new THREE.MeshBasicMaterial({
-          color: 0xfbbf24, // Brighter orange-yellow
-          transparent: true,
-          opacity: 1.0 // Full opacity
-        });
-        const engine = new THREE.Mesh(engineGeometry, engineMaterial);
-        engine.rotation.x = Math.PI / 2;
-        engine.position.set(side, 0, -0.8);
-        group.add(engine);
-        
-        // Engine glow with increased intensity
-        const glowGeometry = new THREE.SphereGeometry(0.35, 8, 8); // Larger glow
-        const glowMaterial = new THREE.MeshBasicMaterial({
-          color: 0xfbbf24,
-          transparent: true,
-          opacity: 0.8 // Increased from 0.6
-        });
-        const glow = new THREE.Mesh(glowGeometry, glowMaterial);
-        glow.position.set(side, 0, -1);
-        group.add(glow);
-        
-        // Engine light with dramatically increased power
-        const engineLight = new THREE.PointLight(0xf97316, 4, 12); // Doubled intensity and range
-        engineLight.position.set(side, 0, -1);
-        group.add(engineLight);
-      }
-      
-      return group;
-    };
+    }
     
-    // Create enhanced 3D enemy with dramatic illumination
-    const createEnemy = () => {
-      const group = new THREE.Group();
-      
-      // Main body - menacing design with intense glow
-      const bodyGeometry = new THREE.OctahedronGeometry(0.5, 1);
-      const bodyMaterial = new THREE.MeshPhongMaterial({
-        color: 0xdc2626,
-        emissive: 0xdc2626, // Full red emissive
-        emissiveIntensity: 1.0, // Increased from 0.6 for menacing glow
-        shininess: 80,
-        specular: 0xef4444
-      });
-      const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-      body.castShadow = true;
-      group.add(body);
-      
-      // Armor plating
-      const armorGeometry = new THREE.BoxGeometry(0.6, 0.2, 0.6);
-      const armor = new THREE.Mesh(armorGeometry, bodyMaterial);
-      armor.castShadow = true;
-      group.add(armor);
-      
-      // Glow aura with increased visibility
-      const glowGeometry = new THREE.SphereGeometry(0.8, 16, 16); // Larger glow
-      const glowMaterial = new THREE.MeshBasicMaterial({
-        color: 0xdc2626,
-        transparent: true,
-        opacity: 0.4 // Increased from 0.2
-      });
-      const glow = new THREE.Mesh(glowGeometry, glowMaterial);
-      group.add(glow);
-      
-      // Enemy light with dramatically increased power
-      const enemyLight = new THREE.PointLight(0xdc2626, 3, 12); // Doubled intensity and range
-      group.add(enemyLight);
-      
-      return group;
-    };
-    
-    // Create 3D bullet with intense glow trail
-    const createBullet = (isEnemy = false) => {
-      const color = isEnemy ? 0xdc2626 : 0xfde047;
-      
-      const geometry = new THREE.SphereGeometry(0.12, 8, 8);
-      const material = new THREE.MeshBasicMaterial({
-        color,
-        transparent: true,
-        opacity: 1
-      });
-      const bullet = new THREE.Mesh(geometry, material);
-      
-      // Outer glow with increased intensity
-      const glowGeometry = new THREE.SphereGeometry(0.25, 8, 8); // Larger glow
-      const glowMaterial = new THREE.MeshBasicMaterial({
-        color,
-        transparent: true,
-        opacity: 0.7 // Increased from 0.5
-      });
-      const glow = new THREE.Mesh(glowGeometry, glowMaterial);
-      bullet.add(glow);
-      
-      // Bullet light with increased power
-      const bulletLight = new THREE.PointLight(color, 2, 5); // Doubled intensity and range
-      bullet.add(bulletLight);
-      
-      return bullet;
-    };
-    
-    // Enhanced star field with brighter, whiter stars
-    const createStarField = () => {
-      const geometry = new THREE.BufferGeometry();
-      const vertices = [];
-      const colors = [];
-      
-      for (let i = 0; i < 800; i++) { // More stars for richer starfield
-        vertices.push(
-          (Math.random() - 0.5) * 200,
-          (Math.random() - 0.5) * 200,
-          (Math.random() - 0.5) * 200
-        );
-        
-        // Brighter white stars with subtle color variation
-        const brightness = Math.random() * 0.3 + 0.7; // Brighter range (0.7-1.0)
-        const tint = Math.random() * 0.1; // Minimal color tint
-        colors.push(
-          brightness, 
-          brightness - tint * 0.05, // Very subtle blue reduction
-          brightness - tint * 0.1 // Even less yellow tint
-        );
-      }
-      
-      geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-      geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-      
-      const material = new THREE.PointsMaterial({
-        size: 0.2, // Slightly larger stars
-        transparent: true,
-        opacity: 1.0, // Full opacity for brighter stars
-        vertexColors: true,
-        sizeAttenuation: true
-      });
-      
-      return new THREE.Points(geometry, material);
-    };
-    
-    const starField = createStarField();
-    scene.add(starField);
-    
-    // Game entities
-    const allies = [];
-    const enemies = [];
-    const bullets = [];
-    const explosionParticles = [];
-    
-    // Spawn allied ships flying alongside
+    // Floating glow orbs for ambient effect
+    const glowOrbs = [];
     for (let i = 0; i < 3; i++) {
-      const ally = createPlayerShip();
-      ally.position.set(
-        (i - 1) * 3,
-        (Math.random() - 0.5) * 2,
-        -5 - i * 2
-      );
-      ally.userData = {
-        baseZ: ally.position.z,
-        wobble: Math.random() * Math.PI * 2,
-        shootTimer: Math.random() * 100
-      };
-      scene.add(ally);
-      allies.push(ally);
-    }
-    
-    // Spawn enemies
-    const spawnEnemy = () => {
-      const enemy = createEnemy();
-      enemy.position.set(
-        (Math.random() - 0.5) * 30,
-        (Math.random() - 0.5) * 15,
-        -Math.random() * 30 - 20
-      );
-      enemy.userData = {
-        velocity: new THREE.Vector3(
-          (Math.random() - 0.5) * 0.02,
-          (Math.random() - 0.5) * 0.02,
-          Math.random() * 0.1 + 0.05
-        ),
-        rotationSpeed: new THREE.Vector3(
-          (Math.random() - 0.5) * 0.03,
-          (Math.random() - 0.5) * 0.03,
-          (Math.random() - 0.5) * 0.03
-        ),
-        shootTimer: Math.random() * 150,
-        health: 3
-      };
-      scene.add(enemy);
-      enemies.push(enemy);
-    };
-    
-    // Initial enemy spawn
-    for (let i = 0; i < 12; i++) {
-      setTimeout(() => spawnEnemy(), i * 200);
-    }
-    
-    // Shoot bullet
-    const shootBullet = (from, direction, isEnemy = false) => {
-      const bullet = createBullet(isEnemy);
-      bullet.position.copy(from);
-      bullet.userData = {
-        velocity: direction.clone().normalize().multiplyScalar(isEnemy ? 0.3 : 0.4),
-        life: 0,
-        maxLife: 300,
-        isEnemy
-      };
-      scene.add(bullet);
-      bullets.push(bullet);
-    };
-    
-    // Create explosion
-    const createExplosion = (position) => {
-      // Main explosion flash
-      const flashGeometry = new THREE.SphereGeometry(1, 8, 8);
-      const flashMaterial = new THREE.MeshBasicMaterial({
-        color: 0xffffff,
-        transparent: true,
-        opacity: 1
+      glowOrbs.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        size: Math.random() * 100 + 80,
+        speedX: (Math.random() - 0.5) * 0.15,
+        speedY: (Math.random() - 0.5) * 0.15,
+        color: i === 0 ? '74, 222, 128' : i === 1 ? '14, 165, 233' : '34, 197, 94',
+        opacity: 0.08 + Math.random() * 0.05
       });
-      const flash = new THREE.Mesh(flashGeometry, flashMaterial);
-      flash.position.copy(position);
-      flash.userData = { life: 10, maxLife: 10, type: 'flash' };
-      scene.add(flash);
-      explosionParticles.push(flash);
-      
-      // Explosion particles
-      for (let i = 0; i < 30; i++) {
-        const geometry = new THREE.SphereGeometry(0.08, 4, 4);
-        const color = Math.random() > 0.3 ? 0xfbbf24 : (Math.random() > 0.5 ? 0xf97316 : 0xef4444);
-        const material = new THREE.MeshBasicMaterial({
-          color,
-          transparent: true,
-          opacity: 1
-        });
-        const particle = new THREE.Mesh(geometry, material);
-        particle.position.copy(position);
-        
-        const angle = Math.random() * Math.PI * 2;
-        const elevation = (Math.random() - 0.5) * Math.PI;
-        const speed = Math.random() * 0.15 + 0.1;
-        particle.userData = {
-          velocity: new THREE.Vector3(
-            Math.cos(angle) * Math.cos(elevation) * speed,
-            Math.sin(elevation) * speed,
-            Math.sin(angle) * Math.cos(elevation) * speed
-          ),
-          life: 80,
-          maxLife: 80,
-          type: 'particle'
-        };
-        
-        scene.add(particle);
-        explosionParticles.push(particle);
-      }
-      
-      // Explosion light
-      const explosionLight = new THREE.PointLight(0xfbbf24, 5, 15);
-      explosionLight.position.copy(position);
-      explosionLight.userData = { life: 20, maxLife: 20, type: 'light' };
-      scene.add(explosionLight);
-      explosionParticles.push(explosionLight);
-    };
+    }
     
-    // Animation loop
-    let startAnimationFrame;
-    let time = 0;
-    let spawnTimer = 0;
-    const cameraShake = { x: 0, y: 0, intensity: 0 };
-    
+    let animationFrame;
     const animate = () => {
-      time += 0.016;
-      spawnTimer++;
+      // Clear with minimal fade for smooth trails
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.02)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
       
-      // Rotate star field slowly
-      starField.rotation.z += 0.0002;
-      starField.rotation.y += 0.0001;
-      
-      // Camera movement (first-person looking around)
-      camera.position.x = Math.sin(time * 0.3) * 0.5;
-      camera.position.y = Math.sin(time * 0.4) * 0.3;
-      camera.rotation.y = Math.sin(time * 0.2) * 0.1 + cameraShake.x;
-      camera.rotation.x = Math.sin(time * 0.3) * 0.05 + cameraShake.y;
-      
-      // Update allied ships
-      allies.forEach((ally, i) => {
-        ally.userData.wobble += 0.02;
-        ally.position.y = Math.sin(ally.userData.wobble) * 0.5;
-        ally.position.z = ally.userData.baseZ + Math.sin(time + i) * 0.3;
-        ally.rotation.z = Math.sin(ally.userData.wobble) * 0.1;
+      // Draw floating glow orbs first (background layer)
+      glowOrbs.forEach(orb => {
+        orb.x += orb.speedX;
+        orb.y += orb.speedY;
         
-        // Allies shoot
-        ally.userData.shootTimer--;
-        if (ally.userData.shootTimer <= 0 && enemies.length > 0) {
-          ally.userData.shootTimer = 80 + Math.random() * 40;
-          const direction = new THREE.Vector3(0, 0, -1);
-          shootBullet(ally.position.clone().add(new THREE.Vector3(0, 0, -1)), direction, false);
+        // Bounce off edges
+        if (orb.x < -orb.size || orb.x > canvas.width + orb.size) orb.speedX *= -1;
+        if (orb.y < -orb.size || orb.y > canvas.height + orb.size) orb.speedY *= -1;
+        
+        // Draw soft glow
+        const gradient = ctx.createRadialGradient(
+          orb.x, orb.y, 0,
+          orb.x, orb.y, orb.size
+        );
+        gradient.addColorStop(0, `rgba(${orb.color}, ${orb.opacity})`);
+        gradient.addColorStop(0.5, `rgba(${orb.color}, ${orb.opacity * 0.3})`);
+        gradient.addColorStop(1, `rgba(${orb.color}, 0)`);
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(orb.x, orb.y, orb.size, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      
+      // Draw particles with parallax and twinkling
+      particles.forEach(particle => {
+        // Move with depth-based speed (parallax)
+        particle.x += particle.speedX * (0.5 + particle.depth * 0.5);
+        particle.y -= particle.speedY * (0.5 + particle.depth * 0.5);
+        particle.twinkle += particle.twinkleSpeed;
+        
+        // Wrap around edges
+        if (particle.x < 0) particle.x = canvas.width;
+        if (particle.x > canvas.width) particle.x = 0;
+        if (particle.y < 0) {
+          particle.y = canvas.height;
+          particle.x = Math.random() * canvas.width;
+        }
+        
+        // Calculate size and opacity based on depth and twinkle
+        const depthSize = particle.size * (0.3 + particle.depth * 0.7);
+        const twinkleAlpha = 0.4 + Math.sin(particle.twinkle) * 0.3;
+        const alpha = particle.opacity * twinkleAlpha * (0.5 + particle.depth * 0.5);
+        
+        // Draw particle core
+        ctx.fillStyle = `rgba(200, 220, 255, ${alpha})`;
+        ctx.beginPath();
+        ctx.arc(particle.x, particle.y, depthSize, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Add glow for closer particles
+        if (particle.depth > 0.5) {
+          const gradient = ctx.createRadialGradient(
+            particle.x, particle.y, 0,
+            particle.x, particle.y, depthSize * 4
+          );
+          gradient.addColorStop(0, `rgba(74, 222, 128, ${alpha * 0.4})`);
+          gradient.addColorStop(1, 'rgba(74, 222, 128, 0)');
+          ctx.fillStyle = gradient;
+          ctx.beginPath();
+          ctx.arc(particle.x, particle.y, depthSize * 4, 0, Math.PI * 2);
+          ctx.fill();
         }
       });
       
-      // Spawn more enemies
-      if (spawnTimer > 60 && enemies.length < 15) {
-        spawnTimer = 0;
-        spawnEnemy();
-      }
-      
-      // Update enemies
-      for (let i = enemies.length - 1; i >= 0; i--) {
-        const enemy = enemies[i];
-        enemy.position.add(enemy.userData.velocity);
-        enemy.rotation.x += enemy.userData.rotationSpeed.x;
-        enemy.rotation.y += enemy.userData.rotationSpeed.y;
-        enemy.rotation.z += enemy.userData.rotationSpeed.z;
-        
-        // Enemy shoots
-        enemy.userData.shootTimer--;
-        if (enemy.userData.shootTimer <= 0 && enemy.position.z > -10 && enemy.position.z < 5) {
-          enemy.userData.shootTimer = 120 + Math.random() * 80;
-          const direction = new THREE.Vector3(0, 0, 1);
-          shootBullet(enemy.position.clone(), direction, true);
-        }
-        
-        // Remove if behind camera or too far
-        if (enemy.position.z > 15 || enemy.position.z < -60) {
-          scene.remove(enemy);
-          enemies.splice(i, 1);
-        }
-      }
-      
-      // Update bullets
-      for (let i = bullets.length - 1; i >= 0; i--) {
-        const bullet = bullets[i];
-        bullet.position.add(bullet.userData.velocity);
-        bullet.userData.life++;
-        
-        // Bullet rotation for effect
-        bullet.rotation.x += 0.2;
-        bullet.rotation.y += 0.15;
-        
-        // Remove if expired
-        if (bullet.userData.life > bullet.userData.maxLife || 
-            Math.abs(bullet.position.z) > 50) {
-          scene.remove(bullet);
-          bullets.splice(i, 1);
-          continue;
-        }
-        
-        // Check collisions
-        if (!bullet.userData.isEnemy) {
-          for (let j = enemies.length - 1; j >= 0; j--) {
-            const enemy = enemies[j];
-            if (bullet.position.distanceTo(enemy.position) < 0.8) {
-              // Hit!
-              enemy.userData.health--;
-              
-              if (enemy.userData.health <= 0) {
-                createExplosion(enemy.position);
-                scene.remove(enemy);
-                enemies.splice(j, 1);
-                
-                // Camera shake
-                cameraShake.intensity = 0.08;
-              }
-              
-              scene.remove(bullet);
-              bullets.splice(i, 1);
-              break;
-            }
-          }
-        }
-      }
-      
-      // Update explosion particles
-      for (let i = explosionParticles.length - 1; i >= 0; i--) {
-        const particle = explosionParticles[i];
-        particle.userData.life--;
-        
-        if (particle.userData.type === 'particle') {
-          particle.position.add(particle.userData.velocity);
-          particle.material.opacity = particle.userData.life / particle.userData.maxLife;
-        } else if (particle.userData.type === 'flash') {
-          const scale = 1 + (1 - particle.userData.life / particle.userData.maxLife) * 2;
-          particle.scale.set(scale, scale, scale);
-          particle.material.opacity = particle.userData.life / particle.userData.maxLife;
-        } else if (particle.userData.type === 'light') {
-          particle.intensity = (particle.userData.life / particle.userData.maxLife) * 5;
-        }
-        
-        if (particle.userData.life <= 0) {
-          scene.remove(particle);
-          explosionParticles.splice(i, 1);
-        }
-      }
-      
-      // Decay camera shake
-      cameraShake.intensity *= 0.85;
-      if (cameraShake.intensity < 0.001) {
-        cameraShake.x = 0;
-        cameraShake.y = 0;
-        cameraShake.intensity = 0;
-      } else {
-        cameraShake.x = (Math.random() - 0.5) * cameraShake.intensity;
-        cameraShake.y = (Math.random() - 0.5) * cameraShake.intensity;
-      }
-      
-      renderer.render(scene, camera);
-      startAnimationFrame = requestAnimationFrame(animate);
+      animationFrame = requestAnimationFrame(animate);
     };
     
     animate();
     
-    // Handle resize
+    // Handle window resize
     const handleResize = () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
     };
     window.addEventListener('resize', handleResize);
     
-    // Clean up when leaving start screen
+    // Return cleanup function
     return () => {
-      cancelAnimationFrame(startAnimationFrame);
+      cancelAnimationFrame(animationFrame);
       window.removeEventListener('resize', handleResize);
-      // Clean up Three.js
-      scene.traverse((object) => {
-        if (object.geometry) object.geometry.dispose();
-        if (object.material) {
-          if (Array.isArray(object.material)) {
-            object.material.forEach(mat => mat.dispose());
-          } else {
-            object.material.dispose();
-          }
-        }
-      });
-      renderer.dispose();
     };
   };
+  
   // Initialize on page load
   let startScreenBackgroundCleanup;
   if (document.readyState === 'loading') {
