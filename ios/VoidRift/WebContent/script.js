@@ -11229,7 +11229,7 @@
     
     animate();
     
-    // Cleanup on window resize
+    // Handle window resize
     const handleResize = () => {
       loadingCanvas.width = window.innerWidth;
       loadingCanvas.height = window.innerHeight;
