@@ -22,6 +22,7 @@
   
   <!-- Link external styles -->
   <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="social-ui.css" />
 </head>
 <body>
   <!-- INITIAL LOADING OVERLAY -->
@@ -81,11 +82,9 @@
     </div>
     
     <div class="start-footer">
-      <button id="profileButton" class="footer-btn" onclick="SocialHub.showProfile()"><img src="assets/icons/icon-profile.svg" alt="Profile" width="16" height="16"/></button>
-      <button id="friendsButton" class="footer-btn" onclick="SocialHub.showFriendsList()"><img src="assets/icons/icon-friends.svg" alt="Friends" width="16" height="16"/></button>
-      <button id="activityButton" class="footer-btn" onclick="SocialHub.showActivityFeed()"><img src="assets/icons/icon-activity.svg" alt="Activity" width="16" height="16"/></button>
+      <button id="profileButton" class="footer-btn" style="display: none;"><img src="assets/icons/icon-profile.svg" alt="Profile" width="16" height="16"/></button>
       <span class="footer-divider"></span>
-      <button id="loginButton" class="footer-btn footer-btn-text" onclick="SocialHub.showAuthModal('login')">Login</button>
+      <button id="loginButton" class="footer-btn footer-btn-text">Login</button>
     </div>
   </div>
 
@@ -561,11 +560,10 @@
   </div>
 
   <!-- Include external scripts -->
-  <script src="backend-api.js"></script>
-  <script src="social-api.js"></script>
-  <script src="social-hub.js"></script>
-  <script src="social-integration.js"></script>
-  <script src="unified-social.js"></script>
+  <!-- New Unified Auth System -->
+  <script src="auth-system.js"></script>
+  <script src="leaderboard-system.js"></script>
+  <script src="social-ui.js"></script>
   <script src="audio-manager.js"></script>
   <!-- 3D Rendering System -->
   <script type="module" src="game-3d-integration.js"></script>
