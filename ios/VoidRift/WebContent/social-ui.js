@@ -83,14 +83,19 @@ const SocialUI = {
           <button class="social-modal-close" onclick="SocialUI.closeCurrentModal()">×</button>
         </div>
         <div class="social-modal-body">
+          <div class="backend-status" id="backendStatus">
+            <span class="status-indicator">🔄</span> Checking backend connection...
+          </div>
           <form id="authForm" onsubmit="return false;">
             <div class="form-group">
               <label>Username</label>
               <input type="text" id="authUsername" placeholder="Enter username" required minlength="3" autocomplete="username">
+              <small class="input-hint">Minimum 3 characters</small>
             </div>
             <div class="form-group">
               <label>Password</label>
               <input type="password" id="authPassword" placeholder="Enter password" required minlength="4" autocomplete="${mode === 'login' ? 'current-password' : 'new-password'}">
+              <small class="input-hint">Minimum 4 characters</small>
             </div>
             <div id="authError" class="error-message" style="display: none;"></div>
             <div class="form-actions">
@@ -112,6 +117,9 @@ const SocialUI = {
     document.body.appendChild(modal);
     this.currentModal = modal;
     
+    // Check backend status
+    this._checkBackendStatus();
+    
     // Setup form submission
     const form = document.getElementById('authForm');
     const submitBtn = document.getElementById('authSubmit');
@@ -125,7 +133,7 @@ const SocialUI = {
       
       // Disable form
       submitBtn.disabled = true;
-      submitBtn.textContent = 'Please wait...';
+      submitBtn.innerHTML = '<span class="spinner">⏳</span> Please wait...';
       errorDiv.style.display = 'none';
       
       try {
@@ -138,17 +146,28 @@ const SocialUI = {
         
         if (result.success) {
           this.closeCurrentModal();
-          this.showNotification(`Welcome, ${username}!`, 'success');
+          this.showNotification(`✅ Welcome, ${username}!`, 'success');
         } else {
-          errorDiv.textContent = result.error || 'Authentication failed';
+          // Enhanced error display
+          errorDiv.innerHTML = `
+            <div class="error-title">❌ ${mode === 'login' ? 'Login' : 'Registration'} Failed</div>
+            <div class="error-details">${this._formatErrorMessage(result.error)}</div>
+          `;
           errorDiv.style.display = 'block';
+          
+          // Scroll error into view
+          errorDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
       } catch (error) {
-        errorDiv.textContent = error.message || 'An error occurred';
+        errorDiv.innerHTML = `
+          <div class="error-title">❌ Error</div>
+          <div class="error-details">${this._formatErrorMessage(error.message || 'An unexpected error occurred')}</div>
+        `;
         errorDiv.style.display = 'block';
+        errorDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       } finally {
         submitBtn.disabled = false;
-        submitBtn.textContent = mode === 'login' ? 'Login' : 'Register';
+        submitBtn.innerHTML = mode === 'login' ? 'Login' : 'Register';
       }
     };
     
@@ -156,6 +175,55 @@ const SocialUI = {
     setTimeout(() => {
       document.getElementById('authUsername')?.focus();
     }, 100);
+  },
+  
+  /**
+   * Check backend connection status
+   * @private
+   */
+  async _checkBackendStatus() {
+    const statusDiv = document.getElementById('backendStatus');
+    if (!statusDiv) return;
+    
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      
+      const response = await fetch('https://shooter-app-one.vercel.app/api/users?action=ping', {
+        method: 'GET',
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeout);
+      
+      if (response.ok) {
+        statusDiv.innerHTML = '<span class="status-indicator success">✅</span> Backend online';
+        statusDiv.className = 'backend-status success';
+        setTimeout(() => {
+          statusDiv.style.display = 'none';
+        }, 2000);
+      } else {
+        throw new Error('Backend returned error');
+      }
+    } catch (error) {
+      statusDiv.innerHTML = `
+        <span class="status-indicator error">⚠️</span> 
+        <strong>Backend connection failed</strong><br>
+        <small>API: https://shooter-app-one.vercel.app/api</small><br>
+        <small>Make sure backend is deployed to Vercel</small>
+      `;
+      statusDiv.className = 'backend-status error';
+    }
+  },
+  
+  /**
+   * Format error message with line breaks
+   * @private
+   */
+  _formatErrorMessage(error) {
+    if (!error) return 'An error occurred';
+    // Convert \n to <br> for display
+    return error.replace(/\n/g, '<br>');
   },
   
   /**
