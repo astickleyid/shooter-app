@@ -1,23 +1,21 @@
 /**
- * Unified Leaderboard System
- * Integrates with AuthSystem for authenticated submissions
- * Handles both backend (global) and local leaderboards
+ * Unified Leaderboard System - Production Ready
+ * Requires backend connectivity for all operations
+ * No offline fallback - ensures data consistency
  */
 
 const LEADERBOARD_CONFIG = {
   API_URL: 'https://shooter-app-one.vercel.app/api/leaderboard',
-  LOCAL_KEY: 'voidrift_local_leaderboard',
-  MAX_LOCAL_ENTRIES: 100,
-  TIMEOUT_MS: 8000,
-  RETRY_ATTEMPTS: 2
+  TIMEOUT_MS: 10000, // Increased for reliability
+  RETRY_ATTEMPTS: 3,
+  RETRY_DELAY: 1000
 };
 
 const LeaderboardSystem = {
   lastError: null,
   
   /**
-   * Submit score to leaderboard
-   * Automatically uses authenticated user if logged in
+   * Submit score to leaderboard - REQUIRES BACKEND
    * @param {Object} entry - Score entry {score, level, difficulty}
    * @returns {Promise<{success: boolean, rank?: number, error?: string}>}
    */
@@ -26,12 +24,12 @@ const LeaderboardSystem = {
       return { success: false, error: 'Invalid score data' };
     }
     
-    // Get authenticated user
+    // Get authenticated user - REQUIRED
     const user = typeof AuthSystem !== 'undefined' ? AuthSystem.getCurrentUser() : null;
     const token = typeof AuthSystem !== 'undefined' ? AuthSystem.getToken() : null;
     
-    if (!user) {
-      return { success: false, error: 'Please login to submit scores to the global leaderboard' };
+    if (!user || !token) {
+      return { success: false, error: 'You must be logged in to submit scores to the global leaderboard' };
     }
     
     // Prepare entry
@@ -44,60 +42,183 @@ const LeaderboardSystem = {
       timestamp: entry.timestamp || Date.now()
     };
     
-    // Try backend submission
+    // Submit to backend - REQUIRED
     try {
       const result = await this._submitToBackend(scoreEntry, token);
       if (result.success) {
-        // Also save locally as backup
-        this._saveToLocal(scoreEntry);
+        this.lastError = null;
         return result;
       }
+      return { success: false, error: result.error || 'Failed to submit score' };
     } catch (error) {
-      console.warn('Backend submission failed:', error.message);
+      console.error('Leaderboard submission error:', error);
+      this.lastError = error.message;
+      
+      if (error.message.includes('fetch') || error.message.includes('network')) {
+        return { success: false, error: 'Unable to submit score. Please check your internet connection.' };
+      }
+      return { success: false, error: 'Failed to submit score. Please try again.' };
     }
-    
-    // Fallback to local only
-    this._saveToLocal(scoreEntry);
-    const localRank = this._calculateLocalRank(scoreEntry);
-    
-    return {
-      success: true,
-      rank: localRank,
-      storage: 'local',
-      message: 'Score saved locally (offline mode)'
-    };
   },
   
   /**
-   * Fetch leaderboard scores
+   * Fetch leaderboard scores - REQUIRES BACKEND
    * @param {string} difficulty - 'all', 'easy', 'normal', or 'hard'
    * @param {number} limit - Maximum number of entries to fetch
    * @returns {Promise<Array>} Array of leaderboard entries
    */
   async fetchScores(difficulty = 'all', limit = 50) {
-    // Try backend first
     try {
       const scores = await this._fetchFromBackend(difficulty, limit);
-      if (scores && scores.length > 0) {
-        return scores;
-      }
+      this.lastError = null;
+      return scores || [];
     } catch (error) {
-      console.warn('Backend fetch failed:', error.message);
+      console.error('Leaderboard fetch error:', error);
+      this.lastError = error.message;
+      
+      if (error.message.includes('fetch') || error.message.includes('network')) {
+        throw new Error('Unable to load leaderboard. Please check your internet connection.');
+      }
+      throw new Error('Failed to load leaderboard. Please try again.');
     }
-    
-    // Fallback to local
-    return this._fetchFromLocal(difficulty, limit);
   },
   
   /**
-   * Get user's personal best scores
-   * @returns {Array} User's top scores across all difficulties
+   * Get user's personal best scores from backend
+   * @returns {Promise<Array>} User's top scores
    */
-  getUserBestScores() {
+  async getUserBestScores() {
     const user = typeof AuthSystem !== 'undefined' ? AuthSystem.getCurrentUser() : null;
     if (!user) return [];
     
-    const localScores = this._getLocalData();
+    try {
+      // Fetch user's scores from backend
+      const allScores = await this.fetchScores('all', 100);
+      return allScores
+        .filter(entry => entry.userId === user.id)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 10);
+    } catch (error) {
+      console.error('Failed to fetch user scores:', error);
+      return [];
+    }
+  },
+  
+  /**
+   * Get user's rank for a specific score
+   * @param {number} score
+   * @param {string} difficulty
+   * @returns {Promise<number>} User's rank (1-based)
+   */
+  async getUserRank(score, difficulty = 'all') {
+    try {
+      const scores = await this.fetchScores(difficulty, 1000);
+      const higherScores = scores.filter(entry => entry.score > score);
+      return higherScores.length + 1;
+    } catch (error) {
+      console.error('Failed to get user rank:', error);
+      return 1;
+    }
+  },
+  
+  /**
+   * Submit score to backend with retry logic
+   * @private
+   */
+  async _submitToBackend(entry, token) {
+    let lastError = null;
+    
+    for (let attempt = 0; attempt < LEADERBOARD_CONFIG.RETRY_ATTEMPTS; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), LEADERBOARD_CONFIG.TIMEOUT_MS);
+        
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) {
+          headers.Authorization = `******;
+        }
+        
+        const response = await fetch(LEADERBOARD_CONFIG.API_URL, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            ...entry,
+            authToken: token
+          }),
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeout);
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.error || `HTTP ${response.status}`);
+        }
+        
+        console.log(`✓ Score submitted successfully (attempt ${attempt + 1})`);
+        return {
+          success: true,
+          rank: data.rank,
+          storage: data.storage || 'kv'
+        };
+      } catch (error) {
+        lastError = error;
+        if (attempt < LEADERBOARD_CONFIG.RETRY_ATTEMPTS - 1) {
+          console.warn(`Submit attempt ${attempt + 1} failed, retrying...`, error.message);
+          await new Promise(r => setTimeout(r, LEADERBOARD_CONFIG.RETRY_DELAY * (attempt + 1)));
+        }
+      }
+    }
+    
+    console.error('Score submission failed after all retries:', lastError);
+    throw lastError;
+  },
+  
+  /**
+   * Fetch scores from backend with retry logic
+   * @private
+   */
+  async _fetchFromBackend(difficulty, limit) {
+    let lastError = null;
+    
+    for (let attempt = 0; attempt < LEADERBOARD_CONFIG.RETRY_ATTEMPTS; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), LEADERBOARD_CONFIG.TIMEOUT_MS);
+        
+        const url = new URL(LEADERBOARD_CONFIG.API_URL);
+        url.searchParams.set('difficulty', difficulty);
+        url.searchParams.set('limit', Math.min(limit, 100));
+        
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeout);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log(`✓ Fetched ${data.entries?.length || 0} scores (attempt ${attempt + 1})`);
+        return data.entries || [];
+      } catch (error) {
+        lastError = error;
+        if (attempt < LEADERBOARD_CONFIG.RETRY_ATTEMPTS - 1) {
+          console.warn(`Fetch attempt ${attempt + 1} failed, retrying...`, error.message);
+          await new Promise(r => setTimeout(r, LEADERBOARD_CONFIG.RETRY_DELAY * (attempt + 1)));
+        }
+      }
+    }
+    
+    console.error('Leaderboard fetch failed after all retries:', lastError);
+    throw lastError;
+  }
+};
     return localScores
       .filter(entry => entry.userId === user.id)
       .sort((a, b) => b.score - a.score)
@@ -213,69 +334,6 @@ const LeaderboardSystem = {
     }
   },
   
-  /**
-   * Save score to local storage
-   * @private
-   */
-  _saveToLocal(entry) {
-    try {
-      const data = this._getLocalData();
-      data.push(entry);
-      
-      // Sort by score descending
-      data.sort((a, b) => b.score - a.score);
-      
-      // Keep only top entries
-      if (data.length > LEADERBOARD_CONFIG.MAX_LOCAL_ENTRIES) {
-        data.splice(LEADERBOARD_CONFIG.MAX_LOCAL_ENTRIES);
-      }
-      
-      localStorage.setItem(LEADERBOARD_CONFIG.LOCAL_KEY, JSON.stringify(data));
-    } catch (error) {
-      console.error('Failed to save local leaderboard:', error);
-    }
-  },
-  
-  /**
-   * Fetch scores from local storage
-   * @private
-   */
-  _fetchFromLocal(difficulty, limit) {
-    const data = this._getLocalData();
-    
-    return data
-      .filter(entry => difficulty === 'all' || entry.difficulty === difficulty)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, limit);
-  },
-  
-  /**
-   * Get local leaderboard data
-   * @private
-   */
-  _getLocalData() {
-    try {
-      const stored = localStorage.getItem(LEADERBOARD_CONFIG.LOCAL_KEY);
-      return stored ? JSON.parse(stored) : [];
-    } catch (error) {
-      return [];
-    }
-  },
-  
-  /**
-   * Calculate user's rank in local leaderboard
-   * @private
-   */
-  _calculateLocalRank(entry) {
-    const data = this._getLocalData();
-    const higherScores = data.filter(e => 
-      e.score > entry.score && 
-      (entry.difficulty === 'all' || e.difficulty === entry.difficulty)
-    );
-    return higherScores.length + 1;
-  }
-};
-
 // Make available globally
 if (typeof window !== 'undefined') {
   window.LeaderboardSystem = LeaderboardSystem;

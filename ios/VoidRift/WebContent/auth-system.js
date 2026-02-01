@@ -1,15 +1,17 @@
 /**
- * Unified Authentication System
+ * Unified Authentication System - Production Ready
  * Single source of truth for user authentication and session management
- * Integrates with backend API (Vercel) for persistent global data
- * Falls back to local storage for offline functionality
+ * Requires backend API (Vercel) connectivity for all operations
+ * No offline fallback - production mode only
  */
 
 const AUTH_CONFIG = {
   API_BASE: 'https://shooter-app-one.vercel.app/api',
   STORAGE_KEY: 'voidrift_session',
   SESSION_TIMEOUT: 24 * 60 * 60 * 1000, // 24 hours
-  TIMEOUT_MS: 5000
+  TIMEOUT_MS: 10000, // Increased to 10s for reliability
+  RETRY_ATTEMPTS: 3, // Retry failed requests
+  RETRY_DELAY: 1000 // 1 second between retries
 };
 
 /**
@@ -59,7 +61,7 @@ const AuthSystem = {
   },
   
   /**
-   * Register a new user
+   * Register a new user - REQUIRES BACKEND
    * @param {string} username - Username (3-20 characters)
    * @param {string} password - Password (4+ characters)
    * @returns {Promise<{success: boolean, error?: string}>}
@@ -76,47 +78,45 @@ const AuthSystem = {
       
       const cleanUsername = username.trim();
       
-      // Try backend registration first
-      try {
-        const response = await this._apiRequest('/users?action=register', {
-          method: 'POST',
-          body: JSON.stringify({ username: cleanUsername, password })
-        });
+      // Backend registration - REQUIRED for production
+      const response = await this._apiRequest('/users?action=register', {
+        method: 'POST',
+        body: JSON.stringify({ username: cleanUsername, password })
+      });
+      
+      if (response.success) {
+        // Create session from backend response
+        this.session = {
+          user: {
+            id: response.user.id,
+            username: response.user.username,
+            profile: response.user.profile
+          },
+          token: response.sessionToken,
+          createdAt: Date.now(),
+          expiresAt: Date.now() + AUTH_CONFIG.SESSION_TIMEOUT,
+          source: 'backend'
+        };
         
-        if (response.success) {
-          // Create session from backend response
-          this.session = {
-            user: {
-              id: response.user.id,
-              username: response.user.username,
-              profile: response.user.profile
-            },
-            token: response.sessionToken,
-            createdAt: Date.now(),
-            expiresAt: Date.now() + AUTH_CONFIG.SESSION_TIMEOUT,
-            source: 'backend'
-          };
-          
-          this.saveSession();
-          this.notifyAuthChange();
-          
-          return { success: true };
-        }
+        this.saveSession();
+        this.notifyAuthChange();
         
-        return { success: false, error: response.error || 'Registration failed' };
-      } catch (apiError) {
-        // Backend unavailable - fall back to local registration
-        console.warn('Backend registration failed, using local mode:', apiError.message);
-        return this._registerLocal(cleanUsername, password);
+        return { success: true };
       }
+      
+      return { success: false, error: response.error || 'Registration failed' };
     } catch (error) {
       console.error('Registration error:', error);
-      return { success: false, error: error.message || 'Registration failed' };
+      // Return network error for user feedback
+      if (error.message.includes('fetch') || error.message.includes('network')) {
+        return { success: false, error: 'Unable to connect to server. Please check your internet connection.' };
+      }
+      return { success: false, error: error.message || 'Registration failed. Please try again.' };
     }
   },
   
   /**
-   * Login with username and password
+   * Login with username and password - REQUIRES BACKEND
    * @param {string} username
    * @param {string} password
    * @returns {Promise<{success: boolean, error?: string}>}
@@ -129,45 +129,43 @@ const AuthSystem = {
       
       const cleanUsername = username.trim();
       
-      // Try backend login first
-      try {
-        const response = await this._apiRequest('/users?action=login', {
-          method: 'POST',
-          body: JSON.stringify({ username: cleanUsername, password })
-        });
+      // Backend login - REQUIRED for production
+      const response = await this._apiRequest('/users?action=login', {
+        method: 'POST',
+        body: JSON.stringify({ username: cleanUsername, password })
+      });
+      
+      if (response.success) {
+        // Create session from backend response
+        this.session = {
+          user: {
+            id: response.user.id,
+            username: response.user.username,
+            email: response.user.email,
+            profile: response.user.profile,
+            stats: response.user.stats,
+            friends: response.user.friends
+          },
+          token: response.sessionToken,
+          createdAt: Date.now(),
+          expiresAt: Date.now() + AUTH_CONFIG.SESSION_TIMEOUT,
+          source: 'backend'
+        };
         
-        if (response.success) {
-          // Create session from backend response
-          this.session = {
-            user: {
-              id: response.user.id,
-              username: response.user.username,
-              email: response.user.email,
-              profile: response.user.profile,
-              stats: response.user.stats,
-              friends: response.user.friends
-            },
-            token: response.sessionToken,
-            createdAt: Date.now(),
-            expiresAt: Date.now() + AUTH_CONFIG.SESSION_TIMEOUT,
-            source: 'backend'
-          };
-          
-          this.saveSession();
-          this.notifyAuthChange();
-          
-          return { success: true };
-        }
+        this.saveSession();
+        this.notifyAuthChange();
         
-        return { success: false, error: response.error || 'Invalid credentials' };
-      } catch (apiError) {
-        // Backend unavailable - try local login
-        console.warn('Backend login failed, trying local mode:', apiError.message);
-        return this._loginLocal(cleanUsername, password);
+        return { success: true };
       }
+      
+      return { success: false, error: response.error || 'Invalid credentials' };
     } catch (error) {
       console.error('Login error:', error);
-      return { success: false, error: error.message || 'Login failed' };
+      // Return network error for user feedback
+      if (error.message.includes('fetch') || error.message.includes('network')) {
+        return { success: false, error: 'Unable to connect to server. Please check your internet connection.' };
+      }
+      return { success: false, error: error.message || 'Login failed. Please try again.' };
     }
   },
   
@@ -223,7 +221,7 @@ const AuthSystem = {
   },
   
   /**
-   * Update game statistics
+   * Update game statistics - REQUIRES BACKEND
    * @param {Object} gameData - Game statistics (score, level, kills, deaths, etc.)
    * @returns {Promise<{success: boolean, xpGain?: number, levelUp?: boolean}>}
    */
@@ -233,21 +231,42 @@ const AuthSystem = {
     }
     
     try {
-      // Update backend if online
-      if (this.session.source === 'backend') {
-        const response = await this._apiRequest('/users?action=stats', {
-          method: 'POST',
-          body: JSON.stringify({
-            userId: this.session.user.id,
-            ...gameData
-          })
-        });
+      // Backend stats update - REQUIRED for production
+      if (this.session.source !== 'backend' || !this.session.token) {
+        return { success: false, error: 'Backend session required for stats update' };
+      }
+      
+      const response = await this._apiRequest('/users?action=stats', {
+        method: 'POST',
+        body: JSON.stringify({
+          userId: this.session.user.id,
+          ...gameData
+        })
+      });
+      
+      if (response.success) {
+        const oldLevel = this.session.user.profile?.level || 1;
+        this.session.user.profile = response.profile;
+        this.session.user.stats = response.stats;
+        this.saveSession();
+        this.notifyAuthChange();
         
-        if (response.success) {
-          const oldLevel = this.session.user.profile?.level || 1;
-          this.session.user.profile = response.profile;
-          this.session.user.stats = response.stats;
-          this.saveSession();
+        return {
+          success: true,
+          xpGain: response.xpGain || 0,
+          levelUp: response.profile.level > oldLevel
+        };
+      }
+      
+      return { success: false, error: response.error };
+    } catch (error) {
+      console.error('Stats update error:', error);
+      if (error.message.includes('fetch') || error.message.includes('network')) {
+        return { success: false, error: 'Unable to save stats. Please check your internet connection.' };
+      }
+      return { success: false, error: error.message };
+    }
+  },
           this.notifyAuthChange();
           
           return {
@@ -366,210 +385,58 @@ const AuthSystem = {
   },
   
   /**
-   * Make authenticated API request
+   * Make authenticated API request with retry logic for production
    * @private
    */
   async _apiRequest(endpoint, options = {}) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), AUTH_CONFIG.TIMEOUT_MS);
+    let lastError = null;
     
-    try {
-      const headers = {
-        'Content-Type': 'application/json',
-        ...options.headers
-      };
+    // Retry logic for production reliability
+    for (let attempt = 0; attempt < AUTH_CONFIG.RETRY_ATTEMPTS; attempt++) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), AUTH_CONFIG.TIMEOUT_MS);
       
-      // Add auth token if available
-      if (this.session?.token) {
-        headers.Authorization = `Bearer ${this.session.token}`;
+      try {
+        const headers = {
+          'Content-Type': 'application/json',
+          ...options.headers
+        };
+        
+        // Add auth token if available
+        if (this.session?.token) {
+          headers.Authorization = `Bearer ${this.session.token}`;
+        }
+        
+        const response = await fetch(`${AUTH_CONFIG.API_BASE}${endpoint}`, {
+          ...options,
+          headers,
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeout);
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.error || `HTTP ${response.status}`);
+        }
+        
+        return data;
+      } catch (error) {
+        clearTimeout(timeout);
+        lastError = error;
+        
+        // Log retry attempt
+        if (attempt < AUTH_CONFIG.RETRY_ATTEMPTS - 1) {
+          console.warn(`API request attempt ${attempt + 1} failed, retrying...`, error.message);
+          await new Promise(resolve => setTimeout(resolve, AUTH_CONFIG.RETRY_DELAY * (attempt + 1)));
+        }
       }
-      
-      const response = await fetch(`${AUTH_CONFIG.API_BASE}${endpoint}`, {
-        ...options,
-        headers,
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeout);
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || `HTTP ${response.status}`);
-      }
-      
-      return data;
-    } catch (error) {
-      clearTimeout(timeout);
-      throw error;
     }
-  },
-  
-  /**
-   * Local registration fallback
-   * @private
-   */
-  async _registerLocal(username, password) {
-    try {
-      // Check if user already exists locally
-      const existingUsers = this._getLocalUsers();
-      const userKey = username.toLowerCase();
-      
-      if (existingUsers[userKey]) {
-        return { success: false, error: 'Username already exists' };
-      }
-      
-      // Hash password
-      const passwordHash = await this._hashPassword(password);
-      
-      // Create local user
-      const userId = `local_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
-      existingUsers[userKey] = {
-        id: userId,
-        username,
-        passwordHash,
-        createdAt: Date.now()
-      };
-      
-      this._saveLocalUsers(existingUsers);
-      
-      // Create session
-      this.session = {
-        user: {
-          id: userId,
-          username,
-          profile: {
-            level: 1,
-            xp: 0,
-            gamesPlayed: 0,
-            totalScore: 0,
-            highScore: 0,
-            achievements: []
-          },
-          stats: {
-            kills: 0,
-            deaths: 0,
-            playTime: 0
-          }
-        },
-        token: null,
-        createdAt: Date.now(),
-        expiresAt: Date.now() + AUTH_CONFIG.SESSION_TIMEOUT,
-        source: 'local'
-      };
-      
-      this.saveSession();
-      this.notifyAuthChange();
-      
-      return { success: true };
-    } catch (error) {
-      console.error('Local registration error:', error);
-      return { success: false, error: error.message };
-    }
-  },
-  
-  /**
-   * Local login fallback
-   * @private
-   */
-  async _loginLocal(username, password) {
-    try {
-      const existingUsers = this._getLocalUsers();
-      const userKey = username.toLowerCase();
-      const user = existingUsers[userKey];
-      
-      if (!user) {
-        return { success: false, error: 'Invalid credentials' };
-      }
-      
-      // Verify password
-      const passwordHash = await this._hashPassword(password);
-      if (user.passwordHash !== passwordHash) {
-        return { success: false, error: 'Invalid credentials' };
-      }
-      
-      // Create session
-      this.session = {
-        user: {
-          id: user.id,
-          username: user.username,
-          profile: user.profile || {
-            level: 1,
-            xp: 0,
-            gamesPlayed: 0,
-            totalScore: 0,
-            highScore: 0,
-            achievements: []
-          },
-          stats: user.stats || {
-            kills: 0,
-            deaths: 0,
-            playTime: 0
-          }
-        },
-        token: null,
-        createdAt: Date.now(),
-        expiresAt: Date.now() + AUTH_CONFIG.SESSION_TIMEOUT,
-        source: 'local'
-      };
-      
-      this.saveSession();
-      this.notifyAuthChange();
-      
-      return { success: true };
-    } catch (error) {
-      console.error('Local login error:', error);
-      return { success: false, error: error.message };
-    }
-  },
-  
-  /**
-   * Get local users from storage
-   * @private
-   */
-  _getLocalUsers() {
-    try {
-      const stored = localStorage.getItem('voidrift_local_users');
-      return stored ? JSON.parse(stored) : {};
-    } catch (error) {
-      return {};
-    }
-  },
-  
-  /**
-   * Save local users to storage
-   * @private
-   */
-  _saveLocalUsers(users) {
-    try {
-      localStorage.setItem('voidrift_local_users', JSON.stringify(users));
-    } catch (error) {
-      console.error('Failed to save local users:', error);
-    }
-  },
-  
-  /**
-   * Hash password using Web Crypto API
-   * @private
-   */
-  async _hashPassword(password) {
-    try {
-      const encoder = new TextEncoder();
-      const data = encoder.encode(password);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    } catch (error) {
-      // Fallback for environments without Web Crypto API
-      console.warn('Web Crypto API not available, using simple hash');
-      let hash = 0;
-      for (let i = 0; i < password.length; i++) {
-        const char = password.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash;
-      }
-      return hash.toString(16);
-    }
+    
+    // All retries failed
+    console.error('API request failed after all retries:', lastError);
+    throw lastError;
   }
 };
 
