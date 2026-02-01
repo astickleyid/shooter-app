@@ -4986,98 +4986,21 @@
           }
         }
         ctx.shadowBlur = 0;
-          
-          // Sparking damage effects
-          if (criticalHealth) {
-            ctx.fillStyle = '#fbbf24';
-            ctx.shadowColor = '#f59e0b';
-            ctx.shadowBlur = 10;
-            for (let i = 0; i < 4; i++) {
-              const sparkX = this.size * 0.4 + Math.sin(performance.now() / 90 + i) * this.size * 0.5;
-              const sparkY = Math.cos(performance.now() / 130 + i) * this.size * 0.6;
-              ctx.beginPath();
-              ctx.arc(sparkX, sparkY, this.size * 0.06, 0, Math.PI * 2);
-              ctx.fill();
-            }
-            ctx.shadowBlur = 0;
-          }
-        }
         
-        // Rotating alien tech shields and energy fields
-        ctx.strokeStyle = damaged ? '#4ade80' : '#86efac';
-        ctx.lineWidth = 3;
-        ctx.shadowColor = '#22c55e';
-        ctx.shadowBlur = 10;
-        ctx.save();
-        ctx.rotate(rotation);
-        ctx.globalAlpha = 0.7;
-        ctx.beginPath();
-        ctx.moveTo(this.size * 0.6, -this.size * 0.8);
-        ctx.lineTo(-this.size * 0.6, -this.size * 0.6);
-        ctx.lineTo(-this.size * 0.6, this.size * 0.6);
-        ctx.lineTo(this.size * 0.6, this.size * 0.8);
-        ctx.closePath();
-        ctx.stroke();
-        
-        // Inner rotating shield matrix
-        ctx.strokeStyle = '#bbf7d0';
-        ctx.lineWidth = 2;
-        ctx.rotate(rotation * 1.5);
-        ctx.beginPath();
-        ctx.moveTo(this.size * 0.4, 0);
-        ctx.lineTo(0, -this.size * 0.4);
-        ctx.lineTo(-this.size * 0.4, 0);
-        ctx.lineTo(0, this.size * 0.4);
-        ctx.closePath();
-        ctx.stroke();
-        ctx.globalAlpha = 1;
-        ctx.restore();
-        ctx.shadowBlur = 0;
-        
-        // Central power core - alien reactor with energy rings
-        const coreGlow = 16 + Math.sin(performance.now() / 100) * 10;
-        const coreGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size * 0.5);
-        coreGradient.addColorStop(0, criticalHealth ? '#fca5a5' : '#ef4444');
-        coreGradient.addColorStop(0.5, criticalHealth ? '#f87171' : '#dc2626');
-        coreGradient.addColorStop(1, 'rgba(220, 38, 38, 0)');
-        ctx.fillStyle = coreGradient;
-        ctx.shadowColor = '#dc2626';
-        ctx.shadowBlur = coreGlow;
-        ctx.beginPath();
-        ctx.arc(0, 0, this.size * 0.45 * pulse, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Multi-layer reactor containment
-        ctx.strokeStyle = '#fef08a';
-        ctx.lineWidth = 3;
-        ctx.shadowBlur = coreGlow * 0.8;
-        ctx.beginPath();
-        ctx.arc(0, 0, this.size * 0.32, 0, Math.PI * 2);
-        ctx.stroke();
-        
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(0, 0, this.size * 0.18, 0, Math.PI * 2);
-        ctx.stroke();
-        
-        // Energy discharge beams radiating from core
-        if (pulse > 1.05) {
-          ctx.strokeStyle = `rgba(239, 68, 68, ${(pulse - 1) * 3})`;
-          ctx.lineWidth = 3;
-          ctx.shadowColor = '#dc2626';
-          ctx.shadowBlur = 15;
-          for (let i = 0; i < 8; i++) {
-            const angle = (i / 8) * Math.PI * 2 + rotation * 2;
-            const innerR = this.size * 0.45;
-            const outerR = this.size * 0.8;
+        // Sparking damage effects
+        if (criticalHealth) {
+          ctx.fillStyle = '#ff8800';
+          ctx.shadowColor = '#ff6600';
+          ctx.shadowBlur = 10;
+          for (let i = 0; i < 4; i++) {
+            const sparkX = this.size * 0.4 + Math.sin(performance.now() / 90 + i) * this.size * 0.5;
+            const sparkY = Math.cos(performance.now() / 130 + i) * this.size * 0.6;
             ctx.beginPath();
-            ctx.moveTo(Math.cos(angle) * innerR, Math.sin(angle) * innerR);
-            ctx.lineTo(Math.cos(angle) * outerR, Math.sin(angle) * outerR);
-            ctx.stroke();
+            ctx.arc(sparkX, sparkY, this.size * 0.06, 0, Math.PI * 2);
+            ctx.fill();
           }
+          ctx.shadowBlur = 0;
         }
-        ctx.shadowBlur = 0;
         
       } else {
         // REALISTIC ALIEN SCOUT PROBE - Metallic reconnaissance drone
