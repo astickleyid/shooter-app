@@ -4510,604 +4510,503 @@
       ctx.shadowBlur = aggroIntensity;
       
       if (this.kind === 'drone') {
-        // MENACING RED FIGHTER - Aggressive angular assault craft
-        // Bold red/black color scheme with sharp edges
+        // SPRITE-STYLE RED FIGHTER - Matching reference image aesthetic
+        // Clean geometric sprite design with thick outlines
         
-        // Outer glow for menace
-        if (!criticalHealth) {
-          ctx.shadowColor = 'rgba(220, 38, 38, 0.6)';
-          ctx.shadowBlur = 15;
-        }
+        const outlineWidth = 4;
+        const outlineColor = '#000000';
         
-        // Main hull - aggressive red fighter
-        const hullGradient = ctx.createLinearGradient(-this.size, -this.size, this.size, this.size);
-        hullGradient.addColorStop(0, damaged ? '#7f1d1d' : '#991b1b');
-        hullGradient.addColorStop(0.5, damaged ? '#dc2626' : '#ef4444');
-        hullGradient.addColorStop(1, damaged ? '#450a0a' : '#7f1d1d');
-        ctx.fillStyle = hullGradient;
-        ctx.strokeStyle = '#1a1a1a';
-        ctx.lineWidth = 3;
+        // Main body - red triangular fighter
+        ctx.fillStyle = damaged ? '#b91c1c' : '#dc2626';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = outlineWidth;
         ctx.beginPath();
-        ctx.moveTo(this.size * 1.4, 0);
-        ctx.lineTo(this.size * 0.6, -this.size * 0.7);
-        ctx.lineTo(-this.size * 0.4, -this.size * 0.8);
-        ctx.lineTo(-this.size * 0.6, -this.size * 0.5);
-        ctx.lineTo(-this.size * 0.5, 0);
-        ctx.lineTo(-this.size * 0.6, this.size * 0.5);
-        ctx.lineTo(-this.size * 0.4, this.size * 0.8);
-        ctx.lineTo(this.size * 0.6, this.size * 0.7);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-        
-        // Dark armor plating details
-        ctx.fillStyle = '#450a0a';
-        ctx.strokeStyle = '#7f1d1d';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(this.size * 0.9, 0);
-        ctx.lineTo(this.size * 0.4, -this.size * 0.5);
-        ctx.lineTo(-this.size * 0.2, -this.size * 0.55);
-        ctx.lineTo(-this.size * 0.2, this.size * 0.55);
-        ctx.lineTo(this.size * 0.4, this.size * 0.5);
+        ctx.moveTo(this.size * 1.3, 0);  // nose
+        ctx.lineTo(this.size * 0.3, -this.size * 0.8);  // top wing tip
+        ctx.lineTo(-this.size * 0.5, -this.size * 0.6);  // wing back top
+        ctx.lineTo(-this.size * 0.8, -this.size * 0.3);  // engine top
+        ctx.lineTo(-this.size * 0.8, this.size * 0.3);  // engine bottom
+        ctx.lineTo(-this.size * 0.5, this.size * 0.6);  // wing back bottom
+        ctx.lineTo(this.size * 0.3, this.size * 0.8);  // bottom wing tip
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
         
-        // Menacing cockpit - glowing red
-        ctx.fillStyle = criticalHealth ? '#fca5a5' : '#fee2e2';
-        ctx.strokeStyle = '#450a0a';
+        // Wing details - darker red panels
+        ctx.fillStyle = damaged ? '#7f1d1d' : '#991b1b';
+        ctx.strokeStyle = outlineColor;
         ctx.lineWidth = 2;
-        ctx.shadowColor = '#dc2626';
-        ctx.shadowBlur = 12;
         ctx.beginPath();
-        ctx.ellipse(this.size * 0.5, 0, this.size * 0.35, this.size * 0.22, 0, 0, Math.PI * 2);
+        ctx.moveTo(this.size * 0.7, 0);
+        ctx.lineTo(this.size * 0.2, -this.size * 0.5);
+        ctx.lineTo(-this.size * 0.3, -this.size * 0.4);
+        ctx.lineTo(-this.size * 0.3, this.size * 0.4);
+        ctx.lineTo(this.size * 0.2, this.size * 0.5);
+        ctx.closePath();
         ctx.fill();
         ctx.stroke();
-        ctx.shadowBlur = 0;
+        
+        // Cockpit canopy - bright blue (key sprite element)
+        ctx.fillStyle = '#3b82f6';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.ellipse(this.size * 0.5, 0, this.size * 0.3, this.size * 0.2, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
         
         // Cockpit highlight
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.fillStyle = '#60a5fa';
         ctx.beginPath();
-        ctx.ellipse(this.size * 0.55, -this.size * 0.08, this.size * 0.15, this.size * 0.1, 0, 0, Math.PI * 2);
+        ctx.ellipse(this.size * 0.55, -this.size * 0.08, this.size * 0.12, this.size * 0.08, 0, 0, Math.PI * 2);
         ctx.fill();
         
-        // Wing-mounted weapons - visible and threatening
+        // Weapon pods on wings
         ctx.fillStyle = '#1a1a1a';
-        ctx.strokeStyle = '#7f1d1d';
+        ctx.strokeStyle = outlineColor;
         ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.rect(-this.size * 0.35, -this.size * 0.72, this.size * 0.3, this.size * 0.15);
-        ctx.rect(-this.size * 0.35, this.size * 0.57, this.size * 0.3, this.size * 0.15);
-        ctx.fill();
-        ctx.stroke();
+        // Top weapon
+        ctx.fillRect(-this.size * 0.25, -this.size * 0.7, this.size * 0.2, this.size * 0.12);
+        ctx.strokeRect(-this.size * 0.25, -this.size * 0.7, this.size * 0.2, this.size * 0.12);
+        // Bottom weapon
+        ctx.fillRect(-this.size * 0.25, this.size * 0.58, this.size * 0.2, this.size * 0.12);
+        ctx.strokeRect(-this.size * 0.25, this.size * 0.58, this.size * 0.2, this.size * 0.12);
         
-        // Weapon barrels with charge glow
-        const weaponCharge = this.canShoot ? 1 : 0.3;
-        ctx.fillStyle = this.canShoot ? '#ff6600' : '#7f1d1d';
-        ctx.shadowColor = '#ff6600';
-        ctx.shadowBlur = weaponCharge * 15;
-        ctx.beginPath();
-        ctx.arc(-this.size * 0.45, -this.size * 0.65, this.size * 0.1 * pulse, 0, Math.PI * 2);
-        ctx.arc(-this.size * 0.45, this.size * 0.65, this.size * 0.1 * pulse, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-        
-        // Panel lines for detail
-        ctx.strokeStyle = 'rgba(20, 20, 20, 0.8)';
+        // Panel lines (mechanical details)
+        ctx.strokeStyle = outlineColor;
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.moveTo(this.size * 0.8, -this.size * 0.3);
-        ctx.lineTo(-this.size * 0.3, -this.size * 0.35);
-        ctx.moveTo(this.size * 0.8, this.size * 0.3);
-        ctx.lineTo(-this.size * 0.3, this.size * 0.35);
-        ctx.moveTo(this.size * 0.4, -this.size * 0.6);
-        ctx.lineTo(this.size * 0.4, this.size * 0.6);
+        // Central spine
+        ctx.moveTo(this.size * 0.8, 0);
+        ctx.lineTo(-this.size * 0.4, 0);
+        // Wing panels
+        ctx.moveTo(this.size * 0.2, -this.size * 0.5);
+        ctx.lineTo(-this.size * 0.2, -this.size * 0.5);
+        ctx.moveTo(this.size * 0.2, this.size * 0.5);
+        ctx.lineTo(-this.size * 0.2, this.size * 0.5);
         ctx.stroke();
         
-        // Engine thrusters - menacing orange glow
-        const thrusterGlow = Math.sin(performance.now() / 80) * 0.3 + 0.7;
-        ctx.fillStyle = '#ff6600';
-        ctx.shadowColor = '#ff6600';
-        ctx.shadowBlur = 12 * thrusterGlow;
-        ctx.beginPath();
-        ctx.ellipse(-this.size * 0.55, -this.size * 0.45, this.size * 0.12, this.size * 0.08, 0, 0, Math.PI * 2);
-        ctx.ellipse(-this.size * 0.55, this.size * 0.45, this.size * 0.12, this.size * 0.08, 0, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Thruster trails
-        if (thrusterGlow > 0.7) {
-          ctx.globalAlpha = 0.6 * thrusterGlow;
-          ctx.fillStyle = '#ffaa00';
-          ctx.beginPath();
-          ctx.ellipse(-this.size * 0.7, -this.size * 0.45, this.size * 0.18, this.size * 0.06, 0, 0, Math.PI * 2);
-          ctx.ellipse(-this.size * 0.7, this.size * 0.45, this.size * 0.18, this.size * 0.06, 0, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.globalAlpha = 1;
-        }
-        ctx.shadowBlur = 0;
-        
-      } else if (this.kind === 'chaser') {
-        // ALIEN PREDATOR - Purple/magenta organic hunter
-        const bodyPulse = Math.sin(performance.now() / 200 + this.animPhase) * 0.12 + 1;
-        
-        // Outer glow for menace
-        if (!criticalHealth) {
-          ctx.shadowColor = 'rgba(168, 85, 247, 0.6)';
-          ctx.shadowBlur = 18;
-        }
-        
-        // Main organic body - vibrant purple
-        const bodyGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size * 1.5);
-        bodyGradient.addColorStop(0, damaged ? '#a855f7' : '#c084fc');
-        bodyGradient.addColorStop(0.5, damaged ? '#7e22ce' : '#a855f7');
-        bodyGradient.addColorStop(1, damaged ? '#581c87' : '#7e22ce');
-        ctx.fillStyle = bodyGradient;
-        ctx.strokeStyle = '#1a1a1a';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.ellipse(0, 0, this.size * 1.5 * bodyPulse, this.size * 1.1 * pulse, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-        
-        // Segmented back section
-        ctx.fillStyle = damaged ? '#6b21a8' : '#7e22ce';
-        ctx.strokeStyle = '#1a1a1a';
+        // Engine thrusters - bright cyan (sprite staple)
+        const thrusterPulse = Math.sin(performance.now() / 100) * 0.2 + 0.8;
+        ctx.fillStyle = '#06b6d4';
+        ctx.strokeStyle = outlineColor;
         ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.ellipse(-this.size * 0.6, 0, this.size * 1.0, this.size * 0.8, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-        
-        // Armor segments - vibrant detail
-        if (!criticalHealth) {
-          ctx.strokeStyle = '#e879f9';
-          ctx.lineWidth = 2;
-          for (let i = 0; i < 4; i++) {
-            const segmentX = this.size * (1.0 - i * 0.4);
-            const segmentR = this.size * (0.9 - i * 0.15);
-            ctx.beginPath();
-            ctx.ellipse(segmentX, 0, segmentR, segmentR * 0.7, 0, 0, Math.PI * 2);
-            ctx.stroke();
-          }
-        }
-        
-        // Alien head section
-        ctx.fillStyle = damaged ? '#7e22ce' : '#9333ea';
-        ctx.strokeStyle = '#1a1a1a';
-        ctx.lineWidth = 2.5;
-        ctx.beginPath();
-        ctx.ellipse(this.size * 0.8, 0, this.size * 0.7, this.size * 0.55, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-        
-        // Menacing mandibles - purple/magenta claws
-        ctx.strokeStyle = '#e879f9';
-        ctx.lineWidth = 6;
-        ctx.lineCap = 'round';
-        ctx.shadowColor = '#a855f7';
-        ctx.shadowBlur = 8;
-        const clawWave = Math.sin(performance.now() / 150) * 0.25;
-        const clawSnap = Math.abs(Math.sin(performance.now() / 500)) * 0.2;
-        
-        // Upper claw
-        ctx.beginPath();
-        ctx.moveTo(this.size * 1.1, -this.size * 0.4);
-        ctx.quadraticCurveTo(this.size * (1.5 + clawWave), -this.size * (0.85 + clawSnap), this.size * (1.8 + clawWave), -this.size * (1.15 + clawSnap));
-        ctx.stroke();
-        
-        // Claw serrations
-        ctx.lineWidth = 4;
-        ctx.strokeStyle = '#f0abfc';
-        for (let i = 0; i < 3; i++) {
-          const tipX = this.size * (1.8 + clawWave - i * 0.1);
-          const tipY = -this.size * (1.15 + clawSnap + i * 0.04);
-          ctx.beginPath();
-          ctx.moveTo(tipX, tipY);
-          ctx.lineTo(tipX + this.size * 0.15, tipY - this.size * 0.1);
-          ctx.stroke();
-        }
-        
-        // Lower claw
-        ctx.strokeStyle = '#e879f9';
-        ctx.lineWidth = 6;
-        ctx.beginPath();
-        ctx.moveTo(this.size * 1.1, this.size * 0.4);
-        ctx.quadraticCurveTo(this.size * (1.5 + clawWave), this.size * (0.85 + clawSnap), this.size * (1.8 + clawWave), this.size * (1.15 + clawSnap));
-        ctx.stroke();
-        
-        ctx.lineWidth = 4;
-        ctx.strokeStyle = '#f0abfc';
-        for (let i = 0; i < 3; i++) {
-          const tipX = this.size * (1.8 + clawWave - i * 0.1);
-          const tipY = this.size * (1.15 + clawSnap - i * 0.04);
-          ctx.beginPath();
-          ctx.moveTo(tipX, tipY);
-          ctx.lineTo(tipX + this.size * 0.15, tipY + this.size * 0.1);
-          ctx.stroke();
-        }
-        ctx.lineCap = 'butt';
-        ctx.shadowBlur = 0;
-        
-        // Predatory eyes - glowing magenta
-        ctx.shadowColor = criticalHealth ? '#fca5a5' : '#e879f9';
-        ctx.shadowBlur = 16 + Math.sin(performance.now() / 150) * 8;
-        ctx.fillStyle = criticalHealth ? '#fca5a5' : '#fdf4ff';
-        ctx.strokeStyle = '#581c87';
-        ctx.lineWidth = 2.5;
-        ctx.beginPath();
-        ctx.arc(this.size * 0.6, -this.size * 0.35, this.size * 0.3 * pulse, 0, Math.PI * 2);
-        ctx.arc(this.size * 0.6, this.size * 0.35, this.size * 0.3 * pulse, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-        
-        // Eye highlights
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-        ctx.shadowBlur = 0;
-        ctx.beginPath();
-        ctx.arc(this.size * 0.65, -this.size * 0.4, this.size * 0.12, 0, Math.PI * 2);
-        ctx.arc(this.size * 0.65, this.size * 0.3, this.size * 0.12, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Dark pupils
-        ctx.fillStyle = '#1a1a1a';
-        const pupilOffset = Math.sin(performance.now() / 300) * 0.1;
-        ctx.beginPath();
-        ctx.arc(this.size * (0.65 + pupilOffset), -this.size * 0.35, this.size * 0.15, 0, Math.PI * 2);
-        ctx.arc(this.size * (0.65 + pupilOffset), this.size * 0.35, this.size * 0.15, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Organic tendrils/legs
-        ctx.strokeStyle = '#c084fc';
-        ctx.lineWidth = 4;
-        ctx.shadowColor = '#a855f7';
-        ctx.shadowBlur = 6;
-        for (let i = 0; i < 4; i++) {
-          const legPhase = performance.now() / 200 + i * Math.PI / 2;
-          const legWave = Math.sin(legPhase) * 0.3;
-          const legX = -this.size * (0.2 + i * 0.3);
-          const legY1 = -this.size * (0.9 + legWave);
-          const legY2 = this.size * (0.9 + legWave);
-          
-          // Top tendril
-          ctx.beginPath();
-          ctx.moveTo(legX, -this.size * 0.7);
-          const jointX = legX - this.size * 0.18;
-          const jointY1 = -this.size * (0.8 + legWave * 0.5);
-          ctx.lineTo(jointX, jointY1);
-          ctx.lineTo(legX - this.size * 0.35, legY1);
-          ctx.stroke();
-          
-          // Bottom tendril
-          ctx.beginPath();
-          ctx.moveTo(legX, this.size * 0.7);
-          const jointY2 = this.size * (0.8 + legWave * 0.5);
-          ctx.lineTo(jointX, jointY2);
-          ctx.lineTo(legX - this.size * 0.35, legY2);
-          ctx.stroke();
-          
-          // Joint spheres
-          ctx.fillStyle = '#9333ea';
-          ctx.beginPath();
-          ctx.arc(jointX, jointY1, this.size * 0.1, 0, Math.PI * 2);
-          ctx.arc(jointX, jointY2, this.size * 0.1, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        ctx.shadowBlur = 0;
-        
-      } else if (this.kind === 'heavy') {
-        // INTIMIDATING BATTLECRUISER - Dark gray/orange war machine
-        const rotation = performance.now() / 800;
-        
-        // Menacing outer glow
-        if (!criticalHealth) {
-          ctx.shadowColor = 'rgba(249, 115, 22, 0.5)';
-          ctx.shadowBlur = 20;
-        }
-        
-        // Main fortress hull - dark gray with orange accents
-        const hullGradient = ctx.createRadialGradient(-this.size * 0.3, 0, 0, 0, 0, this.size * 1.6);
-        hullGradient.addColorStop(0, damaged ? '#3f3f46' : '#52525b');
-        hullGradient.addColorStop(0.5, damaged ? '#27272a' : '#3f3f46');
-        hullGradient.addColorStop(1, damaged ? '#18181b' : '#27272a');
-        ctx.fillStyle = hullGradient;
-        ctx.strokeStyle = '#1a1a1a';
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.moveTo(this.size * 1.5, 0);
-        ctx.lineTo(this.size * 0.8, -this.size * 1.2);
-        ctx.lineTo(-this.size * 0.3, -this.size * 1.05);
-        ctx.lineTo(-this.size * 1.4, -this.size * 0.35);
-        ctx.lineTo(-this.size * 1.4, this.size * 0.35);
-        ctx.lineTo(-this.size * 0.3, this.size * 1.05);
-        ctx.lineTo(this.size * 0.8, this.size * 1.2);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-        
-        // Orange armor plating accents
-        ctx.fillStyle = damaged ? '#c2410c' : '#ea580c';
-        ctx.strokeStyle = '#1a1a1a';
-        ctx.lineWidth = 2.5;
-        ctx.beginPath();
-        ctx.moveTo(this.size * 1.1, 0);
-        ctx.lineTo(this.size * 0.6, -this.size * 0.9);
-        ctx.lineTo(-this.size * 0.2, -this.size * 0.75);
-        ctx.lineTo(-this.size * 1.0, 0);
-        ctx.lineTo(-this.size * 0.2, this.size * 0.75);
-        ctx.lineTo(this.size * 0.6, this.size * 0.9);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-        
-        // Command bridge section
-        ctx.fillStyle = '#18181b';
-        ctx.strokeStyle = '#f97316';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.rect(this.size * 0.2, -this.size * 0.3, this.size * 0.5, this.size * 0.6);
-        ctx.fill();
-        ctx.stroke();
-        
-        // Bridge windows - glowing orange
-        ctx.fillStyle = '#ffedd5';
-        ctx.shadowColor = '#f97316';
-        ctx.shadowBlur = 10;
-        ctx.beginPath();
-        ctx.rect(this.size * 0.25, -this.size * 0.22, this.size * 0.4, this.size * 0.14);
-        ctx.rect(this.size * 0.25, this.size * 0.08, this.size * 0.4, this.size * 0.14);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-        
-        // Massive weapon turrets - orange and black
-        ctx.fillStyle = '#1a1a1a';
-        ctx.strokeStyle = '#ea580c';
-        ctx.lineWidth = 3;
-        const weaponPoints = [
-          [this.size * 0.8, -this.size * 1.1],
-          [this.size * 1.45, 0],
-          [this.size * 0.8, this.size * 1.1],
-          [-this.size * 0.3, this.size * 1.0],
-          [-this.size * 1.35, 0],
-          [-this.size * 0.3, -this.size * 1.0]
-        ];
-        weaponPoints.forEach(([x, y]) => {
-          ctx.beginPath();
-          ctx.arc(x, y, this.size * 0.2, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.stroke();
-          
-          // Weapon barrel detail
-          ctx.fillStyle = '#0a0a0a';
-          ctx.beginPath();
-          ctx.arc(x, y, this.size * 0.12, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.fillStyle = '#1a1a1a';
-        });
-        
-        // Weapon charging - bright orange
-        if (this.canShoot) {
-          ctx.fillStyle = '#ff6600';
-          ctx.shadowColor = '#ff8800';
-          ctx.shadowBlur = 18;
-          weaponPoints.forEach(([x, y]) => {
-            const chargePulse = Math.sin(performance.now() / 120 + x + y) * 0.3 + 0.7;
-            ctx.globalAlpha = chargePulse * 0.9;
-            ctx.beginPath();
-            ctx.arc(x, y, this.size * 0.14, 0, Math.PI * 2);
-            ctx.fill();
-          });
-          ctx.globalAlpha = 1;
-          ctx.shadowBlur = 0;
-        }
-        
-        // Hull panel lines
-        ctx.strokeStyle = 'rgba(30, 30, 30, 0.9)';
-        ctx.lineWidth = 2;
-        for (let i = 0; i < 4; i++) {
-          const stripY = this.size * (-0.7 + i * 0.47);
-          ctx.beginPath();
-          ctx.moveTo(-this.size * 1.2, stripY);
-          ctx.lineTo(this.size * 1.2, stripY);
-          ctx.stroke();
-        }
-        
-        // Vertical detail lines
-        for (let i = 0; i < 3; i++) {
-          const stripX = this.size * (-0.5 + i * 0.5);
-          ctx.beginPath();
-          ctx.moveTo(stripX, -this.size * 0.9);
-          ctx.lineTo(stripX, this.size * 0.9);
-          ctx.stroke();
-        }
-        
-        // Battle damage effects
-        if (damaged && criticalHealth) {
-          ctx.fillStyle = '#ff8800';
-          ctx.shadowColor = '#ff6600';
-          ctx.shadowBlur = 12;
-          for (let i = 0; i < 5; i++) {
-            const sparkX = this.size * 0.5 + Math.sin(performance.now() / 90 + i) * this.size * 0.6;
-            const sparkY = Math.cos(performance.now() / 130 + i) * this.size * 0.7;
-            ctx.beginPath();
-            ctx.arc(sparkX, sparkY, this.size * 0.07, 0, Math.PI * 2);
-            ctx.fill();
-          }
-          ctx.shadowBlur = 0;
-        }
-        
-        // Engine exhausts - orange thrust
-        const thrusterGlow = Math.sin(performance.now() / 70) * 0.3 + 0.7;
-        ctx.fillStyle = '#ff6600';
-        ctx.shadowColor = '#ff8800';
-        ctx.shadowBlur = 15 * thrusterGlow;
-        ctx.beginPath();
-        ctx.ellipse(-this.size * 1.3, -this.size * 0.25, this.size * 0.18, this.size * 0.12, 0, 0, Math.PI * 2);
-        ctx.ellipse(-this.size * 1.3, this.size * 0.25, this.size * 0.18, this.size * 0.12, 0, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Thruster trails
-        if (thrusterGlow > 0.7) {
-          ctx.globalAlpha = 0.7 * thrusterGlow;
-          ctx.fillStyle = '#ffaa00';
-          ctx.beginPath();
-          ctx.ellipse(-this.size * 1.5, -this.size * 0.25, this.size * 0.25, this.size * 0.08, 0, 0, Math.PI * 2);
-          ctx.ellipse(-this.size * 1.5, this.size * 0.25, this.size * 0.25, this.size * 0.08, 0, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.globalAlpha = 1;
-        }
-        ctx.shadowBlur = 0;
-        
-      } else {
-        // AGGRESSIVE SCOUT DRONE - Orange/red compact fighter
-        // Vibrant orange shell with aggressive design
-        
-        // Menacing glow
-        if (!criticalHealth) {
-          ctx.shadowColor = 'rgba(249, 115, 22, 0.7)';
-          ctx.shadowBlur = 15;
-        }
-        
-        // Main body - bright orange gradient
-        const bodyGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size * 1.2);
-        bodyGradient.addColorStop(0, damaged ? '#fb923c' : '#fdba74');
-        bodyGradient.addColorStop(0.5, damaged ? '#f97316' : '#fb923c');
-        bodyGradient.addColorStop(1, damaged ? '#c2410c' : '#f97316');
-        ctx.fillStyle = bodyGradient;
-        ctx.strokeStyle = '#1a1a1a';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        for (let i = 0; i < 8; i++) {
-          const angle = (i / 8) * Math.PI * 2;
-          const wobble = Math.sin(performance.now() / 100 + i + this.animPhase) * 0.12 + 0.94;
-          const r = this.size * wobble * pulse;
-          const x = Math.cos(angle) * r;
-          const y = Math.sin(angle) * r * 0.9;
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        }
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-        
-        // Inner armor plating - darker orange
-        ctx.fillStyle = damaged ? '#c2410c' : '#ea580c';
-        ctx.strokeStyle = '#1a1a1a';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        for (let i = 0; i < 6; i++) {
-          const angle = (i / 6) * Math.PI * 2 + Math.PI / 6;
-          const r = this.size * 0.65;
-          const x = Math.cos(angle) * r;
-          const y = Math.sin(angle) * r * 0.9;
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        }
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-        
-        // Rotating sensor arrays - aggressive red
         ctx.save();
-        const sensorRotation = performance.now() / 500;
-        ctx.rotate(sensorRotation);
-        ctx.strokeStyle = '#dc2626';
-        ctx.lineWidth = 3;
-        for (let i = 0; i < 4; i++) {
-          const angle = (i / 4) * Math.PI * 2;
-          const x1 = Math.cos(angle) * this.size * 0.45;
-          const y1 = Math.sin(angle) * this.size * 0.45;
-          const x2 = Math.cos(angle) * this.size * 0.95;
-          const y2 = Math.sin(angle) * this.size * 0.95;
-          ctx.beginPath();
-          ctx.moveTo(x1, y1);
-          ctx.lineTo(x2, y2);
-          ctx.stroke();
-          
-          // Sensor tips - glowing red
-          ctx.fillStyle = '#fca5a5';
-          ctx.strokeStyle = '#7f1d1d';
-          ctx.lineWidth = 2;
-          ctx.shadowColor = '#dc2626';
-          ctx.shadowBlur = 8;
-          ctx.beginPath();
-          ctx.arc(x2, y2, this.size * 0.12, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.stroke();
-          ctx.shadowBlur = 0;
-        }
+        ctx.globalAlpha = thrusterPulse;
+        // Top thruster
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 0.75, -this.size * 0.25, this.size * 0.15, this.size * 0.1, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        // Bottom thruster
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 0.75, this.size * 0.25, this.size * 0.15, this.size * 0.1, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
         ctx.restore();
         
-        // Central scanner eye - menacing red
-        ctx.fillStyle = criticalHealth ? '#fef3c7' : '#fee2e2';
-        ctx.strokeStyle = '#7f1d1d';
-        ctx.lineWidth = 2.5;
-        ctx.shadowColor = '#dc2626';
-        ctx.shadowBlur = 14 + Math.sin(performance.now() / 100) * 6;
+        // Thruster glow trails
+        if (thrusterPulse > 0.9) {
+          ctx.fillStyle = '#67e8f9';
+          ctx.globalAlpha = 0.6;
+          ctx.beginPath();
+          ctx.ellipse(-this.size * 0.95, -this.size * 0.25, this.size * 0.2, this.size * 0.08, 0, 0, Math.PI * 2);
+          ctx.ellipse(-this.size * 0.95, this.size * 0.25, this.size * 0.2, this.size * 0.08, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+        
+      } else if (this.kind === 'chaser') {
+        // SPRITE-STYLE PURPLE PREDATOR - Matching reference image aesthetic
+        // Angular menacing design with thick outlines
+        
+        const outlineWidth = 4;
+        const outlineColor = '#000000';
+        
+        // Main body - purple angular predator
+        ctx.fillStyle = damaged ? '#7c3aed' : '#a78bfa';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = outlineWidth;
         ctx.beginPath();
-        ctx.arc(0, 0, this.size * 0.4 * pulse, 0, Math.PI * 2);
+        // Front angular nose
+        ctx.moveTo(this.size * 1.4, 0);
+        // Top swept wing
+        ctx.lineTo(this.size * 0.5, -this.size * 1.0);
+        ctx.lineTo(-this.size * 0.3, -this.size * 0.9);
+        ctx.lineTo(-this.size * 0.7, -this.size * 0.5);
+        // Back engine section
+        ctx.lineTo(-this.size * 0.9, -this.size * 0.2);
+        ctx.lineTo(-this.size * 0.9, this.size * 0.2);
+        ctx.lineTo(-this.size * 0.7, this.size * 0.5);
+        // Bottom swept wing
+        ctx.lineTo(-this.size * 0.3, this.size * 0.9);
+        ctx.lineTo(this.size * 0.5, this.size * 1.0);
+        ctx.closePath();
         ctx.fill();
         ctx.stroke();
         
-        // Eye highlight
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        // Inner body panel - darker purple
+        ctx.fillStyle = damaged ? '#5b21b6' : '#7c3aed';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.arc(this.size * 0.08, -this.size * 0.1, this.size * 0.15, 0, Math.PI * 2);
+        ctx.moveTo(this.size * 0.9, 0);
+        ctx.lineTo(this.size * 0.3, -this.size * 0.6);
+        ctx.lineTo(-this.size * 0.2, -this.size * 0.5);
+        ctx.lineTo(-this.size * 0.6, 0);
+        ctx.lineTo(-this.size * 0.2, this.size * 0.5);
+        ctx.lineTo(this.size * 0.3, this.size * 0.6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        
+        // Cockpit canopy - bright blue
+        ctx.fillStyle = '#3b82f6';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.ellipse(this.size * 0.6, 0, this.size * 0.35, this.size * 0.25, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Cockpit highlight
+        ctx.fillStyle = '#60a5fa';
+        ctx.beginPath();
+        ctx.ellipse(this.size * 0.65, -this.size * 0.1, this.size * 0.15, this.size * 0.1, 0, 0, Math.PI * 2);
         ctx.fill();
         
-        // Dark pupil
+        // Wing-tip weapons/pods - dark sections
         ctx.fillStyle = '#1a1a1a';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
+        // Top weapon pod
         ctx.beginPath();
-        ctx.arc(this.size * 0.05, -this.size * 0.05, this.size * 0.22, 0, Math.PI * 2);
+        ctx.ellipse(this.size * 0.1, -this.size * 0.85, this.size * 0.18, this.size * 0.12, -0.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        // Bottom weapon pod
+        ctx.beginPath();
+        ctx.ellipse(this.size * 0.1, this.size * 0.85, this.size * 0.18, this.size * 0.12, 0.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Panel lines (mechanical greebles)
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        // Central spine
+        ctx.moveTo(this.size * 1.0, 0);
+        ctx.lineTo(-this.size * 0.5, 0);
+        // Wing panels - top
+        ctx.moveTo(this.size * 0.4, -this.size * 0.7);
+        ctx.lineTo(-this.size * 0.1, -this.size * 0.6);
+        // Wing panels - bottom
+        ctx.moveTo(this.size * 0.4, this.size * 0.7);
+        ctx.lineTo(-this.size * 0.1, this.size * 0.6);
+        // Angled details
+        ctx.moveTo(this.size * 0.2, -this.size * 0.4);
+        ctx.lineTo(this.size * 0.2, this.size * 0.4);
+        ctx.stroke();
+        
+        // Small greeble details (vents/panels)
+        ctx.fillStyle = '#4c1d95';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 1;
+        // Top vent
+        ctx.fillRect(-this.size * 0.15, -this.size * 0.35, this.size * 0.15, this.size * 0.06);
+        ctx.strokeRect(-this.size * 0.15, -this.size * 0.35, this.size * 0.15, this.size * 0.06);
+        // Bottom vent
+        ctx.fillRect(-this.size * 0.15, this.size * 0.29, this.size * 0.15, this.size * 0.06);
+        ctx.strokeRect(-this.size * 0.15, this.size * 0.29, this.size * 0.15, this.size * 0.06);
+        
+        // Engine thrusters - bright cyan
+        const thrusterPulse = Math.sin(performance.now() / 100) * 0.2 + 0.8;
+        ctx.fillStyle = '#06b6d4';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
+        ctx.save();
+        ctx.globalAlpha = thrusterPulse;
+        // Top thruster
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 0.85, -this.size * 0.3, this.size * 0.12, this.size * 0.1, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        // Bottom thruster  
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 0.85, this.size * 0.3, this.size * 0.12, this.size * 0.1, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+        
+        // Thruster trails
+        if (thrusterPulse > 0.9) {
+          ctx.fillStyle = '#67e8f9';
+          ctx.globalAlpha = 0.6;
+          ctx.beginPath();
+          ctx.ellipse(-this.size * 1.05, -this.size * 0.3, this.size * 0.18, this.size * 0.08, 0, 0, Math.PI * 2);
+          ctx.ellipse(-this.size * 1.05, this.size * 0.3, this.size * 0.18, this.size * 0.08, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+        
+      } else if (this.kind === 'heavy') {
+        // SPRITE-STYLE HEAVY BATTLESHIP - Matching reference image aesthetic
+        // Large blocky design with thick outlines, resembling a space fortress
+        
+        const outlineWidth = 4;
+        const outlineColor = '#000000';
+        
+        // Main hull - gray/black fortress
+        ctx.fillStyle = damaged ? '#3f3f46' : '#52525b';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = outlineWidth;
+        ctx.beginPath();
+        // Front section
+        ctx.moveTo(this.size * 1.2, 0);
+        ctx.lineTo(this.size * 0.9, -this.size * 0.4);
+        // Top heavy section
+        ctx.lineTo(this.size * 0.5, -this.size * 1.1);
+        ctx.lineTo(-this.size * 0.5, -this.size * 1.1);
+        ctx.lineTo(-this.size * 1.2, -this.size * 0.6);
+        // Back engines
+        ctx.lineTo(-this.size * 1.3, -this.size * 0.3);
+        ctx.lineTo(-this.size * 1.3, this.size * 0.3);
+        ctx.lineTo(-this.size * 1.2, this.size * 0.6);
+        // Bottom heavy section
+        ctx.lineTo(-this.size * 0.5, this.size * 1.1);
+        ctx.lineTo(this.size * 0.5, this.size * 1.1);
+        ctx.lineTo(this.size * 0.9, this.size * 0.4);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        
+        // Orange accent panels
+        ctx.fillStyle = damaged ? '#c2410c' : '#ea580c';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
+        // Top orange stripe
+        ctx.fillRect(this.size * 0.3, -this.size * 0.95, this.size * 0.5, this.size * 0.15);
+        ctx.strokeRect(this.size * 0.3, -this.size * 0.95, this.size * 0.5, this.size * 0.15);
+        // Bottom orange stripe
+        ctx.fillRect(this.size * 0.3, this.size * 0.8, this.size * 0.5, this.size * 0.15);
+        ctx.strokeRect(this.size * 0.3, this.size * 0.8, this.size * 0.5, this.size * 0.15);
+        
+        // Central body darker section
+        ctx.fillStyle = damaged ? '#27272a' : '#3f3f46';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(this.size * 0.8, 0);
+        ctx.lineTo(this.size * 0.4, -this.size * 0.7);
+        ctx.lineTo(-this.size * 0.4, -this.size * 0.7);
+        ctx.lineTo(-this.size * 0.9, 0);
+        ctx.lineTo(-this.size * 0.4, this.size * 0.7);
+        ctx.lineTo(this.size * 0.4, this.size * 0.7);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        
+        // Cockpit/bridge - bright blue (sprite signature)
+        ctx.fillStyle = '#3b82f6';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2.5;
+        ctx.fillRect(this.size * 0.5, -this.size * 0.25, this.size * 0.35, this.size * 0.5);
+        ctx.strokeRect(this.size * 0.5, -this.size * 0.25, this.size * 0.35, this.size * 0.5);
+        
+        // Bridge highlight
+        ctx.fillStyle = '#60a5fa';
+        ctx.fillRect(this.size * 0.55, -this.size * 0.18, this.size * 0.25, this.size * 0.15);
+        
+        // Weapon turrets - black circles on hull
+        ctx.fillStyle = '#1a1a1a';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2.5;
+        const turretPositions = [
+          [this.size * 0.4, -this.size * 1.0],
+          [this.size * 1.05, -this.size * 0.2],
+          [this.size * 1.05, this.size * 0.2],
+          [this.size * 0.4, this.size * 1.0],
+          [-this.size * 0.5, -this.size * 1.0],
+          [-this.size * 0.5, this.size * 1.0]
+        ];
+        turretPositions.forEach(([x, y]) => {
+          ctx.beginPath();
+          ctx.arc(x, y, this.size * 0.15, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        });
+        
+        // Panel lines (greebles)
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        // Horizontal panels
+        ctx.moveTo(this.size * 0.8, -this.size * 0.5);
+        ctx.lineTo(-this.size * 0.8, -this.size * 0.5);
+        ctx.moveTo(this.size * 0.8, 0);
+        ctx.lineTo(-this.size * 0.8, 0);
+        ctx.moveTo(this.size * 0.8, this.size * 0.5);
+        ctx.lineTo(-this.size * 0.8, this.size * 0.5);
+        // Vertical panels
+        ctx.moveTo(this.size * 0.2, -this.size * 0.9);
+        ctx.lineTo(this.size * 0.2, this.size * 0.9);
+        ctx.moveTo(-this.size * 0.2, -this.size * 0.9);
+        ctx.lineTo(-this.size * 0.2, this.size * 0.9);
+        ctx.stroke();
+        
+        // Small greeble details (vents)
+        ctx.fillStyle = '#18181b';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 4; i++) {
+          const ventY = -this.size * 0.6 + i * this.size * 0.4;
+          ctx.fillRect(-this.size * 0.6, ventY, this.size * 0.12, this.size * 0.08);
+          ctx.strokeRect(-this.size * 0.6, ventY, this.size * 0.12, this.size * 0.08);
+        }
+        
+        // Engine thrusters - bright cyan (multiple)
+        const thrusterPulse = Math.sin(performance.now() / 100) * 0.2 + 0.8;
+        ctx.fillStyle = '#06b6d4';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
+        ctx.save();
+        ctx.globalAlpha = thrusterPulse;
+        // Main thrusters
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 1.25, -this.size * 0.45, this.size * 0.12, this.size * 0.12, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 1.25, this.size * 0.45, this.size * 0.12, this.size * 0.12, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        // Smaller side thrusters
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 1.15, -this.size * 0.15, this.size * 0.08, this.size * 0.08, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 1.15, this.size * 0.15, this.size * 0.08, this.size * 0.08, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+        
+        // Thruster trails
+        if (thrusterPulse > 0.9) {
+          ctx.fillStyle = '#67e8f9';
+          ctx.globalAlpha = 0.6;
+          ctx.beginPath();
+          ctx.ellipse(-this.size * 1.45, -this.size * 0.45, this.size * 0.2, this.size * 0.08, 0, 0, Math.PI * 2);
+          ctx.ellipse(-this.size * 1.45, this.size * 0.45, this.size * 0.2, this.size * 0.08, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+        
+      } else {
+        // SPRITE-STYLE ORANGE SCOUT - Matching reference image aesthetic
+        // Compact, aggressive orange fighter with thick outlines
+        
+        const outlineWidth = 4;
+        const outlineColor = '#000000';
+        
+        // Main body - bright orange compact fighter
+        ctx.fillStyle = damaged ? '#ea580c' : '#fb923c';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = outlineWidth;
+        ctx.beginPath();
+        // Compact angular design
+        ctx.moveTo(this.size * 1.1, 0);
+        ctx.lineTo(this.size * 0.5, -this.size * 0.7);
+        ctx.lineTo(-this.size * 0.2, -this.size * 0.8);
+        ctx.lineTo(-this.size * 0.7, -this.size * 0.4);
+        ctx.lineTo(-this.size * 0.8, 0);
+        ctx.lineTo(-this.size * 0.7, this.size * 0.4);
+        ctx.lineTo(-this.size * 0.2, this.size * 0.8);
+        ctx.lineTo(this.size * 0.5, this.size * 0.7);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        
+        // Inner darker panel
+        ctx.fillStyle = damaged ? '#c2410c' : '#ea580c';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(this.size * 0.7, 0);
+        ctx.lineTo(this.size * 0.3, -this.size * 0.4);
+        ctx.lineTo(-this.size * 0.1, -this.size * 0.5);
+        ctx.lineTo(-this.size * 0.5, 0);
+        ctx.lineTo(-this.size * 0.1, this.size * 0.5);
+        ctx.lineTo(this.size * 0.3, this.size * 0.4);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        
+        // Cockpit canopy - bright blue
+        ctx.fillStyle = '#3b82f6';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.ellipse(this.size * 0.4, 0, this.size * 0.25, this.size * 0.18, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Cockpit highlight
+        ctx.fillStyle = '#60a5fa';
+        ctx.beginPath();
+        ctx.ellipse(this.size * 0.45, -this.size * 0.08, this.size * 0.1, this.size * 0.07, 0, 0, Math.PI * 2);
         ctx.fill();
         
-        // Targeting beam when charging
-        if (this.canShoot) {
-          ctx.strokeStyle = '#ff0000';
-          ctx.lineWidth = 2.5;
-          ctx.shadowColor = '#ff0000';
-          ctx.shadowBlur = 12;
-          const scanPulse = Math.sin(performance.now() / 120) * 0.4 + 0.6;
-          ctx.globalAlpha = scanPulse;
-          ctx.beginPath();
-          ctx.moveTo(this.size * 0.45, 0);
-          ctx.lineTo(this.size * 1.3, 0);
-          ctx.stroke();
-          ctx.globalAlpha = 1;
-          ctx.shadowBlur = 0;
-        }
+        // Wing weapons
+        ctx.fillStyle = '#1a1a1a';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
+        // Top wing weapon
+        ctx.fillRect(-this.size * 0.15, -this.size * 0.7, this.size * 0.15, this.size * 0.1);
+        ctx.strokeRect(-this.size * 0.15, -this.size * 0.7, this.size * 0.15, this.size * 0.1);
+        // Bottom wing weapon
+        ctx.fillRect(-this.size * 0.15, this.size * 0.6, this.size * 0.15, this.size * 0.1);
+        ctx.strokeRect(-this.size * 0.15, this.size * 0.6, this.size * 0.15, this.size * 0.1);
         
-        // Propulsion vents - orange thrust
-        ctx.strokeStyle = '#fb923c';
-        ctx.lineWidth = 3.5;
-        ctx.shadowColor = '#f97316';
-        ctx.shadowBlur = 8;
-        for (let i = 0; i < 6; i++) {
-          const a = (i * Math.PI) / 3;
-          const wave = Math.sin(performance.now() / 150 + i) * 0.3 + 0.7;
-          const bend = Math.sin(performance.now() / 100 + i) * 0.15;
+        // Panel lines
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(this.size * 0.5, -this.size * 0.3);
+        ctx.lineTo(-this.size * 0.3, -this.size * 0.3);
+        ctx.moveTo(this.size * 0.5, this.size * 0.3);
+        ctx.lineTo(-this.size * 0.3, this.size * 0.3);
+        ctx.moveTo(this.size * 0.2, 0);
+        ctx.lineTo(-this.size * 0.4, 0);
+        ctx.stroke();
+        
+        // Engine thrusters - bright cyan
+        const thrusterPulse = Math.sin(performance.now() / 100) * 0.2 + 0.8;
+        ctx.fillStyle = '#06b6d4';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
+        ctx.save();
+        ctx.globalAlpha = thrusterPulse;
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 0.75, -this.size * 0.3, this.size * 0.12, this.size * 0.1, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 0.75, this.size * 0.3, this.size * 0.12, this.size * 0.1, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+        
+        // Thruster trails
+        if (thrusterPulse > 0.9) {
+          ctx.fillStyle = '#67e8f9';
+          ctx.globalAlpha = 0.6;
           ctx.beginPath();
-          ctx.moveTo(Math.cos(a) * this.size * 0.5, Math.sin(a) * this.size * 0.5);
-          const midX = Math.cos(a + bend) * this.size * (0.7 + wave * 0.25);
-          const midY = Math.sin(a + bend) * this.size * (0.7 + wave * 0.25);
-          const endX = Math.cos(a) * this.size * (0.9 + wave * 0.35);
-          const endY = Math.sin(a) * this.size * (0.9 + wave * 0.35);
-          ctx.quadraticCurveTo(midX, midY, endX, endY);
-          ctx.stroke();
-          
-          // Thruster exhaust
-          ctx.fillStyle = '#ffaa00';
-          ctx.shadowBlur = 10 * wave;
-          ctx.beginPath();
-          ctx.arc(endX, endY, this.size * 0.11 * wave, 0, Math.PI * 2);
+          ctx.ellipse(-this.size * 0.92, -this.size * 0.3, this.size * 0.18, this.size * 0.07, 0, 0, Math.PI * 2);
+          ctx.ellipse(-this.size * 0.92, this.size * 0.3, this.size * 0.18, this.size * 0.07, 0, 0, Math.PI * 2);
           ctx.fill();
+          ctx.globalAlpha = 1;
         }
-        ctx.shadowBlur = 0;
       }
       ctx.shadowBlur = 0;
       ctx.restore();
