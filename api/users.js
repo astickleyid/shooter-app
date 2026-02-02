@@ -36,6 +36,15 @@ module.exports = async (req, res) => {
   try {
     console.log('Action:', action, 'Method:', req.method);
 
+    // Health check / ping endpoint
+    if (action === 'ping' && req.method === 'GET') {
+      return res.status(200).json({ 
+        success: true, 
+        status: 'online',
+        timestamp: Date.now() 
+      });
+    }
+
     if (action === 'register' && req.method === 'POST') {
       console.log('Register request body:', req.body);
       

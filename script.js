@@ -1,4 +1,4 @@
-/* global AudioManager, SocialAPI, SocialHub, GlobalLeaderboard, updateSocialUI */
+/* global AudioManager, AuthSystem, LeaderboardSystem, SocialUI */
 (() => {
   /* ====== UTILS ====== */
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -1223,14 +1223,11 @@
   };
 
   /**
-   * Unified Authentication Manager
-   * Syncs local Auth with SocialAPI for a single login experience
+   * Auth Wrapper - Simplified wrapper around AuthSystem
+   * Maintains compatibility with existing code while using new unified auth
    */
   const Auth = {
-    users: {},
-    currentUser: null,
-    
-    // Player profile data (unified across all features)
+    // Player profile data (game-specific achievements and progress)
     playerProfile: {
       prestige: 0,
       prestigeLevel: 1,
@@ -1248,34 +1245,22 @@
     },
     
     load() {
-      try {
-        const raw = localStorage.getItem(AUTH_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          this.users = parsed.users || {};
-          this.currentUser = parsed.currentUser || null;
-          // Validate that currentUser actually exists in users
-          if (this.currentUser && !this.users[this.currentUser]) {
-            console.warn('Current user not found in users, resetting');
-            this.currentUser = null;
-          }
-        }
-      } catch (err) {
-        console.warn('Failed to load auth data', err);
-        this.users = {};
-        this.currentUser = null;
+      // Initialize AuthSystem (already done, but ensure it's ready)
+      if (typeof AuthSystem !== 'undefined') {
+        AuthSystem.initialize();
       }
       
-      // Load player profile data
+      // Load player profile data (game-specific)
       this.loadProfile();
       
-      // Sync with SocialAPI if available
-      this.syncWithSocial();
+      // Update UI
+      this.updateAllUI();
     },
     
     loadProfile() {
       try {
-        const profileKey = `${AUTH_KEY}_profile_${this.currentUser || 'guest'}`;
+        const user = typeof AuthSystem !== 'undefined' ? AuthSystem.getCurrentUser() : null;
+        const profileKey = user ? `voidrift_profile_${user.id}` : 'voidrift_profile_guest';
         const raw = localStorage.getItem(profileKey);
         if (raw) {
           const parsed = JSON.parse(raw);
@@ -1288,7 +1273,8 @@
     
     saveProfile() {
       try {
-        const profileKey = `${AUTH_KEY}_profile_${this.currentUser || 'guest'}`;
+        const user = typeof AuthSystem !== 'undefined' ? AuthSystem.getCurrentUser() : null;
+        const profileKey = user ? `voidrift_profile_${user.id}` : 'voidrift_profile_guest';
         localStorage.setItem(profileKey, JSON.stringify(this.playerProfile));
       } catch (err) {
         console.warn('Failed to save player profile', err);
@@ -1296,233 +1282,61 @@
     },
     
     save() {
-      try {
-        localStorage.setItem(AUTH_KEY, JSON.stringify({
-          users: this.users,
-          currentUser: this.currentUser
-        }));
-        this.saveProfile();
-      } catch (err) {
-        console.warn('Failed to save auth data', err);
-      }
-    },
-    
-    /**
-     * Sync authentication state with SocialAPI
-     * This ensures one login works for all features
-     */
-    syncWithSocial() {
-      if (typeof SocialAPI !== 'undefined') {
-        // Check if SocialAPI has a session
-        SocialAPI.loadSession();
-        
-        if (SocialAPI.isLoggedIn() && !this.currentUser) {
-          // SocialAPI is logged in but local Auth isn't - sync local auth
-          const socialUser = SocialAPI.currentUser;
-          if (socialUser && socialUser.username) {
-            const cleanUsername = socialUser.username.trim().toLowerCase();
-            if (!this.users[cleanUsername]) {
-              // Create local user entry
-              this.users[cleanUsername] = {
-                username: socialUser.username,
-                passwordHash: 'social_sync', // Special marker for socially synced accounts
-                createdAt: Date.now(),
-                socialId: socialUser.id
-              };
-            }
-            this.currentUser = cleanUsername;
-            this.loadProfile();
-            this.save();
-          }
-        } else if (this.currentUser && !SocialAPI.isLoggedIn()) {
-          // Local Auth is logged in but SocialAPI isn't - could be offline mode
-          // Leave as-is for offline play
-        }
-      }
+      this.saveProfile();
     },
     
     async register(username, password) {
-      if (!username || username.trim().length === 0) {
-        return { success: false, error: 'Username is required' };
-      }
-      if (!password || password.length < 4) {
-        return { success: false, error: 'Password must be at least 4 characters' };
+      if (typeof AuthSystem === 'undefined') {
+        return { success: false, error: 'Authentication system not available' };
       }
       
-      const cleanUsername = username.trim().toLowerCase();
-      
-      if (this.users[cleanUsername]) {
-        return { success: false, error: 'Username already exists' };
+      const result = await AuthSystem.register(username, password);
+      if (result.success) {
+        this.loadProfile();
+        this.updateAllUI();
       }
-      
-      // Try to register with SocialAPI first (if available)
-      if (typeof SocialAPI !== 'undefined') {
-        try {
-          const socialResult = await SocialAPI.register(username, password);
-          if (socialResult && socialResult.success) {
-            // Social registration successful - create local entry
-            this.users[cleanUsername] = {
-              username: username.trim(),
-              passwordHash: await hashPassword(password),
-              createdAt: Date.now(),
-              socialId: socialResult.user?.id
-            };
-            this.currentUser = cleanUsername;
-            this.loadProfile();
-            this.save();
-            this.updateAllUI();
-            return { success: true };
-          }
-        } catch (err) {
-          // Social registration failed - continue with local registration
-          console.warn('Social registration failed, using local:', err.message);
-        }
-      }
-      
-      // Fallback to local-only registration
-      const hashedPassword = await hashPassword(password);
-      
-      this.users[cleanUsername] = {
-        username: username.trim(),
-        passwordHash: hashedPassword,
-        createdAt: Date.now()
-      };
-      
-      this.currentUser = cleanUsername;
-      this.loadProfile();
-      this.save();
-      this.updateAllUI();
-      
-      return { success: true };
+      return result;
     },
     
     async login(username, password) {
-      if (!username || !password) {
-        return { success: false, error: 'Username and password are required' };
+      if (typeof AuthSystem === 'undefined') {
+        return { success: false, error: 'Authentication system not available' };
       }
       
-      const cleanUsername = username.trim().toLowerCase();
-      
-      // Try to login with SocialAPI first (if available)
-      if (typeof SocialAPI !== 'undefined') {
-        try {
-          const socialResult = await SocialAPI.login(username, password);
-          if (socialResult && socialResult.success) {
-            // Social login successful - sync local entry
-            if (!this.users[cleanUsername]) {
-              this.users[cleanUsername] = {
-                username: username.trim(),
-                passwordHash: await hashPassword(password),
-                createdAt: Date.now(),
-                socialId: socialResult.user?.id
-              };
-            } else {
-              this.users[cleanUsername].socialId = socialResult.user?.id;
-            }
-            this.currentUser = cleanUsername;
-            this.loadProfile();
-            this.save();
-            this.updateAllUI();
-            return { success: true };
-          }
-        } catch (err) {
-          // Social login failed - try local login
-          console.warn('Social login failed, trying local:', err.message);
-        }
+      const result = await AuthSystem.login(username, password);
+      if (result.success) {
+        this.loadProfile();
+        this.updateAllUI();
       }
-      
-      // Fallback to local login
-      const user = this.users[cleanUsername];
-      
-      if (!user) {
-        return { success: false, error: 'Invalid username or password' };
-      }
-      
-      // Support legacy plaintext passwords and migrate them
-      if (user.password && !user.passwordHash) {
-        if (user.password === password) {
-          // Migrate to hashed password
-          user.passwordHash = await hashPassword(password);
-          delete user.password;
-          this.currentUser = cleanUsername;
-          this.loadProfile();
-          this.save();
-          this.updateAllUI();
-          return { success: true };
-        }
-        return { success: false, error: 'Invalid username or password' };
-      }
-      
-      // Special case: socially synced accounts can login if they exist
-      if (user.passwordHash === 'social_sync') {
-        // Try re-validating with social
-        return { success: false, error: 'Please login through the social system' };
-      }
-      
-      // Verify hashed password
-      const hashedPassword = await hashPassword(password);
-      if (user.passwordHash !== hashedPassword) {
-        return { success: false, error: 'Invalid username or password' };
-      }
-      
-      this.currentUser = cleanUsername;
-      this.loadProfile();
-      this.save();
-      this.updateAllUI();
-      
-      return { success: true };
+      return result;
     },
     
     logout() {
-      this.currentUser = null;
-      this.playerProfile = {
-        prestige: 0,
-        prestigeLevel: 1,
-        achievements: [],
-        unlockedAchievements: [],
-        totalKills: 0,
-        bossKills: 0,
-        eliteKills: 0,
-        gamesPlayed: 0,
-        totalPlayTime: 0,
-        flawlessLevels: 0,
-        unlockedShips: ['vanguard'],
-        customShipColors: {},
-        title: 'Rookie Pilot'
-      };
-      this.save();
-      
-      // Also logout from SocialAPI
-      if (typeof SocialAPI !== 'undefined') {
-        SocialAPI.logout();
+      if (typeof AuthSystem !== 'undefined') {
+        AuthSystem.logout();
       }
-      
       this.updateAllUI();
     },
     
     isLoggedIn() {
-      // Check both local and social login states
-      if (this.currentUser && this.users[this.currentUser]) {
-        return true;
-      }
-      // Also check SocialAPI
-      if (typeof SocialAPI !== 'undefined' && SocialAPI.isLoggedIn()) {
-        this.syncWithSocial();
-        return true;
-      }
-      return false;
+      return typeof AuthSystem !== 'undefined' && AuthSystem.isAuthenticated();
     },
     
     getCurrentUsername() {
-      if (this.currentUser) {
-        const user = this.users[this.currentUser];
-        return user ? user.username : null;
+      const user = typeof AuthSystem !== 'undefined' ? AuthSystem.getCurrentUser() : null;
+      return user ? user.username : null;
+    },
+    
+    getCurrentUser() {
+      return typeof AuthSystem !== 'undefined' ? AuthSystem.getCurrentUser() : null;
+    },
+    
+    // Update all UI elements across the game
+    updateAllUI() {
+      // Update social UI if available
+      if (typeof SocialUI !== 'undefined' && SocialUI.updateUI) {
+        SocialUI.updateUI();
       }
-      // Fallback to SocialAPI
-      if (typeof SocialAPI !== 'undefined' && SocialAPI.currentUser) {
-        return SocialAPI.currentUser.username;
-      }
-      return null;
     },
     
     // Get current user's full profile data
@@ -1536,38 +1350,6 @@
         bestScore: Save.data.bestScore,
         highestLevel: Save.data.highestLevel
       };
-    },
-    
-    // Update all UI elements across the game
-    updateAllUI() {
-      // Update local auth UI
-      if (typeof updateAuthUI === 'function') {
-        updateAuthUI();
-      }
-      // Update social UI if available
-      if (typeof updateSocialUI === 'function') {
-        updateSocialUI();
-      }
-      // Update login button in footer
-      const loginBtn = document.getElementById('loginButton');
-      if (loginBtn) {
-        if (this.isLoggedIn()) {
-          const username = this.getCurrentUsername();
-          loginBtn.textContent = username || 'Profile';
-          loginBtn.onclick = () => {
-            if (typeof SocialHub !== 'undefined') {
-              SocialHub.showProfile();
-            }
-          };
-        } else {
-          loginBtn.textContent = 'Login';
-          loginBtn.onclick = () => {
-            if (typeof SocialHub !== 'undefined') {
-              SocialHub.showAuthModal('login');
-            }
-          };
-        }
-      }
     },
     
     // Prestige system functions
@@ -1715,7 +1497,7 @@
   /* ====== LEADERBOARD SYSTEM ====== */
   const Leaderboard = {
     entries: [],
-    useGlobal: typeof GlobalLeaderboard !== 'undefined',
+    useGlobal: typeof LeaderboardSystem !== 'undefined',
     migrated: false,
     statusMessage: '',
     statusTone: 'info',
@@ -1731,159 +1513,70 @@
     },
     
     load() {
-      try {
-        const raw = localStorage.getItem(LEADERBOARD_KEY);
-        if (raw) {
-          this.entries = JSON.parse(raw);
-        }
-      } catch (err) {
-        console.warn('Failed to load leaderboard', err);
-        this.entries = [];
-      }
-      
-      // Auto-migrate local scores to global on first load
-      this.autoMigrate();
+      // No need to load - LeaderboardSystem handles persistence
       this.setStatus('', 'info');
     },
     
-    async autoMigrate() {
-      if (this.migrated || !this.useGlobal || this.entries.length === 0) {
-        return;
-      }
-      
-      const MIGRATION_KEY = 'void_rift_scores_migrated';
-      if (localStorage.getItem(MIGRATION_KEY)) {
-        this.migrated = true;
-        return;
-      }
-      
-      console.warn(`Migrating ${this.entries.length} local scores to global leaderboard...`);
-      
-      let success = 0;
-      for (const entry of this.entries) {
-        try {
-          const result = await GlobalLeaderboard.submitScore(entry);
-          if (result && result.success) {
-            success++;
-          }
-          await new Promise(resolve => setTimeout(resolve, 100));
-        } catch (err) {
-          console.warn('Migration error:', err);
-        }
-      }
-      
-      localStorage.setItem(MIGRATION_KEY, 'true');
-      this.migrated = true;
-      console.warn(`Migrated ${success}/${this.entries.length} scores to global leaderboard`);
-    },
-    
     save() {
-      try {
-        localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(this.entries));
-      } catch (err) {
-        console.warn('Failed to save leaderboard', err);
-      }
+      // No need to save - LeaderboardSystem handles persistence
     },
     
     async addEntry(username, score, level, difficulty) {
-      const entry = {
-        username: username,
-        score: score,
-        level: level,
-        difficulty: difficulty,
-        timestamp: Date.now()
-      };
-      
-      // Save to local storage as backup
-      this.entries.push(entry);
-      this.entries.sort((a, b) => b.score - a.score);
-      if (this.entries.length > 100) {
-        this.entries = this.entries.slice(0, 100);
-      }
-      this.save();
-      
-      // Submit to global leaderboard
-      if (this.useGlobal) {
+      // Use new LeaderboardSystem
+      if (this.useGlobal && typeof LeaderboardSystem !== 'undefined') {
         try {
-          const result = await GlobalLeaderboard.submitScore(entry);
-          if (result && result.rank) {
+          const result = await LeaderboardSystem.submitScore({
+            score,
+            level,
+            difficulty,
+            timestamp: Date.now()
+          });
+          
+          if (result.success) {
             this.setStatus('', 'info');
-            // Score submitted successfully
-            return result.rank;
-          }
-
-          if (result && result.success === false) {
-            this.setStatus(result.error || 'Global submit failed. Using local scores.', 'error');
+            return result.rank || 1;
+          } else {
+            this.setStatus(result.error || 'Failed to submit score', 'error');
+            return 1;
           }
         } catch (err) {
-          console.warn('Global leaderboard unavailable, using local');
-          this.setStatus('Global leaderboard unavailable. Using local scores.', 'warning');
+          console.warn('Leaderboard submission error:', err);
+          this.setStatus('Failed to submit score', 'error');
+          return 1;
         }
       }
       
-      // Return local rank as fallback
-      return this.entries.findIndex(e => 
-        e.username === username && 
-        e.score === score && 
-        e.timestamp === entry.timestamp
-      ) + 1;
+      return 1;
     },
     
     async getEntries(difficulty = 'all', limit = 100) {
-      // Try to fetch from global leaderboard first
-      if (this.useGlobal) {
+      // Use new LeaderboardSystem
+      if (this.useGlobal && typeof LeaderboardSystem !== 'undefined') {
         try {
-          const globalEntries = await GlobalLeaderboard.fetchScores(difficulty, limit);
-          // Return global entries even if empty (distinguishes from error)
-          if (globalEntries !== null && Array.isArray(globalEntries)) {
-            // Global entries fetched successfully
-            // Merge with local entries to ensure user's scores appear
-            const mergedEntries = this.mergeWithLocal(globalEntries, difficulty);
-            this.setStatus('', 'info');
-            return mergedEntries.slice(0, limit);
-          }
-          if (GlobalLeaderboard.lastError) {
-            this.setStatus(`Global leaderboard unavailable: ${GlobalLeaderboard.lastError}`, 'warning');
-          }
+          const entries = await LeaderboardSystem.fetchScores(difficulty, limit);
+          this.setStatus('', 'info');
+          return entries || [];
         } catch (err) {
-          console.warn('Global leaderboard unavailable, using local:', err.message);
-          this.setStatus('Global leaderboard unavailable. Using local scores.', 'warning');
+          console.warn('Leaderboard fetch error:', err);
+          this.setStatus('Failed to fetch leaderboard', 'warning');
+          return [];
         }
       }
       
-      // Fallback to local entries
-      let filtered = this.entries;
-      if (difficulty !== 'all') {
-        filtered = this.entries.filter(e => e.difficulty === difficulty);
-      }
-      return filtered.slice(0, limit);
-    },
-    
-    // Merge global entries with local entries (in case global doesn't have user's recent scores)
-    mergeWithLocal(globalEntries, difficulty = 'all') {
-      const globalIds = new Set(globalEntries.map(e => e.id));
-      // Filter local entries by difficulty and exclude entries already in global
-      const localToAdd = this.entries.filter(e => {
-        const matchesDifficulty = difficulty === 'all' || e.difficulty === difficulty;
-        const notInGlobal = !globalIds.has(e.id);
-        return matchesDifficulty && notInGlobal;
-      });
-      
-      // Combine and sort by score
-      const merged = [...globalEntries, ...localToAdd];
-      merged.sort((a, b) => b.score - a.score);
-      
-      return merged;
+      return [];
     },
     
     getUserBest(username) {
-      const userEntries = this.entries.filter(e => 
-        e.username.toLowerCase() === username.toLowerCase()
-      );
-      
-      if (userEntries.length === 0) return null;
-      
-      return userEntries[0]; // Already sorted by score
+      // Use new LeaderboardSystem
+      if (this.useGlobal && typeof LeaderboardSystem !== 'undefined') {
+        try {
+          const userScores = LeaderboardSystem.getUserBestScores();
+          return userScores.length > 0 ? userScores[0] : null;
+        } catch (err) {
+          return null;
+        }
+      }
+      return null;
     }
   };
 
@@ -9680,14 +9373,33 @@
       });
     }
     
-    // Submit to leaderboard if logged in
+    // Submit to leaderboard and update stats if logged in
     const finalScore = score;
     const finalLevel = level;
     
     if (Auth.isLoggedIn()) {
       const username = Auth.getCurrentUsername();
-      const rank = Leaderboard.addEntry(username, finalScore, finalLevel, currentDifficulty);
-      showGameOverScreen(finalScore, finalLevel, rank);
+      
+      // Update game stats in AuthSystem
+      if (typeof AuthSystem !== 'undefined') {
+        AuthSystem.updateStats({
+          score: finalScore,
+          level: finalLevel,
+          kills: totalKillsThisRun,
+          deaths: 1,
+          duration: performance.now() - (waveStartTime || performance.now())
+        }).catch(err => console.warn('Failed to update stats:', err));
+      }
+      
+      // Submit to leaderboard
+      Leaderboard.addEntry(username, finalScore, finalLevel, currentDifficulty)
+        .then(rank => {
+          showGameOverScreen(finalScore, finalLevel, rank);
+        })
+        .catch(err => {
+          console.warn('Failed to submit leaderboard entry:', err);
+          showGameOverScreen(finalScore, finalLevel, null);
+        });
     } else {
       showGameOverScreen(finalScore, finalLevel, null);
     }
@@ -9913,9 +9625,15 @@
   };
 
   const openLeaderboardModal = () => {
+    // Use new SocialUI if available
+    if (typeof SocialUI !== 'undefined' && SocialUI.showLeaderboardModal) {
+      SocialUI.showLeaderboardModal(currentLeaderboardFilter || currentDifficulty);
+      return;
+    }
+    
+    // Fallback to old modal (if still present)
     if (!dom.leaderboardModal) return;
     dom.leaderboardModal.style.display = 'flex';
-    updateAuthUI();
     Leaderboard.setStatus(Leaderboard.statusMessage, Leaderboard.statusTone);
     setLeaderboardFilter(currentLeaderboardFilter || currentDifficulty);
   };
