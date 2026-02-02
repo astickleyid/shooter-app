@@ -4510,401 +4510,502 @@
       ctx.shadowBlur = aggroIntensity;
       
       if (this.kind === 'drone') {
-        // Phase A.2: Enhanced drone with aggressive mechanical design
-        // Outer armor plating - angular and menacing
-        ctx.fillStyle = damaged ? '#7f1d1d' : '#991b1b';
-        ctx.strokeStyle = damaged ? '#dc2626' : '#ef4444';
-        ctx.lineWidth = 2.5;
+        // SPRITE-STYLE RED FIGHTER - Matching reference image aesthetic
+        // Clean geometric sprite design with thick outlines
+        
+        const outlineWidth = 4;
+        const outlineColor = '#000000';
+        
+        // Main body - red triangular fighter
+        ctx.fillStyle = damaged ? '#b91c1c' : '#dc2626';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = outlineWidth;
         ctx.beginPath();
-        ctx.moveTo(this.size * 1.1, 0);
-        ctx.lineTo(-this.size * 0.5, -this.size * 0.7);
-        ctx.lineTo(-this.size * 0.4, 0);
-        ctx.lineTo(-this.size * 0.5, this.size * 0.7);
+        ctx.moveTo(this.size * 1.3, 0);  // nose
+        ctx.lineTo(this.size * 0.3, -this.size * 0.8);  // top wing tip
+        ctx.lineTo(-this.size * 0.5, -this.size * 0.6);  // wing back top
+        ctx.lineTo(-this.size * 0.8, -this.size * 0.3);  // engine top
+        ctx.lineTo(-this.size * 0.8, this.size * 0.3);  // engine bottom
+        ctx.lineTo(-this.size * 0.5, this.size * 0.6);  // wing back bottom
+        ctx.lineTo(this.size * 0.3, this.size * 0.8);  // bottom wing tip
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
         
-        // Metallic armor panels
-        ctx.fillStyle = damaged ? '#991b1b' : '#b91c1c';
+        // Wing details - darker red panels
+        ctx.fillStyle = damaged ? '#7f1d1d' : '#991b1b';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.moveTo(this.size * 0.8, 0);
+        ctx.moveTo(this.size * 0.7, 0);
         ctx.lineTo(this.size * 0.2, -this.size * 0.5);
+        ctx.lineTo(-this.size * 0.3, -this.size * 0.4);
+        ctx.lineTo(-this.size * 0.3, this.size * 0.4);
         ctx.lineTo(this.size * 0.2, this.size * 0.5);
         ctx.closePath();
         ctx.fill();
+        ctx.stroke();
+        
+        // Cockpit canopy - bright blue (key sprite element)
+        ctx.fillStyle = '#3b82f6';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.ellipse(this.size * 0.5, 0, this.size * 0.3, this.size * 0.2, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Cockpit highlight
+        ctx.fillStyle = '#60a5fa';
+        ctx.beginPath();
+        ctx.ellipse(this.size * 0.55, -this.size * 0.08, this.size * 0.12, this.size * 0.08, 0, 0, Math.PI * 2);
+        ctx.fill();
         
         // Weapon pods on wings
-        ctx.fillStyle = '#450a0a';
-        ctx.shadowBlur = 5;
-        ctx.shadowColor = '#ef4444';
-        ctx.beginPath();
-        ctx.ellipse(-this.size * 0.3, -this.size * 0.5, this.size * 0.15, this.size * 0.08, -0.3, 0, Math.PI * 2);
-        ctx.ellipse(-this.size * 0.3, this.size * 0.5, this.size * 0.15, this.size * 0.08, 0.3, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.fillStyle = '#1a1a1a';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
+        // Top weapon
+        ctx.fillRect(-this.size * 0.25, -this.size * 0.7, this.size * 0.2, this.size * 0.12);
+        ctx.strokeRect(-this.size * 0.25, -this.size * 0.7, this.size * 0.2, this.size * 0.12);
+        // Bottom weapon
+        ctx.fillRect(-this.size * 0.25, this.size * 0.58, this.size * 0.2, this.size * 0.12);
+        ctx.strokeRect(-this.size * 0.25, this.size * 0.58, this.size * 0.2, this.size * 0.12);
         
-        // Phase A.2: Glowing energy core with hexagonal shape
-        ctx.shadowColor = '#ef4444';
-        ctx.shadowBlur = 12;
-        ctx.fillStyle = criticalHealth ? '#fca5a5' : '#fecaca';
+        // Panel lines (mechanical details)
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 1.5;
         ctx.beginPath();
-        for (let i = 0; i < 6; i++) {
-          const angle = (i / 6) * Math.PI * 2;
-          const r = this.size * 0.35 * pulse;
-          const x = Math.cos(angle) * r;
-          const y = Math.sin(angle) * r * 0.8;
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        }
-        ctx.closePath();
-        ctx.fill();
+        // Central spine
+        ctx.moveTo(this.size * 0.8, 0);
+        ctx.lineTo(-this.size * 0.4, 0);
+        // Wing panels
+        ctx.moveTo(this.size * 0.2, -this.size * 0.5);
+        ctx.lineTo(-this.size * 0.2, -this.size * 0.5);
+        ctx.moveTo(this.size * 0.2, this.size * 0.5);
+        ctx.lineTo(-this.size * 0.2, this.size * 0.5);
+        ctx.stroke();
         
-        // Inner core ring
-        ctx.fillStyle = '#fff';
-        ctx.globalAlpha = pulse * 0.6;
+        // Engine thrusters - bright cyan (sprite staple)
+        const thrusterPulse = Math.sin(performance.now() / 100) * 0.2 + 0.8;
+        ctx.fillStyle = '#06b6d4';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
+        ctx.save();
+        ctx.globalAlpha = thrusterPulse;
+        // Top thruster
         ctx.beginPath();
-        ctx.arc(0, 0, this.size * 0.15, 0, Math.PI * 2);
+        ctx.ellipse(-this.size * 0.75, -this.size * 0.25, this.size * 0.15, this.size * 0.1, 0, 0, Math.PI * 2);
         ctx.fill();
-        ctx.globalAlpha = 1;
-        
-        // Phase A.2: Animated wing thrusters with exhaust
-        ctx.shadowBlur = 8;
-        const thrusterGlow = Math.sin(performance.now() / 80) * 0.3 + 0.7;
-        ctx.fillStyle = `rgba(251, 113, 133, ${thrusterGlow})`;
+        ctx.stroke();
+        // Bottom thruster
         ctx.beginPath();
-        ctx.arc(-this.size * 0.35, -this.size * 0.5, this.size * 0.12, 0, Math.PI * 2);
-        ctx.arc(-this.size * 0.35, this.size * 0.5, this.size * 0.12, 0, Math.PI * 2);
+        ctx.ellipse(-this.size * 0.75, this.size * 0.25, this.size * 0.15, this.size * 0.1, 0, 0, Math.PI * 2);
         ctx.fill();
+        ctx.stroke();
+        ctx.restore();
         
-        // Thruster exhaust trails
-        if (thrusterGlow > 0.8) {
-          ctx.globalAlpha = 0.5;
-          ctx.fillStyle = '#f97316';
+        // Thruster glow trails
+        if (thrusterPulse > 0.9) {
+          ctx.fillStyle = '#67e8f9';
+          ctx.globalAlpha = 0.6;
           ctx.beginPath();
-          ctx.ellipse(-this.size * 0.45, -this.size * 0.5, this.size * 0.08, this.size * 0.04, 0, 0, Math.PI * 2);
-          ctx.ellipse(-this.size * 0.45, this.size * 0.5, this.size * 0.08, this.size * 0.04, 0, 0, Math.PI * 2);
+          ctx.ellipse(-this.size * 0.95, -this.size * 0.25, this.size * 0.2, this.size * 0.08, 0, 0, Math.PI * 2);
+          ctx.ellipse(-this.size * 0.95, this.size * 0.25, this.size * 0.2, this.size * 0.08, 0, 0, Math.PI * 2);
           ctx.fill();
           ctx.globalAlpha = 1;
         }
         
       } else if (this.kind === 'chaser') {
-        // Phase A.2: Enhanced alien organic creature - insectoid predator
-        // Multi-segmented body
-        ctx.fillStyle = damaged ? '#581c87' : '#701a75';
-        ctx.strokeStyle = damaged ? '#a855f7' : '#c026d3';
-        ctx.lineWidth = 2.5;
+        // SPRITE-STYLE PURPLE PREDATOR - Matching reference image aesthetic
+        // Angular menacing design with thick outlines
         
-        // Rear body segment
+        const outlineWidth = 4;
+        const outlineColor = '#000000';
+        
+        // Main body - purple angular predator
+        ctx.fillStyle = damaged ? '#7c3aed' : '#a78bfa';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = outlineWidth;
         ctx.beginPath();
-        ctx.ellipse(-this.size * 0.4, 0, this.size * 0.8, this.size * 0.6, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-        
-        // Phase A.2: Main body with organic texture
-        const bodyPulse = Math.sin(performance.now() / 200 + this.animPhase) * 0.12 + 1;
-        ctx.fillStyle = damaged ? '#701a75' : '#a21caf';
-        ctx.strokeStyle = damaged ? '#c026d3' : '#e879f9';
-        ctx.beginPath();
-        ctx.ellipse(0, 0, this.size * 1.3 * bodyPulse, this.size * 0.9 * pulse, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-        
-        // Carapace plates with segmentation
-        if (!criticalHealth) {
-          ctx.strokeStyle = '#f0abfc';
-          ctx.lineWidth = 2;
-          for (let i = 0; i < 4; i++) {
-            const segmentX = this.size * (0.8 - i * 0.4);
-            ctx.beginPath();
-            ctx.ellipse(segmentX, 0, this.size * (0.7 - i * 0.15), this.size * (0.5 - i * 0.1), 0, 0, Math.PI * 2);
-            ctx.stroke();
-          }
-        }
-        
-        // Phase A.2: Animated mandibles/claws with complex motion
-        ctx.strokeStyle = '#d946ef';
-        ctx.lineWidth = 4;
-        ctx.lineCap = 'round';
-        const clawWave = Math.sin(performance.now() / 150) * 0.25;
-        const clawSnap = Math.abs(Math.sin(performance.now() / 500)) * 0.15;
-        
-        // Upper claw
-        ctx.beginPath();
-        ctx.moveTo(this.size * 0.9, -this.size * 0.5);
-        ctx.quadraticCurveTo(this.size * (1.3 + clawWave), -this.size * (0.7 + clawSnap), this.size * (1.5 + clawWave), -this.size * (1.0 + clawSnap));
-        ctx.stroke();
-        // Claw pincer
-        ctx.beginPath();
-        ctx.moveTo(this.size * (1.5 + clawWave), -this.size * (1.0 + clawSnap));
-        ctx.lineTo(this.size * (1.6 + clawWave), -this.size * (0.95 + clawSnap));
-        ctx.stroke();
-        
-        // Lower claw  
-        ctx.beginPath();
-        ctx.moveTo(this.size * 0.9, this.size * 0.5);
-        ctx.quadraticCurveTo(this.size * (1.3 + clawWave), this.size * (0.7 + clawSnap), this.size * (1.5 + clawWave), this.size * (1.0 + clawSnap));
-        ctx.stroke();
-        // Claw pincer
-        ctx.beginPath();
-        ctx.moveTo(this.size * (1.5 + clawWave), this.size * (1.0 + clawSnap));
-        ctx.lineTo(this.size * (1.6 + clawWave), this.size * (0.95 + clawSnap));
-        ctx.stroke();
-        ctx.lineCap = 'butt';
-        
-        // Phase A.2: Compound eyes (glowing weak points)
-        ctx.shadowColor = criticalHealth ? '#fca5a5' : '#ef4444';
-        ctx.shadowBlur = 10 + Math.sin(performance.now() / 150) * 5;
-        ctx.fillStyle = criticalHealth ? '#fca5a5' : '#ef4444';
-        ctx.beginPath();
-        ctx.arc(this.size * 0.4, -this.size * 0.35, this.size * 0.25 * pulse, 0, Math.PI * 2);
-        ctx.arc(this.size * 0.4, this.size * 0.35, this.size * 0.25 * pulse, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Compound eye facets
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = '#7c2d12';
-        const facetCount = 5;
-        for (let eye = 0; eye < 2; eye++) {
-          const eyeY = eye === 0 ? -this.size * 0.35 : this.size * 0.35;
-          for (let i = 0; i < facetCount; i++) {
-            const angle = (i / facetCount) * Math.PI * 2;
-            const fx = this.size * 0.4 + Math.cos(angle) * this.size * 0.12;
-            const fy = eyeY + Math.sin(angle) * this.size * 0.12;
-            ctx.beginPath();
-            ctx.arc(fx, fy, this.size * 0.04, 0, Math.PI * 2);
-            ctx.fill();
-          }
-        }
-        
-        // Phase A.2: Animated pupils tracking player
-        ctx.fillStyle = '#dc2626';
-        const pupilOffset = Math.sin(performance.now() / 300) * 0.08;
-        ctx.beginPath();
-        ctx.arc(this.size * (0.45 + pupilOffset), -this.size * 0.35, this.size * 0.12, 0, Math.PI * 2);
-        ctx.arc(this.size * (0.45 + pupilOffset), this.size * 0.35, this.size * 0.12, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Legs/appendages
-        ctx.strokeStyle = 'rgba(216, 70, 239, 0.7)';
-        ctx.lineWidth = 2.5;
-        for (let i = 0; i < 3; i++) {
-          const legPhase = performance.now() / 200 + i * Math.PI / 1.5;
-          const legWave = Math.sin(legPhase) * 0.2;
-          const legX = -this.size * (0.2 + i * 0.3);
-          const legY1 = -this.size * (0.7 + legWave);
-          const legY2 = this.size * (0.7 + legWave);
-          ctx.beginPath();
-          ctx.moveTo(legX, -this.size * 0.5);
-          ctx.lineTo(legX - this.size * 0.2, legY1);
-          ctx.moveTo(legX, this.size * 0.5);
-          ctx.lineTo(legX - this.size * 0.2, legY2);
-          ctx.stroke();
-        }
-        
-      } else if (this.kind === 'heavy') {
-        // Phase A.2: Enhanced heavy crystalline fortress - geometric tank
-        // Outer layered armor shell
-        ctx.fillStyle = damaged ? '#0f3d23' : '#14532d';
-        ctx.strokeStyle = damaged ? '#16a34a' : '#22c55e';
-        ctx.lineWidth = 3.5;
-        
-        // Phase A.2: Hexagonal armor plating
-        ctx.beginPath();
-        ctx.moveTo(this.size * 1.3, 0);
-        ctx.lineTo(this.size * 0.6, -this.size * 1.1);
-        ctx.lineTo(-this.size * 0.6, -this.size * 0.9);
-        ctx.lineTo(-this.size * 1.2, 0);
-        ctx.lineTo(-this.size * 0.6, this.size * 0.9);
-        ctx.lineTo(this.size * 0.6, this.size * 1.1);
+        // Front angular nose
+        ctx.moveTo(this.size * 1.4, 0);
+        // Top swept wing
+        ctx.lineTo(this.size * 0.5, -this.size * 1.0);
+        ctx.lineTo(-this.size * 0.3, -this.size * 0.9);
+        ctx.lineTo(-this.size * 0.7, -this.size * 0.5);
+        // Back engine section
+        ctx.lineTo(-this.size * 0.9, -this.size * 0.2);
+        ctx.lineTo(-this.size * 0.9, this.size * 0.2);
+        ctx.lineTo(-this.size * 0.7, this.size * 0.5);
+        // Bottom swept wing
+        ctx.lineTo(-this.size * 0.3, this.size * 0.9);
+        ctx.lineTo(this.size * 0.5, this.size * 1.0);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
         
-        // Inner crystalline layers
-        ctx.fillStyle = damaged ? '#14532d' : '#15803d';
+        // Inner body panel - darker purple
+        ctx.fillStyle = damaged ? '#5b21b6' : '#7c3aed';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(this.size * 0.9, 0);
-        ctx.lineTo(this.size * 0.4, -this.size * 0.8);
-        ctx.lineTo(-this.size * 0.4, -this.size * 0.6);
-        ctx.lineTo(-this.size * 0.9, 0);
-        ctx.lineTo(-this.size * 0.4, this.size * 0.6);
-        ctx.lineTo(this.size * 0.4, this.size * 0.8);
+        ctx.lineTo(this.size * 0.3, -this.size * 0.6);
+        ctx.lineTo(-this.size * 0.2, -this.size * 0.5);
+        ctx.lineTo(-this.size * 0.6, 0);
+        ctx.lineTo(-this.size * 0.2, this.size * 0.5);
+        ctx.lineTo(this.size * 0.3, this.size * 0.6);
         ctx.closePath();
         ctx.fill();
-        
-        // Reinforced corner armor nodes
-        ctx.fillStyle = '#166534';
-        ctx.shadowColor = '#22c55e';
-        ctx.shadowBlur = 6;
-        const armorPoints = [
-          [this.size * 0.6, -this.size * 1.1],
-          [this.size * 1.3, 0],
-          [this.size * 0.6, this.size * 1.1],
-          [-this.size * 0.6, this.size * 0.9],
-          [-this.size * 1.2, 0],
-          [-this.size * 0.6, -this.size * 0.9]
-        ];
-        armorPoints.forEach(([x, y]) => {
-          ctx.beginPath();
-          ctx.arc(x, y, this.size * 0.15, 0, Math.PI * 2);
-          ctx.fill();
-        });
-        
-        // Phase A.2: Damage visualization - energy cracks
-        if (damaged) {
-          ctx.strokeStyle = '#052e16';
-          ctx.lineWidth = 3;
-          ctx.shadowBlur = 0;
-          ctx.beginPath();
-          ctx.moveTo(this.size * 0.7, -this.size * 0.5);
-          ctx.lineTo(this.size * 0.3, this.size * 0.4);
-          ctx.moveTo(-this.size * 0.6, -this.size * 0.4);
-          ctx.lineTo(-this.size * 0.8, this.size * 0.3);
-          ctx.moveTo(this.size * 0.2, -this.size * 0.7);
-          ctx.lineTo(-this.size * 0.3, -this.size * 0.5);
-          ctx.stroke();
-          
-          // Damage sparks
-          if (criticalHealth) {
-            ctx.fillStyle = '#fbbf24';
-            for (let i = 0; i < 3; i++) {
-              const sparkX = this.size * 0.3 + Math.sin(performance.now() / 80 + i) * this.size * 0.4;
-              const sparkY = Math.cos(performance.now() / 120 + i) * this.size * 0.5;
-              ctx.beginPath();
-              ctx.arc(sparkX, sparkY, this.size * 0.04, 0, Math.PI * 2);
-              ctx.fill();
-            }
-          }
-        }
-        
-        // Phase A.2: Rotating inner crystal facets (more complex)
-        const rotation = performance.now() / 800;
-        ctx.strokeStyle = damaged ? '#4ade80' : '#86efac';
-        ctx.lineWidth = 2.5;
-        ctx.shadowColor = '#22c55e';
-        ctx.shadowBlur = 8;
-        ctx.save();
-        ctx.rotate(rotation);
-        ctx.beginPath();
-        ctx.moveTo(this.size * 0.5, -this.size * 0.7);
-        ctx.lineTo(-this.size * 0.5, -this.size * 0.5);
-        ctx.lineTo(-this.size * 0.5, this.size * 0.5);
-        ctx.lineTo(this.size * 0.5, this.size * 0.7);
-        ctx.closePath();
         ctx.stroke();
         
-        // Inner rotating diamond
-        ctx.strokeStyle = '#bbf7d0';
-        ctx.lineWidth = 2;
-        ctx.rotate(rotation * 1.5);
+        // Cockpit canopy - bright blue
+        ctx.fillStyle = '#3b82f6';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2.5;
         ctx.beginPath();
-        ctx.moveTo(this.size * 0.3, 0);
-        ctx.lineTo(0, -this.size * 0.3);
-        ctx.lineTo(-this.size * 0.3, 0);
-        ctx.lineTo(0, this.size * 0.3);
-        ctx.closePath();
+        ctx.ellipse(this.size * 0.6, 0, this.size * 0.35, this.size * 0.25, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Cockpit highlight
+        ctx.fillStyle = '#60a5fa';
+        ctx.beginPath();
+        ctx.ellipse(this.size * 0.65, -this.size * 0.1, this.size * 0.15, this.size * 0.1, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Wing-tip weapons/pods - dark sections
+        ctx.fillStyle = '#1a1a1a';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
+        // Top weapon pod
+        ctx.beginPath();
+        ctx.ellipse(this.size * 0.1, -this.size * 0.85, this.size * 0.18, this.size * 0.12, -0.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        // Bottom weapon pod
+        ctx.beginPath();
+        ctx.ellipse(this.size * 0.1, this.size * 0.85, this.size * 0.18, this.size * 0.12, 0.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Panel lines (mechanical greebles)
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        // Central spine
+        ctx.moveTo(this.size * 1.0, 0);
+        ctx.lineTo(-this.size * 0.5, 0);
+        // Wing panels - top
+        ctx.moveTo(this.size * 0.4, -this.size * 0.7);
+        ctx.lineTo(-this.size * 0.1, -this.size * 0.6);
+        // Wing panels - bottom
+        ctx.moveTo(this.size * 0.4, this.size * 0.7);
+        ctx.lineTo(-this.size * 0.1, this.size * 0.6);
+        // Angled details
+        ctx.moveTo(this.size * 0.2, -this.size * 0.4);
+        ctx.lineTo(this.size * 0.2, this.size * 0.4);
+        ctx.stroke();
+        
+        // Small greeble details (vents/panels)
+        ctx.fillStyle = '#4c1d95';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 1;
+        // Top vent
+        ctx.fillRect(-this.size * 0.15, -this.size * 0.35, this.size * 0.15, this.size * 0.06);
+        ctx.strokeRect(-this.size * 0.15, -this.size * 0.35, this.size * 0.15, this.size * 0.06);
+        // Bottom vent
+        ctx.fillRect(-this.size * 0.15, this.size * 0.29, this.size * 0.15, this.size * 0.06);
+        ctx.strokeRect(-this.size * 0.15, this.size * 0.29, this.size * 0.15, this.size * 0.06);
+        
+        // Engine thrusters - bright cyan
+        const thrusterPulse = Math.sin(performance.now() / 100) * 0.2 + 0.8;
+        ctx.fillStyle = '#06b6d4';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
+        ctx.save();
+        ctx.globalAlpha = thrusterPulse;
+        // Top thruster
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 0.85, -this.size * 0.3, this.size * 0.12, this.size * 0.1, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        // Bottom thruster  
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 0.85, this.size * 0.3, this.size * 0.12, this.size * 0.1, 0, 0, Math.PI * 2);
+        ctx.fill();
         ctx.stroke();
         ctx.restore();
         
-        // Phase A.2: Pulsing energy core (weak point) - larger and more dangerous
-        const coreGlow = 14 + Math.sin(performance.now() / 100) * 8;
-        ctx.fillStyle = criticalHealth ? '#fca5a5' : '#ef4444';
-        ctx.shadowColor = '#dc2626';
-        ctx.shadowBlur = coreGlow;
-        ctx.beginPath();
-        ctx.arc(0, 0, this.size * 0.4 * pulse, 0, Math.PI * 2);
-        ctx.fill();
+        // Thruster trails
+        if (thrusterPulse > 0.9) {
+          ctx.fillStyle = '#67e8f9';
+          ctx.globalAlpha = 0.6;
+          ctx.beginPath();
+          ctx.ellipse(-this.size * 1.05, -this.size * 0.3, this.size * 0.18, this.size * 0.08, 0, 0, Math.PI * 2);
+          ctx.ellipse(-this.size * 1.05, this.size * 0.3, this.size * 0.18, this.size * 0.08, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
         
-        // Phase A.2: Multi-layer core with energy rings
-        ctx.shadowBlur = coreGlow * 0.7;
-        ctx.strokeStyle = '#fef08a';
-        ctx.lineWidth = 2.5;
+      } else if (this.kind === 'heavy') {
+        // SPRITE-STYLE HEAVY BATTLESHIP - Matching reference image aesthetic
+        // Large blocky design with thick outlines, resembling a space fortress
+        
+        const outlineWidth = 4;
+        const outlineColor = '#000000';
+        
+        // Main hull - gray/black fortress
+        ctx.fillStyle = damaged ? '#3f3f46' : '#52525b';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = outlineWidth;
         ctx.beginPath();
-        ctx.arc(0, 0, this.size * 0.28, 0, Math.PI * 2);
+        // Front section
+        ctx.moveTo(this.size * 1.2, 0);
+        ctx.lineTo(this.size * 0.9, -this.size * 0.4);
+        // Top heavy section
+        ctx.lineTo(this.size * 0.5, -this.size * 1.1);
+        ctx.lineTo(-this.size * 0.5, -this.size * 1.1);
+        ctx.lineTo(-this.size * 1.2, -this.size * 0.6);
+        // Back engines
+        ctx.lineTo(-this.size * 1.3, -this.size * 0.3);
+        ctx.lineTo(-this.size * 1.3, this.size * 0.3);
+        ctx.lineTo(-this.size * 1.2, this.size * 0.6);
+        // Bottom heavy section
+        ctx.lineTo(-this.size * 0.5, this.size * 1.1);
+        ctx.lineTo(this.size * 0.5, this.size * 1.1);
+        ctx.lineTo(this.size * 0.9, this.size * 0.4);
+        ctx.closePath();
+        ctx.fill();
         ctx.stroke();
         
-        ctx.strokeStyle = '#fff';
+        // Orange accent panels
+        ctx.fillStyle = damaged ? '#c2410c' : '#ea580c';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
+        // Top orange stripe
+        ctx.fillRect(this.size * 0.3, -this.size * 0.95, this.size * 0.5, this.size * 0.15);
+        ctx.strokeRect(this.size * 0.3, -this.size * 0.95, this.size * 0.5, this.size * 0.15);
+        // Bottom orange stripe
+        ctx.fillRect(this.size * 0.3, this.size * 0.8, this.size * 0.5, this.size * 0.15);
+        ctx.strokeRect(this.size * 0.3, this.size * 0.8, this.size * 0.5, this.size * 0.15);
+        
+        // Central body darker section
+        ctx.fillStyle = damaged ? '#27272a' : '#3f3f46';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(this.size * 0.8, 0);
+        ctx.lineTo(this.size * 0.4, -this.size * 0.7);
+        ctx.lineTo(-this.size * 0.4, -this.size * 0.7);
+        ctx.lineTo(-this.size * 0.9, 0);
+        ctx.lineTo(-this.size * 0.4, this.size * 0.7);
+        ctx.lineTo(this.size * 0.4, this.size * 0.7);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        
+        // Cockpit/bridge - bright blue (sprite signature)
+        ctx.fillStyle = '#3b82f6';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2.5;
+        ctx.fillRect(this.size * 0.5, -this.size * 0.25, this.size * 0.35, this.size * 0.5);
+        ctx.strokeRect(this.size * 0.5, -this.size * 0.25, this.size * 0.35, this.size * 0.5);
+        
+        // Bridge highlight
+        ctx.fillStyle = '#60a5fa';
+        ctx.fillRect(this.size * 0.55, -this.size * 0.18, this.size * 0.25, this.size * 0.15);
+        
+        // Weapon turrets - black circles on hull
+        ctx.fillStyle = '#1a1a1a';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2.5;
+        const turretPositions = [
+          [this.size * 0.4, -this.size * 1.0],
+          [this.size * 1.05, -this.size * 0.2],
+          [this.size * 1.05, this.size * 0.2],
+          [this.size * 0.4, this.size * 1.0],
+          [-this.size * 0.5, -this.size * 1.0],
+          [-this.size * 0.5, this.size * 1.0]
+        ];
+        turretPositions.forEach(([x, y]) => {
+          ctx.beginPath();
+          ctx.arc(x, y, this.size * 0.15, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        });
+        
+        // Panel lines (greebles)
+        ctx.strokeStyle = outlineColor;
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.arc(0, 0, this.size * 0.15, 0, Math.PI * 2);
+        // Horizontal panels
+        ctx.moveTo(this.size * 0.8, -this.size * 0.5);
+        ctx.lineTo(-this.size * 0.8, -this.size * 0.5);
+        ctx.moveTo(this.size * 0.8, 0);
+        ctx.lineTo(-this.size * 0.8, 0);
+        ctx.moveTo(this.size * 0.8, this.size * 0.5);
+        ctx.lineTo(-this.size * 0.8, this.size * 0.5);
+        // Vertical panels
+        ctx.moveTo(this.size * 0.2, -this.size * 0.9);
+        ctx.lineTo(this.size * 0.2, this.size * 0.9);
+        ctx.moveTo(-this.size * 0.2, -this.size * 0.9);
+        ctx.lineTo(-this.size * 0.2, this.size * 0.9);
         ctx.stroke();
         
-        // Energy discharge arcs
-        if (pulse > 1.05) {
-          ctx.strokeStyle = `rgba(239, 68, 68, ${(pulse - 1) * 3})`;
-          ctx.lineWidth = 2;
-          for (let i = 0; i < 6; i++) {
-            const angle = (i / 6) * Math.PI * 2 + rotation * 2;
-            const innerR = this.size * 0.4;
-            const outerR = this.size * 0.7;
-            ctx.beginPath();
-            ctx.moveTo(Math.cos(angle) * innerR, Math.sin(angle) * innerR);
-            ctx.lineTo(Math.cos(angle) * outerR, Math.sin(angle) * outerR);
-            ctx.stroke();
-          }
+        // Small greeble details (vents)
+        ctx.fillStyle = '#18181b';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 4; i++) {
+          const ventY = -this.size * 0.6 + i * this.size * 0.4;
+          ctx.fillRect(-this.size * 0.6, ventY, this.size * 0.12, this.size * 0.08);
+          ctx.strokeRect(-this.size * 0.6, ventY, this.size * 0.12, this.size * 0.08);
+        }
+        
+        // Engine thrusters - bright cyan (multiple)
+        const thrusterPulse = Math.sin(performance.now() / 100) * 0.2 + 0.8;
+        ctx.fillStyle = '#06b6d4';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
+        ctx.save();
+        ctx.globalAlpha = thrusterPulse;
+        // Main thrusters
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 1.25, -this.size * 0.45, this.size * 0.12, this.size * 0.12, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 1.25, this.size * 0.45, this.size * 0.12, this.size * 0.12, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        // Smaller side thrusters
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 1.15, -this.size * 0.15, this.size * 0.08, this.size * 0.08, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 1.15, this.size * 0.15, this.size * 0.08, this.size * 0.08, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+        
+        // Thruster trails
+        if (thrusterPulse > 0.9) {
+          ctx.fillStyle = '#67e8f9';
+          ctx.globalAlpha = 0.6;
+          ctx.beginPath();
+          ctx.ellipse(-this.size * 1.45, -this.size * 0.45, this.size * 0.2, this.size * 0.08, 0, 0, Math.PI * 2);
+          ctx.ellipse(-this.size * 1.45, this.size * 0.45, this.size * 0.2, this.size * 0.08, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1;
         }
         
       } else {
-        // Phase A.2: Enhanced swarmer with layered bio-energy
-        // Outer membrane layer
-        ctx.fillStyle = damaged ? '#9a3412' : '#ea580c';
-        ctx.strokeStyle = damaged ? '#fb923c' : '#fdba74';
-        ctx.lineWidth = 2;
+        // SPRITE-STYLE ORANGE SCOUT - Matching reference image aesthetic
+        // Compact, aggressive orange fighter with thick outlines
         
-        // Phase A.2: Animated amoeba-like body with complex wobble
+        const outlineWidth = 4;
+        const outlineColor = '#000000';
+        
+        // Main body - bright orange compact fighter
+        ctx.fillStyle = damaged ? '#ea580c' : '#fb923c';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = outlineWidth;
         ctx.beginPath();
-        for (let i = 0; i < 8; i++) {
-          const angle = (i / 8) * Math.PI * 2;
-          const wobble = Math.sin(performance.now() / 100 + i + this.animPhase) * 0.2 + 0.9;
-          const r = this.size * wobble * pulse;
-          const x = Math.cos(angle) * r;
-          const y = Math.sin(angle) * r * 0.8;
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        }
+        // Compact angular design
+        ctx.moveTo(this.size * 1.1, 0);
+        ctx.lineTo(this.size * 0.5, -this.size * 0.7);
+        ctx.lineTo(-this.size * 0.2, -this.size * 0.8);
+        ctx.lineTo(-this.size * 0.7, -this.size * 0.4);
+        ctx.lineTo(-this.size * 0.8, 0);
+        ctx.lineTo(-this.size * 0.7, this.size * 0.4);
+        ctx.lineTo(-this.size * 0.2, this.size * 0.8);
+        ctx.lineTo(this.size * 0.5, this.size * 0.7);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
         
-        // Phase A.2: Inner energy layer
-        ctx.fillStyle = 'rgba(251, 146, 60, 0.5)';
+        // Inner darker panel
+        ctx.fillStyle = damaged ? '#c2410c' : '#ea580c';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
         ctx.beginPath();
-        for (let i = 0; i < 6; i++) {
-          const angle = (i / 6) * Math.PI * 2 + performance.now() / 500;
-          const wobble = Math.sin(performance.now() / 150 + i) * 0.15 + 0.85;
-          const r = this.size * 0.6 * wobble;
-          const x = Math.cos(angle) * r;
-          const y = Math.sin(angle) * r;
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        }
+        ctx.moveTo(this.size * 0.7, 0);
+        ctx.lineTo(this.size * 0.3, -this.size * 0.4);
+        ctx.lineTo(-this.size * 0.1, -this.size * 0.5);
+        ctx.lineTo(-this.size * 0.5, 0);
+        ctx.lineTo(-this.size * 0.1, this.size * 0.5);
+        ctx.lineTo(this.size * 0.3, this.size * 0.4);
         ctx.closePath();
         ctx.fill();
+        ctx.stroke();
         
-        // Phase A.2: Pulsing nucleus spots (weak points)
-        ctx.fillStyle = criticalHealth ? '#fca5a5' : '#ef4444';
-        ctx.shadowColor = '#dc2626';
-        ctx.shadowBlur = 8 + Math.sin(performance.now() / 100) * 4;
+        // Cockpit canopy - bright blue
+        ctx.fillStyle = '#3b82f6';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2.5;
         ctx.beginPath();
-        ctx.arc(-this.size * 0.2, -this.size * 0.15, this.size * 0.2 * pulse, 0, Math.PI * 2);
-        ctx.arc(this.size * 0.1, this.size * 0.2, this.size * 0.15 * pulse, 0, Math.PI * 2);
+        ctx.ellipse(this.size * 0.4, 0, this.size * 0.25, this.size * 0.18, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Cockpit highlight
+        ctx.fillStyle = '#60a5fa';
+        ctx.beginPath();
+        ctx.ellipse(this.size * 0.45, -this.size * 0.08, this.size * 0.1, this.size * 0.07, 0, 0, Math.PI * 2);
         ctx.fill();
         
-        // Phase A.2: Animated waving tendrils
-        ctx.shadowBlur = 0;
-        ctx.strokeStyle = '#fdba74';
-        ctx.lineWidth = 2.5;
-        for (let i = 0; i < 4; i++) {
-          const a = (i * Math.PI) / 2;
-          const wave = Math.sin(performance.now() / 150 + i) * 0.3 + 0.7;
-          const bend = Math.sin(performance.now() / 100 + i) * 0.15;
+        // Wing weapons
+        ctx.fillStyle = '#1a1a1a';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
+        // Top wing weapon
+        ctx.fillRect(-this.size * 0.15, -this.size * 0.7, this.size * 0.15, this.size * 0.1);
+        ctx.strokeRect(-this.size * 0.15, -this.size * 0.7, this.size * 0.15, this.size * 0.1);
+        // Bottom wing weapon
+        ctx.fillRect(-this.size * 0.15, this.size * 0.6, this.size * 0.15, this.size * 0.1);
+        ctx.strokeRect(-this.size * 0.15, this.size * 0.6, this.size * 0.15, this.size * 0.1);
+        
+        // Panel lines
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(this.size * 0.5, -this.size * 0.3);
+        ctx.lineTo(-this.size * 0.3, -this.size * 0.3);
+        ctx.moveTo(this.size * 0.5, this.size * 0.3);
+        ctx.lineTo(-this.size * 0.3, this.size * 0.3);
+        ctx.moveTo(this.size * 0.2, 0);
+        ctx.lineTo(-this.size * 0.4, 0);
+        ctx.stroke();
+        
+        // Engine thrusters - bright cyan
+        const thrusterPulse = Math.sin(performance.now() / 100) * 0.2 + 0.8;
+        ctx.fillStyle = '#06b6d4';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
+        ctx.save();
+        ctx.globalAlpha = thrusterPulse;
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 0.75, -this.size * 0.3, this.size * 0.12, this.size * 0.1, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 0.75, this.size * 0.3, this.size * 0.12, this.size * 0.1, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+        
+        // Thruster trails
+        if (thrusterPulse > 0.9) {
+          ctx.fillStyle = '#67e8f9';
+          ctx.globalAlpha = 0.6;
           ctx.beginPath();
-          ctx.moveTo(Math.cos(a) * this.size * 0.6, Math.sin(a) * this.size * 0.6);
-          const midX = Math.cos(a + bend) * this.size * (0.8 + wave * 0.5);
-          const midY = Math.sin(a + bend) * this.size * (0.8 + wave * 0.5);
-          const endX = Math.cos(a) * this.size * (1 + wave);
-          const endY = Math.sin(a) * this.size * (1 + wave);
-          ctx.quadraticCurveTo(midX, midY, endX, endY);
-          ctx.stroke();
+          ctx.ellipse(-this.size * 0.92, -this.size * 0.3, this.size * 0.18, this.size * 0.07, 0, 0, Math.PI * 2);
+          ctx.ellipse(-this.size * 0.92, this.size * 0.3, this.size * 0.18, this.size * 0.07, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1;
         }
       }
       ctx.shadowBlur = 0;
