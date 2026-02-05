@@ -136,6 +136,15 @@ export class Game3D {
   }
 
   /**
+   * Trigger weapon fire visual effect
+   * @param {string} weaponType - Type of weapon that fired
+   */
+  triggerWeaponFire(weaponType = 'primary') {
+    if (!this.enabled || !this.playerShip3D) return;
+    this.playerShip3D.showMuzzleFlash(weaponType);
+  }
+
+  /**
    * Sync 3D bullets with 2D bullets
    * @param {Array} bullets2D - Array of 2D bullet entities
    */
@@ -160,9 +169,14 @@ export class Game3D {
         );
         this.bullets3D.set(bulletId, bullet3D);
       } else {
-        // Update existing bullet
+        // Update existing bullet with velocity for orientation
         const bullet3D = this.bullets3D.get(bulletId);
-        bullet3D.update(bullet.x, bullet.y);
+        bullet3D.update(
+          bullet.x, 
+          bullet.y, 
+          bullet.vx || 0, 
+          bullet.vy || 0
+        );
       }
     });
 

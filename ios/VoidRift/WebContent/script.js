@@ -5120,6 +5120,7 @@
       this.engineOffset = 1.1;
       this.lookAngle = 0;
       this.vel = { x: 0, y: 0 };
+      this.actualVel = { x: 0, y: 0 }; // For inertia-based movement
       this.lastRegenT = performance.now();
       this.invEnd = 0;
       this.flash = false;
@@ -5405,17 +5406,40 @@
         // Keep vel.y synced for aiming purposes
         this.vel.y = this.velocityY > 0 ? 1 : (this.velocityY < 0 ? -1 : 0);
       } else {
-        // Space mode: Original twin-stick movement
+        // Space mode: Inertia-based twin-stick movement
         if (moveMag > 0.01) {
           const nx = input.moveX / moveMag;
           const ny = input.moveY / moveMag;
-          const step = spd * (dt / 16.67);
-          this.x += nx * step;
-          this.y += ny * step;
+          const targetSpeed = spd * (dt / 16.67);
+          
+          // Inertia physics - gradual acceleration and deceleration
+          const acceleration = 0.25; // How quickly ship accelerates
+          const targetVelX = nx * targetSpeed;
+          const targetVelY = ny * targetSpeed;
+          
+          // Smooth acceleration towards target velocity
+          this.actualVel.x += (targetVelX - this.actualVel.x) * acceleration;
+          this.actualVel.y += (targetVelY - this.actualVel.y) * acceleration;
+          
+          this.x += this.actualVel.x;
+          this.y += this.actualVel.y;
           this.vel.x = nx;
           this.vel.y = ny;
           moving = true;
         } else {
+          // Gradual deceleration when no input
+          const deceleration = 0.15;
+          this.actualVel.x *= (1 - deceleration);
+          this.actualVel.y *= (1 - deceleration);
+          
+          // Apply remaining momentum
+          this.x += this.actualVel.x;
+          this.y += this.actualVel.y;
+          
+          // Stop completely if velocity is very small
+          if (Math.abs(this.actualVel.x) < 0.01) this.actualVel.x = 0;
+          if (Math.abs(this.actualVel.y) < 0.01) this.actualVel.y = 0;
+          
           this.vel.x = 0;
           this.vel.y = 0;
         }

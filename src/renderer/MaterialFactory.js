@@ -257,6 +257,26 @@ export class MaterialFactory {
   }
 
   /**
+   * Create bullet material with energy glow
+   * @param {string} color - Bullet color (hex)
+   * @returns {THREE.MeshStandardMaterial} Material
+   */
+  createBulletMaterial(color) {
+    const key = `bullet_${color}`;
+    return this.get(key, () => {
+      return new THREE.MeshStandardMaterial({
+        color: color,
+        emissive: color,
+        emissiveIntensity: 1.5,
+        metalness: 0.3,
+        roughness: 0.2,
+        transparent: true,
+        opacity: 0.95
+      });
+    });
+  }
+
+  /**
    * Update material properties (for animations)
    * @param {THREE.Material} material - Material to update
    * @param {object} properties - Properties to update

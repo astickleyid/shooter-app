@@ -123,7 +123,9 @@ export class Game3D {
   updatePlayerShip(player, boosting = false) {
     if (!this.enabled || !this.playerShip3D) return;
 
-    this.playerShip3D.update(player.x, player.y, player.rotation);
+    // Pass velocity for banking/tilting effects
+    const velocity = player.vel || { x: 0, y: 0 };
+    this.playerShip3D.update(player.x, player.y, player.rotation, velocity);
     this.playerShip3D.animateEngines(performance.now(), boosting);
     
     if (boosting) {

@@ -252,10 +252,62 @@ export class Ship3D {
   }
 
   /**
-   * Get ship position
-   * @returns {THREE.Vector3} Position
+   * Show muzzle flash effect when weapons fire
+   * @param {string} weaponType - Type of weapon firing
    */
-  getPosition() {
+  showMuzzleFlash(weaponType = 'primary') {
+    if (!this.initialized || this.weaponMounts.length === 0) return;
+
+    // Create muzzle flash effect on weapon barrels
+    this.weaponMounts.forEach((barrel, index) => {
+      const flashGeometry = new THREE.SphereGeometry(this.shipData.scale * 3, 8, 8);
+      const flashColor = this.getWeaponFlashColor(weaponType);
+      const flashMaterial = new THREE.MeshBasicMaterial({
+        color: flashColor,
+        transparent: true,
+        opacity: 0.9,
+        blending: THREE.AdditiveBlending
+      });
+      
+      const flash = new THREE.Mesh(flashGeometry, flashMaterial);
+      flash.position.copy(barrel.position);
+      flash.position.x += this.shipData.scale * 8; // In front of barrel
+      this.group.add(flash);
+
+      // Animate and remove flash
+      let opacity = 0.9;
+      const fadeFlash = () => {
+        opacity -= 0.15;
+        flash.material.opacity = opacity;
+        if (opacity > 0) {
+          requestAnimationFrame(fadeFlash);
+        } else {
+          this.group.remove(flash);
+          flash.geometry.dispose();
+          flash.material.dispose();
+        }
+      };
+      fadeFlash();
+    });
+  }
+
+  /**
+   * Get weapon flash color based on weapon type
+   * @param {string} weaponType - Type of weapon
+   * @returns {number} Color hex
+   */
+  getWeaponFlashColor(weaponType) {
+    const colors = {
+      pulse: 0xfde047,
+      scatter: 0xfbbf24,
+      rail: 0xa855f7,
+      ionburst: 0x38bdf8,
+      plasma: 0x4ade80,
+      photon: 0xf0abfc,
+      primary: 0xfde047
+    };
+    return colors[weaponType] || colors.primary;
+  }
     return this.group.position.clone();
   }
 
