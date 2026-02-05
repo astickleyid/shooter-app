@@ -33,6 +33,12 @@ yarn-error.log*
 
 # OS generated files
 .DS_Store
+
+# Xcode user data
+DerivedData/
+*.xcuserdata
+**/xcuserdata/
+**/*.xcuserdatad/
 Thumbs.db
 desktop.ini
 
@@ -45,3 +51,15 @@ temp/
 
 # Vercel
 .vercel
+
+# Three.js libraries (served from node_modules)
+libs/
+
+# Local automation artifacts
+output/
+
+# Xcode build products / exports (do not commit)
+Products/
+SwiftSupport/
+dSYMs/
+Info.plist
