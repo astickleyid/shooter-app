@@ -181,6 +181,7 @@ To enable code signing in GitHub Actions, you need to add these secrets:
 - `IOS_CERTIFICATE_BASE64`: Base64-encoded .p12 certificate
 - `P12_PASSWORD`: Password for the .p12 certificate
 - `KEYCHAIN_PASSWORD`: Password for temporary keychain
+ - `EXPORT_OPTIONS_PLIST_BASE64` (optional): Base64-encoded ExportOptions.plist for IPA export
 
 ### Creating the Secrets
 
@@ -199,6 +200,34 @@ To enable code signing in GitHub Actions, you need to add these secrets:
    - Go to repository Settings → Secrets and variables → Actions
    - Click "New repository secret"
    - Add each secret
+
+### ExportOptions.plist (Optional IPA Export)
+
+If you want the workflow to export an `.ipa` artifact, create an ExportOptions.plist:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>method</key>
+  <string>app-store</string>
+  <key>signingStyle</key>
+  <string>automatic</string>
+  <key>teamID</key>
+  <string>NCG387GT8Y</string>
+  <key>uploadBitcode</key>
+  <false/>
+  <key>uploadSymbols</key>
+  <true/>
+</dict>
+</plist>
+```
+
+Then encode and store as a secret:
+```bash
+base64 -i ExportOptions.plist | pbcopy
+```
 
 ## Troubleshooting
 

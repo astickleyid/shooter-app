@@ -33,7 +33,7 @@ fi
 
 # Check 3: Essential web files exist
 echo "3. Checking essential web files..."
-for file in index.html script.js style.css backend-api.js; do
+for file in index.html script.js style.css backend-api.js auth-system.js leaderboard-system.js social-ui.js social-ui.css game-3d-integration.js; do
     if [ -f "$file" ]; then
         echo "   ✓ $file found"
     else
@@ -41,6 +41,15 @@ for file in index.html script.js style.css backend-api.js; do
         ERRORS=$((ERRORS + 1))
     fi
 done
+
+# Check 3b: Source modules exist (for 3D integration)
+echo "3b. Checking src module directory..."
+if [ -d "src" ]; then
+    echo "   ✓ src directory found"
+else
+    echo "   ✗ src directory NOT found"
+    ERRORS=$((ERRORS + 1))
+fi
 
 # Check 4: Sync script exists
 echo "4. Checking sync script..."
@@ -71,16 +80,41 @@ fi
 
 # Check 7: iOS WebContent has latest files
 echo "7. Checking if iOS WebContent is synced..."
+SYNC_WARN=0
+for file in index.html script.js style.css backend-api.js audio-manager.js game-utils.js auth-system.js leaderboard-system.js social-ui.js social-ui.css game-3d-integration.js unified-social.js; do
+    if [ ! -f "ios/VoidRift/WebContent/$file" ]; then
+        echo "   ⚠ iOS WebContent missing $file"
+        WARNINGS=$((WARNINGS + 1))
+        SYNC_WARN=1
+    elif ! cmp -s "$file" "ios/VoidRift/WebContent/$file"; then
+        echo "   ⚠ iOS WebContent out of sync for $file"
+        WARNINGS=$((WARNINGS + 1))
+        SYNC_WARN=1
+    else
+        echo "   ✓ $file synced"
+    fi
+done
+
+if [ -d "ios/VoidRift/WebContent/src" ]; then
+    echo "   ✓ iOS WebContent src directory found"
+else
+    echo "   ⚠ iOS WebContent src directory missing"
+    WARNINGS=$((WARNINGS + 1))
+    SYNC_WARN=1
+fi
+
 if [ -f "ios/VoidRift/WebContent/backend-api.js" ]; then
     if grep -q "shooter-app-one.vercel.app" ios/VoidRift/WebContent/backend-api.js; then
         echo "   ✓ iOS WebContent has Vercel URL"
     else
-        echo "   ⚠ iOS WebContent may need sync"
+        echo "   ⚠ iOS WebContent may need sync (API URL)"
         WARNINGS=$((WARNINGS + 1))
+        SYNC_WARN=1
     fi
-else
-    echo "   ⚠ iOS WebContent missing files - run ./sync-ios-content.sh"
-    WARNINGS=$((WARNINGS + 1))
+fi
+
+if [ $SYNC_WARN -eq 1 ]; then
+    echo "   ⚠ Run ./sync-ios-content.sh to resync WebContent"
 fi
 
 # Check 8: Documentation exists

@@ -31,6 +31,19 @@ cp -v "$ROOT_DIR/script.js" "$IOS_WEB_DIR/script.js"
 cp -v "$ROOT_DIR/style.css" "$IOS_WEB_DIR/style.css"
 echo ""
 
+# Sync auth + social UI system files
+echo "🧩 Syncing auth and social UI files..."
+cp -v "$ROOT_DIR/auth-system.js" "$IOS_WEB_DIR/auth-system.js"
+cp -v "$ROOT_DIR/leaderboard-system.js" "$IOS_WEB_DIR/leaderboard-system.js"
+cp -v "$ROOT_DIR/social-ui.js" "$IOS_WEB_DIR/social-ui.js"
+cp -v "$ROOT_DIR/social-ui.css" "$IOS_WEB_DIR/social-ui.css"
+echo ""
+
+# Sync 3D integration module
+echo "🛰️  Syncing 3D integration module..."
+cp -v "$ROOT_DIR/game-3d-integration.js" "$IOS_WEB_DIR/game-3d-integration.js"
+echo ""
+
 # Sync API and supporting files
 echo "🔌 Syncing API and supporting files..."
 cp -v "$ROOT_DIR/backend-api.js" "$IOS_WEB_DIR/backend-api.js"
@@ -43,6 +56,7 @@ echo "👥 Syncing social integration files..."
 cp -v "$ROOT_DIR/social-api.js" "$IOS_WEB_DIR/social-api.js"
 cp -v "$ROOT_DIR/social-hub.js" "$IOS_WEB_DIR/social-hub.js"
 cp -v "$ROOT_DIR/social-integration.js" "$IOS_WEB_DIR/social-integration.js"
+cp -v "$ROOT_DIR/unified-social.js" "$IOS_WEB_DIR/unified-social.js"
 echo ""
 
 # Sync assets directory
@@ -51,6 +65,15 @@ if [ -d "$ROOT_DIR/assets" ]; then
     rsync -av --delete "$ROOT_DIR/assets/" "$IOS_WEB_DIR/assets/"
 else
     echo "   Warning: assets directory not found, skipping"
+fi
+echo ""
+
+# Sync source modules (needed for 3D integration)
+echo "🧱 Syncing src modules..."
+if [ -d "$ROOT_DIR/src" ]; then
+    rsync -av --delete "$ROOT_DIR/src/" "$IOS_WEB_DIR/src/"
+else
+    echo "   Warning: src directory not found, skipping"
 fi
 echo ""
 
