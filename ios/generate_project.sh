@@ -335,7 +335,7 @@ LD_RUNPATH_SEARCH_PATHS = (
 "$(inherited)",
 "@executable_path/Frameworks",
 );
-MARKETING_VERSION = 1.0;
+MARKETING_VERSION = 1.0.0;
 PRODUCT_BUNDLE_IDENTIFIER = com.voidrift.game;
 PRODUCT_NAME = "$(TARGET_NAME)";
 SWIFT_EMIT_LOC_STRINGS = YES;
@@ -363,7 +363,7 @@ LD_RUNPATH_SEARCH_PATHS = (
 "$(inherited)",
 "@executable_path/Frameworks",
 );
-MARKETING_VERSION = 1.0;
+MARKETING_VERSION = 1.0.0;
 PRODUCT_BUNDLE_IDENTIFIER = com.voidrift.game;
 PRODUCT_NAME = "$(TARGET_NAME)";
 SWIFT_EMIT_LOC_STRINGS = YES;

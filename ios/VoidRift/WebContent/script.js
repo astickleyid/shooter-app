@@ -1,4 +1,4 @@
-/* global AudioManager, SocialAPI, SocialHub, GlobalLeaderboard, updateSocialUI */
+/* global AudioManager, AuthSystem, LeaderboardSystem, SocialUI */
 (() => {
   /* ====== UTILS ====== */
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -740,7 +740,8 @@
     dom.startGraphicCanvas = document.getElementById('startGraphicCanvas');
     dom.gameContainer = document.getElementById('gameContainer');
     dom.canvas = document.getElementById('gameCanvas');
-    dom.ctx = dom.canvas ? dom.canvas.getContext('2d') : null;
+    // Note: Don't create 2D context yet - wait for 3D check first
+    dom.ctx = null;
     dom.scoreValue = document.getElementById('scoreValue');
     dom.levelValue = document.getElementById('levelValue');
     dom.healthBar = document.getElementById('healthBar');
@@ -841,6 +842,10 @@
   let readyUpPhase = false; // NEW: Phase where player can shop before countdown
   let readyUpLevel = 0; // Level displayed during ready-up
   const camera = { x: 0, y: 0 };
+
+  // 3D Rendering System
+  let game3DInstance = null;
+  let use3DMode = true; // Enable 3D by default
 
   // Difficulty system
   let currentDifficulty = 'normal';
@@ -1218,14 +1223,11 @@
   };
 
   /**
-   * Unified Authentication Manager
-   * Syncs local Auth with SocialAPI for a single login experience
+   * Auth Wrapper - Simplified wrapper around AuthSystem
+   * Maintains compatibility with existing code while using new unified auth
    */
   const Auth = {
-    users: {},
-    currentUser: null,
-    
-    // Player profile data (unified across all features)
+    // Player profile data (game-specific achievements and progress)
     playerProfile: {
       prestige: 0,
       prestigeLevel: 1,
@@ -1243,34 +1245,22 @@
     },
     
     load() {
-      try {
-        const raw = localStorage.getItem(AUTH_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          this.users = parsed.users || {};
-          this.currentUser = parsed.currentUser || null;
-          // Validate that currentUser actually exists in users
-          if (this.currentUser && !this.users[this.currentUser]) {
-            console.warn('Current user not found in users, resetting');
-            this.currentUser = null;
-          }
-        }
-      } catch (err) {
-        console.warn('Failed to load auth data', err);
-        this.users = {};
-        this.currentUser = null;
+      // Initialize AuthSystem (already done, but ensure it's ready)
+      if (typeof AuthSystem !== 'undefined') {
+        AuthSystem.initialize();
       }
       
-      // Load player profile data
+      // Load player profile data (game-specific)
       this.loadProfile();
       
-      // Sync with SocialAPI if available
-      this.syncWithSocial();
+      // Update UI
+      this.updateAllUI();
     },
     
     loadProfile() {
       try {
-        const profileKey = `${AUTH_KEY}_profile_${this.currentUser || 'guest'}`;
+        const user = typeof AuthSystem !== 'undefined' ? AuthSystem.getCurrentUser() : null;
+        const profileKey = user ? `voidrift_profile_${user.id}` : 'voidrift_profile_guest';
         const raw = localStorage.getItem(profileKey);
         if (raw) {
           const parsed = JSON.parse(raw);
@@ -1283,7 +1273,8 @@
     
     saveProfile() {
       try {
-        const profileKey = `${AUTH_KEY}_profile_${this.currentUser || 'guest'}`;
+        const user = typeof AuthSystem !== 'undefined' ? AuthSystem.getCurrentUser() : null;
+        const profileKey = user ? `voidrift_profile_${user.id}` : 'voidrift_profile_guest';
         localStorage.setItem(profileKey, JSON.stringify(this.playerProfile));
       } catch (err) {
         console.warn('Failed to save player profile', err);
@@ -1291,233 +1282,61 @@
     },
     
     save() {
-      try {
-        localStorage.setItem(AUTH_KEY, JSON.stringify({
-          users: this.users,
-          currentUser: this.currentUser
-        }));
-        this.saveProfile();
-      } catch (err) {
-        console.warn('Failed to save auth data', err);
-      }
-    },
-    
-    /**
-     * Sync authentication state with SocialAPI
-     * This ensures one login works for all features
-     */
-    syncWithSocial() {
-      if (typeof SocialAPI !== 'undefined') {
-        // Check if SocialAPI has a session
-        SocialAPI.loadSession();
-        
-        if (SocialAPI.isLoggedIn() && !this.currentUser) {
-          // SocialAPI is logged in but local Auth isn't - sync local auth
-          const socialUser = SocialAPI.currentUser;
-          if (socialUser && socialUser.username) {
-            const cleanUsername = socialUser.username.trim().toLowerCase();
-            if (!this.users[cleanUsername]) {
-              // Create local user entry
-              this.users[cleanUsername] = {
-                username: socialUser.username,
-                passwordHash: 'social_sync', // Special marker for socially synced accounts
-                createdAt: Date.now(),
-                socialId: socialUser.id
-              };
-            }
-            this.currentUser = cleanUsername;
-            this.loadProfile();
-            this.save();
-          }
-        } else if (this.currentUser && !SocialAPI.isLoggedIn()) {
-          // Local Auth is logged in but SocialAPI isn't - could be offline mode
-          // Leave as-is for offline play
-        }
-      }
+      this.saveProfile();
     },
     
     async register(username, password) {
-      if (!username || username.trim().length === 0) {
-        return { success: false, error: 'Username is required' };
-      }
-      if (!password || password.length < 4) {
-        return { success: false, error: 'Password must be at least 4 characters' };
+      if (typeof AuthSystem === 'undefined') {
+        return { success: false, error: 'Authentication system not available' };
       }
       
-      const cleanUsername = username.trim().toLowerCase();
-      
-      if (this.users[cleanUsername]) {
-        return { success: false, error: 'Username already exists' };
+      const result = await AuthSystem.register(username, password);
+      if (result.success) {
+        this.loadProfile();
+        this.updateAllUI();
       }
-      
-      // Try to register with SocialAPI first (if available)
-      if (typeof SocialAPI !== 'undefined') {
-        try {
-          const socialResult = await SocialAPI.register(username, password);
-          if (socialResult && socialResult.success) {
-            // Social registration successful - create local entry
-            this.users[cleanUsername] = {
-              username: username.trim(),
-              passwordHash: await hashPassword(password),
-              createdAt: Date.now(),
-              socialId: socialResult.user?.id
-            };
-            this.currentUser = cleanUsername;
-            this.loadProfile();
-            this.save();
-            this.updateAllUI();
-            return { success: true };
-          }
-        } catch (err) {
-          // Social registration failed - continue with local registration
-          console.warn('Social registration failed, using local:', err.message);
-        }
-      }
-      
-      // Fallback to local-only registration
-      const hashedPassword = await hashPassword(password);
-      
-      this.users[cleanUsername] = {
-        username: username.trim(),
-        passwordHash: hashedPassword,
-        createdAt: Date.now()
-      };
-      
-      this.currentUser = cleanUsername;
-      this.loadProfile();
-      this.save();
-      this.updateAllUI();
-      
-      return { success: true };
+      return result;
     },
     
     async login(username, password) {
-      if (!username || !password) {
-        return { success: false, error: 'Username and password are required' };
+      if (typeof AuthSystem === 'undefined') {
+        return { success: false, error: 'Authentication system not available' };
       }
       
-      const cleanUsername = username.trim().toLowerCase();
-      
-      // Try to login with SocialAPI first (if available)
-      if (typeof SocialAPI !== 'undefined') {
-        try {
-          const socialResult = await SocialAPI.login(username, password);
-          if (socialResult && socialResult.success) {
-            // Social login successful - sync local entry
-            if (!this.users[cleanUsername]) {
-              this.users[cleanUsername] = {
-                username: username.trim(),
-                passwordHash: await hashPassword(password),
-                createdAt: Date.now(),
-                socialId: socialResult.user?.id
-              };
-            } else {
-              this.users[cleanUsername].socialId = socialResult.user?.id;
-            }
-            this.currentUser = cleanUsername;
-            this.loadProfile();
-            this.save();
-            this.updateAllUI();
-            return { success: true };
-          }
-        } catch (err) {
-          // Social login failed - try local login
-          console.warn('Social login failed, trying local:', err.message);
-        }
+      const result = await AuthSystem.login(username, password);
+      if (result.success) {
+        this.loadProfile();
+        this.updateAllUI();
       }
-      
-      // Fallback to local login
-      const user = this.users[cleanUsername];
-      
-      if (!user) {
-        return { success: false, error: 'Invalid username or password' };
-      }
-      
-      // Support legacy plaintext passwords and migrate them
-      if (user.password && !user.passwordHash) {
-        if (user.password === password) {
-          // Migrate to hashed password
-          user.passwordHash = await hashPassword(password);
-          delete user.password;
-          this.currentUser = cleanUsername;
-          this.loadProfile();
-          this.save();
-          this.updateAllUI();
-          return { success: true };
-        }
-        return { success: false, error: 'Invalid username or password' };
-      }
-      
-      // Special case: socially synced accounts can login if they exist
-      if (user.passwordHash === 'social_sync') {
-        // Try re-validating with social
-        return { success: false, error: 'Please login through the social system' };
-      }
-      
-      // Verify hashed password
-      const hashedPassword = await hashPassword(password);
-      if (user.passwordHash !== hashedPassword) {
-        return { success: false, error: 'Invalid username or password' };
-      }
-      
-      this.currentUser = cleanUsername;
-      this.loadProfile();
-      this.save();
-      this.updateAllUI();
-      
-      return { success: true };
+      return result;
     },
     
     logout() {
-      this.currentUser = null;
-      this.playerProfile = {
-        prestige: 0,
-        prestigeLevel: 1,
-        achievements: [],
-        unlockedAchievements: [],
-        totalKills: 0,
-        bossKills: 0,
-        eliteKills: 0,
-        gamesPlayed: 0,
-        totalPlayTime: 0,
-        flawlessLevels: 0,
-        unlockedShips: ['vanguard'],
-        customShipColors: {},
-        title: 'Rookie Pilot'
-      };
-      this.save();
-      
-      // Also logout from SocialAPI
-      if (typeof SocialAPI !== 'undefined') {
-        SocialAPI.logout();
+      if (typeof AuthSystem !== 'undefined') {
+        AuthSystem.logout();
       }
-      
       this.updateAllUI();
     },
     
     isLoggedIn() {
-      // Check both local and social login states
-      if (this.currentUser && this.users[this.currentUser]) {
-        return true;
-      }
-      // Also check SocialAPI
-      if (typeof SocialAPI !== 'undefined' && SocialAPI.isLoggedIn()) {
-        this.syncWithSocial();
-        return true;
-      }
-      return false;
+      return typeof AuthSystem !== 'undefined' && AuthSystem.isAuthenticated();
     },
     
     getCurrentUsername() {
-      if (this.currentUser) {
-        const user = this.users[this.currentUser];
-        return user ? user.username : null;
+      const user = typeof AuthSystem !== 'undefined' ? AuthSystem.getCurrentUser() : null;
+      return user ? user.username : null;
+    },
+    
+    getCurrentUser() {
+      return typeof AuthSystem !== 'undefined' ? AuthSystem.getCurrentUser() : null;
+    },
+    
+    // Update all UI elements across the game
+    updateAllUI() {
+      // Update social UI if available
+      if (typeof SocialUI !== 'undefined' && SocialUI.updateUI) {
+        SocialUI.updateUI();
       }
-      // Fallback to SocialAPI
-      if (typeof SocialAPI !== 'undefined' && SocialAPI.currentUser) {
-        return SocialAPI.currentUser.username;
-      }
-      return null;
     },
     
     // Get current user's full profile data
@@ -1531,38 +1350,6 @@
         bestScore: Save.data.bestScore,
         highestLevel: Save.data.highestLevel
       };
-    },
-    
-    // Update all UI elements across the game
-    updateAllUI() {
-      // Update local auth UI
-      if (typeof updateAuthUI === 'function') {
-        updateAuthUI();
-      }
-      // Update social UI if available
-      if (typeof updateSocialUI === 'function') {
-        updateSocialUI();
-      }
-      // Update login button in footer
-      const loginBtn = document.getElementById('loginButton');
-      if (loginBtn) {
-        if (this.isLoggedIn()) {
-          const username = this.getCurrentUsername();
-          loginBtn.textContent = username || 'Profile';
-          loginBtn.onclick = () => {
-            if (typeof SocialHub !== 'undefined') {
-              SocialHub.showProfile();
-            }
-          };
-        } else {
-          loginBtn.textContent = 'Login';
-          loginBtn.onclick = () => {
-            if (typeof SocialHub !== 'undefined') {
-              SocialHub.showAuthModal('login');
-            }
-          };
-        }
-      }
     },
     
     // Prestige system functions
@@ -1710,7 +1497,7 @@
   /* ====== LEADERBOARD SYSTEM ====== */
   const Leaderboard = {
     entries: [],
-    useGlobal: typeof GlobalLeaderboard !== 'undefined',
+    useGlobal: typeof LeaderboardSystem !== 'undefined',
     migrated: false,
     statusMessage: '',
     statusTone: 'info',
@@ -1726,159 +1513,70 @@
     },
     
     load() {
-      try {
-        const raw = localStorage.getItem(LEADERBOARD_KEY);
-        if (raw) {
-          this.entries = JSON.parse(raw);
-        }
-      } catch (err) {
-        console.warn('Failed to load leaderboard', err);
-        this.entries = [];
-      }
-      
-      // Auto-migrate local scores to global on first load
-      this.autoMigrate();
+      // No need to load - LeaderboardSystem handles persistence
       this.setStatus('', 'info');
     },
     
-    async autoMigrate() {
-      if (this.migrated || !this.useGlobal || this.entries.length === 0) {
-        return;
-      }
-      
-      const MIGRATION_KEY = 'void_rift_scores_migrated';
-      if (localStorage.getItem(MIGRATION_KEY)) {
-        this.migrated = true;
-        return;
-      }
-      
-      console.warn(`Migrating ${this.entries.length} local scores to global leaderboard...`);
-      
-      let success = 0;
-      for (const entry of this.entries) {
-        try {
-          const result = await GlobalLeaderboard.submitScore(entry);
-          if (result && result.success) {
-            success++;
-          }
-          await new Promise(resolve => setTimeout(resolve, 100));
-        } catch (err) {
-          console.warn('Migration error:', err);
-        }
-      }
-      
-      localStorage.setItem(MIGRATION_KEY, 'true');
-      this.migrated = true;
-      console.warn(`Migrated ${success}/${this.entries.length} scores to global leaderboard`);
-    },
-    
     save() {
-      try {
-        localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(this.entries));
-      } catch (err) {
-        console.warn('Failed to save leaderboard', err);
-      }
+      // No need to save - LeaderboardSystem handles persistence
     },
     
     async addEntry(username, score, level, difficulty) {
-      const entry = {
-        username: username,
-        score: score,
-        level: level,
-        difficulty: difficulty,
-        timestamp: Date.now()
-      };
-      
-      // Save to local storage as backup
-      this.entries.push(entry);
-      this.entries.sort((a, b) => b.score - a.score);
-      if (this.entries.length > 100) {
-        this.entries = this.entries.slice(0, 100);
-      }
-      this.save();
-      
-      // Submit to global leaderboard
-      if (this.useGlobal) {
+      // Use new LeaderboardSystem
+      if (this.useGlobal && typeof LeaderboardSystem !== 'undefined') {
         try {
-          const result = await GlobalLeaderboard.submitScore(entry);
-          if (result && result.rank) {
+          const result = await LeaderboardSystem.submitScore({
+            score,
+            level,
+            difficulty,
+            timestamp: Date.now()
+          });
+          
+          if (result.success) {
             this.setStatus('', 'info');
-            // Score submitted successfully
-            return result.rank;
-          }
-
-          if (result && result.success === false) {
-            this.setStatus(result.error || 'Global submit failed. Using local scores.', 'error');
+            return result.rank || 1;
+          } else {
+            this.setStatus(result.error || 'Failed to submit score', 'error');
+            return 1;
           }
         } catch (err) {
-          console.warn('Global leaderboard unavailable, using local');
-          this.setStatus('Global leaderboard unavailable. Using local scores.', 'warning');
+          console.warn('Leaderboard submission error:', err);
+          this.setStatus('Failed to submit score', 'error');
+          return 1;
         }
       }
       
-      // Return local rank as fallback
-      return this.entries.findIndex(e => 
-        e.username === username && 
-        e.score === score && 
-        e.timestamp === entry.timestamp
-      ) + 1;
+      return 1;
     },
     
     async getEntries(difficulty = 'all', limit = 100) {
-      // Try to fetch from global leaderboard first
-      if (this.useGlobal) {
+      // Use new LeaderboardSystem
+      if (this.useGlobal && typeof LeaderboardSystem !== 'undefined') {
         try {
-          const globalEntries = await GlobalLeaderboard.fetchScores(difficulty, limit);
-          // Return global entries even if empty (distinguishes from error)
-          if (globalEntries !== null && Array.isArray(globalEntries)) {
-            // Global entries fetched successfully
-            // Merge with local entries to ensure user's scores appear
-            const mergedEntries = this.mergeWithLocal(globalEntries, difficulty);
-            this.setStatus('', 'info');
-            return mergedEntries.slice(0, limit);
-          }
-          if (GlobalLeaderboard.lastError) {
-            this.setStatus(`Global leaderboard unavailable: ${GlobalLeaderboard.lastError}`, 'warning');
-          }
+          const entries = await LeaderboardSystem.fetchScores(difficulty, limit);
+          this.setStatus('', 'info');
+          return entries || [];
         } catch (err) {
-          console.warn('Global leaderboard unavailable, using local:', err.message);
-          this.setStatus('Global leaderboard unavailable. Using local scores.', 'warning');
+          console.warn('Leaderboard fetch error:', err);
+          this.setStatus('Failed to fetch leaderboard', 'warning');
+          return [];
         }
       }
       
-      // Fallback to local entries
-      let filtered = this.entries;
-      if (difficulty !== 'all') {
-        filtered = this.entries.filter(e => e.difficulty === difficulty);
-      }
-      return filtered.slice(0, limit);
-    },
-    
-    // Merge global entries with local entries (in case global doesn't have user's recent scores)
-    mergeWithLocal(globalEntries, difficulty = 'all') {
-      const globalIds = new Set(globalEntries.map(e => e.id));
-      // Filter local entries by difficulty and exclude entries already in global
-      const localToAdd = this.entries.filter(e => {
-        const matchesDifficulty = difficulty === 'all' || e.difficulty === difficulty;
-        const notInGlobal = !globalIds.has(e.id);
-        return matchesDifficulty && notInGlobal;
-      });
-      
-      // Combine and sort by score
-      const merged = [...globalEntries, ...localToAdd];
-      merged.sort((a, b) => b.score - a.score);
-      
-      return merged;
+      return [];
     },
     
     getUserBest(username) {
-      const userEntries = this.entries.filter(e => 
-        e.username.toLowerCase() === username.toLowerCase()
-      );
-      
-      if (userEntries.length === 0) return null;
-      
-      return userEntries[0]; // Already sorted by score
+      // Use new LeaderboardSystem
+      if (this.useGlobal && typeof LeaderboardSystem !== 'undefined') {
+        try {
+          const userScores = LeaderboardSystem.getUserBestScores();
+          return userScores.length > 0 ? userScores[0] : null;
+        } catch (err) {
+          return null;
+        }
+      }
+      return null;
     }
   };
 
@@ -2011,6 +1709,11 @@
   const shakeScreen = (power = 4, duration = 120) => {
     shakeUntil = Math.max(shakeUntil, performance.now() + duration);
     shakePower = power;
+    
+    // Also trigger 3D shake if active
+    if (use3DMode && game3DInstance) {
+      game3DInstance.shake(power);
+    }
   };
 
   // Phase 1: Spawn floating damage number
@@ -2359,8 +2062,8 @@
   const drawStarsLayer = (ctx, arr, parallaxFactor) => {
     ctx.fillStyle = '#fff';
     for (const star of arr) {
-      // Smaller stars appear dimmer (realistic)
-      ctx.globalAlpha = clamp(star.s / 2.2, 0.15, 0.85);
+      // Brighter stars with better visibility
+      ctx.globalAlpha = clamp(star.s / 1.8, 0.3, 1.0); // Increased from 0.15-0.85 range
       ctx.fillRect(star.x, star.y, star.s, star.s);
       
       // Very subtle individual drift (stars appear nearly static like real space)
@@ -2399,13 +2102,13 @@
   // Enhanced star layer with subtle twinkle for realistic space appearance
   const drawEnhancedStarsLayer = (ctx, arr, parallaxFactor) => {
     for (const star of arr) {
-      let alpha = clamp(star.s / 2.2, 0.15, 0.85) * (star.baseAlpha || 1);
+      let alpha = clamp(star.s / 1.5, 0.4, 1.0) * (star.baseAlpha || 1); // Brighter range
       
       // Apply subtle twinkling effect
       if (star.twinkle) {
         star.twinklePhase += star.twinkleSpeed * 16.67;
-        // More subtle twinkle range for realism
-        alpha *= 0.75 + 0.25 * Math.sin(star.twinklePhase);
+        // Subtle twinkle with brighter minimum
+        alpha *= 0.8 + 0.2 * Math.sin(star.twinklePhase); // Higher minimum (0.8 vs 0.75)
       }
       
       ctx.globalAlpha = alpha;
@@ -2461,26 +2164,26 @@
     }
   };
 
-  // Initialize realistic star layers for dark space aesthetic
+  // Initialize realistic star layers for dark void aesthetic with bright stars
   const initStarLayers = () => {
-    // Layer 1: Deep space stars (very distant, faint, nearly static)
-    starsDeepSpace = makeEnhancedStars(300, {
-      colors: ['#ffffff', '#e5e7eb', '#d1d5db'],  // Subtle white/gray tones
-      minSize: 0.2,
-      maxSize: 0.6,
-      baseAlpha: 0.3,
+    // Layer 1: Deep space stars (very distant, brighter, nearly static)
+    starsDeepSpace = makeEnhancedStars(400, { // More stars
+      colors: ['#ffffff', '#f5f5f5', '#fafafa'],  // Brighter white tones (less gray)
+      minSize: 0.3, // Slightly larger
+      maxSize: 0.8,
+      baseAlpha: 0.5, // Increased from 0.3 for better visibility
       twinkle: true
     });
-    // Layer 2-4: Main star layers (varying distances)
-    starsFar = makeStars(150);   // Most distant, smallest
-    starsMid = makeStars(100);   // Middle distance
-    starsNear = makeStars(60);   // Closer stars
-    // Layer 5: Occasional bright stars (rare, prominent)
-    starsBright = makeEnhancedStars(12, {
-      colors: ['#ffffff', '#fef9c3', '#e0f2fe'],  // Pure white with slight color variance
-      minSize: 1.2,
-      maxSize: 2.0,
-      baseAlpha: 0.8,
+    // Layer 2-4: Main star layers (varying distances) - more stars, brighter
+    starsFar = makeStars(200);   // Increased from 150
+    starsMid = makeStars(150);   // Increased from 100
+    starsNear = makeStars(100);  // Increased from 60
+    // Layer 5: Occasional bright stars (rare, prominent) - more visible
+    starsBright = makeEnhancedStars(20, { // Increased from 12
+      colors: ['#ffffff', '#fffef0', '#f0f9ff'],  // Pure white with minimal warm/cool tints
+      minSize: 1.5, // Larger for prominence
+      maxSize: 2.5, // Increased from 2.0
+      baseAlpha: 1.0, // Full brightness (increased from 0.8)
       twinkle: true
     });
   };
@@ -2496,9 +2199,12 @@
 
   class Asteroid {
     constructor(x, y, r, variant = 'rock') {
+      this.id = `asteroid_${entityIdCounter++}`;
       this.x = x;
       this.y = y;
       this.r = r;
+      this.size = r; // Add size property for 3D system
+      this.seed = Math.random() * 1000; // Random seed for 3D geometry variation
       this.variant = variant;
       this.rot = rand(0, Math.PI * 2);
       this.vx = rand(-0.45, 0.45);
@@ -4232,8 +3938,13 @@
   };
 
   /* ====== ENTITY CLASSES ====== */
+  
+  // Entity ID counter for 3D tracking
+  let entityIdCounter = 0;
+  
   class Bullet {
     constructor(x, y, vel, damage, color = '#fde047', speed = BASE.BULLET_SPEED, size = BASE.BULLET_SIZE, pierce = 0, isEnemy = false) {
+      this.id = `bullet_${entityIdCounter++}`;
       this.x = x;
       this.y = y;
       this.size = size;
@@ -4362,6 +4073,7 @@
 
   class Enemy {
     constructor(x, y, kind = 'chaser', isElite = false, isBoss = false) {
+      this.id = `enemy_${entityIdCounter++}`;
       this.x = x;
       this.y = y;
       this.kind = kind;
@@ -4491,213 +4203,502 @@
       ctx.shadowBlur = aggroIntensity;
       
       if (this.kind === 'drone') {
-        // Phase A.2: Enhanced drone with multi-layer rendering
-        // Base layer - darker hull
-        ctx.fillStyle = damaged ? '#991b1b' : '#b91c1c';
-        ctx.strokeStyle = damaged ? '#dc2626' : '#ef4444';
-        ctx.lineWidth = 2;
+        // SPRITE-STYLE RED FIGHTER - Matching reference image aesthetic
+        // Clean geometric sprite design with thick outlines
+        
+        const outlineWidth = 4;
+        const outlineColor = '#000000';
+        
+        // Main body - red triangular fighter
+        ctx.fillStyle = damaged ? '#b91c1c' : '#dc2626';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = outlineWidth;
         ctx.beginPath();
-        ctx.moveTo(this.size, 0);
-        ctx.lineTo(-this.size * 0.6, -this.size * 0.6);
-        ctx.lineTo(-this.size * 0.3, 0);
-        ctx.lineTo(-this.size * 0.6, this.size * 0.6);
+        ctx.moveTo(this.size * 1.3, 0);  // nose
+        ctx.lineTo(this.size * 0.3, -this.size * 0.8);  // top wing tip
+        ctx.lineTo(-this.size * 0.5, -this.size * 0.6);  // wing back top
+        ctx.lineTo(-this.size * 0.8, -this.size * 0.3);  // engine top
+        ctx.lineTo(-this.size * 0.8, this.size * 0.3);  // engine bottom
+        ctx.lineTo(-this.size * 0.5, this.size * 0.6);  // wing back bottom
+        ctx.lineTo(this.size * 0.3, this.size * 0.8);  // bottom wing tip
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
         
-        // Phase A.2: Glowing energy core
-        ctx.shadowColor = '#ef4444';
-        ctx.shadowBlur = 10;
-        ctx.fillStyle = criticalHealth ? '#fca5a5' : '#fecaca';
-        ctx.beginPath();
-        ctx.arc(-this.size * 0.1, 0, this.size * 0.3 * pulse, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Phase A.2: Animated wing thrusters
-        ctx.shadowBlur = 6;
-        const thrusterGlow = Math.sin(performance.now() / 100) * 0.3 + 0.7;
-        ctx.fillStyle = `rgba(251, 113, 133, ${thrusterGlow})`;
-        ctx.beginPath();
-        ctx.arc(-this.size * 0.4, -this.size * 0.4, this.size * 0.15, 0, Math.PI * 2);
-        ctx.arc(-this.size * 0.4, this.size * 0.4, this.size * 0.15, 0, Math.PI * 2);
-        ctx.fill();
-        
-      } else if (this.kind === 'chaser') {
-        // Phase A.2: Enhanced alien organic creature with animated parts
-        // Base body layer - darker when damaged
-        ctx.fillStyle = damaged ? '#701a75' : '#a21caf';
-        ctx.strokeStyle = damaged ? '#c026d3' : '#e879f9';
+        // Wing details - darker red panels
+        ctx.fillStyle = damaged ? '#7f1d1d' : '#991b1b';
+        ctx.strokeStyle = outlineColor;
         ctx.lineWidth = 2;
-        
-        // Phase A.2: Animated body segments
-        const bodyPulse = Math.sin(performance.now() / 200 + this.animPhase) * 0.1 + 1;
         ctx.beginPath();
-        ctx.ellipse(0, 0, this.size * 1.2 * bodyPulse, this.size * 0.8 * pulse, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-        
-        // Phase A.2: Armor plates overlay
-        if (!criticalHealth) {
-          ctx.strokeStyle = '#f0abfc';
-          ctx.lineWidth = 1.5;
-          ctx.beginPath();
-          ctx.ellipse(0, 0, this.size * 0.9, this.size * 0.6, 0, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-        
-        // Phase A.2: Animated mandibles/claws with wave motion
-        ctx.strokeStyle = '#d946ef';
-        ctx.lineWidth = 3;
-        const clawWave = Math.sin(performance.now() / 150) * 0.2;
-        ctx.beginPath();
-        ctx.moveTo(this.size * 0.8, -this.size * 0.5);
-        ctx.lineTo(this.size * (1.4 + clawWave), -this.size * (0.8 + clawWave));
-        ctx.moveTo(this.size * 0.8, this.size * 0.5);
-        ctx.lineTo(this.size * (1.4 + clawWave), this.size * (0.8 + clawWave));
-        ctx.stroke();
-        
-        // Phase A.2: Pulsing weak point eyes (glowing targets)
-        ctx.shadowColor = criticalHealth ? '#fca5a5' : '#ef4444';
-        ctx.shadowBlur = 8 + Math.sin(performance.now() / 150) * 4;
-        ctx.fillStyle = criticalHealth ? '#fca5a5' : '#ef4444';
-        ctx.beginPath();
-        ctx.arc(this.size * 0.3, -this.size * 0.3, this.size * 0.2 * pulse, 0, Math.PI * 2);
-        ctx.arc(this.size * 0.3, this.size * 0.3, this.size * 0.2 * pulse, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Phase A.2: Animated pupils tracking
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = '#dc2626';
-        const pupilOffset = Math.sin(performance.now() / 300) * 0.05;
-        ctx.beginPath();
-        ctx.arc(this.size * (0.35 + pupilOffset), -this.size * 0.3, this.size * 0.1, 0, Math.PI * 2);
-        ctx.arc(this.size * (0.35 + pupilOffset), this.size * 0.3, this.size * 0.1, 0, Math.PI * 2);
-        ctx.fill();
-        
-      } else if (this.kind === 'heavy') {
-        // Phase A.2: Enhanced heavy tank with rotating core and damage
-        // Outer armor layer - shows cracks when damaged
-        ctx.fillStyle = damaged ? '#14532d' : '#15803d';
-        ctx.strokeStyle = damaged ? '#22c55e' : '#86efac';
-        ctx.lineWidth = 3;
-        
-        // Phase A.2: Central crystal body with facets
-        ctx.beginPath();
-        ctx.moveTo(this.size * 1.2, 0);
-        ctx.lineTo(this.size * 0.4, -this.size);
-        ctx.lineTo(-this.size * 0.8, -this.size * 0.7);
-        ctx.lineTo(-this.size * 1.1, 0);
-        ctx.lineTo(-this.size * 0.8, this.size * 0.7);
-        ctx.lineTo(this.size * 0.4, this.size);
+        ctx.moveTo(this.size * 0.7, 0);
+        ctx.lineTo(this.size * 0.2, -this.size * 0.5);
+        ctx.lineTo(-this.size * 0.3, -this.size * 0.4);
+        ctx.lineTo(-this.size * 0.3, this.size * 0.4);
+        ctx.lineTo(this.size * 0.2, this.size * 0.5);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
         
-        // Phase A.2: Damage visualization - cracks
-        if (damaged) {
-          ctx.strokeStyle = '#052e16';
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(this.size * 0.6, -this.size * 0.4);
-          ctx.lineTo(this.size * 0.2, this.size * 0.3);
-          ctx.moveTo(-this.size * 0.5, -this.size * 0.3);
-          ctx.lineTo(-this.size * 0.7, this.size * 0.2);
-          ctx.stroke();
-        }
+        // Cockpit canopy - bright blue (key sprite element)
+        ctx.fillStyle = '#3b82f6';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.ellipse(this.size * 0.5, 0, this.size * 0.3, this.size * 0.2, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
         
-        // Phase A.2: Rotating inner crystal facets
-        const rotation = performance.now() / 1000;
-        ctx.strokeStyle = '#4ade80';
+        // Cockpit highlight
+        ctx.fillStyle = '#60a5fa';
+        ctx.beginPath();
+        ctx.ellipse(this.size * 0.55, -this.size * 0.08, this.size * 0.12, this.size * 0.08, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Weapon pods on wings
+        ctx.fillStyle = '#1a1a1a';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
+        // Top weapon
+        ctx.fillRect(-this.size * 0.25, -this.size * 0.7, this.size * 0.2, this.size * 0.12);
+        ctx.strokeRect(-this.size * 0.25, -this.size * 0.7, this.size * 0.2, this.size * 0.12);
+        // Bottom weapon
+        ctx.fillRect(-this.size * 0.25, this.size * 0.58, this.size * 0.2, this.size * 0.12);
+        ctx.strokeRect(-this.size * 0.25, this.size * 0.58, this.size * 0.2, this.size * 0.12);
+        
+        // Panel lines (mechanical details)
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        // Central spine
+        ctx.moveTo(this.size * 0.8, 0);
+        ctx.lineTo(-this.size * 0.4, 0);
+        // Wing panels
+        ctx.moveTo(this.size * 0.2, -this.size * 0.5);
+        ctx.lineTo(-this.size * 0.2, -this.size * 0.5);
+        ctx.moveTo(this.size * 0.2, this.size * 0.5);
+        ctx.lineTo(-this.size * 0.2, this.size * 0.5);
+        ctx.stroke();
+        
+        // Engine thrusters - bright cyan (sprite staple)
+        const thrusterPulse = Math.sin(performance.now() / 100) * 0.2 + 0.8;
+        ctx.fillStyle = '#06b6d4';
+        ctx.strokeStyle = outlineColor;
         ctx.lineWidth = 2;
         ctx.save();
-        ctx.rotate(rotation);
+        ctx.globalAlpha = thrusterPulse;
+        // Top thruster
         ctx.beginPath();
-        ctx.moveTo(this.size * 0.4, -this.size * 0.6);
-        ctx.lineTo(-this.size * 0.4, -this.size * 0.4);
-        ctx.lineTo(-this.size * 0.4, this.size * 0.4);
-        ctx.lineTo(this.size * 0.4, this.size * 0.6);
+        ctx.ellipse(-this.size * 0.75, -this.size * 0.25, this.size * 0.15, this.size * 0.1, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        // Bottom thruster
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 0.75, this.size * 0.25, this.size * 0.15, this.size * 0.1, 0, 0, Math.PI * 2);
+        ctx.fill();
         ctx.stroke();
         ctx.restore();
         
-        // Phase A.2: Pulsing energy core (weak point)
-        const coreGlow = 12 + Math.sin(performance.now() / 120) * 6;
-        ctx.fillStyle = criticalHealth ? '#fca5a5' : '#ef4444';
-        ctx.shadowColor = '#dc2626';
-        ctx.shadowBlur = coreGlow;
+        // Thruster glow trails
+        if (thrusterPulse > 0.9) {
+          ctx.fillStyle = '#67e8f9';
+          ctx.globalAlpha = 0.6;
+          ctx.beginPath();
+          ctx.ellipse(-this.size * 0.95, -this.size * 0.25, this.size * 0.2, this.size * 0.08, 0, 0, Math.PI * 2);
+          ctx.ellipse(-this.size * 0.95, this.size * 0.25, this.size * 0.2, this.size * 0.08, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+        
+      } else if (this.kind === 'chaser') {
+        // SPRITE-STYLE PURPLE PREDATOR - Matching reference image aesthetic
+        // Angular menacing design with thick outlines
+        
+        const outlineWidth = 4;
+        const outlineColor = '#000000';
+        
+        // Main body - purple angular predator
+        ctx.fillStyle = damaged ? '#7c3aed' : '#a78bfa';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = outlineWidth;
         ctx.beginPath();
-        ctx.arc(0, 0, this.size * 0.35 * pulse, 0, Math.PI * 2);
+        // Front angular nose
+        ctx.moveTo(this.size * 1.4, 0);
+        // Top swept wing
+        ctx.lineTo(this.size * 0.5, -this.size * 1.0);
+        ctx.lineTo(-this.size * 0.3, -this.size * 0.9);
+        ctx.lineTo(-this.size * 0.7, -this.size * 0.5);
+        // Back engine section
+        ctx.lineTo(-this.size * 0.9, -this.size * 0.2);
+        ctx.lineTo(-this.size * 0.9, this.size * 0.2);
+        ctx.lineTo(-this.size * 0.7, this.size * 0.5);
+        // Bottom swept wing
+        ctx.lineTo(-this.size * 0.3, this.size * 0.9);
+        ctx.lineTo(this.size * 0.5, this.size * 1.0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        
+        // Inner body panel - darker purple
+        ctx.fillStyle = damaged ? '#5b21b6' : '#7c3aed';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(this.size * 0.9, 0);
+        ctx.lineTo(this.size * 0.3, -this.size * 0.6);
+        ctx.lineTo(-this.size * 0.2, -this.size * 0.5);
+        ctx.lineTo(-this.size * 0.6, 0);
+        ctx.lineTo(-this.size * 0.2, this.size * 0.5);
+        ctx.lineTo(this.size * 0.3, this.size * 0.6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        
+        // Cockpit canopy - bright blue
+        ctx.fillStyle = '#3b82f6';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.ellipse(this.size * 0.6, 0, this.size * 0.35, this.size * 0.25, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Cockpit highlight
+        ctx.fillStyle = '#60a5fa';
+        ctx.beginPath();
+        ctx.ellipse(this.size * 0.65, -this.size * 0.1, this.size * 0.15, this.size * 0.1, 0, 0, Math.PI * 2);
         ctx.fill();
         
-        // Phase A.2: Inner core ring
-        ctx.shadowBlur = 0;
-        ctx.strokeStyle = '#fef08a';
+        // Wing-tip weapons/pods - dark sections
+        ctx.fillStyle = '#1a1a1a';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
+        // Top weapon pod
+        ctx.beginPath();
+        ctx.ellipse(this.size * 0.1, -this.size * 0.85, this.size * 0.18, this.size * 0.12, -0.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        // Bottom weapon pod
+        ctx.beginPath();
+        ctx.ellipse(this.size * 0.1, this.size * 0.85, this.size * 0.18, this.size * 0.12, 0.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Panel lines (mechanical greebles)
+        ctx.strokeStyle = outlineColor;
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.arc(0, 0, this.size * 0.2, 0, Math.PI * 2);
+        // Central spine
+        ctx.moveTo(this.size * 1.0, 0);
+        ctx.lineTo(-this.size * 0.5, 0);
+        // Wing panels - top
+        ctx.moveTo(this.size * 0.4, -this.size * 0.7);
+        ctx.lineTo(-this.size * 0.1, -this.size * 0.6);
+        // Wing panels - bottom
+        ctx.moveTo(this.size * 0.4, this.size * 0.7);
+        ctx.lineTo(-this.size * 0.1, this.size * 0.6);
+        // Angled details
+        ctx.moveTo(this.size * 0.2, -this.size * 0.4);
+        ctx.lineTo(this.size * 0.2, this.size * 0.4);
         ctx.stroke();
+        
+        // Small greeble details (vents/panels)
+        ctx.fillStyle = '#4c1d95';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 1;
+        // Top vent
+        ctx.fillRect(-this.size * 0.15, -this.size * 0.35, this.size * 0.15, this.size * 0.06);
+        ctx.strokeRect(-this.size * 0.15, -this.size * 0.35, this.size * 0.15, this.size * 0.06);
+        // Bottom vent
+        ctx.fillRect(-this.size * 0.15, this.size * 0.29, this.size * 0.15, this.size * 0.06);
+        ctx.strokeRect(-this.size * 0.15, this.size * 0.29, this.size * 0.15, this.size * 0.06);
+        
+        // Engine thrusters - bright cyan
+        const thrusterPulse = Math.sin(performance.now() / 100) * 0.2 + 0.8;
+        ctx.fillStyle = '#06b6d4';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
+        ctx.save();
+        ctx.globalAlpha = thrusterPulse;
+        // Top thruster
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 0.85, -this.size * 0.3, this.size * 0.12, this.size * 0.1, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        // Bottom thruster  
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 0.85, this.size * 0.3, this.size * 0.12, this.size * 0.1, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+        
+        // Thruster trails
+        if (thrusterPulse > 0.9) {
+          ctx.fillStyle = '#67e8f9';
+          ctx.globalAlpha = 0.6;
+          ctx.beginPath();
+          ctx.ellipse(-this.size * 1.05, -this.size * 0.3, this.size * 0.18, this.size * 0.08, 0, 0, Math.PI * 2);
+          ctx.ellipse(-this.size * 1.05, this.size * 0.3, this.size * 0.18, this.size * 0.08, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+        
+      } else if (this.kind === 'heavy') {
+        // SPRITE-STYLE HEAVY BATTLESHIP - Matching reference image aesthetic
+        // Large blocky design with thick outlines, resembling a space fortress
+        
+        const outlineWidth = 4;
+        const outlineColor = '#000000';
+        
+        // Main hull - gray/black fortress
+        ctx.fillStyle = damaged ? '#3f3f46' : '#52525b';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = outlineWidth;
+        ctx.beginPath();
+        // Front section
+        ctx.moveTo(this.size * 1.2, 0);
+        ctx.lineTo(this.size * 0.9, -this.size * 0.4);
+        // Top heavy section
+        ctx.lineTo(this.size * 0.5, -this.size * 1.1);
+        ctx.lineTo(-this.size * 0.5, -this.size * 1.1);
+        ctx.lineTo(-this.size * 1.2, -this.size * 0.6);
+        // Back engines
+        ctx.lineTo(-this.size * 1.3, -this.size * 0.3);
+        ctx.lineTo(-this.size * 1.3, this.size * 0.3);
+        ctx.lineTo(-this.size * 1.2, this.size * 0.6);
+        // Bottom heavy section
+        ctx.lineTo(-this.size * 0.5, this.size * 1.1);
+        ctx.lineTo(this.size * 0.5, this.size * 1.1);
+        ctx.lineTo(this.size * 0.9, this.size * 0.4);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        
+        // Orange accent panels
+        ctx.fillStyle = damaged ? '#c2410c' : '#ea580c';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
+        // Top orange stripe
+        ctx.fillRect(this.size * 0.3, -this.size * 0.95, this.size * 0.5, this.size * 0.15);
+        ctx.strokeRect(this.size * 0.3, -this.size * 0.95, this.size * 0.5, this.size * 0.15);
+        // Bottom orange stripe
+        ctx.fillRect(this.size * 0.3, this.size * 0.8, this.size * 0.5, this.size * 0.15);
+        ctx.strokeRect(this.size * 0.3, this.size * 0.8, this.size * 0.5, this.size * 0.15);
+        
+        // Central body darker section
+        ctx.fillStyle = damaged ? '#27272a' : '#3f3f46';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(this.size * 0.8, 0);
+        ctx.lineTo(this.size * 0.4, -this.size * 0.7);
+        ctx.lineTo(-this.size * 0.4, -this.size * 0.7);
+        ctx.lineTo(-this.size * 0.9, 0);
+        ctx.lineTo(-this.size * 0.4, this.size * 0.7);
+        ctx.lineTo(this.size * 0.4, this.size * 0.7);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        
+        // Cockpit/bridge - bright blue (sprite signature)
+        ctx.fillStyle = '#3b82f6';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2.5;
+        ctx.fillRect(this.size * 0.5, -this.size * 0.25, this.size * 0.35, this.size * 0.5);
+        ctx.strokeRect(this.size * 0.5, -this.size * 0.25, this.size * 0.35, this.size * 0.5);
+        
+        // Bridge highlight
+        ctx.fillStyle = '#60a5fa';
+        ctx.fillRect(this.size * 0.55, -this.size * 0.18, this.size * 0.25, this.size * 0.15);
+        
+        // Weapon turrets - black circles on hull
+        ctx.fillStyle = '#1a1a1a';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2.5;
+        const turretPositions = [
+          [this.size * 0.4, -this.size * 1.0],
+          [this.size * 1.05, -this.size * 0.2],
+          [this.size * 1.05, this.size * 0.2],
+          [this.size * 0.4, this.size * 1.0],
+          [-this.size * 0.5, -this.size * 1.0],
+          [-this.size * 0.5, this.size * 1.0]
+        ];
+        turretPositions.forEach(([x, y]) => {
+          ctx.beginPath();
+          ctx.arc(x, y, this.size * 0.15, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        });
+        
+        // Panel lines (greebles)
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        // Horizontal panels
+        ctx.moveTo(this.size * 0.8, -this.size * 0.5);
+        ctx.lineTo(-this.size * 0.8, -this.size * 0.5);
+        ctx.moveTo(this.size * 0.8, 0);
+        ctx.lineTo(-this.size * 0.8, 0);
+        ctx.moveTo(this.size * 0.8, this.size * 0.5);
+        ctx.lineTo(-this.size * 0.8, this.size * 0.5);
+        // Vertical panels
+        ctx.moveTo(this.size * 0.2, -this.size * 0.9);
+        ctx.lineTo(this.size * 0.2, this.size * 0.9);
+        ctx.moveTo(-this.size * 0.2, -this.size * 0.9);
+        ctx.lineTo(-this.size * 0.2, this.size * 0.9);
+        ctx.stroke();
+        
+        // Small greeble details (vents)
+        ctx.fillStyle = '#18181b';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 4; i++) {
+          const ventY = -this.size * 0.6 + i * this.size * 0.4;
+          ctx.fillRect(-this.size * 0.6, ventY, this.size * 0.12, this.size * 0.08);
+          ctx.strokeRect(-this.size * 0.6, ventY, this.size * 0.12, this.size * 0.08);
+        }
+        
+        // Engine thrusters - bright cyan (multiple)
+        const thrusterPulse = Math.sin(performance.now() / 100) * 0.2 + 0.8;
+        ctx.fillStyle = '#06b6d4';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
+        ctx.save();
+        ctx.globalAlpha = thrusterPulse;
+        // Main thrusters
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 1.25, -this.size * 0.45, this.size * 0.12, this.size * 0.12, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 1.25, this.size * 0.45, this.size * 0.12, this.size * 0.12, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        // Smaller side thrusters
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 1.15, -this.size * 0.15, this.size * 0.08, this.size * 0.08, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 1.15, this.size * 0.15, this.size * 0.08, this.size * 0.08, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+        
+        // Thruster trails
+        if (thrusterPulse > 0.9) {
+          ctx.fillStyle = '#67e8f9';
+          ctx.globalAlpha = 0.6;
+          ctx.beginPath();
+          ctx.ellipse(-this.size * 1.45, -this.size * 0.45, this.size * 0.2, this.size * 0.08, 0, 0, Math.PI * 2);
+          ctx.ellipse(-this.size * 1.45, this.size * 0.45, this.size * 0.2, this.size * 0.08, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
         
       } else {
-        // Phase A.2: Enhanced swarmer with layered bio-energy
-        // Outer membrane layer
-        ctx.fillStyle = damaged ? '#9a3412' : '#ea580c';
-        ctx.strokeStyle = damaged ? '#fb923c' : '#fdba74';
-        ctx.lineWidth = 2;
+        // SPRITE-STYLE ORANGE SCOUT - Matching reference image aesthetic
+        // Compact, aggressive orange fighter with thick outlines
         
-        // Phase A.2: Animated amoeba-like body with complex wobble
+        const outlineWidth = 4;
+        const outlineColor = '#000000';
+        
+        // Main body - bright orange compact fighter
+        ctx.fillStyle = damaged ? '#ea580c' : '#fb923c';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = outlineWidth;
         ctx.beginPath();
-        for (let i = 0; i < 8; i++) {
-          const angle = (i / 8) * Math.PI * 2;
-          const wobble = Math.sin(performance.now() / 100 + i + this.animPhase) * 0.2 + 0.9;
-          const r = this.size * wobble * pulse;
-          const x = Math.cos(angle) * r;
-          const y = Math.sin(angle) * r * 0.8;
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        }
+        // Compact angular design
+        ctx.moveTo(this.size * 1.1, 0);
+        ctx.lineTo(this.size * 0.5, -this.size * 0.7);
+        ctx.lineTo(-this.size * 0.2, -this.size * 0.8);
+        ctx.lineTo(-this.size * 0.7, -this.size * 0.4);
+        ctx.lineTo(-this.size * 0.8, 0);
+        ctx.lineTo(-this.size * 0.7, this.size * 0.4);
+        ctx.lineTo(-this.size * 0.2, this.size * 0.8);
+        ctx.lineTo(this.size * 0.5, this.size * 0.7);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
         
-        // Phase A.2: Inner energy layer
-        ctx.fillStyle = 'rgba(251, 146, 60, 0.5)';
+        // Inner darker panel
+        ctx.fillStyle = damaged ? '#c2410c' : '#ea580c';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
         ctx.beginPath();
-        for (let i = 0; i < 6; i++) {
-          const angle = (i / 6) * Math.PI * 2 + performance.now() / 500;
-          const wobble = Math.sin(performance.now() / 150 + i) * 0.15 + 0.85;
-          const r = this.size * 0.6 * wobble;
-          const x = Math.cos(angle) * r;
-          const y = Math.sin(angle) * r;
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        }
+        ctx.moveTo(this.size * 0.7, 0);
+        ctx.lineTo(this.size * 0.3, -this.size * 0.4);
+        ctx.lineTo(-this.size * 0.1, -this.size * 0.5);
+        ctx.lineTo(-this.size * 0.5, 0);
+        ctx.lineTo(-this.size * 0.1, this.size * 0.5);
+        ctx.lineTo(this.size * 0.3, this.size * 0.4);
         ctx.closePath();
         ctx.fill();
+        ctx.stroke();
         
-        // Phase A.2: Pulsing nucleus spots (weak points)
-        ctx.fillStyle = criticalHealth ? '#fca5a5' : '#ef4444';
-        ctx.shadowColor = '#dc2626';
-        ctx.shadowBlur = 8 + Math.sin(performance.now() / 100) * 4;
+        // Cockpit canopy - bright blue
+        ctx.fillStyle = '#3b82f6';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2.5;
         ctx.beginPath();
-        ctx.arc(-this.size * 0.2, -this.size * 0.15, this.size * 0.2 * pulse, 0, Math.PI * 2);
-        ctx.arc(this.size * 0.1, this.size * 0.2, this.size * 0.15 * pulse, 0, Math.PI * 2);
+        ctx.ellipse(this.size * 0.4, 0, this.size * 0.25, this.size * 0.18, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Cockpit highlight
+        ctx.fillStyle = '#60a5fa';
+        ctx.beginPath();
+        ctx.ellipse(this.size * 0.45, -this.size * 0.08, this.size * 0.1, this.size * 0.07, 0, 0, Math.PI * 2);
         ctx.fill();
         
-        // Phase A.2: Animated waving tendrils
-        ctx.shadowBlur = 0;
-        ctx.strokeStyle = '#fdba74';
-        ctx.lineWidth = 2.5;
-        for (let i = 0; i < 4; i++) {
-          const a = (i * Math.PI) / 2;
-          const wave = Math.sin(performance.now() / 150 + i) * 0.3 + 0.7;
-          const bend = Math.sin(performance.now() / 100 + i) * 0.15;
+        // Wing weapons
+        ctx.fillStyle = '#1a1a1a';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
+        // Top wing weapon
+        ctx.fillRect(-this.size * 0.15, -this.size * 0.7, this.size * 0.15, this.size * 0.1);
+        ctx.strokeRect(-this.size * 0.15, -this.size * 0.7, this.size * 0.15, this.size * 0.1);
+        // Bottom wing weapon
+        ctx.fillRect(-this.size * 0.15, this.size * 0.6, this.size * 0.15, this.size * 0.1);
+        ctx.strokeRect(-this.size * 0.15, this.size * 0.6, this.size * 0.15, this.size * 0.1);
+        
+        // Panel lines
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(this.size * 0.5, -this.size * 0.3);
+        ctx.lineTo(-this.size * 0.3, -this.size * 0.3);
+        ctx.moveTo(this.size * 0.5, this.size * 0.3);
+        ctx.lineTo(-this.size * 0.3, this.size * 0.3);
+        ctx.moveTo(this.size * 0.2, 0);
+        ctx.lineTo(-this.size * 0.4, 0);
+        ctx.stroke();
+        
+        // Engine thrusters - bright cyan
+        const thrusterPulse = Math.sin(performance.now() / 100) * 0.2 + 0.8;
+        ctx.fillStyle = '#06b6d4';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
+        ctx.save();
+        ctx.globalAlpha = thrusterPulse;
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 0.75, -this.size * 0.3, this.size * 0.12, this.size * 0.1, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 0.75, this.size * 0.3, this.size * 0.12, this.size * 0.1, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+        
+        // Thruster trails
+        if (thrusterPulse > 0.9) {
+          ctx.fillStyle = '#67e8f9';
+          ctx.globalAlpha = 0.6;
           ctx.beginPath();
-          ctx.moveTo(Math.cos(a) * this.size * 0.6, Math.sin(a) * this.size * 0.6);
-          const midX = Math.cos(a + bend) * this.size * (0.8 + wave * 0.5);
-          const midY = Math.sin(a + bend) * this.size * (0.8 + wave * 0.5);
-          const endX = Math.cos(a) * this.size * (1 + wave);
-          const endY = Math.sin(a) * this.size * (1 + wave);
-          ctx.quadraticCurveTo(midX, midY, endX, endY);
-          ctx.stroke();
+          ctx.ellipse(-this.size * 0.92, -this.size * 0.3, this.size * 0.18, this.size * 0.07, 0, 0, Math.PI * 2);
+          ctx.ellipse(-this.size * 0.92, this.size * 0.3, this.size * 0.18, this.size * 0.07, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1;
         }
       }
       ctx.shadowBlur = 0;
@@ -4712,6 +4713,8 @@
       const dist = Math.hypot(dx, dy) || 1;
       let ax = 0;
       let ay = 0;
+      
+      // Obstacle avoidance
       for (const o of obstacles) {
         const ox = o.x;
         const oy = o.y;
@@ -4725,8 +4728,117 @@
           ay += (ddy / (d || 1)) * f * 2.4;
         }
       }
-      const nx = dx / dist + ax;
-      const ny = dy / dist + ay;
+      
+      // Unique movement patterns based on enemy type
+      let movementX = dx / dist;
+      let movementY = dy / dist;
+      
+      if (this.kind === 'drone') {
+        // Erratic zigzag pattern - quick direction changes
+        if (!this.zigzagTimer) this.zigzagTimer = 0;
+        this.zigzagTimer += dt;
+        
+        if (this.zigzagTimer > 300) { // Change direction every 300ms
+          this.zigzagAngle = (this.zigzagAngle || 0) + (Math.random() - 0.5) * Math.PI;
+          this.zigzagTimer = 0;
+        }
+        
+        const zigzagStrength = 0.7;
+        movementX += Math.cos(this.zigzagAngle || 0) * zigzagStrength;
+        movementY += Math.sin(this.zigzagAngle || 0) * zigzagStrength;
+        
+      } else if (this.kind === 'chaser') {
+        // Predatory circling - maintains distance while circling
+        if (!this.circlePhase) this.circlePhase = Math.random() * Math.PI * 2;
+        this.circlePhase += dt * 0.002;
+        
+        const optimalDist = 150; // Preferred stalking distance
+        const distFactor = Math.min(1, Math.max(0, (dist - optimalDist) / optimalDist));
+        
+        // Circle around player when at optimal distance
+        if (dist > optimalDist * 0.8 && dist < optimalDist * 1.5) {
+          const circleStrength = 0.8;
+          movementX = dx / dist * distFactor + Math.cos(this.circlePhase) * circleStrength;
+          movementY = dy / dist * distFactor + Math.sin(this.circlePhase) * circleStrength;
+        }
+        
+        // Add lunging behavior
+        if (!this.lungeTimer) this.lungeTimer = Math.random() * 2000;
+        this.lungeTimer += dt;
+        
+        if (this.lungeTimer > 2000 && dist < 200) {
+          // Sudden lunge towards player
+          movementX = dx / dist * 2;
+          movementY = dy / dist * 2;
+          this.lungeTimer = -500; // Cooldown period
+        }
+        
+      } else if (this.kind === 'heavy') {
+        // Slow, deliberate movement with charge attacks
+        if (!this.chargePhase) this.chargePhase = 0;
+        if (!this.chargeTimer) this.chargeTimer = Math.random() * 3000;
+        this.chargeTimer += dt;
+        
+        if (this.chargePhase === 0) {
+          // Normal slow approach
+          movementX = dx / dist * 0.6;
+          movementY = dy / dist * 0.6;
+          
+          // Wind up for charge
+          if (this.chargeTimer > 3000 && dist < 300) {
+            this.chargePhase = 1;
+            this.chargeTimer = 0;
+            this.chargeAngle = Math.atan2(dy, dx);
+          }
+        } else if (this.chargePhase === 1) {
+          // Charging wind-up (slow down)
+          movementX *= 0.2;
+          movementY *= 0.2;
+          
+          if (this.chargeTimer > 500) {
+            this.chargePhase = 2;
+            this.chargeTimer = 0;
+          }
+        } else if (this.chargePhase === 2) {
+          // Execute charge!
+          movementX = Math.cos(this.chargeAngle) * 3;
+          movementY = Math.sin(this.chargeAngle) * 3;
+          
+          if (this.chargeTimer > 800) {
+            this.chargePhase = 0;
+            this.chargeTimer = 0;
+          }
+        }
+        
+      } else if (this.kind === 'swarmer') {
+        // Cluster formation with coordinated swoops
+        if (!this.swarmPhase) this.swarmPhase = Math.random() * Math.PI * 2;
+        this.swarmPhase += dt * 0.003;
+        
+        // Create wave-like formation with other swarmers
+        const waveX = Math.cos(this.swarmPhase) * 0.5;
+        const waveY = Math.sin(this.swarmPhase * 1.3) * 0.5;
+        
+        movementX = dx / dist * 1.2 + waveX;
+        movementY = dy / dist * 1.2 + waveY;
+        
+        // Periodic swooping dive
+        if (!this.swoopTimer) this.swoopTimer = Math.random() * 1500;
+        this.swoopTimer += dt;
+        
+        if (this.swoopTimer > 1500 && dist < 250) {
+          const swoopIntensity = Math.sin(this.swoopTimer / 100) * 2;
+          movementX += Math.cos(this.swarmPhase) * swoopIntensity;
+          movementY += Math.sin(this.swarmPhase) * swoopIntensity;
+          
+          if (this.swoopTimer > 2000) {
+            this.swoopTimer = 0;
+          }
+        }
+      }
+      
+      const nx = movementX + ax;
+      const ny = movementY + ay;
       const nm = Math.hypot(nx, ny) || 1;
       this.x += (nx / nm) * this.speed * (dt / 16.67);
       this.y += (ny / nm) * this.speed * (dt / 16.67);
@@ -4815,9 +4927,11 @@
 
   class Coin {
     constructor(x, y) {
+      this.id = `coin_${entityIdCounter++}`;
       this.x = x;
       this.y = y;
       this.r = BASE.COIN_SIZE;
+      this.size = BASE.COIN_SIZE; // Add size property for 3D system
       this.created = performance.now();
       this.life = BASE.COIN_LIFETIME;
     }
@@ -5649,6 +5763,56 @@
       return `rgb(${Math.floor(r)},${Math.floor(g)},${Math.floor(b)})`;
     };
     
+    // Helper to brighten colors for highlights
+    const brighten = (color, amt = 0.5) => {
+      const hex = color.replace('#', '');
+      const r = Math.min(255, parseInt(hex.slice(0, 2), 16) + amt * 255);
+      const g = Math.min(255, parseInt(hex.slice(2, 4), 16) + amt * 255);
+      const b = Math.min(255, parseInt(hex.slice(4, 6), 16) + amt * 255);
+      return `rgb(${Math.floor(r)},${Math.floor(g)},${Math.floor(b)})`;
+    };
+    
+    // Metallic gradient helper
+    const createMetallicGradient = (ctx, x1, y1, x2, y2, baseColor) => {
+      const grad = ctx.createLinearGradient(x1, y1, x2, y2);
+      grad.addColorStop(0, brighten(baseColor, 0.3));
+      grad.addColorStop(0.3, baseColor);
+      grad.addColorStop(0.7, darken(baseColor, 0.2));
+      grad.addColorStop(1, darken(baseColor, 0.4));
+      return grad;
+    };
+    
+    // Damage effects (sparks, scorching)
+    const drawDamageEffects = (ctx, size, damageLevel) => {
+      if (damageLevel < 0.1) return;
+      
+      // Scorch marks
+      ctx.save();
+      ctx.globalAlpha = Math.min(0.6, damageLevel);
+      ctx.fillStyle = '#1a1a1a';
+      ctx.beginPath();
+      ctx.arc(size * 0.2, -size * 0.15, size * 0.12 * damageLevel, 0, Math.PI * 2);
+      ctx.arc(-size * 0.3, size * 0.2, size * 0.08 * damageLevel, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Sparks for critical damage
+      if (damageLevel > 0.5) {
+        const sparkCount = Math.floor(damageLevel * 5);
+        ctx.fillStyle = '#ff9500';
+        ctx.shadowColor = '#ff9500';
+        ctx.shadowBlur = 4;
+        for (let i = 0; i < sparkCount; i++) {
+          const sparkX = -size * 0.4 + Math.sin(now / 100 + i) * size * 0.2;
+          const sparkY = Math.cos(now / 150 + i) * size * 0.3;
+          const sparkSize = size * 0.02 * (Math.sin(now / 50 + i * 2) * 0.5 + 0.5);
+          ctx.beginPath();
+          ctx.arc(sparkX, sparkY, sparkSize, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      ctx.restore();
+    };
+    
     // Ship-specific detailed rendering
     if (shape === 'spear') {
       // VANGUARD MK.I - Classic fighter jet inspired design
@@ -5737,12 +5901,12 @@
       ctx.ellipse(-size * 0.75, size * 0.78, size * 0.08, size * 0.04, 0.2, -Math.PI * 1.8, -Math.PI);
       ctx.fill();
       
-      // Main fuselage body - ENHANCED: wider and more substantial
+      // Main fuselage body - ENHANCED: wider and more substantial with intense glow
       ctx.fillStyle = primary;
       ctx.strokeStyle = trim;
       ctx.lineWidth = Math.max(2, size * 0.1);
       ctx.shadowColor = primary;
-      ctx.shadowBlur = 15;
+      ctx.shadowBlur = 25; // Increased from 15 for more dramatic glow
       ctx.beginPath();
       ctx.moveTo(size * 1.3, 0);
       ctx.quadraticCurveTo(size * 0.8, -size * 0.25, size * 0.3, -size * 0.35);
@@ -5757,6 +5921,20 @@
       ctx.fill();
       ctx.stroke();
       ctx.shadowBlur = 0;
+      ctx.restore();
+      
+      // Metallic highlights on upper surface
+      ctx.save();
+      ctx.globalAlpha = 0.4;
+      ctx.fillStyle = brighten(primary, 0.5);
+      ctx.beginPath();
+      ctx.moveTo(size * 1.1, 0);
+      ctx.quadraticCurveTo(size * 0.7, -size * 0.1, size * 0.2, -size * 0.15);
+      ctx.lineTo(size * 0.2, -size * 0.22);
+      ctx.quadraticCurveTo(size * 0.7, -size * 0.15, size * 1.1, -size * 0.05);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
       
       // Dorsal ridge/spine detail - ENHANCED: thicker and more prominent
       ctx.strokeStyle = accent;
@@ -5830,11 +6008,11 @@
       ctx.arc(size * 0.5, -size * 0.06, size * 0.12, Math.PI * 0.8, Math.PI * 1.3);
       ctx.stroke();
       
-      // Engine exhausts with glow - ENHANCED: more powerful looking
+      // Engine exhausts with intense glow - ENHANCED: award-winning illumination
       const enginePulse = Math.sin(now / 100) * 0.2 + 0.85;
       ctx.save();
       ctx.shadowColor = thruster;
-      ctx.shadowBlur = 22;
+      ctx.shadowBlur = 35; // Increased from 22 for dramatic glow
       ctx.fillStyle = thruster;
       ctx.globalAlpha = enginePulse;
       // Twin main engines - larger
@@ -5847,9 +6025,10 @@
       ctx.ellipse(-size * 0.88, 0, size * 0.12, size * 0.08, 0, 0, Math.PI * 2);
       ctx.fill();
       
-      // Inner engine glow
+      // Inner engine glow - brighter core
       ctx.fillStyle = '#fff';
-      ctx.globalAlpha = enginePulse * 0.6;
+      ctx.globalAlpha = enginePulse * 0.9; // Increased from 0.6 for brighter core
+      ctx.shadowBlur = 20; // Add extra glow to white core
       ctx.beginPath();
       ctx.ellipse(-size * 0.72, -size * 0.75, size * 0.08, size * 0.06, 0, 0, Math.PI * 2);
       ctx.ellipse(-size * 0.72, size * 0.75, size * 0.08, size * 0.06, 0, 0, Math.PI * 2);
@@ -5864,15 +6043,39 @@
       ctx.rect(size * 1.05, size * 0.035, size * 0.25, size * 0.025);
       ctx.fill();
       
-      // Weapon barrel tips with glow
+      // Weapon barrel tips with enhanced glow
       ctx.fillStyle = accent;
       ctx.shadowColor = accent;
-      ctx.shadowBlur = 8;
+      ctx.shadowBlur = 15; // Increased from 8
       ctx.beginPath();
       ctx.rect(size * 1.28, -size * 0.055, size * 0.04, size * 0.015);
       ctx.rect(size * 1.28, size * 0.04, size * 0.04, size * 0.015);
       ctx.fill();
       ctx.shadowBlur = 0;
+
+      // Engine particle trail effect when boosting
+      if (isBoosting) {
+        ctx.save();
+        ctx.globalAlpha = 0.6;
+        const trailLength = 8;
+        for (let i = 0; i < trailLength; i++) {
+          const alpha = 1 - (i / trailLength);
+          ctx.globalAlpha = alpha * 0.4;
+          const offset = -size * 0.15 * i;
+          ctx.fillStyle = i < 3 ? '#fff' : thruster;
+          ctx.shadowColor = thruster;
+          ctx.shadowBlur = 15 * alpha;
+          ctx.beginPath();
+          ctx.ellipse(-size * 0.72 + offset, -size * 0.75, size * 0.12 * alpha, size * 0.08 * alpha, 0, 0, Math.PI * 2);
+          ctx.ellipse(-size * 0.72 + offset, size * 0.75, size * 0.12 * alpha, size * 0.08 * alpha, 0, 0, Math.PI * 2);
+          ctx.ellipse(-size * 0.88 + offset, 0, size * 0.1 * alpha, size * 0.06 * alpha, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+      
+      // Add damage effects overlay
+      drawDamageEffects(ctx, size, damageLevel);
 
     } else if (shape === 'needle') {
       // PHANTOM-X - Sleek stealth interceptor with angular surfaces
@@ -7244,6 +7447,7 @@
     const canvas = dom.startGraphicCanvas;
     if (!canvas) return;
     const g = canvas.getContext('2d');
+    if (!g) return;
     const width = (canvas.width = canvas.clientWidth);
     const height = (canvas.height = canvas.clientHeight);
     g.fillStyle = '#000';
@@ -7902,6 +8106,7 @@
     // Set up level after countdown
     queueTimedEffect(3000, () => {
       countdownActive = false;
+      restoreUIElements(); // Restore UI elements when countdown ends
       spawnObstacles();
       spawnHazards();
       
@@ -7972,7 +8177,45 @@
 
   /* ====== RENDERING ====== */
   const drawGame = () => {
+    // Check if 3D mode is active first (before ctx check)
+    if (use3DMode && game3DInstance && game3DInstance.isActive()) {
+      // Get current ship configuration
+      const shipConfig = Save.data.shipConfig || SHIP_TEMPLATES[0];
+      
+      // Update 3D entities (sync 2D state to 3D)
+      game3DInstance.update({
+        player: player,
+        bullets: bullets,
+        enemies: enemies,
+        obstacles: obstacles,
+        coins: coins,
+        shipData: {
+          shape: shipConfig.shape || 'spear',
+          scale: shipConfig.scale || 1,
+          colors: shipConfig.colors || {
+            primary: '#0ea5e9',
+            accent: '#38bdf8',
+            thruster: '#f97316',
+            trim: '#f8fafc',
+            canopy: '#7dd3fc'
+          }
+        },
+        boosting: false, // TODO: Track boosting state properly
+        camera: camera
+      });
+      
+      // Render 3D scene
+      game3DInstance.render();
+      
+      // Note: HUD and overlays are still rendered separately in 2D (updateHUD())
+      
+      return; // Exit early, 3D rendering is done
+    }
+    
+    // 2D mode - need context
     if (!dom.ctx) return;
+    
+    // Fallback to 2D rendering
     const ctx = dom.ctx;
     const canvas = dom.canvas;
     
@@ -7981,8 +8224,8 @@
       // Planetary mode: Draw planet-specific background
       drawPlanetaryBackground(ctx);
     } else {
-      // Space mode: Dark space background
-      ctx.fillStyle = '#030712';
+      // Space mode: Pure black void background - illumination only from game objects
+      ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
     
@@ -8236,8 +8479,11 @@
     
     // Ready-up overlay is drawn separately after HUD (see drawReadyUpOverlay function)
     
-    // Draw countdown - ENHANCED: Better positioning and styling to prevent overlap
+    // Draw countdown - Command Center style to match mission briefing
     if (countdownActive) {
+      // Dim UI elements to make countdown overlay more prominent
+      dimUIElements(0.2);
+      
       const timeRemaining = countdownEnd - performance.now();
       const now = performance.now();
       
@@ -8248,232 +8494,131 @@
       const screenHeight = window.innerHeight;
       const isPortrait = screenHeight > screenWidth;
       
-      // ENHANCED: Semi-transparent overlay that adapts to screen size
-      const overlayOpacity = isPortrait ? 0.96 : 0.94;
-      const gradientCenterY = screenHeight * 0.42;
-      const gradient = ctx.createRadialGradient(
-        screenWidth / 2, gradientCenterY, 0,
-        screenWidth / 2, gradientCenterY, Math.max(screenWidth, screenHeight) * 0.75
-      );
-      gradient.addColorStop(0, `rgba(10, 15, 25, ${overlayOpacity})`);
-      gradient.addColorStop(0.5, `rgba(15, 23, 42, ${overlayOpacity})`);
-      gradient.addColorStop(1, `rgba(0, 0, 0, ${overlayOpacity + 0.02})`);
-      ctx.fillStyle = gradient;
+      // Pure black background - command center aesthetic (semi-transparent to show game slightly)
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.92)';
       ctx.fillRect(0, 0, screenWidth, screenHeight);
       
-      // ENHANCED: Animated scan lines effect (subtle)
-      ctx.fillStyle = 'rgba(74, 222, 128, 0.02)';
-      const scanLineOffset = (now / 25) % 10;
-      for (let y = scanLineOffset; y < screenHeight; y += 10) {
+      // Subtle scan lines for tech aesthetic
+      ctx.fillStyle = 'rgba(74, 222, 128, 0.03)';
+      const scanLineOffset = (now / 30) % 8;
+      for (let y = scanLineOffset; y < screenHeight; y += 8) {
         ctx.fillRect(0, y, screenWidth, 1);
       }
       
-      // ENHANCED: Glowing corner accent lines with better visibility
-      ctx.strokeStyle = 'rgba(74, 222, 128, 0.4)';
-      ctx.lineWidth = 3;
-      const cornerSize = isPortrait ? 35 : 45;
+      // Simple corner brackets - minimal design (matching mission briefing)
+      ctx.strokeStyle = '#4ade80';
+      ctx.lineWidth = 2;
+      const cornerSize = isPortrait ? 40 : 60;
+      const margin = 20;
       
-      // Top-left corner
-      ctx.beginPath();
-      ctx.moveTo(20, 20 + cornerSize);
-      ctx.lineTo(20, 20);
-      ctx.lineTo(20 + cornerSize, 20);
-      ctx.stroke();
+      ['tl', 'tr', 'bl', 'br'].forEach(corner => {
+        ctx.beginPath();
+        if (corner === 'tl') {
+          ctx.moveTo(margin, margin + cornerSize);
+          ctx.lineTo(margin, margin);
+          ctx.lineTo(margin + cornerSize, margin);
+        } else if (corner === 'tr') {
+          ctx.moveTo(screenWidth - margin - cornerSize, margin);
+          ctx.lineTo(screenWidth - margin, margin);
+          ctx.lineTo(screenWidth - margin, margin + cornerSize);
+        } else if (corner === 'bl') {
+          ctx.moveTo(margin, screenHeight - margin - cornerSize);
+          ctx.lineTo(margin, screenHeight - margin);
+          ctx.lineTo(margin + cornerSize, screenHeight - margin);
+        } else {
+          ctx.moveTo(screenWidth - margin - cornerSize, screenHeight - margin);
+          ctx.lineTo(screenWidth - margin, screenHeight - margin);
+          ctx.lineTo(screenWidth - margin, screenHeight - margin - cornerSize);
+        }
+        ctx.stroke();
+      });
       
-      // Top-right corner
-      ctx.beginPath();
-      ctx.moveTo(screenWidth - 20 - cornerSize, 20);
-      ctx.lineTo(screenWidth - 20, 20);
-      ctx.lineTo(screenWidth - 20, 20 + cornerSize);
-      ctx.stroke();
-      
-      // Bottom-left corner
-      ctx.beginPath();
-      ctx.moveTo(20, screenHeight - 20 - cornerSize);
-      ctx.lineTo(20, screenHeight - 20);
-      ctx.lineTo(20 + cornerSize, screenHeight - 20);
-      ctx.stroke();
-      
-      // Bottom-right corner
-      ctx.beginPath();
-      ctx.moveTo(screenWidth - 20 - cornerSize, screenHeight - 20);
-      ctx.lineTo(screenWidth - 20, screenHeight - 20);
-      ctx.lineTo(screenWidth - 20, screenHeight - 20 - cornerSize);
-      ctx.stroke();
+      // Monospace font for command center aesthetic
+      const monoFont = 'Courier New, monospace';
+      const centerX = screenWidth / 2;
+      const centerY = screenHeight * 0.5;
       
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       
-      // Center coordinates for text and elements - ENHANCED: better positioning
-      const centerX = screenWidth / 2;
-      const centerY = isPortrait ? screenHeight * 0.45 : screenHeight * 0.5;
-      
-      // First 0.5 seconds: Show "LEVEL COMPLETE" - ENHANCED
+      // First 0.5 seconds: Show "LEVEL COMPLETE"
       if (timeRemaining > 2500) {
         const appearPhase = Math.min(1, (3000 - timeRemaining) / 400);
-        const bounceScale = 1 + Math.sin(appearPhase * Math.PI) * 0.12;
         
-        // Decorative line above - ENHANCED
-        const lineWidth = Math.min(250, screenWidth * 0.6) * appearPhase;
-        ctx.strokeStyle = `rgba(74, 222, 128, ${0.7 * appearPhase})`;
-        ctx.lineWidth = 4;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(centerX - lineWidth / 2, centerY - (isPortrait ? 80 : 100));
-        ctx.lineTo(centerX + lineWidth / 2, centerY - (isPortrait ? 80 : 100));
-        ctx.stroke();
-        
-        // "LEVEL COMPLETE" text with glow - ENHANCED: better sizing for mobile
-        const completeFontSize = isPortrait ? 40 : 52;
-        ctx.font = `900 ${Math.floor(completeFontSize * bounceScale)}px Arial, sans-serif`;
-        ctx.shadowColor = '#4ade80';
-        ctx.shadowBlur = 45;
-        
-        // Double glow for extra pop
+        // Header with separator
+        const headerSize = isPortrait ? 22 : 28;
+        ctx.font = `bold ${headerSize}px ${monoFont}`;
         ctx.fillStyle = '#4ade80';
-        ctx.fillText('LEVEL COMPLETE', centerX, centerY - (isPortrait ? 40 : 50));
-        ctx.shadowBlur = 25;
-        ctx.fillText('LEVEL COMPLETE', centerX, centerY - (isPortrait ? 40 : 50));
+        ctx.fillText('> LEVEL COMPLETE', centerX, centerY - (isPortrait ? 100 : 120));
         
-        // Text outline for better contrast
-        ctx.strokeStyle = 'rgba(0,0,0,0.7)';
-        ctx.lineWidth = 3;
-        ctx.shadowBlur = 0;
-        ctx.strokeText('LEVEL COMPLETE', centerX, centerY - (isPortrait ? 40 : 50));
-        ctx.shadowBlur = 0;
+        // Separator line
+        const lineWidth = Math.min(screenWidth * 0.7, isPortrait ? 280 : 400) * appearPhase;
+        ctx.fillStyle = '#4ade80';
+        ctx.fillRect(centerX - lineWidth / 2, centerY - (isPortrait ? 70 : 85), lineWidth, 1);
         
-        // Level number badge - ENHANCED
-        const badgeWidth = isPortrait ? 140 : 170;
-        const badgeHeight = isPortrait ? 45 : 55;
-        ctx.fillStyle = 'rgba(74, 222, 128, 0.18)';
-        ctx.beginPath();
-        ctx.roundRect(centerX - badgeWidth / 2, centerY - 8, badgeWidth, badgeHeight, 10);
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(74, 222, 128, 0.6)';
-        ctx.lineWidth = 3;
-        ctx.stroke();
+        // Level number in monospace
+        const levelSize = isPortrait ? 18 : 24;
+        ctx.font = `${levelSize}px ${monoFont}`;
+        ctx.fillStyle = '#4ade80';
+        ctx.fillText(`LEVEL ${countdownCompletedLevel} STATUS: CLEARED`, centerX, centerY - (isPortrait ? 40 : 50));
         
-        const levelFontSize = isPortrait ? 24 : 30;
-        ctx.font = `bold ${levelFontSize}px Arial, sans-serif`;
-        ctx.fillStyle = '#fff';
-        ctx.shadowColor = '#4ade80';
-        ctx.shadowBlur = 10;
-        ctx.fillText(`Level ${countdownCompletedLevel}`, centerX, centerY + (isPortrait ? 14 : 20));
-        ctx.shadowBlur = 0;
-        
-        // "Get Ready" with animated dots - ENHANCED
+        // "Get Ready" with animated dots
         const dotCount = Math.floor((now / 400) % 4);
         const dots = '.'.repeat(dotCount);
-        const readyFontSize = isPortrait ? 16 : 18;
-        ctx.font = `${readyFontSize}px Arial, sans-serif`;
-        ctx.fillStyle = '#94a3b8';
-        ctx.fillText(`Get Ready${dots}`, centerX, centerY + (isPortrait ? 55 : 70));
-        
-        // Decorative line below - ENHANCED
-        const bottomLineY = isPortrait ? 80 : 100;
-        ctx.strokeStyle = `rgba(74, 222, 128, ${0.5 * appearPhase})`;
-        ctx.lineWidth = 3;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(centerX - lineWidth / 2, centerY + bottomLineY);
-        ctx.lineTo(centerX + lineWidth / 2, centerY + bottomLineY);
-        ctx.stroke();
+        const readySize = isPortrait ? 14 : 18;
+        ctx.font = `${readySize}px ${monoFont}`;
+        ctx.fillStyle = 'rgba(74, 222, 128, 0.6)';
+        ctx.fillText(`PREPARING NEXT LEVEL${dots}`, centerX, centerY + (isPortrait ? 10 : 20));
       } 
-      // Remaining time: Show countdown and next level - ENHANCED
+      // Remaining time: Show countdown
       else if (timeRemaining > 0) {
         const countdown = Math.ceil(timeRemaining / 1000);
         const countdownFraction = (timeRemaining / 1000) % 1;
-        const pulseScale = 1 + (1 - countdownFraction) * 0.18;
-        const pulseOpacity = 0.4 + countdownFraction * 0.6;
+        const pulseScale = 1 + (1 - countdownFraction) * 0.08;
         
-        // "LEVEL X" header with accent - ENHANCED
-        const levelHeaderSize = isPortrait ? 28 : 36;
-        ctx.font = `900 ${levelHeaderSize}px Arial, sans-serif`;
-        ctx.fillStyle = '#60a5fa';
-        ctx.shadowColor = '#60a5fa';
-        ctx.shadowBlur = 18;
-        ctx.fillText(`LEVEL ${level}`, centerX, centerY - (isPortrait ? 80 : 100));
-        
-        // Outline for better contrast
-        ctx.strokeStyle = 'rgba(0,0,0,0.7)';
-        ctx.lineWidth = 2;
-        ctx.shadowBlur = 0;
-        ctx.strokeText(`LEVEL ${level}`, centerX, centerY - (isPortrait ? 80 : 100));
-        ctx.shadowBlur = 0;
-        
-        // Small accent line under header - ENHANCED
-        const accentLineWidth = isPortrait ? 50 : 70;
-        ctx.strokeStyle = 'rgba(96, 165, 250, 0.6)';
-        ctx.lineWidth = 3;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(centerX - accentLineWidth, centerY - (isPortrait ? 60 : 75));
-        ctx.lineTo(centerX + accentLineWidth, centerY - (isPortrait ? 60 : 75));
-        ctx.stroke();
-        
-        // REMOVED: "Starting in" text as requested
-        
-        // Countdown circle ring - ENHANCED: adaptive sizing
-        const ringRadius = isPortrait ? 60 : 75;
-        const ringY = isPortrait ? 15 : 20;
-        ctx.strokeStyle = 'rgba(74, 222, 128, 0.25)';
-        ctx.lineWidth = 8;
-        ctx.beginPath();
-        ctx.arc(centerX, centerY + ringY, ringRadius, 0, Math.PI * 2);
-        ctx.stroke();
-        
-        // Animated progress ring - ENHANCED
-        const progressAngle = (1 - countdownFraction) * Math.PI * 2;
-        ctx.strokeStyle = '#4ade80';
-        ctx.lineWidth = 8;
-        ctx.lineCap = 'round';
-        ctx.shadowColor = '#4ade80';
-        ctx.shadowBlur = 15;
-        ctx.beginPath();
-        ctx.arc(centerX, centerY + ringY, ringRadius, -Math.PI / 2, -Math.PI / 2 + progressAngle);
-        ctx.stroke();
-        ctx.lineCap = 'butt';
-        ctx.shadowBlur = 0;
-        
-        // Pulsing glow circle behind number - ENHANCED
-        ctx.beginPath();
-        ctx.arc(centerX, centerY + ringY, 50 * pulseScale, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(74, 222, 128, ${0.15 * pulseOpacity})`;
-        ctx.fill();
-        
-        // Big countdown number - ENHANCED: better sizing and effects
-        const countdownSize = isPortrait ? 75 : 95;
-        ctx.font = `900 ${Math.floor(countdownSize * pulseScale)}px Arial, sans-serif`;
+        // Header
+        const headerSize = isPortrait ? 22 : 28;
+        ctx.font = `bold ${headerSize}px ${monoFont}`;
         ctx.fillStyle = '#4ade80';
+        ctx.fillText('> DEPLOYMENT COUNTDOWN', centerX, centerY - (isPortrait ? 100 : 120));
+        
+        // Separator line
+        const lineWidth = isPortrait ? 280 : 400;
+        ctx.fillStyle = '#4ade80';
+        ctx.fillRect(centerX - lineWidth / 2, centerY - (isPortrait ? 70 : 85), lineWidth, 1);
+        
+        // Level info
+        const levelSize = isPortrait ? 16 : 20;
+        ctx.font = `${levelSize}px ${monoFont}`;
+        ctx.fillStyle = '#4ade80';
+        ctx.fillText(`NEXT LEVEL: ${level}`, centerX, centerY - (isPortrait ? 45 : 55));
+        
+        // Countdown number with bracket styling
+        const countdownSize = isPortrait ? 80 : 100;
+        ctx.font = `bold ${Math.floor(countdownSize * pulseScale)}px ${monoFont}`;
+        
+        // Pulsing glow effect
         ctx.shadowColor = '#4ade80';
-        ctx.shadowBlur = 35 * pulseOpacity;
-        ctx.fillText(countdown, centerX, centerY + (isPortrait ? 25 : 32));
-        
-        // Number outline for better contrast
-        ctx.strokeStyle = 'rgba(0,0,0,0.8)';
-        ctx.lineWidth = 4;
-        ctx.shadowBlur = 0;
-        ctx.strokeText(countdown, centerX, centerY + (isPortrait ? 25 : 32));
+        ctx.shadowBlur = 25 * (1 - countdownFraction);
+        ctx.fillStyle = '#4ade80';
+        ctx.fillText(`[ ${countdown} ]`, centerX, centerY + (isPortrait ? 20 : 30));
         ctx.shadowBlur = 0;
         
-        // Small decorative particles around the ring - ENHANCED
-        ctx.fillStyle = 'rgba(74, 222, 128, 0.7)';
-        ctx.shadowColor = 'rgba(74, 222, 128, 0.5)';
-        ctx.shadowBlur = 5;
-        const particleCount = 10;
-        for (let i = 0; i < particleCount; i++) {
-          const angle = (i / particleCount) * Math.PI * 2 + (now / 2000);
-          const px = centerX + Math.cos(angle) * (ringRadius + 18);
-          const py = centerY + ringY + Math.sin(angle) * (ringRadius + 18);
-          const particleSize = 2.5 + Math.sin(now / 200 + i) * 1.2;
-          ctx.beginPath();
-          ctx.arc(px, py, particleSize, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        ctx.shadowBlur = 0;
+        // Status text
+        const statusSize = isPortrait ? 14 : 18;
+        ctx.font = `${statusSize}px ${monoFont}`;
+        ctx.fillStyle = 'rgba(74, 222, 128, 0.6)';
+        ctx.fillText('STAND BY...', centerX, centerY + (isPortrait ? 80 : 100));
+        
+        // Bottom separator line
+        ctx.fillStyle = '#4ade80';
+        ctx.fillRect(centerX - lineWidth / 2, centerY + (isPortrait ? 110 : 130), lineWidth, 1);
       }
       
       ctx.restore();
+    } else {
+      // Restore UI elements when countdown is not active
+      restoreUIElements();
     }
   };
 
@@ -8531,7 +8676,15 @@
     dom.canvas.height = Math.floor(window.innerHeight * dpr);
     dom.canvas.style.width = '100%';
     dom.canvas.style.height = '100%';
-    dom.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    
+    // Create 2D context if needed (for 2D mode or for star initialization even in 3D mode)
+    if (!dom.ctx && dom.canvas && !use3DMode) {
+      dom.ctx = dom.canvas.getContext('2d');
+    }
+    
+    if (dom.ctx) {
+      dom.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
     return dpr;
   };
 
@@ -8596,9 +8749,34 @@
     loop(lastTime);
   };
 
-  // NEW: Draw ready-up overlay AFTER HUD - Mobile-focused design, covers everything
+  // Helper function to dim UI elements during overlays
+  const dimUIElements = (opacity = 0.2) => {
+    const uiPanel = document.getElementById('uiPanel');
+    const equipmentIndicator = document.getElementById('equipmentIndicator');
+    const mobileControls = document.getElementById('mobileControls');
+    
+    if (uiPanel) uiPanel.style.opacity = opacity;
+    if (equipmentIndicator) equipmentIndicator.style.opacity = opacity;
+    if (mobileControls) mobileControls.style.opacity = opacity;
+  };
+  
+  // Helper function to restore UI elements opacity
+  const restoreUIElements = () => {
+    const uiPanel = document.getElementById('uiPanel');
+    const equipmentIndicator = document.getElementById('equipmentIndicator');
+    const mobileControls = document.getElementById('mobileControls');
+    
+    if (uiPanel) uiPanel.style.opacity = '1';
+    if (equipmentIndicator) equipmentIndicator.style.opacity = '1';
+    if (mobileControls) mobileControls.style.opacity = '1';
+  };
+
+  // NEW: Draw ready-up overlay AFTER HUD - Command Center style minimal design
   const drawReadyUpOverlay = () => {
     if (!readyUpPhase || !dom.ctx) return;
+    
+    // Dim UI elements to make overlay more prominent
+    dimUIElements(0.2);
     
     const ctx = dom.ctx;
     const now = performance.now();
@@ -8608,160 +8786,154 @@
     const screenHeight = window.innerHeight;
     const isPortrait = screenHeight > screenWidth;
     
-    // FULL OPACITY overlay to completely cover game
-    const overlayOpacity = 0.98;
-    const gradient = ctx.createRadialGradient(
-      screenWidth / 2, screenHeight * 0.5, 0,
-      screenWidth / 2, screenHeight * 0.5, Math.max(screenWidth, screenHeight) * 0.8
-    );
-    gradient.addColorStop(0, `rgba(5, 10, 20, ${overlayOpacity})`);
-    gradient.addColorStop(0.4, `rgba(10, 15, 25, ${overlayOpacity})`);
-    gradient.addColorStop(0.7, `rgba(15, 23, 42, ${overlayOpacity})`);
-    gradient.addColorStop(1, `rgba(0, 0, 0, ${overlayOpacity + 0.02})`);
-    ctx.fillStyle = gradient;
+    // Pure black background - command center aesthetic
+    ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, screenWidth, screenHeight);
     
-    // Scan lines for tech aesthetic
-    ctx.fillStyle = 'rgba(74, 222, 128, 0.05)';
-    const scanLineOffset = (now / 25) % 10;
-    for (let y = scanLineOffset; y < screenHeight; y += 10) {
-      ctx.fillRect(0, y, screenWidth, 2);
+    // Subtle scan lines for tech aesthetic
+    ctx.fillStyle = 'rgba(74, 222, 128, 0.03)';
+    const scanLineOffset = (now / 30) % 8;
+    for (let y = scanLineOffset; y < screenHeight; y += 8) {
+      ctx.fillRect(0, y, screenWidth, 1);
     }
     
-    // Corner accents
-    ctx.strokeStyle = 'rgba(74, 222, 128, 0.6)';
-    ctx.lineWidth = 4;
-    const cornerSize = isPortrait ? 50 : 70;
+    // Simple corner brackets - minimal design
+    ctx.strokeStyle = '#4ade80';
+    ctx.lineWidth = 2;
+    const cornerSize = isPortrait ? 40 : 60;
+    const margin = 20;
     
     ['tl', 'tr', 'bl', 'br'].forEach(corner => {
       ctx.beginPath();
       if (corner === 'tl') {
-        ctx.moveTo(25, 25 + cornerSize);
-        ctx.lineTo(25, 25);
-        ctx.lineTo(25 + cornerSize, 25);
+        ctx.moveTo(margin, margin + cornerSize);
+        ctx.lineTo(margin, margin);
+        ctx.lineTo(margin + cornerSize, margin);
       } else if (corner === 'tr') {
-        ctx.moveTo(screenWidth - 25 - cornerSize, 25);
-        ctx.lineTo(screenWidth - 25, 25);
-        ctx.lineTo(screenWidth - 25, 25 + cornerSize);
+        ctx.moveTo(screenWidth - margin - cornerSize, margin);
+        ctx.lineTo(screenWidth - margin, margin);
+        ctx.lineTo(screenWidth - margin, margin + cornerSize);
       } else if (corner === 'bl') {
-        ctx.moveTo(25, screenHeight - 25 - cornerSize);
-        ctx.lineTo(25, screenHeight - 25);
-        ctx.lineTo(25 + cornerSize, screenHeight - 25);
+        ctx.moveTo(margin, screenHeight - margin - cornerSize);
+        ctx.lineTo(margin, screenHeight - margin);
+        ctx.lineTo(margin + cornerSize, screenHeight - margin);
       } else {
-        ctx.moveTo(screenWidth - 25 - cornerSize, screenHeight - 25);
-        ctx.lineTo(screenWidth - 25, screenHeight - 25);
-        ctx.lineTo(screenWidth - 25, screenHeight - 25 - cornerSize);
+        ctx.moveTo(screenWidth - margin - cornerSize, screenHeight - margin);
+        ctx.lineTo(screenWidth - margin, screenHeight - margin);
+        ctx.lineTo(screenWidth - margin, screenHeight - margin - cornerSize);
       }
       ctx.stroke();
     });
     
-    // Decorative border frame
-    ctx.strokeStyle = 'rgba(74, 222, 128, 0.3)';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(35, 35, screenWidth - 70, screenHeight - 70);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    const padding = isPortrait ? 50 : 80;
+    const lineHeight = isPortrait ? 28 : 36;
+    let yPos = padding;
     
+    // Monospace font for command center aesthetic
+    const monoFont = 'Courier New, monospace';
+    const headerSize = isPortrait ? 20 : 26;
+    const textSize = isPortrait ? 14 : 18;
+    
+    // Header: MISSION BRIEFING
+    ctx.font = `bold ${headerSize}px ${monoFont}`;
+    ctx.fillStyle = '#4ade80';
+    ctx.fillText('> MISSION BRIEFING', padding, yPos);
+    yPos += lineHeight * 1.5;
+    
+    // Separator line
+    ctx.fillStyle = '#4ade80';
+    ctx.fillRect(padding, yPos, screenWidth - padding * 2, 1);
+    yPos += lineHeight;
+    
+    // Level info
+    ctx.font = `${textSize}px ${monoFont}`;
+    ctx.fillStyle = '#4ade80';
+    ctx.fillText(`LEVEL:     ${readyUpLevel} COMPLETE`, padding, yPos);
+    yPos += lineHeight;
+    
+    ctx.fillText(`NEXT:      LEVEL ${readyUpLevel + 1}`, padding, yPos);
+    yPos += lineHeight;
+    
+    const diff = getDifficulty();
+    ctx.fillText(`MODE:      ${diff.name.toUpperCase()}`, padding, yPos);
+    yPos += lineHeight * 1.5;
+    
+    // Resources
+    ctx.fillText(`CREDITS:   ${Save.data.credits} CR`, padding, yPos);
+    yPos += lineHeight;
+    
+    ctx.fillText(`SCORE:     ${score}`, padding, yPos);
+    yPos += lineHeight * 1.5;
+    
+    // Active upgrades section
+    ctx.font = `bold ${headerSize}px ${monoFont}`;
+    ctx.fillText('> ACTIVE UPGRADES', padding, yPos);
+    yPos += lineHeight * 1.2;
+    
+    // Separator
+    ctx.fillStyle = '#4ade80';
+    ctx.fillRect(padding, yPos, screenWidth - padding * 2, 1);
+    yPos += lineHeight * 0.8;
+    
+    // Get top upgrades to display
+    ctx.font = `${textSize}px ${monoFont}`;
+    const activeUpgrades = UPGRADES
+      .map(u => ({ ...u, level: Save.getUpgradeLevel(u.id) }))
+      .filter(u => u.level > 0)
+      .sort((a, b) => b.level - a.level)
+      .slice(0, isPortrait ? 4 : 6);
+    
+    if (activeUpgrades.length > 0) {
+      activeUpgrades.forEach(upgrade => {
+        const shortName = upgrade.name.substring(0, isPortrait ? 14 : 20);
+        const lvlText = `LV${upgrade.level}/${upgrade.max}`;
+        ctx.fillText(`${shortName.padEnd(isPortrait ? 14 : 20, ' ')} ${lvlText}`, padding, yPos);
+        yPos += lineHeight;
+      });
+    } else {
+      ctx.fillStyle = 'rgba(74, 222, 128, 0.5)';
+      ctx.fillText('NO UPGRADES PURCHASED', padding, yPos);
+      ctx.fillStyle = '#4ade80';
+      yPos += lineHeight;
+    }
+    
+    // Center bottom: TAP TO START button with pulse effect
     ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
     const centerX = screenWidth / 2;
-    const centerY = screenHeight * 0.5;
+    const bottomY = screenHeight - (isPortrait ? 100 : 120);
     
-    // MOBILE-SIZED: Smaller "LEVEL COMPLETE" text
-    const completeFontSize = isPortrait ? 32 : 42;
-    ctx.font = `900 ${completeFontSize}px Arial, sans-serif`;
-    ctx.fillStyle = '#4ade80';
+    // Pulsing effect
+    const pulsePhase = Math.sin(now / 400) * 0.1 + 1;
+    const buttonWidth = isPortrait ? 280 : 360;
+    const buttonHeight = isPortrait ? 50 : 60;
+    
+    // Button box with glow
     ctx.shadowColor = '#4ade80';
-    ctx.shadowBlur = 30;
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
-    ctx.lineWidth = 3;
-    ctx.strokeText('LEVEL COMPLETE', centerX, centerY - (isPortrait ? 140 : 160));
-    ctx.fillText('LEVEL COMPLETE', centerX, centerY - (isPortrait ? 140 : 160));
-    
-    // Decorative line
+    ctx.shadowBlur = 25 * pulsePhase;
     ctx.strokeStyle = '#4ade80';
     ctx.lineWidth = 2;
-    ctx.shadowBlur = 12;
-    ctx.beginPath();
-    const lineWidth = isPortrait ? 150 : 220;
-    ctx.moveTo(centerX - lineWidth / 2, centerY - (isPortrait ? 110 : 125));
-    ctx.lineTo(centerX + lineWidth / 2, centerY - (isPortrait ? 110 : 125));
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-    
-    // MOBILE-SIZED: Level number
-    const levelFontSize = isPortrait ? 24 : 32;
-    ctx.font = `bold ${levelFontSize}px Arial, sans-serif`;
-    ctx.fillStyle = '#cbd5e1';
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
-    ctx.lineWidth = 2;
-    ctx.strokeText(`Level ${readyUpLevel}`, centerX, centerY - (isPortrait ? 80 : 95));
-    ctx.fillText(`Level ${readyUpLevel}`, centerX, centerY - (isPortrait ? 80 : 95));
-    
-    // MOBILE-SIZED: Credits display
-    const infoFontSize = isPortrait ? 18 : 24;
-    ctx.font = `bold ${infoFontSize}px Arial, sans-serif`;
-    ctx.fillStyle = '#fbbf24';
-    ctx.shadowColor = '#fbbf24';
-    ctx.shadowBlur = 8;
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
-    ctx.lineWidth = 2;
-    ctx.strokeText(`💰 ${Save.data.credits} Credits`, centerX, centerY - (isPortrait ? 45 : 55));
-    ctx.fillText(`💰 ${Save.data.credits} Credits`, centerX, centerY - (isPortrait ? 45 : 55));
-    ctx.shadowBlur = 0;
-    
-    // MOBILE-SIZED: Action button
-    const pulsePhase = Math.sin(now / 350) * 0.12 + 1;
-    const buttonWidth = isPortrait ? 240 : 320;
-    const buttonHeight = isPortrait ? 65 : 80;
-    
-    // Button glow
-    ctx.shadowColor = '#4ade80';
-    ctx.shadowBlur = 35 * pulsePhase;
-    
-    // Button background with gradient
-    const btnGradient = ctx.createLinearGradient(
-      centerX - buttonWidth / 2, centerY - buttonHeight / 2,
-      centerX + buttonWidth / 2, centerY + buttonHeight / 2
+    ctx.strokeRect(
+      centerX - buttonWidth / 2,
+      bottomY - buttonHeight / 2,
+      buttonWidth,
+      buttonHeight
     );
-    btnGradient.addColorStop(0, `rgba(34, 197, 94, ${0.3 * pulsePhase})`);
-    btnGradient.addColorStop(0.5, `rgba(74, 222, 128, ${0.25 * pulsePhase})`);
-    btnGradient.addColorStop(1, `rgba(34, 197, 94, ${0.3 * pulsePhase})`);
-    ctx.fillStyle = btnGradient;
-    ctx.beginPath();
-    ctx.roundRect(centerX - (buttonWidth * pulsePhase) / 2, centerY - (buttonHeight * pulsePhase) / 2, 
-                   buttonWidth * pulsePhase, buttonHeight * pulsePhase, 14);
-    ctx.fill();
-    
-    // Button border
-    ctx.strokeStyle = '#4ade80';
-    ctx.lineWidth = 3;
-    ctx.stroke();
     ctx.shadowBlur = 0;
     
-    // Button text - MOBILE-SIZED
-    const buttonTextSize = isPortrait ? 28 : 36;
-    ctx.font = `900 ${buttonTextSize}px Arial, sans-serif`;
+    // Button text
+    const btnTextSize = isPortrait ? 22 : 28;
+    ctx.font = `bold ${btnTextSize}px ${monoFont}`;
+    ctx.textBaseline = 'middle';
     ctx.fillStyle = '#4ade80';
-    ctx.shadowColor = '#4ade80';
-    ctx.shadowBlur = 18;
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
-    ctx.lineWidth = 3;
-    ctx.strokeText('TAP TO START', centerX, centerY);
-    ctx.fillText('TAP TO START', centerX, centerY);
+    ctx.fillText('[ TAP TO START ]', centerX, bottomY);
     
-    // MOBILE-FOCUSED: Single tap instruction (removed keyboard references)
-    const instructSize = isPortrait ? 15 : 18;
-    ctx.font = `${instructSize}px Arial, sans-serif`;
-    ctx.fillStyle = '#e2e8f0';
-    ctx.shadowBlur = 4;
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
-    ctx.fillText('Tap anywhere to continue', centerX, centerY + (isPortrait ? 60 : 70));
-    
-    // Shop hint - MOBILE-SIZED (updated to reference menu)
-    ctx.font = `bold ${instructSize}px Arial, sans-serif`;
-    ctx.fillStyle = '#60a5fa';
-    ctx.shadowColor = '#60a5fa';
-    ctx.shadowBlur = 6;
-    ctx.fillText('Open menu (top right) for shop & upgrades', centerX, centerY + (isPortrait ? 90 : 105));
+    // Instruction text
+    const instructSize = isPortrait ? 12 : 14;
+    ctx.font = `${instructSize}px ${monoFont}`;
+    ctx.fillStyle = 'rgba(74, 222, 128, 0.6)';
+    ctx.fillText('TAP ANYWHERE TO CONTINUE', centerX, bottomY + (isPortrait ? 45 : 55));
     
     ctx.restore();
   };
@@ -8775,9 +8947,30 @@
     currentPlanet = null;
     
     initShipSelection();
-    dom.startScreen.style.display = 'none';
-    dom.gameContainer.style.display = 'block';
-    dom.messageBox.style.display = 'none';
+    
+    // Clean up 3D WebGL start screen background - REMOVED (no longer using 3D background)
+    // if (startScreenBackgroundCleanup) {
+    //   startScreenBackgroundCleanup();
+    //   startScreenBackgroundCleanup = null;
+    // }
+    
+    // Add smooth transition effect
+    dom.startScreen.style.transition = 'opacity 0.6s ease-out, transform 0.6s ease-out';
+    dom.startScreen.style.opacity = '0';
+    dom.startScreen.style.transform = 'scale(0.95)';
+    
+    setTimeout(() => {
+      dom.startScreen.style.display = 'none';
+      dom.gameContainer.style.display = 'block';
+      dom.messageBox.style.display = 'none';
+      
+      // Reset transition for next time
+      setTimeout(() => {
+        dom.startScreen.style.transition = '';
+        dom.startScreen.style.opacity = '';
+        dom.startScreen.style.transform = '';
+      }, 50);
+    }, 600);
     
     // Initialize audio system on user interaction (required for Chrome autoplay policy)
     if (typeof AudioManager !== 'undefined') {
@@ -8785,7 +8978,10 @@
       AudioManager.startMusic();
     }
     
-    startLevel(1, true);
+    // Start level after transition begins
+    setTimeout(() => {
+      startLevel(1, true);
+    }, 100);
   };
 
   /* ====== PAUSE MENU & GAME STATE MANAGEMENT ====== */
@@ -9125,11 +9321,19 @@
     dom.canvas.height = Math.floor(window.innerHeight * dpr);
     dom.canvas.style.width = '100%';
     dom.canvas.style.height = '100%';
-    dom.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (dom.ctx) {
+      dom.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
     if (player) {
       camera.x = player.x - dom.canvas.width / 2;
       camera.y = player.y - dom.canvas.height / 2;
     }
+    
+    // Resize 3D renderer if active
+    if (game3DInstance) {
+      game3DInstance.resize();
+    }
+    
     drawStartGraphic();
   };
 
@@ -9169,14 +9373,33 @@
       });
     }
     
-    // Submit to leaderboard if logged in
+    // Submit to leaderboard and update stats if logged in
     const finalScore = score;
     const finalLevel = level;
     
     if (Auth.isLoggedIn()) {
       const username = Auth.getCurrentUsername();
-      const rank = Leaderboard.addEntry(username, finalScore, finalLevel, currentDifficulty);
-      showGameOverScreen(finalScore, finalLevel, rank);
+      
+      // Update game stats in AuthSystem
+      if (typeof AuthSystem !== 'undefined') {
+        AuthSystem.updateStats({
+          score: finalScore,
+          level: finalLevel,
+          kills: totalKillsThisRun,
+          deaths: 1,
+          duration: performance.now() - (waveStartTime || performance.now())
+        }).catch(err => console.warn('Failed to update stats:', err));
+      }
+      
+      // Submit to leaderboard
+      Leaderboard.addEntry(username, finalScore, finalLevel, currentDifficulty)
+        .then(rank => {
+          showGameOverScreen(finalScore, finalLevel, rank);
+        })
+        .catch(err => {
+          console.warn('Failed to submit leaderboard entry:', err);
+          showGameOverScreen(finalScore, finalLevel, null);
+        });
     } else {
       showGameOverScreen(finalScore, finalLevel, null);
     }
@@ -9231,11 +9454,35 @@
     closeLeaderboardModal();
     closeAuthModal();
     
-    // Hide game container
-    dom.gameContainer.style.display = 'none';
+    // Hide game container with fade
+    dom.gameContainer.style.transition = 'opacity 0.4s ease-out';
+    dom.gameContainer.style.opacity = '0';
     
-    // Show start screen
-    dom.startScreen.style.display = 'flex';
+    setTimeout(() => {
+      dom.gameContainer.style.display = 'none';
+      dom.gameContainer.style.transition = '';
+      dom.gameContainer.style.opacity = '';
+      
+      // Show start screen with fade in
+      dom.startScreen.style.display = 'flex';
+      dom.startScreen.style.opacity = '0';
+      dom.startScreen.style.transform = 'scale(0.95)';
+      
+      // Restart 3D WebGL start screen background - REMOVED (no longer using 3D background)
+      // if (!startScreenBackgroundCleanup) {
+      //   startScreenBackgroundCleanup = initStartScreenBackground();
+      // }
+      
+      requestAnimationFrame(() => {
+        dom.startScreen.style.transition = 'opacity 0.5s ease-out, transform 0.5s ease-out';
+        dom.startScreen.style.opacity = '1';
+        dom.startScreen.style.transform = 'scale(1)';
+        
+        setTimeout(() => {
+          dom.startScreen.style.transition = '';
+        }, 500);
+      });
+    }, 400);
     
     // Reset game state
     gameRunning = false;
@@ -9378,9 +9625,15 @@
   };
 
   const openLeaderboardModal = () => {
+    // Use new SocialUI if available
+    if (typeof SocialUI !== 'undefined' && SocialUI.showLeaderboardModal) {
+      SocialUI.showLeaderboardModal(currentLeaderboardFilter || currentDifficulty);
+      return;
+    }
+    
+    // Fallback to old modal (if still present)
     if (!dom.leaderboardModal) return;
     dom.leaderboardModal.style.display = 'flex';
-    updateAuthUI();
     Leaderboard.setStatus(Leaderboard.statusMessage, Leaderboard.statusTone);
     setLeaderboardFilter(currentLeaderboardFilter || currentDifficulty);
   };
@@ -9390,6 +9643,34 @@
   };
 
   /* ====== INITIALISATION ====== */
+  
+  // Initialize 3D rendering system
+  const init3DSystem = () => {
+    if (typeof window.__VOID_RIFT_3D__ !== 'undefined') {
+      try {
+        const initialized = window.__VOID_RIFT_3D__.init(dom.canvas);
+        if (initialized) {
+          game3DInstance = window.__VOID_RIFT_3D__;
+          use3DMode = true;
+          console.log('3D mode enabled');
+          return true;
+        }
+      } catch (error) {
+        console.warn('3D initialization failed, using 2D fallback:', error);
+        use3DMode = false;
+        game3DInstance = null;
+      }
+    }
+    
+    // If 3D failed or not available, create 2D context
+    if (!dom.ctx && dom.canvas) {
+      dom.ctx = dom.canvas.getContext('2d');
+      console.log('Using 2D Canvas rendering');
+    }
+    
+    return false;
+  };
+  
   const ready = () => {
     assignDomRefs();
     Save.load();
@@ -9401,7 +9682,13 @@
     syncCredits();
     loadControlSettings(); // Load and apply control settings
     setupInput();
+    
+    // Initialize 3D system FIRST, before any canvas setup
+    init3DSystem();
+    
+    // Then resize canvas (which may create 2D context if 3D failed)
     resizeCanvas();
+    
     drawStartGraphic();
     updateHUD();
   };
@@ -11094,5 +11381,663 @@
     
     // Initialize equipment dock interaction listeners
     initEquipmentDockListeners();
+  };
+
+  /* ==========================================
+     3D WEBGL LOADING SCREEN & START SCREEN
+     ========================================== */
+
+  // ===================================================================
+  // MINIMAL HIGH-FIDELITY LOADING & START SCREEN ANIMATIONS (2D)
+  // ===================================================================
+  
+  /**
+   * New Loading Screen with Progress Bar and Terminal Logs
+   * - Black background
+   * - Large title "VOID RIFT" with streaming effect
+   * - Real facts in terminal logs (developer info, date/time)
+   * - Minimal progress bar with Vanguard ship indicator
+   * - 10 second animation
+   */
+  const initLoadingScreen = () => {
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const loadingTitle = document.getElementById('loadingTitle');
+    const loadingShipCanvas = document.getElementById('loadingShipCanvas');
+    const loadingBarFill = document.querySelector('.loading-bar-fill');
+    const terminalLogs = document.getElementById('terminalLogs');
+    
+    if (!loadingShipCanvas || !loadingOverlay || !loadingBarFill || !terminalLogs || !loadingTitle) {
+      return () => {};
+    }
+    
+    const ctx = loadingShipCanvas.getContext('2d');
+    const shipSize = 32; // Smaller ship for minimal progress bar
+    loadingShipCanvas.width = shipSize;
+    loadingShipCanvas.height = shipSize;
+    
+    // Get current date and time
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+    const timeStr = now.toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit', 
+      second: '2-digit',
+      hour12: true 
+    });
+    
+    // Terminal log messages with real facts
+    const logMessages = [
+      { time: 0, msg: '═══════════════════════════════════════', type: 'info' },
+      { time: 100, msg: 'VOID RIFT - COMBAT SYSTEM v2.0.1', type: 'highlight' },
+      { time: 200, msg: '═══════════════════════════════════════', type: 'info' },
+      { time: 500, msg: 'SYSTEM BOOT SEQUENCE INITIATED', type: 'info' },
+      { time: 800, msg: `Date: ${dateStr}`, type: 'info' },
+      { time: 1100, msg: `Time: ${timeStr}`, type: 'info' },
+      { time: 1400, msg: 'Built by Austin Michael Stickley', type: 'highlight' },
+      { time: 1700, msg: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', type: 'info' },
+      { time: 2000, msg: '> Initializing weapon systems... OK', type: 'ok' },
+      { time: 2300, msg: '> Loading navigation database... OK', type: 'ok' },
+      { time: 2600, msg: '> Calibrating targeting matrix... OK', type: 'ok' },
+      { time: 2900, msg: '> Establishing tactical uplink... OK', type: 'ok' },
+      { time: 3200, msg: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', type: 'info' },
+      { time: 3500, msg: '> Scanning hostile signatures... CLEAR', type: 'ok' },
+      { time: 3800, msg: '> Shield generators online... OK', type: 'ok' },
+      { time: 4100, msg: '> Life support systems nominal... OK', type: 'ok' },
+      { time: 4400, msg: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', type: 'info' },
+      { time: 4700, msg: '> VANGUARD-CLASS ship detected... OK', type: 'ok' },
+      { time: 5000, msg: '> Thruster systems ready... OK', type: 'ok' },
+      { time: 5300, msg: '> Reactor core stable... OK', type: 'ok' },
+      { time: 5600, msg: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', type: 'info' },
+      { time: 5900, msg: '> Command center uplink established... OK', type: 'ok' },
+      { time: 6200, msg: '> Mission parameters loaded... OK', type: 'ok' },
+      { time: 6500, msg: '> HUD interface initialized... OK', type: 'ok' },
+      { time: 6800, msg: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', type: 'info' },
+      { time: 7100, msg: '> Audio systems online... OK', type: 'ok' },
+      { time: 7400, msg: '> Input systems calibrated... OK', type: 'ok' },
+      { time: 7700, msg: '> Communications array active... OK', type: 'ok' },
+      { time: 8000, msg: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', type: 'info' },
+      { time: 8300, msg: 'Finalizing initialization sequence...', type: 'info' },
+      { time: 8600, msg: 'ALL SYSTEMS NOMINAL', type: 'ok' },
+      { time: 8900, msg: 'PILOT READY FOR DEPLOYMENT', type: 'ok' },
+      { time: 9200, msg: '═══════════════════════════════════════', type: 'info' }
+    ];
+    
+    let currentLogIndex = 0;
+    const startTime = Date.now();
+    const duration = 10000; // 10 seconds
+    
+    // Title streaming effect
+    const titleText = 'VOID RIFT';
+    let titleIndex = 0;
+    const streamTitle = () => {
+      if (titleIndex < titleText.length) {
+        loadingTitle.textContent += titleText[titleIndex];
+        titleIndex++;
+        setTimeout(streamTitle, 80); // 80ms per character
+      }
+    };
+    setTimeout(streamTitle, 200); // Start after brief delay
+    
+    // Function to add terminal log with typing effect
+    const addTerminalLog = (msg, type) => {
+      const line = document.createElement('div');
+      line.className = 'terminal-line';
+      
+      const timestamp = document.createElement('span');
+      timestamp.className = 'timestamp';
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      timestamp.textContent = `[${elapsed}s]`;
+      
+      const prompt = document.createElement('span');
+      prompt.className = 'prompt';
+      prompt.textContent = '>';
+      
+      const text = document.createElement('span');
+      text.className = `status-${type}`;
+      
+      line.appendChild(timestamp);
+      line.appendChild(prompt);
+      line.appendChild(text);
+      terminalLogs.appendChild(line);
+      
+      // Typing animation
+      let charIndex = 0;
+      const typeInterval = setInterval(() => {
+        if (charIndex < msg.length) {
+          text.textContent += msg[charIndex];
+          charIndex++;
+          // Auto-scroll to bottom
+          terminalLogs.scrollTop = terminalLogs.scrollHeight;
+        } else {
+          clearInterval(typeInterval);
+        }
+      }, 15); // Faster typing - 15ms per character
+    };
+    
+    // Draw Vanguard ship on canvas (smaller for minimal bar)
+    const drawVanguardShip = () => {
+      ctx.clearRect(0, 0, shipSize, shipSize);
+      ctx.save();
+      ctx.translate(shipSize / 2, shipSize / 2);
+      ctx.rotate(-Math.PI / 2); // Point right
+      
+      const scale = shipSize / 32;
+      
+      // Engine glow
+      ctx.shadowColor = '#f97316';
+      ctx.shadowBlur = 12;
+      ctx.fillStyle = '#f97316';
+      ctx.globalAlpha = 0.7;
+      ctx.beginPath();
+      ctx.arc(-8 * scale, 0, 3.5 * scale, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.shadowBlur = 0;
+      
+      // Main hull
+      ctx.fillStyle = '#0ea5e9';
+      ctx.beginPath();
+      ctx.moveTo(12 * scale, 0);
+      ctx.lineTo(-8 * scale, -6 * scale);
+      ctx.lineTo(-8 * scale, 6 * scale);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Canopy
+      ctx.fillStyle = '#7dd3fc';
+      ctx.beginPath();
+      ctx.arc(4 * scale, 0, 2.5 * scale, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Wing accents
+      ctx.strokeStyle = '#f8fafc';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(8 * scale, 0);
+      ctx.lineTo(-4 * scale, -4 * scale);
+      ctx.moveTo(8 * scale, 0);
+      ctx.lineTo(-4 * scale, 4 * scale);
+      ctx.stroke();
+      
+      ctx.restore();
+    };
+    
+    drawVanguardShip();
+    
+    // Animation loop
+    let animationFrame;
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // Update progress bar with smooth easing
+      loadingBarFill.style.width = `${progress * 100}%`;
+      
+      // Update ship position
+      loadingShipCanvas.style.left = `${progress * 100}%`;
+      
+      // Add log messages at appropriate times
+      if (currentLogIndex < logMessages.length) {
+        const nextLog = logMessages[currentLogIndex];
+        if (elapsed >= nextLog.time) {
+          addTerminalLog(nextLog.msg, nextLog.type);
+          currentLogIndex++;
+        }
+      }
+      
+      // Continue animation until completion
+      if (progress < 1) {
+        animationFrame = requestAnimationFrame(animate);
+      } else {
+        // Mark as loaded after 10 seconds
+        setTimeout(() => {
+          loadingOverlay.classList.add('loaded');
+        }, 300);
+      }
+    };
+    
+    animate();
+    
+    // Return cleanup function
+    return () => {
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+      }
+    };
+  };
+
+  
+  /**
+   * Start Screen: Spinning Ship Loader with 3D Space Elements
+   * - Centered spinning Vanguard ship with progress bar
+   * - Pure black background
+   * - 5 planets with atmospheric glow
+   * - 150 parallax stars with depth
+   * - 8 rotating asteroids in 3D space
+   * - 2 time portal wormholes with vortex effects
+   * - High-fidelity immersive sci-fi atmosphere
+   * 
+   * NOTE: This function is no longer used - kept for reference only
+   */
+  const _initStartScreenBackground = () => {
+    const canvas = document.getElementById('startBackgroundCanvas');
+    if (!canvas) {
+      console.warn('Start background canvas not found');
+      return () => {};
+    }
+    
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    
+    // Spinning ship loader
+    const ship = {
+      size: 80,
+      rotation: 0,
+      rotationSpeed: (Math.PI * 2) / 240 // 4 second full rotation at 60fps
+    };
+    
+    // Progress bar
+    const progressBar = {
+      width: 200,
+      height: 8,
+      progress: 0,
+      maxProgress: 1,
+      speed: 1 / 180 // Complete in 3 seconds at 60fps
+    };
+    
+    // Parallax stars (150 particles with depth)
+    const stars = [];
+    for (let i = 0; i < 150; i++) {
+      stars.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        size: Math.random() * 2 + 0.5,
+        speed: Math.random() * 0.2 + 0.05,
+        depth: Math.random(), // 0 = far, 1 = close
+        twinkle: Math.random() * Math.PI * 2,
+        twinkleSpeed: Math.random() * 0.03 + 0.01
+      });
+    }
+    
+    // 5 Planets with atmospheric glow
+    const planets = [
+      { x: canvas.width * 0.15, y: canvas.height * 0.2, size: 50, color: '#c2410c', detail: '#7c2d12', depth: 0.3 }, // Mars-like
+      { x: canvas.width * 0.85, y: canvas.height * 0.3, size: 70, color: '#1e40af', detail: '#1e3a8a', depth: 0.5 }, // Gas giant blue
+      { x: canvas.width * 0.12, y: canvas.height * 0.75, size: 40, color: '#059669', detail: '#047857', depth: 0.7 }, // Earth-like
+      { x: canvas.width * 0.88, y: canvas.height * 0.7, size: 100, color: '#7c3aed', detail: '#6d28d9', depth: 0.2 }, // Gas giant purple
+      { x: canvas.width * 0.5, y: canvas.height * 0.1, size: 45, color: '#ea580c', detail: '#c2410c', depth: 0.4 }  // Orange planet
+    ];
+    
+    // 8 Rotating asteroids
+    const asteroids = [];
+    for (let i = 0; i < 8; i++) {
+      asteroids.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        size: Math.random() * 13 + 12,
+        rotation: Math.random() * Math.PI * 2,
+        rotationSpeed: (Math.random() - 0.5) * 0.04,
+        speed: Math.random() * 0.3 + 0.1,
+        angle: Math.random() * Math.PI * 2,
+        depth: Math.random() * 0.5 + 0.3,
+        color: i % 2 === 0 ? '#6b7280' : '#78716c'
+      });
+    }
+    
+    // 2 Time portals / wormholes
+    const portals = [
+      {
+        x: canvas.width * 0.25,
+        y: canvas.height * 0.5,
+        size: 60,
+        color: '#8b5cf6', // Purple
+        rotation: 0,
+        pulse: 1
+      },
+      {
+        x: canvas.width * 0.75,
+        y: canvas.height * 0.5,
+        size: 80,
+        color: '#06b6d4', // Cyan
+        rotation: 0,
+        pulse: 1
+      }
+    ];
+    
+    // Draw spinning Vanguard ship
+    const drawShip = (x, y, size, rotation) => {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(rotation);
+      
+      const scale = size / 16; // Base size is 16px
+      
+      // Engine glow (animated)
+      const thrusterPulse = 0.7 + Math.sin(Date.now() / 150) * 0.3;
+      ctx.shadowColor = '#f97316';
+      ctx.shadowBlur = 20 * thrusterPulse;
+      
+      // Engine thrusters (dual)
+      ctx.fillStyle = '#f97316';
+      ctx.beginPath();
+      ctx.ellipse(-8 * scale, -3 * scale, 3 * scale * thrusterPulse, 6 * scale * thrusterPulse, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(-8 * scale, 3 * scale, 3 * scale * thrusterPulse, 6 * scale * thrusterPulse, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.shadowBlur = 0;
+      
+      // Ship body (spear shape - Vanguard)
+      ctx.fillStyle = '#0ea5e9';
+      ctx.shadowColor = '#0ea5e9';
+      ctx.shadowBlur = 15;
+      ctx.beginPath();
+      ctx.moveTo(10 * scale, 0);
+      ctx.lineTo(-8 * scale, -6 * scale);
+      ctx.lineTo(-6 * scale, 0);
+      ctx.lineTo(-8 * scale, 6 * scale);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Cockpit glow
+      ctx.fillStyle = '#7dd3fc';
+      ctx.shadowColor = '#7dd3fc';
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.arc(2 * scale, 0, 3 * scale, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.shadowBlur = 0;
+      ctx.restore();
+    };
+    
+    // Draw planet with atmosphere
+    const drawPlanet = (planet) => {
+      // Atmospheric glow
+      const gradient = ctx.createRadialGradient(
+        planet.x, planet.y, 0,
+        planet.x, planet.y, planet.size * 1.3
+      );
+      gradient.addColorStop(0, planet.color);
+      gradient.addColorStop(0.6, planet.detail);
+      gradient.addColorStop(0.85, 'rgba(0,0,0,0.5)');
+      gradient.addColorStop(1, 'rgba(0,0,0,0)');
+      
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(planet.x, planet.y, planet.size * 1.3, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Surface detail ring
+      ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(planet.x, planet.y, planet.size * 0.7, 0, Math.PI * 2);
+      ctx.stroke();
+    };
+    
+    // Draw asteroid
+    const drawAsteroid = (asteroid) => {
+      ctx.save();
+      ctx.translate(asteroid.x, asteroid.y);
+      ctx.rotate(asteroid.rotation);
+      
+      const depthScale = 0.5 + asteroid.depth * 0.5;
+      const size = asteroid.size * depthScale;
+      
+      // Rocky irregular shape
+      ctx.fillStyle = asteroid.color;
+      ctx.shadowColor = '#000';
+      ctx.shadowBlur = 5;
+      ctx.beginPath();
+      for (let i = 0; i < 8; i++) {
+        const angle = (i / 8) * Math.PI * 2;
+        const radius = size * (0.7 + Math.random() * 0.3);
+        const x = Math.cos(angle) * radius;
+        const y = Math.sin(angle) * radius;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.fill();
+      
+      // Crater details
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      ctx.beginPath();
+      ctx.arc(size * 0.3, -size * 0.2, size * 0.15, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.shadowBlur = 0;
+      ctx.restore();
+    };
+    
+    // Draw time portal / wormhole
+    const drawPortal = (portal) => {
+      portal.rotation += 0.02;
+      portal.pulse = 1 + Math.sin(Date.now() / 800) * 0.15;
+      
+      // Orbital rings (swirling)
+      for (let ring = 0; ring < 8; ring++) {
+        const ringRadius = (portal.size / 8) * (ring + 1) * portal.pulse;
+        const ringAngle = portal.rotation + (ring * Math.PI / 4);
+        
+        ctx.strokeStyle = portal.color + (20 - ring * 2).toString(16).padStart(2, '0');
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(portal.x, portal.y, ringRadius, ringAngle, ringAngle + Math.PI);
+        ctx.stroke();
+      }
+      
+      // Central vortex core
+      const coreGradient = ctx.createRadialGradient(
+        portal.x, portal.y, 0,
+        portal.x, portal.y, portal.size * 0.4 * portal.pulse
+      );
+      coreGradient.addColorStop(0, '#ffffff');
+      coreGradient.addColorStop(0.3, portal.color);
+      coreGradient.addColorStop(0.7, portal.color === '#8b5cf6' ? '#4c1d95' : '#164e63');
+      coreGradient.addColorStop(1, 'rgba(0,0,0,0)');
+      
+      ctx.fillStyle = coreGradient;
+      ctx.beginPath();
+      ctx.arc(portal.x, portal.y, portal.size * 0.4 * portal.pulse, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Event horizon glow
+      ctx.shadowColor = portal.color;
+      ctx.shadowBlur = 30;
+      ctx.strokeStyle = portal.color;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(portal.x, portal.y, portal.size * portal.pulse, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    };
+    
+    // Animation loop
+    let animationFrame;
+    const animate = () => {
+      // Pure black background
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Draw stars with parallax and twinkling
+      stars.forEach(star => {
+        star.y += star.speed * (0.5 + star.depth * 0.5);
+        star.twinkle += star.twinkleSpeed;
+        
+        if (star.y > canvas.height) {
+          star.y = 0;
+          star.x = Math.random() * canvas.width;
+        }
+        
+        const depthSize = star.size * (0.3 + star.depth * 0.7);
+        const twinkleAlpha = 0.3 + Math.sin(star.twinkle) * 0.3;
+        const alpha = twinkleAlpha * (0.4 + star.depth * 0.6);
+        
+        ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+        ctx.beginPath();
+        ctx.arc(star.x, star.y, depthSize, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Glow for closer stars
+        if (star.depth > 0.6) {
+          const gradient = ctx.createRadialGradient(
+            star.x, star.y, 0,
+            star.x, star.y, depthSize * 3
+          );
+          gradient.addColorStop(0, `rgba(200, 230, 255, ${alpha * 0.5})`);
+          gradient.addColorStop(1, 'rgba(200, 230, 255, 0)');
+          ctx.fillStyle = gradient;
+          ctx.beginPath();
+          ctx.arc(star.x, star.y, depthSize * 3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      });
+      
+      // Draw planets
+      planets.forEach(drawPlanet);
+      
+      // Draw time portals / wormholes
+      portals.forEach(drawPortal);
+      
+      // Draw and update asteroids
+      asteroids.forEach(asteroid => {
+        asteroid.rotation += asteroid.rotationSpeed;
+        asteroid.x += Math.cos(asteroid.angle) * asteroid.speed;
+        asteroid.y += Math.sin(asteroid.angle) * asteroid.speed;
+        
+        // Wrap around
+        if (asteroid.x < -50) asteroid.x = canvas.width + 50;
+        if (asteroid.x > canvas.width + 50) asteroid.x = -50;
+        if (asteroid.y < -50) asteroid.y = canvas.height + 50;
+        if (asteroid.y > canvas.height + 50) asteroid.y = -50;
+        
+        drawAsteroid(asteroid);
+      });
+      
+      // Update and draw spinning ship
+      ship.rotation += ship.rotationSpeed;
+      drawShip(centerX, centerY - 50, ship.size, ship.rotation);
+      
+      // Update and draw progress bar
+      if (progressBar.progress < progressBar.maxProgress) {
+        progressBar.progress += progressBar.speed;
+      } else {
+        progressBar.progress = 0; // Loop
+      }
+      
+      const barX = centerX - progressBar.width / 2;
+      const barY = centerY + 80;
+      
+      // Progress bar background
+      ctx.fillStyle = '#1a1a1a';
+      ctx.fillRect(barX, barY, progressBar.width, progressBar.height);
+      
+      // Progress bar fill
+      const fillWidth = progressBar.width * progressBar.progress;
+      const barGradient = ctx.createLinearGradient(barX, barY, barX + fillWidth, barY);
+      barGradient.addColorStop(0, '#22c55e');
+      barGradient.addColorStop(0.5, '#4ade80');
+      barGradient.addColorStop(1, '#22c55e');
+      ctx.fillStyle = barGradient;
+      ctx.fillRect(barX, barY, fillWidth, progressBar.height);
+      
+      // Progress bar border
+      ctx.strokeStyle = '#4ade80';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(barX, barY, progressBar.width, progressBar.height);
+      
+      animationFrame = requestAnimationFrame(animate);
+    };
+    
+    animate();
+    
+    // Handle window resize
+    const handleResize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    window.addEventListener('resize', handleResize);
+    
+    // Return cleanup function
+    return () => {
+      cancelAnimationFrame(animationFrame);
+      window.removeEventListener('resize', handleResize);
+    };
+  };
+  
+  // Initialize on page load
+  // startScreenBackgroundCleanup removed - no longer using 3D background
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      initLoadingScreen();
+      setTimeout(() => {
+        // startScreenBackgroundCleanup = initStartScreenBackground(); // REMOVED
+        initGameplayHints();
+      }, 10000); // Changed to 10000 to wait for loading screen
+    });
+  } else {
+    initLoadingScreen();
+    setTimeout(() => {
+      // startScreenBackgroundCleanup = initStartScreenBackground(); // REMOVED
+      initGameplayHints();
+    }, 10000); // Changed to 10000 to wait for loading screen
+  }
+
+  // Cycling gameplay hints on start screen
+  const initGameplayHints = () => {
+    const hintElement = document.getElementById('gameplayHint');
+    if (!hintElement) return;
+    
+    const hints = [
+      { icon: '💫', text: 'Twin-stick action awaits' },
+      { icon: '🚀', text: 'Upgrade your ship & weapons' },
+      { icon: '⚡', text: 'Master powerful abilities' },
+      { icon: '🌟', text: 'Compete on global leaderboards' },
+      { icon: '🎯', text: 'Survive endless enemy waves' },
+      { icon: '💎', text: 'Collect credits to unlock gear' },
+      { icon: '🔥', text: 'Chain combos for high scores' }
+    ];
+    
+    let currentHintIndex = 0;
+    
+    const updateHint = () => {
+      const hint = hints[currentHintIndex];
+      const iconElement = hintElement.querySelector('.hint-icon');
+      const textElement = hintElement.querySelector('.hint-text');
+      
+      if (iconElement && textElement) {
+        // Fade out
+        hintElement.style.transition = 'opacity 0.3s ease-out, transform 0.3s ease-out';
+        hintElement.style.opacity = '0';
+        hintElement.style.transform = 'translateY(10px)';
+        
+        setTimeout(() => {
+          // Update content
+          iconElement.textContent = hint.icon;
+          textElement.textContent = hint.text;
+          
+          // Fade in
+          hintElement.style.opacity = '1';
+          hintElement.style.transform = 'translateY(0)';
+          
+          currentHintIndex = (currentHintIndex + 1) % hints.length;
+        }, 300);
+      }
+    };
+    
+    // Change hint every 4 seconds
+    setInterval(updateHint, 4000);
   };
 })();

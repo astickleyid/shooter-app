@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VOID RIFT - 3D Test</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #000;
+      font-family: Arial, sans-serif;
+    }
+    
+    #testCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    
+    #controls {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: rgba(0, 0, 0, 0.8);
+      color: #4ade80;
+      padding: 20px;
+      border-radius: 8px;
+      border: 2px solid #4ade80;
+      z-index: 100;
+    }
+    
+    #controls h2 {
+      margin: 0 0 15px 0;
+      font-size: 18px;
+      color: #4ade80;
+    }
+    
+    #controls button {
+      background: #4ade80;
+      color: #000;
+      border: none;
+      padding: 10px 20px;
+      margin: 5px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    
+    #controls button:hover {
+      background: #22c55e;
+    }
+    
+    #status {
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid #4ade80;
+      font-size: 14px;
+    }
+    
+    .status-line {
+      margin: 5px 0;
+    }
+    
+    .status-ok {
+      color: #4ade80;
+    }
+    
+    .status-error {
+      color: #ef4444;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="testCanvas"></canvas>
+  
+  <div id="controls">
+    <h2>🚀 VOID RIFT 3D Test</h2>
+    <button id="initBtn">Initialize 3D</button>
+    <button id="toggleBtn" disabled>Toggle 2D/3D</button>
+    <button id="spawnBtn" disabled>Spawn Entities</button>
+    <button id="shakeBtn" disabled>Screen Shake</button>
+    
+    <div id="status">
+      <div class="status-line">Status: <span id="statusText">Not initialized</span></div>
+      <div class="status-line">Mode: <span id="modeText">-</span></div>
+      <div class="status-line">FPS: <span id="fpsText">0</span></div>
+      <div class="status-line">Entities: <span id="entitiesText">0</span></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { Game3D } from './src/renderer/Game3D.js';
+
+    const canvas = document.getElementById('testCanvas');
+    const statusText = document.getElementById('statusText');
+    const modeText = document.getElementById('modeText');
+    const fpsText = document.getElementById('fpsText');
+    const entitiesText = document.getElementById('entitiesText');
+    
+    const initBtn = document.getElementById('initBtn');
+    const toggleBtn = document.getElementById('toggleBtn');
+    const spawnBtn = document.getElementById('spawnBtn');
+    const shakeBtn = document.getElementById('shakeBtn');
+
+    let game3D = null;
+    let initialized = false;
+    let animationId = null;
+    
+    // Test entities
+    let testPlayer = {
+      x: 0,
+      y: 0,
+      rotation: 0
+    };
+    
+    let testBullets = [];
+    let testEnemies = [];
+    let bulletIdCounter = 0;
+    let enemyIdCounter = 0;
+
+    // FPS tracking
+    let lastTime = performance.now();
+    let frameCount = 0;
+    let fps = 0;
+
+    // Resize canvas
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      if (game3D) {
+        game3D.resize();
+      }
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // Initialize 3D
+    initBtn.addEventListener('click', () => {
+      try {
+        game3D = new Game3D(canvas);
+        const success = game3D.init();
+        
+        if (success) {
+          initialized = true;
+          statusText.textContent = 'Initialized';
+          statusText.className = 'status-ok';
+          modeText.textContent = '3D';
+          
+          toggleBtn.disabled = false;
+          spawnBtn.disabled = false;
+          shakeBtn.disabled = false;
+          initBtn.disabled = true;
+          
+          // Create test player ship
+          const shipData = {
+            shape: 'spear',
+            scale: 1,
+            colors: {
+              primary: '#0ea5e9',
+              accent: '#38bdf8',
+              thruster: '#f97316'
+            }
+          };
+          
+          game3D.createPlayerShip(testPlayer, shipData);
+          
+          // Start animation loop
+          startAnimation();
+          
+          console.log('3D Test initialized successfully');
+        } else {
+          throw new Error('3D initialization failed');
+        }
+      } catch (error) {
+        statusText.textContent = 'Error: ' + error.message;
+        statusText.className = 'status-error';
+        console.error('Initialization error:', error);
+      }
+    });
+
+    // Toggle 2D/3D
+    toggleBtn.addEventListener('click', () => {
+      if (game3D) {
+        game3D.setEnabled(!game3D.enabled);
+        modeText.textContent = game3D.enabled ? '3D' : '2D';
+      }
+    });
+
+    // Spawn test entities
+    spawnBtn.addEventListener('click', () => {
+      // Spawn bullets
+      for (let i = 0; i < 5; i++) {
+        testBullets.push({
+          id: bulletIdCounter++,
+          x: (Math.random() - 0.5) * 400,
+          y: (Math.random() - 0.5) * 400,
+          vx: (Math.random() - 0.5) * 5,
+          vy: (Math.random() - 0.5) * 5,
+          color: '#4ade80'
+        });
+      }
+      
+      // Spawn enemies
+      for (let i = 0; i < 3; i++) {
+        testEnemies.push({
+          id: enemyIdCounter++,
+          x: (Math.random() - 0.5) * 400,
+          y: (Math.random() - 0.5) * 400,
+          vx: (Math.random() - 0.5) * 2,
+          vy: (Math.random() - 0.5) * 2
+        });
+      }
+      
+      updateEntityCount();
+    });
+
+    // Screen shake
+    shakeBtn.addEventListener('click', () => {
+      if (game3D) {
+        game3D.shake(10);
+      }
+    });
+
+    // Update entity count
+    function updateEntityCount() {
+      const total = testBullets.length + testEnemies.length + 1; // +1 for player
+      entitiesText.textContent = total;
+    }
+
+    // Animation loop
+    function animate(currentTime) {
+      animationId = requestAnimationFrame(animate);
+      
+      if (!initialized || !game3D || !game3D.enabled) {
+        return;
+      }
+
+      // Calculate FPS
+      frameCount++;
+      if (currentTime - lastTime >= 1000) {
+        fps = frameCount;
+        fpsText.textContent = fps;
+        frameCount = 0;
+        lastTime = currentTime;
+      }
+
+      // Update test entities
+      updateTestEntities();
+
+      // Update 3D game
+      game3D.updatePlayerShip(testPlayer, false);
+      game3D.updateCamera(testPlayer);
+      game3D.syncBullets(testBullets);
+      game3D.syncEnemies(testEnemies);
+
+      // Render
+      game3D.render();
+    }
+
+    function updateTestEntities() {
+      // Rotate player
+      testPlayer.rotation += 0.02;
+
+      // Move bullets
+      testBullets.forEach(bullet => {
+        bullet.x += bullet.vx;
+        bullet.y += bullet.vy;
+        
+        // Wrap around screen
+        if (Math.abs(bullet.x) > 500) bullet.vx *= -1;
+        if (Math.abs(bullet.y) > 500) bullet.vy *= -1;
+      });
+
+      // Move enemies
+      testEnemies.forEach(enemy => {
+        enemy.x += enemy.vx;
+        enemy.y += enemy.vy;
+        
+        // Wrap around screen
+        if (Math.abs(enemy.x) > 500) enemy.vx *= -1;
+        if (Math.abs(enemy.y) > 500) enemy.vy *= -1;
+      });
+
+      // Remove old bullets (keep only latest 20)
+      if (testBullets.length > 20) {
+        testBullets = testBullets.slice(-20);
+      }
+      
+      // Remove old enemies (keep only latest 10)
+      if (testEnemies.length > 10) {
+        testEnemies = testEnemies.slice(-10);
+      }
+    }
+
+    function startAnimation() {
+      if (!animationId) {
+        animate(performance.now());
+      }
+    }
+
+    // Keyboard controls
+    window.addEventListener('keydown', (e) => {
+      if (!initialized) return;
+      
+      const speed = 5;
+      switch (e.key) {
+        case 'w':
+        case 'ArrowUp':
+          testPlayer.y -= speed;
+          break;
+        case 's':
+        case 'ArrowDown':
+          testPlayer.y += speed;
+          break;
+        case 'a':
+        case 'ArrowLeft':
+          testPlayer.x -= speed;
+          break;
+        case 'd':
+        case 'ArrowRight':
+          testPlayer.x += speed;
+          break;
+        case ' ':
+          if (game3D) game3D.shake(5);
+          break;
+      }
+    });
+
+    // Auto-initialize on load (for testing)
+    // initBtn.click();
+  </script>
+</body>
+</html>
