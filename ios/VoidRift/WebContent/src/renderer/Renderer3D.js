@@ -236,7 +236,6 @@ export class Renderer3D {
     
     // Smooth camera follow
     const targetX = x;
-    const targetY = 0; // Keep Y centered
     const targetZ = y; // Map 2D Y to 3D Z
     
     this.camera.position.x += (targetX - this.camera.position.x) * 0.1;
