@@ -181,6 +181,17 @@ To enable code signing in GitHub Actions, you need to add these secrets:
 - `IOS_CERTIFICATE_BASE64`: Base64-encoded .p12 certificate
 - `P12_PASSWORD`: Password for the .p12 certificate
 - `KEYCHAIN_PASSWORD`: Password for temporary keychain
+- `IOS_PROVISIONING_PROFILE_BASE64` (recommended for export): Base64-encoded App Store provisioning profile (`.mobileprovision`)
+ - `EXPORT_OPTIONS_PLIST_BASE64` (optional): Base64-encoded ExportOptions.plist for IPA export
+
+### Alternative: App Store Connect API Key (Preferred for CI)
+
+Instead of managing `.p12` + provisioning profiles, you can use an App Store Connect API key to let `xcodebuild`
+fetch/manage signing assets in CI:
+
+- `ASC_API_KEY_ID`
+- `ASC_API_ISSUER_ID`
+- `ASC_API_KEY_P8_BASE64` (base64 of the `.p8` file contents)
 
 ### Creating the Secrets
 
@@ -199,6 +210,42 @@ To enable code signing in GitHub Actions, you need to add these secrets:
    - Go to repository Settings → Secrets and variables → Actions
    - Click "New repository secret"
    - Add each secret
+
+### Provisioning Profile Secret (Recommended for IPA Export)
+
+If you export an App Store provisioning profile from the Apple Developer portal, encode it as:
+```bash
+base64 -i MyAppStoreProfile.mobileprovision | pbcopy
+```
+and store it as `IOS_PROVISIONING_PROFILE_BASE64`.
+
+### ExportOptions.plist (Optional IPA Export)
+
+If you want the workflow to export an `.ipa` artifact, create an ExportOptions.plist:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>method</key>
+  <string>app-store</string>
+  <key>signingStyle</key>
+  <string>automatic</string>
+  <key>teamID</key>
+  <string>NCG387GT8Y</string>
+  <key>uploadBitcode</key>
+  <false/>
+  <key>uploadSymbols</key>
+  <true/>
+</dict>
+</plist>
+```
+
+Then encode and store as a secret:
+```bash
+base64 -i ExportOptions.plist | pbcopy
+```
 
 ## Troubleshooting
 
