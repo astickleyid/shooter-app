@@ -159,6 +159,10 @@ jobs:
       KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
       P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
       EXPORT_OPTIONS_PLIST_BASE64: ${{ secrets.EXPORT_OPTIONS_PLIST_BASE64 }}
+      IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+      ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+      ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+      ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -201,24 +205,77 @@ jobs:
           # Clean up certificate file
           rm $CERTIFICATE_PATH
 
+      - name: Install Provisioning Profile (if available)
+        run: |
+          if [ -z "${IOS_PROVISIONING_PROFILE_BASE64}" ]; then
+            echo "No provisioning profile configured; skipping."
+            exit 0
+          fi
+
+          echo "Installing provisioning profile..."
+          PROFILE_PATH="$RUNNER_TEMP/profile.mobileprovision"
+          PROFILE_PLIST="$RUNNER_TEMP/profile.plist"
+          echo -n "${IOS_PROVISIONING_PROFILE_BASE64}" | base64 --decode -o "$PROFILE_PATH"
+
+          # Extract UUID and install into the standard location.
+          security cms -D -i "$PROFILE_PATH" > "$PROFILE_PLIST"
+          UUID=$(/usr/libexec/PlistBuddy -c "Print :UUID" "$PROFILE_PLIST")
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          cp "$PROFILE_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/${UUID}.mobileprovision"
+          echo "Installed provisioning profile UUID: ${UUID}"
+
+      - name: Prepare App Store Connect API Key (if available)
+        run: |
+          if [ -z "${ASC_API_KEY_P8_BASE64}" ] || [ -z "${ASC_API_KEY_ID}" ] || [ -z "${ASC_API_ISSUER_ID}" ]; then
+            echo "No App Store Connect API key configured; skipping."
+            exit 0
+          fi
+
+          echo "Preparing App Store Connect API key..."
+          KEY_PATH="$RUNNER_TEMP/AuthKey.p8"
+          echo -n "${ASC_API_KEY_P8_BASE64}" | base64 --decode -o "$KEY_PATH"
+          chmod 600 "$KEY_PATH"
+
+          {
+            echo "ASC_KEY_PATH=$KEY_PATH"
+            echo "ASC_AUTH_ARGS=-authenticationKeyPath $KEY_PATH -authenticationKeyID ${ASC_API_KEY_ID} -authenticationKeyIssuerID ${ASC_API_ISSUER_ID}"
+          } >> "$GITHUB_ENV"
+
       - name: Build iOS Archive
         working-directory: ios
         run: |
           echo "Creating iOS archive..."
-          xcodebuild \
-            -project VoidRift.xcodeproj \
-            -scheme VoidRift \
-            -configuration Release \
-            -archivePath $RUNNER_TEMP/VoidRift.xcarchive \
-            archive \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
+
+          # If we have signing configured (either p12+profile, or App Store Connect API key),
+          # build a signed archive. Otherwise, build an unsigned archive artifact.
+          if [ -n "${IOS_CERTIFICATE_BASE64}" ] || [ -n "${ASC_API_KEY_P8_BASE64}" ]; then
+            xcodebuild \
+              -project VoidRift.xcodeproj \
+              -scheme VoidRift \
+              -configuration Release \
+              -archivePath $RUNNER_TEMP/VoidRift.xcarchive \
+              -allowProvisioningUpdates ${ASC_AUTH_ARGS:-} \
+              archive
+          else
+            xcodebuild \
+              -project VoidRift.xcodeproj \
+              -scheme VoidRift \
+              -configuration Release \
+              -archivePath $RUNNER_TEMP/VoidRift.xcarchive \
+              archive \
+              CODE_SIGN_IDENTITY="" \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGNING_ALLOWED=NO
+          fi
 
       - name: Prepare Export Options (if configured)
         run: |
           if [ -z "${EXPORT_OPTIONS_PLIST_BASE64}" ]; then
             echo "No ExportOptions.plist configured; skipping IPA export."
+            exit 0
+          fi
+          if [ -z "${IOS_CERTIFICATE_BASE64}" ] && [ -z "${ASC_API_KEY_P8_BASE64}" ]; then
+            echo "No signing configured; skipping IPA export."
             exit 0
           fi
           echo "Preparing export options plist..."
@@ -234,7 +291,8 @@ jobs:
           xcodebuild -exportArchive \
             -archivePath $RUNNER_TEMP/VoidRift.xcarchive \
             -exportOptionsPlist $RUNNER_TEMP/ExportOptions.plist \
-            -exportPath $RUNNER_TEMP/VoidRift-Export
+            -exportPath $RUNNER_TEMP/VoidRift-Export \
+            -allowProvisioningUpdates ${ASC_AUTH_ARGS:-}
 
       - name: Upload Archive
         uses: actions/upload-artifact@v4
