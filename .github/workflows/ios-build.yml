@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - develop
+      - ios-sync-origin-main
     paths:
       - 'ios/**'
       - 'index.html'
@@ -18,6 +19,7 @@ on:
     branches:
       - main
       - develop
+      - ios-sync-origin-main
     paths:
       - 'ios/**'
       - 'index.html'
