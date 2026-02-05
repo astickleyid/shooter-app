@@ -46,5 +46,7 @@ temp/
 # Vercel
 .vercel
 
-# Three.js libraries (served from node_modules)
+# Three.js libraries (served from node_modules in web version)
+# But iOS needs these bundled, so we exclude the iOS WebContent libs
 libs/
+!ios/VoidRift/WebContent/libs/
