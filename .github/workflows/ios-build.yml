@@ -1,4 +1,5 @@
 name: iOS Build
+# Note: Keep this file touched when you want to trigger iOS CI on push.
 
 on:
   push:

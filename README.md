@@ -57,6 +57,13 @@ See [BACKEND_SETUP.md](BACKEND_SETUP.md) for detailed instructions.
 
 **Note:** The leaderboard falls back to local-only mode if the backend is unavailable.
 
+### Vercel Deploy via GitHub Actions (Preview)
+This repo includes a Vercel preview deployment workflow that runs on push.
+Set these GitHub Secrets in your repo:
+- `VERCEL_TOKEN`
+- `VERCEL_ORG_ID`
+- `VERCEL_PROJECT_ID`
+
 ## Controls
 
 - **Keyboard:** `WASD` / arrow keys to move, mouse to aim/shoot, `Space` to boost, `P` to pause.
