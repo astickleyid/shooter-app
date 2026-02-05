@@ -33,6 +33,12 @@ yarn-error.log*
 
 # OS generated files
 .DS_Store
+
+# Xcode user data
+DerivedData/
+*.xcuserdata
+**/xcuserdata/
+**/*.xcuserdatad/
 Thumbs.db
 desktop.ini
 
