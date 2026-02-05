@@ -308,6 +308,12 @@ export class Ship3D {
     };
     return colors[weaponType] || colors.primary;
   }
+
+  /**
+   * Get ship position
+   * @returns {THREE.Vector3} Position
+   */
+  getPosition() {
     return this.group.position.clone();
   }
 
