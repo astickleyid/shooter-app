@@ -3,7 +3,7 @@
  */
 
 import * as THREE from 'three';
-import { BufferGeometryUtils } from 'three/addons/utils/BufferGeometryUtils.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 export class GeometryFactory {
   constructor() {
@@ -129,7 +129,7 @@ export class GeometryFactory {
     
     // Combine all geometries
     const geometries = [bodyGeometry, wingGeometry, wingGeometry2];
-    const mergedGeometry = BufferGeometryUtils.mergeGeometries(geometries);
+    const mergedGeometry = mergeGeometries(geometries);
     
     return mergedGeometry;
   }
@@ -327,7 +327,7 @@ export class GeometryFactory {
             }
           });
           
-          return BufferGeometryUtils.mergeGeometries(chaserGeometries);
+          return mergeGeometries(chaserGeometries);
           
         case 'heavy':
           // Crystalline fortress - complex polyhedron
