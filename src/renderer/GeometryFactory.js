@@ -259,7 +259,6 @@ export class GeometryFactory {
    * @returns {THREE.BufferGeometry} Geometry
    */
   createBastionHull(size) {
-    const group = new THREE.Group();
     
     // Main armored body - thick and wide
     const bodyShape = new THREE.Shape();
