@@ -26,8 +26,7 @@ export class Bullet3D {
     const size = 4;
 
     // Create bullet mesh - elongated for better projectile look
-    const geometry = new THREE.CylinderGeometry(size * 0.3, size * 0.4, size * 2, 8);
-    geometry.rotateZ(Math.PI / 2); // Orient horizontally
+    const geometry = GeometryFactory.createBulletCylinderGeometry(size);
     const material = MaterialFactory.createBulletMaterial(color);
     
     this.mesh = new THREE.Mesh(geometry, material);

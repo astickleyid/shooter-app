@@ -160,9 +160,14 @@ export class Game3D {
         );
         this.bullets3D.set(bulletId, bullet3D);
       } else {
-        // Update existing bullet
+        // Update existing bullet with velocity for orientation
         const bullet3D = this.bullets3D.get(bulletId);
-        bullet3D.update(bullet.x, bullet.y);
+        bullet3D.update(
+          bullet.x, 
+          bullet.y, 
+          bullet.vx || 0, 
+          bullet.vy || 0
+        );
       }
     });
 

@@ -295,6 +295,9 @@ export class Ship3D {
       // Animate and remove flash
       let opacity = 0.9;
       const fadeFlash = () => {
+        // Safety check: stop animation if ship disposed or flash removed
+        if (!this.initialized || !flash.parent) return;
+        
         opacity -= 0.15;
         flash.material.opacity = opacity;
         if (opacity > 0) {

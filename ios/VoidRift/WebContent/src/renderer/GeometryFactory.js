@@ -259,6 +259,7 @@ export class GeometryFactory {
    * @returns {THREE.BufferGeometry} Geometry
    */
   createBastionHull(size) {
+    
     // Main armored body - thick and wide
     const bodyShape = new THREE.Shape();
     bodyShape.moveTo(size * 0.9, 0);
@@ -426,6 +427,20 @@ export class GeometryFactory {
     return this.get(key, () => {
       // Simple sphere for bullet
       return new THREE.SphereGeometry(size, 8, 8);
+    });
+  }
+
+  /**
+   * Create bullet cylinder geometry (for enhanced bullet visuals)
+   * @param {number} size - Bullet size
+   * @returns {THREE.BufferGeometry} Geometry
+   */
+  createBulletCylinderGeometry(size) {
+    const key = `bullet_cylinder_${size}`;
+    return this.get(key, () => {
+      const geometry = new THREE.CylinderGeometry(size * 0.3, size * 0.4, size * 2, 8);
+      geometry.rotateZ(Math.PI / 2); // Orient horizontally
+      return geometry;
     });
   }
 

@@ -431,6 +431,20 @@ export class GeometryFactory {
   }
 
   /**
+   * Create bullet cylinder geometry (for enhanced bullet visuals)
+   * @param {number} size - Bullet size
+   * @returns {THREE.BufferGeometry} Geometry
+   */
+  createBulletCylinderGeometry(size) {
+    const key = `bullet_cylinder_${size}`;
+    return this.get(key, () => {
+      const geometry = new THREE.CylinderGeometry(size * 0.3, size * 0.4, size * 2, 8);
+      geometry.rotateZ(Math.PI / 2); // Orient horizontally
+      return geometry;
+    });
+  }
+
+  /**
    * Create enemy geometry based on type
    * Enhanced with unique shapes for each enemy type
    * @param {number} size - Enemy size

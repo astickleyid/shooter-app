@@ -183,22 +183,30 @@ export class Ship3D {
 
     // Add banking effect based on velocity
     if (velocity) {
-      // Derive a maxSpeed from ship data if available, otherwise fall back to 1
+      // Derive max speed from ship stats if available
       const maxSpeed =
-        (this.shipData &&
-          (this.shipData.maxSpeed ||
-            (this.shipData.stats && this.shipData.stats.maxSpeed))) || 1;
+        (this.shipData && this.shipData.stats && this.shipData.stats.maxSpeed) ||
+        (this.shipData && this.shipData.maxSpeed) ||
+        0;
 
-      // Normalize horizontal/vertical velocity by max speed and clamp to [-1, 1]
-      const normalizedHorizontal = THREE.MathUtils.clamp(velocity.x / maxSpeed, -1, 1);
-      const normalizedVertical = THREE.MathUtils.clamp(velocity.y / maxSpeed, -1, 1);
-
-      // Bank left/right based on horizontal velocity magnitude (scaled to max ±0.3 rad)
-      const bankAmount = normalizedHorizontal * 0.3;
+      // Bank left/right based on horizontal velocity, scaled by speed
+      let bankAmount;
+      if (maxSpeed > 0) {
+        bankAmount = (velocity.x / maxSpeed) * 0.15;
+      } else {
+        // Fallback to original behavior if maxSpeed is not defined
+        bankAmount = velocity.x * 0.15;
+      }
       this.group.rotation.y = THREE.MathUtils.clamp(bankAmount, -0.3, 0.3);
 
-      // Pitch up/down based on vertical velocity magnitude (scaled to max ±0.2 rad)
-      const pitchAmount = normalizedVertical * 0.2;
+      // Pitch up/down based on vertical velocity, scaled by speed
+      let pitchAmount;
+      if (maxSpeed > 0) {
+        pitchAmount = (velocity.y / maxSpeed) * 0.1;
+      } else {
+        // Fallback to original behavior if maxSpeed is not defined
+        pitchAmount = velocity.y * 0.1;
+      }
       this.group.rotation.x = THREE.MathUtils.clamp(pitchAmount, -0.2, 0.2);
     }
   }
@@ -287,6 +295,9 @@ export class Ship3D {
       // Animate and remove flash
       let opacity = 0.9;
       const fadeFlash = () => {
+        // Safety check: stop animation if ship disposed or flash removed
+        if (!this.initialized || !flash.parent) return;
+        
         opacity -= 0.15;
         flash.material.opacity = opacity;
         if (opacity > 0) {
