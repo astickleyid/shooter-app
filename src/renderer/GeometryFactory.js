@@ -359,7 +359,6 @@ export class GeometryFactory {
    * @returns {THREE.BufferGeometry} Geometry
    */
   createFortressHull(size) {
-    const group = new THREE.Group();
     
     // Massive central hull
     const bodyShape = new THREE.Shape();
