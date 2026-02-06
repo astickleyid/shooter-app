@@ -183,12 +183,30 @@ export class Ship3D {
 
     // Add banking effect based on velocity
     if (velocity) {
-      // Bank left/right based on horizontal velocity
-      const bankAmount = velocity.x * 0.15;
+      // Derive max speed from ship stats if available
+      const maxSpeed =
+        (this.shipData && this.shipData.stats && this.shipData.stats.maxSpeed) ||
+        (this.shipData && this.shipData.maxSpeed) ||
+        0;
+
+      // Bank left/right based on horizontal velocity, scaled by speed
+      let bankAmount;
+      if (maxSpeed > 0) {
+        bankAmount = (velocity.x / maxSpeed) * 0.15;
+      } else {
+        // Fallback to original behavior if maxSpeed is not defined
+        bankAmount = velocity.x * 0.15;
+      }
       this.group.rotation.y = THREE.MathUtils.clamp(bankAmount, -0.3, 0.3);
 
-      // Pitch up/down based on vertical velocity
-      const pitchAmount = velocity.y * 0.1;
+      // Pitch up/down based on vertical velocity, scaled by speed
+      let pitchAmount;
+      if (maxSpeed > 0) {
+        pitchAmount = (velocity.y / maxSpeed) * 0.1;
+      } else {
+        // Fallback to original behavior if maxSpeed is not defined
+        pitchAmount = velocity.y * 0.1;
+      }
       this.group.rotation.x = THREE.MathUtils.clamp(pitchAmount, -0.2, 0.2);
     }
   }
