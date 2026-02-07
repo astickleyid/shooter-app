@@ -65,6 +65,15 @@ export class GeometryFactory {
       case 'razor':
         geometry = this.createRazorHull(size);
         break;
+      case 'bastion':
+        geometry = this.createBastionHull(size);
+        break;
+      case 'dart':
+        geometry = this.createDartHull(size);
+        break;
+      case 'fortress':
+        geometry = this.createFortressHull(size);
+        break;
       default:
         geometry = this.createSpearHull(size);
     }
@@ -244,6 +253,171 @@ export class GeometryFactory {
   }
 
   /**
+   * Create bastion-shaped hull (heavy tank, armored fortress)
+   * Enhanced with thick armor plating and reinforced structure
+   * @param {number} size - Ship size
+   * @returns {THREE.BufferGeometry} Geometry
+   */
+  createBastionHull(size) {
+    
+    // Main armored body - thick and wide
+    const bodyShape = new THREE.Shape();
+    bodyShape.moveTo(size * 0.9, 0);
+    bodyShape.lineTo(size * 0.7, -size * 0.6);
+    bodyShape.lineTo(size * 0.2, -size * 0.65);
+    bodyShape.lineTo(-size * 0.3, -size * 0.62);
+    bodyShape.lineTo(-size * 0.6, -size * 0.4);
+    bodyShape.lineTo(-size * 0.75, 0);
+    bodyShape.lineTo(-size * 0.6, size * 0.4);
+    bodyShape.lineTo(-size * 0.3, size * 0.62);
+    bodyShape.lineTo(size * 0.2, size * 0.65);
+    bodyShape.lineTo(size * 0.7, size * 0.6);
+    bodyShape.lineTo(size * 0.9, 0);
+    
+    const bodyExtrudeSettings = {
+      steps: 2,
+      depth: size * 0.6,
+      bevelEnabled: true,
+      bevelThickness: size * 0.12,
+      bevelSize: size * 0.12,
+      bevelSegments: 3
+    };
+    
+    const bodyGeometry = new THREE.ExtrudeGeometry(bodyShape, bodyExtrudeSettings);
+    bodyGeometry.center();
+    
+    // Armor plates on sides
+    const plateShape = new THREE.Shape();
+    plateShape.moveTo(size * 0.4, -size * 0.65);
+    plateShape.lineTo(size * 0.1, -size * 0.9);
+    plateShape.lineTo(-size * 0.4, -size * 0.8);
+    plateShape.lineTo(-size * 0.3, -size * 0.6);
+    plateShape.lineTo(size * 0.4, -size * 0.65);
+    
+    const plateExtrudeSettings = {
+      steps: 1,
+      depth: size * 0.2,
+      bevelEnabled: true,
+      bevelThickness: size * 0.04,
+      bevelSize: size * 0.04,
+      bevelSegments: 2
+    };
+    
+    const plateGeometry = new THREE.ExtrudeGeometry(plateShape, plateExtrudeSettings);
+    plateGeometry.center();
+    const plateGeometry2 = plateGeometry.clone();
+    plateGeometry2.scale(1, -1, 1); // Mirror for bottom
+    
+    // Combine geometries
+    const geometries = [bodyGeometry, plateGeometry, plateGeometry2];
+    const mergedGeometry = BufferGeometryUtils.mergeGeometries(geometries);
+    
+    return mergedGeometry;
+  }
+
+  /**
+   * Create dart-shaped hull (sleek interceptor, nimble and fast)
+   * Enhanced with streamlined aerodynamic profile
+   * @param {number} size - Ship size
+   * @returns {THREE.BufferGeometry} Geometry
+   */
+  createDartHull(size) {
+    const bodyShape = new THREE.Shape();
+    
+    // Very streamlined, dart-like design
+    bodyShape.moveTo(size * 1.5, 0);
+    bodyShape.quadraticCurveTo(size * 1.0, -size * 0.12, size * 0.4, -size * 0.22);
+    bodyShape.lineTo(size * 0.1, -size * 0.35);
+    bodyShape.lineTo(-size * 0.3, -size * 0.3);
+    bodyShape.lineTo(-size * 0.6, -size * 0.2);
+    bodyShape.lineTo(-size * 0.7, 0);
+    bodyShape.lineTo(-size * 0.6, size * 0.2);
+    bodyShape.lineTo(-size * 0.3, size * 0.3);
+    bodyShape.lineTo(size * 0.1, size * 0.35);
+    bodyShape.lineTo(size * 0.4, size * 0.22);
+    bodyShape.quadraticCurveTo(size * 1.0, size * 0.12, size * 1.5, 0);
+    
+    const extrudeSettings = {
+      steps: 2,
+      depth: size * 0.18,
+      bevelEnabled: true,
+      bevelThickness: size * 0.03,
+      bevelSize: size * 0.03,
+      bevelSegments: 2
+    };
+    
+    const geometry = new THREE.ExtrudeGeometry(bodyShape, extrudeSettings);
+    geometry.center();
+    
+    return geometry;
+  }
+
+  /**
+   * Create fortress-shaped hull (massive capital ship, overwhelming firepower)
+   * Enhanced with imposing structure and heavy weapon mounts
+   * @param {number} size - Ship size
+   * @returns {THREE.BufferGeometry} Geometry
+   */
+  createFortressHull(size) {
+    
+    // Massive central hull
+    const bodyShape = new THREE.Shape();
+    bodyShape.moveTo(size * 0.8, 0);
+    bodyShape.lineTo(size * 0.6, -size * 0.7);
+    bodyShape.lineTo(size * 0.3, -size * 0.75);
+    bodyShape.lineTo(-size * 0.1, -size * 0.72);
+    bodyShape.lineTo(-size * 0.4, -size * 0.55);
+    bodyShape.lineTo(-size * 0.6, -size * 0.4);
+    bodyShape.lineTo(-size * 0.7, 0);
+    bodyShape.lineTo(-size * 0.6, size * 0.4);
+    bodyShape.lineTo(-size * 0.4, size * 0.55);
+    bodyShape.lineTo(-size * 0.1, size * 0.72);
+    bodyShape.lineTo(size * 0.3, size * 0.75);
+    bodyShape.lineTo(size * 0.6, size * 0.7);
+    bodyShape.lineTo(size * 0.8, 0);
+    
+    const bodyExtrudeSettings = {
+      steps: 3,
+      depth: size * 0.7,
+      bevelEnabled: true,
+      bevelThickness: size * 0.15,
+      bevelSize: size * 0.15,
+      bevelSegments: 4
+    };
+    
+    const bodyGeometry = new THREE.ExtrudeGeometry(bodyShape, bodyExtrudeSettings);
+    bodyGeometry.center();
+    
+    // Heavy weapon hardpoints
+    const hardpointShape = new THREE.Shape();
+    hardpointShape.moveTo(size * 0.5, -size * 0.75);
+    hardpointShape.lineTo(size * 0.4, -size * 1.1);
+    hardpointShape.lineTo(size * 0.1, -size * 1.05);
+    hardpointShape.lineTo(size * 0.2, -size * 0.7);
+    hardpointShape.lineTo(size * 0.5, -size * 0.75);
+    
+    const hardpointExtrudeSettings = {
+      steps: 1,
+      depth: size * 0.25,
+      bevelEnabled: true,
+      bevelThickness: size * 0.05,
+      bevelSize: size * 0.05,
+      bevelSegments: 2
+    };
+    
+    const hardpointGeometry = new THREE.ExtrudeGeometry(hardpointShape, hardpointExtrudeSettings);
+    hardpointGeometry.center();
+    const hardpointGeometry2 = hardpointGeometry.clone();
+    hardpointGeometry2.scale(1, -1, 1); // Mirror for bottom
+    
+    // Combine geometries
+    const geometries = [bodyGeometry, hardpointGeometry, hardpointGeometry2];
+    const mergedGeometry = BufferGeometryUtils.mergeGeometries(geometries);
+    
+    return mergedGeometry;
+  }
+
+  /**
    * Create bullet geometry
    * @param {number} size - Bullet size
    * @returns {THREE.BufferGeometry} Geometry
@@ -253,6 +427,20 @@ export class GeometryFactory {
     return this.get(key, () => {
       // Simple sphere for bullet
       return new THREE.SphereGeometry(size, 8, 8);
+    });
+  }
+
+  /**
+   * Create bullet cylinder geometry (for enhanced bullet visuals)
+   * @param {number} size - Bullet size
+   * @returns {THREE.BufferGeometry} Geometry
+   */
+  createBulletCylinderGeometry(size) {
+    const key = `bullet_cylinder_${size}`;
+    return this.get(key, () => {
+      const geometry = new THREE.CylinderGeometry(size * 0.3, size * 0.4, size * 2, 8);
+      geometry.rotateZ(Math.PI / 2); // Orient horizontally
+      return geometry;
     });
   }
 

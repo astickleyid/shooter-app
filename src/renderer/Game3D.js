@@ -123,7 +123,9 @@ export class Game3D {
   updatePlayerShip(player, boosting = false) {
     if (!this.enabled || !this.playerShip3D) return;
 
-    this.playerShip3D.update(player.x, player.y, player.rotation);
+    // Pass velocity for banking/tilting effects
+    const velocity = player.vel || { x: 0, y: 0 };
+    this.playerShip3D.update(player.x, player.y, player.rotation, velocity);
     this.playerShip3D.animateEngines(performance.now(), boosting);
     
     if (boosting) {
@@ -131,6 +133,15 @@ export class Game3D {
     } else {
       this.playerShip3D.setBoosting(false);
     }
+  }
+
+  /**
+   * Trigger weapon fire visual effect
+   * @param {string} weaponType - Type of weapon that fired
+   */
+  triggerWeaponFire(weaponType = 'primary') {
+    if (!this.enabled || !this.playerShip3D) return;
+    this.playerShip3D.showMuzzleFlash(weaponType);
   }
 
   /**
@@ -158,9 +169,14 @@ export class Game3D {
         );
         this.bullets3D.set(bulletId, bullet3D);
       } else {
-        // Update existing bullet
+        // Update existing bullet with velocity for orientation
         const bullet3D = this.bullets3D.get(bulletId);
-        bullet3D.update(bullet.x, bullet.y);
+        bullet3D.update(
+          bullet.x, 
+          bullet.y, 
+          bullet.vx || 0, 
+          bullet.vy || 0
+        );
       }
     });
 
