@@ -740,7 +740,6 @@
     dom.startGraphicCanvas = document.getElementById('startGraphicCanvas');
     dom.gameContainer = document.getElementById('gameContainer');
     dom.canvas = document.getElementById('gameCanvas');
-    // Note: Don't create 2D context yet - wait for 3D check first
     dom.ctx = null;
     dom.scoreValue = document.getElementById('scoreValue');
     dom.levelValue = document.getElementById('levelValue');
@@ -842,10 +841,6 @@
   let readyUpPhase = false; // NEW: Phase where player can shop before countdown
   let readyUpLevel = 0; // Level displayed during ready-up
   const camera = { x: 0, y: 0 };
-
-  // 3D Rendering System
-  let game3DInstance = null;
-  let use3DMode = true; // Enable 3D by default
 
   // Difficulty system
   let currentDifficulty = 'normal';
@@ -1709,11 +1704,6 @@
   const shakeScreen = (power = 4, duration = 120) => {
     shakeUntil = Math.max(shakeUntil, performance.now() + duration);
     shakePower = power;
-    
-    // Also trigger 3D shake if active
-    if (use3DMode && game3DInstance) {
-      game3DInstance.shake(power);
-    }
   };
 
   // Phase 1: Spawn floating damage number
@@ -2203,8 +2193,8 @@
       this.x = x;
       this.y = y;
       this.r = r;
-      this.size = r; // Add size property for 3D system
-      this.seed = Math.random() * 1000; // Random seed for 3D geometry variation
+      this.size = r;
+      this.seed = Math.random() * 1000;
       this.variant = variant;
       this.rot = rand(0, Math.PI * 2);
       this.vx = rand(-0.45, 0.45);
@@ -2349,7 +2339,7 @@
       ctx.rotate(this.rotation);
       for (const p of this.accretionParticles) {
         const px = Math.cos(p.angle) * p.dist;
-        const py = Math.sin(p.angle) * p.dist * 0.3; // Elliptical for 3D effect
+        const py = Math.sin(p.angle) * p.dist * 0.3; // Elliptical for depth
         ctx.globalAlpha = p.alpha * pulse;
         
         // Color based on distance (hotter closer to center)
@@ -2983,7 +2973,7 @@
     }
     
     drawSolidBody(ctx) {
-      // Shadow side gradient (3D effect) - more muted
+      // Shadow side gradient for depth
       const bodyGradient = ctx.createRadialGradient(
         -this.size * 0.25, -this.size * 0.25, 0,
         0, 0, this.size
@@ -3939,7 +3929,6 @@
 
   /* ====== ENTITY CLASSES ====== */
   
-  // Entity ID counter for 3D tracking
   let entityIdCounter = 0;
   
   class Bullet {
@@ -4931,7 +4920,7 @@
       this.x = x;
       this.y = y;
       this.r = BASE.COIN_SIZE;
-      this.size = BASE.COIN_SIZE; // Add size property for 3D system
+      this.size = BASE.COIN_SIZE;
       this.created = performance.now();
       this.life = BASE.COIN_LIFETIME;
     }
@@ -8201,42 +8190,7 @@
 
   /* ====== RENDERING ====== */
   const drawGame = () => {
-    // Check if 3D mode is active first (before ctx check)
-    if (use3DMode && game3DInstance && game3DInstance.isActive()) {
-      // Get current ship configuration
-      const shipConfig = Save.data.shipConfig || SHIP_TEMPLATES[0];
-      
-      // Update 3D entities (sync 2D state to 3D)
-      game3DInstance.update({
-        player: player,
-        bullets: bullets,
-        enemies: enemies,
-        obstacles: obstacles,
-        coins: coins,
-        shipData: {
-          shape: shipConfig.shape || 'spear',
-          scale: shipConfig.scale || 1,
-          colors: shipConfig.colors || {
-            primary: '#0ea5e9',
-            accent: '#38bdf8',
-            thruster: '#f97316',
-            trim: '#f8fafc',
-            canopy: '#7dd3fc'
-          }
-        },
-        boosting: false, // TODO: Track boosting state properly
-        camera: camera
-      });
-      
-      // Render 3D scene
-      game3DInstance.render();
-      
-      // Note: HUD and overlays are still rendered separately in 2D (updateHUD())
-      
-      return; // Exit early, 3D rendering is done
-    }
-    
-    // 2D mode - need context
+    // Need context for 2D rendering
     if (!dom.ctx) return;
     
     // Fallback to 2D rendering
@@ -8701,8 +8655,8 @@
     dom.canvas.style.width = '100%';
     dom.canvas.style.height = '100%';
     
-    // Create 2D context if needed (for 2D mode or for star initialization even in 3D mode)
-    if (!dom.ctx && dom.canvas && !use3DMode) {
+    // Create 2D context if needed
+    if (!dom.ctx && dom.canvas) {
       dom.ctx = dom.canvas.getContext('2d');
     }
     
@@ -8971,12 +8925,6 @@
     currentPlanet = null;
     
     initShipSelection();
-    
-    // Clean up 3D WebGL start screen background - REMOVED (no longer using 3D background)
-    // if (startScreenBackgroundCleanup) {
-    //   startScreenBackgroundCleanup();
-    //   startScreenBackgroundCleanup = null;
-    // }
     
     // Add smooth transition effect
     dom.startScreen.style.transition = 'opacity 0.6s ease-out, transform 0.6s ease-out';
@@ -9353,11 +9301,6 @@
       camera.y = player.y - dom.canvas.height / 2;
     }
     
-    // Resize 3D renderer if active
-    if (game3DInstance) {
-      game3DInstance.resize();
-    }
-    
     drawStartGraphic();
   };
 
@@ -9491,11 +9434,6 @@
       dom.startScreen.style.display = 'flex';
       dom.startScreen.style.opacity = '0';
       dom.startScreen.style.transform = 'scale(0.95)';
-      
-      // Restart 3D WebGL start screen background - REMOVED (no longer using 3D background)
-      // if (!startScreenBackgroundCleanup) {
-      //   startScreenBackgroundCleanup = initStartScreenBackground();
-      // }
       
       requestAnimationFrame(() => {
         dom.startScreen.style.transition = 'opacity 0.5s ease-out, transform 0.5s ease-out';
@@ -9668,33 +9606,6 @@
 
   /* ====== INITIALISATION ====== */
   
-  // Initialize 3D rendering system
-  const init3DSystem = () => {
-    if (typeof window.__VOID_RIFT_3D__ !== 'undefined') {
-      try {
-        const initialized = window.__VOID_RIFT_3D__.init(dom.canvas);
-        if (initialized) {
-          game3DInstance = window.__VOID_RIFT_3D__;
-          use3DMode = true;
-          console.log('3D mode enabled');
-          return true;
-        }
-      } catch (error) {
-        console.warn('3D initialization failed, using 2D fallback:', error);
-        use3DMode = false;
-        game3DInstance = null;
-      }
-    }
-    
-    // If 3D failed or not available, create 2D context
-    if (!dom.ctx && dom.canvas) {
-      dom.ctx = dom.canvas.getContext('2d');
-      console.log('Using 2D Canvas rendering');
-    }
-    
-    return false;
-  };
-  
   const ready = () => {
     assignDomRefs();
     Save.load();
@@ -9707,10 +9618,7 @@
     loadControlSettings(); // Load and apply control settings
     setupInput();
     
-    // Initialize 3D system FIRST, before any canvas setup
-    init3DSystem();
-    
-    // Then resize canvas (which may create 2D context if 3D failed)
+    // Initialize canvas and 2D context
     resizeCanvas();
     
     drawStartGraphic();
@@ -11408,7 +11316,7 @@
   };
 
   /* ==========================================
-     3D WEBGL LOADING SCREEN & START SCREEN
+     LOADING SCREEN & START SCREEN
      ========================================== */
 
   // ===================================================================
@@ -11637,12 +11545,12 @@
 
   
   /**
-   * Start Screen: Spinning Ship Loader with 3D Space Elements
+   * Start Screen: Spinning Ship Loader with Space Elements
    * - Centered spinning Vanguard ship with progress bar
    * - Pure black background
    * - 5 planets with atmospheric glow
    * - 150 parallax stars with depth
-   * - 8 rotating asteroids in 3D space
+   * - 8 rotating asteroids
    * - 2 time portal wormholes with vortex effects
    * - High-fidelity immersive sci-fi atmosphere
    * 
