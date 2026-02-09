@@ -48,14 +48,17 @@ const BackendMonitor = {
    * Start periodic health monitoring
    */
   startMonitoring() {
+    // Always clear any existing interval first to prevent duplicates
     if (this.state.intervalId) {
       clearInterval(this.state.intervalId);
+      this.state.intervalId = null;
     }
 
     const interval = this.state.isHealthy 
       ? this.config.pingInterval 
       : this.config.retryInterval;
 
+    // Set new interval
     this.state.intervalId = setInterval(() => {
       this.checkHealth();
     }, interval);
