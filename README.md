@@ -1,6 +1,8 @@
 # VOID RIFT
 
-VOID RIFT is a browser-based twin-stick shooter built entirely with vanilla HTML, CSS, and JavaScript. The repo contains everything you need to play locally or deploy to a static host (e.g., GitHub Pages, Netlify).
+VOID RIFT is a browser-based twin-stick shooter built entirely with vanilla HTML, CSS, and JavaScript. This is a **2D mobile-first game** optimized for performance on iOS and web browsers.
+
+> **Note:** This branch contains the production-ready 2D version of the game. For experimental 3D rendering features, see the [`feature/3d-rendering`](https://github.com/astickleyid/shooter-app/tree/feature/3d-rendering) branch.
 
 ## Quick Start
 

@@ -52,5 +52,7 @@ temp/
 # Vercel
 .vercel
 
-# Three.js libraries (served from node_modules)
-libs/
+# Three.js libraries are needed for both web and iOS
+# They are referenced via import maps in index.html
+# !libs/
+!ios/VoidRift/WebContent/libs/
