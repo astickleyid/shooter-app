@@ -143,6 +143,18 @@ module.exports = async (req, res) => {
     return res.status(200).end();
   }
 
+  // Health check / ping endpoint
+  const { action } = req.query || {};
+  if (action === 'ping' && req.method === 'GET') {
+    return res.status(200).json({ 
+      success: true, 
+      status: 'online',
+      service: 'leaderboard',
+      storage: kv ? 'kv' : 'file',
+      timestamp: Date.now() 
+    });
+  }
+
   try {
     if (req.method === 'GET') {
       const { difficulty = 'all', limit = 100 } = req.query;
