@@ -185,11 +185,16 @@ const SocialUI = {
     const statusDiv = document.getElementById('backendStatus');
     if (!statusDiv) return;
     
+    // Auto-detect API URL
+    const apiBase = window.location.hostname === 'localhost' 
+      ? 'https://shooter-app-one.vercel.app/api'
+      : '/api';
+    
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 5000);
       
-      const response = await fetch('https://shooter-app-one.vercel.app/api/users?action=ping', {
+      const response = await fetch(`${apiBase}/users?action=ping`, {
         method: 'GET',
         signal: controller.signal
       });
@@ -209,7 +214,7 @@ const SocialUI = {
       statusDiv.innerHTML = `
         <span class="status-indicator error">⚠️</span> 
         <strong>Backend connection failed</strong><br>
-        <small>API: https://shooter-app-one.vercel.app/api</small><br>
+        <small>API: ${apiBase}</small><br>
         <small>Make sure backend is deployed to Vercel</small>
       `;
       statusDiv.className = 'backend-status error';

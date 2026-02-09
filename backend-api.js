@@ -5,9 +5,17 @@
  */
 
 const BACKEND_CONFIG = {
-  // Update this URL after deploying to Vercel
-  // Example: 'https://your-app.vercel.app/api/leaderboard'
-  API_URL: 'https://shooter-app-one.vercel.app/api/leaderboard',
+  // Auto-detect API URL based on environment
+  // Uses relative URL for deployed version, can be overridden for development
+  API_URL: (function() {
+    // Check if running on localhost for development
+    if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+      // For local development, you may need to point to deployed backend
+      return 'https://shooter-app-one.vercel.app/api/leaderboard';
+    }
+    // For production/deployed version, use relative URL
+    return '/api/leaderboard';
+  })(),
   USE_GLOBAL: true,
   TIMEOUT_MS: 8000, // Increased timeout for KV operations
   RETRY_ATTEMPTS: 2

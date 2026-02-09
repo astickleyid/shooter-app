@@ -5,7 +5,13 @@
  */
 
 const LEADERBOARD_CONFIG = {
-  API_URL: 'https://shooter-app-one.vercel.app/api/leaderboard',
+  // Auto-detect API URL based on environment
+  API_URL: (function() {
+    if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+      return 'https://shooter-app-one.vercel.app/api/leaderboard';
+    }
+    return '/api/leaderboard';
+  })(),
   TIMEOUT_MS: 10000, // Increased for reliability
   RETRY_ATTEMPTS: 3,
   RETRY_DELAY: 1000

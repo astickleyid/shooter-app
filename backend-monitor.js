@@ -6,7 +6,9 @@
 
 const BackendMonitor = {
   config: {
-    healthCheckUrl: 'https://shooter-app-one.vercel.app/api/health',
+    // Use relative URL for flexibility across environments
+    // Will work on localhost, staging, and production
+    healthCheckUrl: '/api/health',
     pingInterval: 5 * 60 * 1000, // 5 minutes
     retryInterval: 30 * 1000, // 30 seconds on failure
     maxRetries: 3
