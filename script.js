@@ -1891,8 +1891,8 @@
   };
 
   const drawParticles = (ctx, dt) => {
-    // Phase A.4: Cap particles for performance
-    const particleCap = 1000;
+    // Phase A.4: Cap particles for performance (reduced for mobile optimization)
+    const particleCap = 500;
     if (particles.length > particleCap) {
       particles.splice(0, particles.length - particleCap);
     }
@@ -5565,7 +5565,7 @@
         this.chargeDamage = stats.damage || 45;
         this.chargeSpeedMult = stats.speedMult || 3.5;
         this.chargeInvulnerable = stats.invulnerable || true;
-        addParticles('boost', this.x, this.y, 0, 32);
+        addParticles('boost', this.x, this.y, 0, 20);
         shakeScreen(5, 180);
         addLogEntry('⚡ RAMMING CHARGE!', '#eab308');
       } else if (this.secondary.id === 'reinforcement') {
@@ -5649,7 +5649,7 @@
       const stats = this.ultimate.stats || {};
       this.ultimateCharge = 0;
       this.lastUltimateAt = now;
-      addParticles('ultimate', this.x, this.y, 0, 48);
+      addParticles('ultimate', this.x, this.y, 0, 32);
       shakeScreen(12, 320);
       
       // Play ultimate sound
@@ -7164,7 +7164,7 @@
     
     // Enhanced effects for boss/elite
     if (wasBoss) {
-      addParticles('debris', enemy.x, enemy.y, 0, 40);
+      addParticles('debris', enemy.x, enemy.y, 0, 24);
       addParticles('smoke', enemy.x, enemy.y, 0, 20);
       addParticles('sparks', enemy.x, enemy.y, 0, 30);
       addParticles('levelup', enemy.x, enemy.y, 0, 30);
