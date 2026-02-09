@@ -9606,33 +9606,6 @@
 
   /* ====== INITIALISATION ====== */
   
-  // Initialize 3D rendering system
-  const init3DSystem = () => {
-    if (typeof window.__VOID_RIFT_3D__ !== 'undefined') {
-      try {
-        const initialized = window.__VOID_RIFT_3D__.init(dom.canvas);
-        if (initialized) {
-          game3DInstance = window.__VOID_RIFT_3D__;
-          use3DMode = true;
-          console.log('3D mode enabled');
-          return true;
-        }
-      } catch (error) {
-        console.warn('3D initialization failed, using 2D fallback:', error);
-        use3DMode = false;
-        game3DInstance = null;
-      }
-    }
-    
-    // If 3D failed or not available, create 2D context
-    if (!dom.ctx && dom.canvas) {
-      dom.ctx = dom.canvas.getContext('2d');
-      console.log('Using 2D Canvas rendering');
-    }
-    
-    return false;
-  };
-  
   const ready = () => {
     assignDomRefs();
     Save.load();
