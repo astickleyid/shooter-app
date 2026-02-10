@@ -159,14 +159,32 @@ class TechFragmentSystem {
 
     const multiplier = isBoss ? 1.0 : 0.5; // Elites have half the drop chance
 
-    for (const fragment of TECH_FRAGMENTS) {
-      const chance = fragment.dropChance * multiplier;
-      if (Math.random() < chance) {
-        return fragment;
+    // Collect all fragments that could drop
+    const eligibleFragments = TECH_FRAGMENTS.map(fragment => ({
+      fragment,
+      chance: fragment.dropChance * multiplier
+    }));
+
+    // Calculate total drop probability
+    const totalChance = eligibleFragments.reduce((sum, item) => sum + item.chance, 0);
+
+    // Roll once to see if any fragment drops
+    const dropRoll = Math.random();
+    if (dropRoll >= totalChance) {
+      return null; // No drop
+    }
+
+    // Fragment will drop - select which one using weighted random
+    let roll = Math.random() * totalChance;
+    for (const item of eligibleFragments) {
+      roll -= item.chance;
+      if (roll <= 0) {
+        return item.fragment;
       }
     }
 
-    return null;
+    // Fallback (should not reach here due to floating point precision)
+    return eligibleFragments[eligibleFragments.length - 1].fragment;
   }
 
   /**

@@ -198,11 +198,26 @@ class MissionSystem {
   }
 
   /**
+   * Fisher-Yates shuffle algorithm for uniform random shuffling
+   * @param {Array} array - Array to shuffle
+   * @returns {Array} Shuffled array
+   * @private
+   */
+  _shuffle(array) {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  }
+
+  /**
    * Refresh daily missions (picks 3 random missions)
    */
   refreshDailyMissions() {
-    // Pick 3 random unique missions
-    const shuffled = [...MISSION_TEMPLATES].sort(() => Math.random() - 0.5);
+    // Pick 3 random unique missions using Fisher-Yates shuffle
+    const shuffled = this._shuffle(MISSION_TEMPLATES);
     this.dailyMissions = shuffled.slice(0, 3).map((template, index) => ({
       id: `daily_${Date.now()}_${index}`,
       ...template,
@@ -219,7 +234,8 @@ class MissionSystem {
    * Refresh bounty targets (picks 2 random bounties)
    */
   refreshBounties() {
-    const shuffled = [...BOUNTY_TARGETS].sort(() => Math.random() - 0.5);
+    // Pick 2 random bounties using Fisher-Yates shuffle
+    const shuffled = this._shuffle(BOUNTY_TARGETS);
     this.activeBounties = shuffled.slice(0, 2).map(bounty => ({
       ...bounty,
       active: true,
