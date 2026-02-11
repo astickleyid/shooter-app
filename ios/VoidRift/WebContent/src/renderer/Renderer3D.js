@@ -17,7 +17,6 @@ export class Renderer3D {
     this.renderer = null;
     this.composer = null;
     this.qualitySettings = getRecommendedQualitySettings();
-    this.testCube = null; // Reference to test cube for debugging
     
     // Scene layers for organized rendering
     this.layers = {
@@ -82,21 +81,6 @@ export class Renderer3D {
     if (this.qualitySettings.postProcessing) {
       this.setupPostProcessing();
     }
-
-    // DEBUG: Add test cube at origin to verify rendering
-    const testGeometry = new THREE.BoxGeometry(50, 50, 50);
-    const testMaterial = new THREE.MeshBasicMaterial({
-      color: 0x00ff00,  // Green cube for testing
-      wireframe: false
-    });
-    this.testCube = new THREE.Mesh(testGeometry, testMaterial);
-    this.testCube.position.set(0, 0, 0);
-    this.testCube.name = 'testCube';
-    this.layers.gameplay.add(this.testCube);
-    console.log('DEBUG: Added small test cube (50x50x50) - will follow camera');
-    
-    console.log('DEBUG: Scene has', this.scene.children.length, 'children');
-    console.log('DEBUG: Gameplay layer has', this.layers.gameplay.children.length, 'children');
 
     this.initialized = true;
   }
@@ -209,13 +193,6 @@ export class Renderer3D {
     if (!this.initialized) {
       console.warn('Renderer not initialized');
       return;
-    }
-
-    // Update test cube to follow camera
-    if (this.testCube && this.camera) {
-      const camX = this.camera.position.x;
-      const camZ = this.camera.position.z;
-      this.testCube.position.set(camX, 0, camZ - 100); // 100 units in front
     }
 
     // Use composer if available, otherwise direct render
