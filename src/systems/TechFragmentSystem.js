@@ -157,25 +157,29 @@ class TechFragmentSystem {
   rollDrop(isBoss, isElite) {
     if (!isBoss && !isElite) return null;
 
-    const multiplier = isBoss ? 1.0 : 0.5; // Elites have half the drop chance
+    // Overall drop chance is fixed per enemy type;
+    // fragment dropChance values are used as relative weights only.
+    const dropRate = isBoss ? 0.08 : 0.04; // 8% for bosses, 4% for elites
 
-    // Collect all fragments that could drop
+    // First roll: does any fragment drop at all?
+    if (Math.random() >= dropRate) {
+      return null;
+    }
+
+    // Collect all fragments that could drop, using dropChance as weight
     const eligibleFragments = TECH_FRAGMENTS.map(fragment => ({
       fragment,
-      chance: fragment.dropChance * multiplier
+      chance: fragment.dropChance
     }));
 
-    // Calculate total drop probability
-    const totalChance = eligibleFragments.reduce((sum, item) => sum + item.chance, 0);
-
-    // Roll once to see if any fragment drops
-    const dropRoll = Math.random();
-    if (dropRoll >= totalChance) {
-      return null; // No drop
+    // Calculate total weight for selection
+    const totalWeight = eligibleFragments.reduce((sum, item) => sum + item.chance, 0);
+    if (totalWeight <= 0) {
+      return null;
     }
 
     // Fragment will drop - select which one using weighted random
-    let roll = Math.random() * totalChance;
+    let roll = Math.random() * totalWeight;
     for (const item of eligibleFragments) {
       roll -= item.chance;
       if (roll <= 0) {
