@@ -42,26 +42,55 @@ jobs:
       - name: Sync web files to iOS WebContent
         run: |
           echo "Syncing web content to iOS bundle..."
+          
+          # Function to safely copy files with existence check
+          safe_copy() {
+            if [ -f "$1" ]; then
+              cp -v "$1" "$2"
+            else
+              echo "⚠️  Warning: $1 not found, skipping"
+            fi
+          }
 
-          # Copy main game files
-          cp -v index.html ios/VoidRift/WebContent/index.html
-          cp -v script.js ios/VoidRift/WebContent/script.js
-          cp -v style.css ios/VoidRift/WebContent/style.css
+          # Copy main game files (required)
+          safe_copy index.html ios/VoidRift/WebContent/index.html
+          safe_copy script.js ios/VoidRift/WebContent/script.js
+          safe_copy style.css ios/VoidRift/WebContent/style.css
 
           # Copy API and supporting files
-          cp -v backend-api.js ios/VoidRift/WebContent/backend-api.js
-          cp -v audio-manager.js ios/VoidRift/WebContent/audio-manager.js
-          cp -v game-utils.js ios/VoidRift/WebContent/game-utils.js
+          safe_copy backend-api.js ios/VoidRift/WebContent/backend-api.js
+          safe_copy audio-manager.js ios/VoidRift/WebContent/audio-manager.js
+          safe_copy game-utils.js ios/VoidRift/WebContent/game-utils.js
+
+          # Copy authentication and leaderboard systems
+          safe_copy auth-system.js ios/VoidRift/WebContent/auth-system.js
+          safe_copy leaderboard-system.js ios/VoidRift/WebContent/leaderboard-system.js
 
           # Copy social integration files
-          cp -v social-api.js ios/VoidRift/WebContent/social-api.js
-          cp -v social-hub.js ios/VoidRift/WebContent/social-hub.js
-          cp -v social-integration.js ios/VoidRift/WebContent/social-integration.js
+          safe_copy social-api.js ios/VoidRift/WebContent/social-api.js
+          safe_copy social-hub.js ios/VoidRift/WebContent/social-hub.js
+          safe_copy social-integration.js ios/VoidRift/WebContent/social-integration.js
+          safe_copy social-ui.js ios/VoidRift/WebContent/social-ui.js
+          safe_copy social-ui.css ios/VoidRift/WebContent/social-ui.css
+          safe_copy unified-social.js ios/VoidRift/WebContent/unified-social.js
+
+          # Copy source modules directory
+          if [ -d "src" ]; then
+            echo "📦 Syncing src directory..."
+            rsync -av --delete src/ ios/VoidRift/WebContent/src/
+          else
+            echo "⚠️  Warning: src directory not found, skipping"
+          fi
 
           # Copy assets directory
-          cp -rv assets ios/VoidRift/WebContent/
+          if [ -d "assets" ]; then
+            echo "🎨 Syncing assets directory..."
+            rsync -av --delete assets/ ios/VoidRift/WebContent/assets/
+          else
+            echo "⚠️  Warning: assets directory not found, skipping"
+          fi
 
-          echo "Web content sync complete!"
+          echo "✅ Web content sync complete!"
 
       - name: Verify Vercel URL in backend-api.js
         run: |

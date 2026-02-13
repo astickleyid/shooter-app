@@ -54,14 +54,7 @@ cp -v "$ROOT_DIR/auth-system.js" "$IOS_WEB_DIR/auth-system.js"
 cp -v "$ROOT_DIR/leaderboard-system.js" "$IOS_WEB_DIR/leaderboard-system.js"
 echo ""
 
-# Sync 3D rendering system
-echo "🎮 Syncing 3D rendering system..."
-if [ -f "$ROOT_DIR/game-3d-integration.js" ]; then
-    cp -v "$ROOT_DIR/game-3d-integration.js" "$IOS_WEB_DIR/game-3d-integration.js"
-else
-    echo "   Warning: game-3d-integration.js not found, skipping"
-fi
-echo ""
+
 
 # Sync src directory (modular code)
 echo "📦 Syncing src directory (modular code)..."
@@ -72,32 +65,7 @@ else
 fi
 echo ""
 
-# Sync Three.js libraries for 3D rendering
-echo "🌐 Syncing Three.js libraries..."
-if [ -d "$ROOT_DIR/node_modules/three" ]; then
-    # Create libs directory structure
-    mkdir -p "$IOS_WEB_DIR/libs/three-examples/jsm/postprocessing"
-    mkdir -p "$IOS_WEB_DIR/libs/three-examples/jsm/shaders"
-    
-    # Copy Three.js core
-    cp -v "$ROOT_DIR/node_modules/three/build/three.module.js" "$IOS_WEB_DIR/libs/three.module.js"
-    
-    # Copy postprocessing effects
-    cp -v "$ROOT_DIR/node_modules/three/examples/jsm/postprocessing/EffectComposer.js" "$IOS_WEB_DIR/libs/three-examples/jsm/postprocessing/"
-    cp -v "$ROOT_DIR/node_modules/three/examples/jsm/postprocessing/RenderPass.js" "$IOS_WEB_DIR/libs/three-examples/jsm/postprocessing/"
-    cp -v "$ROOT_DIR/node_modules/three/examples/jsm/postprocessing/UnrealBloomPass.js" "$IOS_WEB_DIR/libs/three-examples/jsm/postprocessing/"
-    cp -v "$ROOT_DIR/node_modules/three/examples/jsm/postprocessing/Pass.js" "$IOS_WEB_DIR/libs/three-examples/jsm/postprocessing/"
-    
-    # Copy required shaders
-    cp -v "$ROOT_DIR/node_modules/three/examples/jsm/shaders/CopyShader.js" "$IOS_WEB_DIR/libs/three-examples/jsm/shaders/"
-    cp -v "$ROOT_DIR/node_modules/three/examples/jsm/shaders/LuminosityHighPassShader.js" "$IOS_WEB_DIR/libs/three-examples/jsm/shaders/"
-    
-    echo "   ✓ Three.js libraries copied successfully"
-else
-    echo "   ⚠️  Warning: Three.js not found in node_modules"
-    echo "   Run 'npm install' first to install dependencies"
-fi
-echo ""
+
 
 # Sync assets directory
 echo "🎨 Syncing assets..."
