@@ -216,6 +216,87 @@ export const SHIP_TEMPLATES = [
       pickup: 0.8,
       ammoRegen: 0.75
     }
+  },
+  {
+    id: 'wraith',
+    name: 'Wraith Stealth',
+    desc: 'Advanced stealth interceptor with cloaking field and hit-and-run tactics.',
+    shape: 'dart',
+    scale: 0.85,
+    engineOffset: 1.18,
+    category: 'stealth',
+    colors: {
+      primary: '#1e293b',
+      trim: '#cbd5e1',
+      canopy: '#475569',
+      accent: '#64748b',
+      thruster: '#06b6d4'
+    },
+    stats: {
+      hp: 0.7,
+      speed: 1.45,
+      boost: 1.55,
+      ammo: 0.75,
+      damage: 1.15,
+      fireRate: 0.8,
+      pickup: 1.35,
+      ammoRegen: 1.15
+    },
+    special: 'cloaking'
+  },
+  {
+    id: 'devastator',
+    name: 'Devastator Bomber',
+    desc: 'Heavy bomber platform designed for maximum area damage and destruction.',
+    shape: 'fortress',
+    scale: 1.35,
+    engineOffset: 0.8,
+    category: 'bomber',
+    colors: {
+      primary: '#991b1b',
+      trim: '#fecaca',
+      canopy: '#dc2626',
+      accent: '#b91c1c',
+      thruster: '#fb923c'
+    },
+    stats: {
+      hp: 1.75,
+      speed: 0.65,
+      boost: 0.7,
+      ammo: 1.6,
+      damage: 1.5,
+      fireRate: 1.4,
+      pickup: 0.7,
+      ammoRegen: 0.7
+    },
+    special: 'areaWeapons'
+  },
+  {
+    id: 'nexus',
+    name: 'Nexus Carrier',
+    desc: 'Support carrier deploying autonomous combat drones and shield generators.',
+    shape: 'bastion',
+    scale: 1.2,
+    engineOffset: 0.9,
+    category: 'support',
+    colors: {
+      primary: '#059669',
+      trim: '#d1fae5',
+      canopy: '#34d399',
+      accent: '#10b981',
+      thruster: '#6ee7b7'
+    },
+    stats: {
+      hp: 1.4,
+      speed: 0.82,
+      boost: 0.88,
+      ammo: 1.1,
+      damage: 0.95,
+      fireRate: 1.05,
+      pickup: 1.15,
+      ammoRegen: 0.9
+    },
+    special: 'drones'
   }
 ];
 
