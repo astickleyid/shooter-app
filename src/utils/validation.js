@@ -43,8 +43,8 @@ export const validatePassword = (password) => {
     return { valid: false, error: 'Password is required' };
   }
   
-  if (password.length < 4) {
-    return { valid: false, error: 'Password must be at least 4 characters' };
+  if (password.length < 8) {
+    return { valid: false, error: 'Password must be at least 8 characters' };
   }
   
   if (password.length > 100) {
@@ -103,3 +103,35 @@ export const sanitizeObject = (obj, schema) => {
   
   return sanitized;
 };
+
+/**
+ * Escape HTML special characters to prevent XSS
+ * @param {string} str - String to escape
+ * @returns {string} HTML-safe string
+ */
+export const escapeHtml = (str) => {
+  if (typeof str !== 'string') {
+    return '';
+  }
+  
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+};
+
+/**
+ * Sanitize HTML string by escaping and allowing only newlines as <br>
+ * @param {string} str - String to sanitize
+ * @returns {string} Sanitized HTML string
+ */
+export const sanitizeHtml = (str) => {
+  if (!str || typeof str !== 'string') {
+    return '';
+  }
+  
+  // First escape all HTML
+  const escaped = escapeHtml(str);
+  // Then allow newlines as <br>
+  return escaped.replace(/\n/g, '<br>');
+};
+
