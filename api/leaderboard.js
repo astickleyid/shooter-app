@@ -6,6 +6,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
 // Import Vercel KV for persistent storage
 let kv;
@@ -27,7 +28,8 @@ const RATE_LIMIT_ANON = 2;
 const rateLimitCache = new Map();
 
 // File-based fallback storage (persists within same serverless instance)
-const STORAGE_FILE = '/tmp/leaderboard-data.json';
+// Use os.tmpdir() for cross-platform compatibility instead of hardcoded /tmp
+const STORAGE_FILE = path.join(os.tmpdir(), 'void-rift-leaderboard-data.json');
 
 // Load data from file storage
 function loadFromFile() {
