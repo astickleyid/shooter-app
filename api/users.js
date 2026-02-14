@@ -1,4 +1,17 @@
-const { kv } = require('./redis-client');
+/**
+ * Users API - User registration, authentication, profiles, stats
+ * Uses @vercel/kv for persistent storage in Vercel serverless environment
+ */
+
+// Use @vercel/kv with fallback for production robustness
+let kv;
+try {
+  kv = require('@vercel/kv').kv;
+} catch (e) {
+  console.warn('Vercel KV not available, users API will be disabled');
+  kv = null;
+}
+
 const crypto = require('crypto');
 
 const SESSION_TTL_SECONDS = 60 * 60 * 24; // 24h rolling session
@@ -12,6 +25,11 @@ async function createSession(userId, username) {
     createdAt: Date.now(),
     expiresAt: Date.now() + SESSION_TTL_SECONDS * 1000
   };
+
+  if (!kv) {
+    console.error('Cannot persist session: KV not available');
+    return session; // Return session even if not persisted
+  }
 
   try {
     await kv.set(`session:${token}`, session, { ex: SESSION_TTL_SECONDS });
@@ -32,6 +50,15 @@ module.exports = async (req, res) => {
   }
 
   const { action } = req.query;
+
+  // Check if KV is available
+  if (!kv) {
+    return res.status(503).json({ 
+      success: false,
+      error: 'User service temporarily unavailable',
+      message: 'Backend storage not configured. Please deploy with Vercel KV.' 
+    });
+  }
 
   try {
     console.log('Action:', action, 'Method:', req.method);

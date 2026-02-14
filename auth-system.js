@@ -6,7 +6,13 @@
  */
 
 const AUTH_CONFIG = {
-  API_BASE: 'https://shooter-app-one.vercel.app/api',
+  // Auto-detect API URL based on environment
+  API_BASE: (function() {
+    if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+      return 'https://shooter-app-one.vercel.app/api';
+    }
+    return '/api';
+  })(),
   STORAGE_KEY: 'voidrift_session',
   SESSION_TIMEOUT: 24 * 60 * 60 * 1000, // 24 hours
   TIMEOUT_MS: 10000, // Increased to 10s for reliability

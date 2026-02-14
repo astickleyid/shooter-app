@@ -5,7 +5,25 @@
  */
 
 const LEADERBOARD_CONFIG = {
-  API_URL: 'https://shooter-app-one.vercel.app/api/leaderboard',
+  // Auto-detect API URL based on environment
+  API_URL: (function() {
+    if (typeof window !== 'undefined') {
+      const { protocol, hostname } = window.location;
+
+      // Local development - use deployed API directly
+      if (hostname === 'localhost') {
+        return 'https://shooter-app-one.vercel.app/api/leaderboard';
+      }
+
+      // iOS WKWebView / file:// bundle - hostname is empty and protocol is "file:"
+      if (protocol === 'file:' || hostname === '') {
+        return 'https://shooter-app-one.vercel.app/api/leaderboard';
+      }
+    }
+
+    // Browser-based deployment - relative to current origin
+    return '/api/leaderboard';
+  })(),
   TIMEOUT_MS: 10000, // Increased for reliability
   RETRY_ATTEMPTS: 3,
   RETRY_DELAY: 1000

@@ -4,7 +4,13 @@
  */
 
 const SOCIAL_CONFIG = {
-  API_BASE: 'https://shooter-app-one.vercel.app/api',
+  // Auto-detect API URL based on environment
+  API_BASE: (function() {
+    if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+      return 'https://shooter-app-one.vercel.app/api';
+    }
+    return '/api';
+  })(),
   TIMEOUT_MS: 5000
 };
 

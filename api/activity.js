@@ -3,7 +3,14 @@
  * Tracks and displays friend activities, achievements, high scores
  */
 
-const { kv } = require("@vercel/kv");
+// Use @vercel/kv with fallback for production robustness
+let kv;
+try {
+  kv = require('@vercel/kv').kv;
+} catch (e) {
+  console.warn('Vercel KV not available, activity API will be disabled');
+  kv = null;
+}
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -21,6 +28,25 @@ module.exports = async (req, res) => {
   }
 
   const { action } = req.query;
+
+  // Health check / ping endpoint
+  if (action === 'ping' && req.method === 'GET') {
+    return res.status(200).json({ 
+      success: true, 
+      status: 'online',
+      service: 'activity',
+      timestamp: Date.now() 
+    });
+  }
+
+  // Check if KV is available for operations
+  if (!kv) {
+    return res.status(503).json({ 
+      success: false,
+      error: 'Activity service temporarily unavailable',
+      message: 'Backend storage not configured. Please deploy with Vercel KV.' 
+    });
+  }
 
   try {
     // Post activity
