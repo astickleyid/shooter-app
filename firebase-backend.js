@@ -381,10 +381,38 @@ const FirebaseBackend = {
         return { success: false, error: 'Request not found' };
       }
 
-      // Add to friends lists
-      await this.db.ref(`users/${user.uid}/friends`).push(request.from);
-      await this.db.ref(`users/${request.from}/friends`).push(user.uid);
+      // Add to friends lists (store as array for consistency with friends: [])
+      await this.db.ref(`users/${user.uid}/friends`).transaction((current) => {
+        const friendUid = request.from;
+        if (Array.isArray(current)) {
+          if (current.includes(friendUid)) {
+            return current;
+          }
+          return current.concat(friendUid);
+        }
+        if (current === null || current === undefined) {
+          return [friendUid];
+        }
+        // If existing data is not an array, preserve it by returning it unchanged
+        // to avoid unexpected data loss. Callers should normalize if needed.
+        return current;
+      });
 
+      await this.db.ref(`users/${request.from}/friends`).transaction((current) => {
+        const friendUid = user.uid;
+        if (Array.isArray(current)) {
+          if (current.includes(friendUid)) {
+            return current;
+          }
+          return current.concat(friendUid);
+        }
+        if (current === null || current === undefined) {
+          return [friendUid];
+        }
+        // If existing data is not an array, preserve it by returning it unchanged
+        // to avoid unexpected data loss. Callers should normalize if needed.
+        return current;
+      });
       // Remove request
       await this.db.ref(`friendRequests/${user.uid}/${requestId}`).remove();
 
