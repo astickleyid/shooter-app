@@ -7,8 +7,8 @@
 
   /* ====== CONFIG ====== */
   const SAVE_KEY = 'void_rift_v11';
-  const AUTH_KEY = 'void_rift_auth';
-  const LEADERBOARD_KEY = 'void_rift_leaderboard';
+  const _AUTH_KEY = 'void_rift_auth'; // Reserved for future auth integration
+  const _LEADERBOARD_KEY = 'void_rift_leaderboard'; // Reserved for future leaderboard
 
   const DIFFICULTY_PRESETS = {
     easy: {
@@ -1144,7 +1144,8 @@
    * @param {string} message - The message to hash
    * @returns {Promise<string>} Hex string of the hash
    */
-  const hashPassword = async (message) => {
+  const _hashPassword = async (message) => {
+    // Reserved for future password hashing needs
     const msgBuffer = new TextEncoder().encode(message);
     const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
@@ -1561,7 +1562,8 @@
       return [];
     },
     
-    getUserBest(username) {
+    getUserBest(_username) {
+      // Parameter reserved for future use
       // Use new LeaderboardSystem
       if (this.useGlobal && typeof LeaderboardSystem !== 'undefined') {
         try {
@@ -4133,7 +4135,7 @@
       const pulse = Math.sin(performance.now() / 180 + this.animPhase) * 0.15 + 1;
       const healthPct = this.health / this.maxHealth;
       const damaged = healthPct < 0.5;
-      const criticalHealth = healthPct < 0.25;
+      const _criticalHealth = healthPct < 0.25; // For future critical state visual effects
       
       // Elite/Boss visual indicators
       if (this.isBoss) {
@@ -5786,7 +5788,8 @@
     };
     
     // Metallic gradient helper
-    const createMetallicGradient = (ctx, x1, y1, x2, y2, baseColor) => {
+    const _createMetallicGradient = (ctx, x1, y1, x2, y2, baseColor) => {
+      // Reserved for future metallic ship rendering
       const grad = ctx.createLinearGradient(x1, y1, x2, y2);
       grad.addColorStop(0, brighten(baseColor, 0.3));
       grad.addColorStop(0.3, baseColor);
