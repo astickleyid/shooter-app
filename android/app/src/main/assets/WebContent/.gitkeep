@@ -1,0 +1,2 @@
+# This directory is populated at build time by sync-android-content.sh
+# Run `./sync-android-content.sh` locally, or the CI workflow does it automatically.
