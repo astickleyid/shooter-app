@@ -57,9 +57,6 @@ jobs:
           cp -v social-ui.js ios/VoidRift/WebContent/social-ui.js
           cp -v social-ui.css ios/VoidRift/WebContent/social-ui.css
 
-          # Copy 3D integration module
-          cp -v game-3d-integration.js ios/VoidRift/WebContent/game-3d-integration.js
-
           # Copy API and supporting files
           cp -v backend-api.js ios/VoidRift/WebContent/backend-api.js
           cp -v audio-manager.js ios/VoidRift/WebContent/audio-manager.js
@@ -74,7 +71,7 @@ jobs:
           # Copy assets directory
           rsync -av --delete assets/ ios/VoidRift/WebContent/assets/
 
-          # Copy source modules (needed for 3D integration)
+          # Copy source modules (modular game code)
           rsync -av --delete src/ ios/VoidRift/WebContent/src/
 
           echo "Web content sync complete!"
@@ -312,6 +309,23 @@ jobs:
           if-no-files-found: ignore
           retention-days: 30
 
+      - name: Upload to TestFlight (if configured)
+        if: env.ASC_KEY_PATH != ''
+        run: |
+          IPA_PATH=$(find "$RUNNER_TEMP/VoidRift-Export" -name "*.ipa" | head -1)
+          if [ -z "$IPA_PATH" ]; then
+            echo "No IPA found; skipping TestFlight upload."
+            exit 0
+          fi
+          echo "Uploading $IPA_PATH to TestFlight..."
+          xcrun altool --upload-app \
+            -f "$IPA_PATH" \
+            -t ios \
+            --apiKey "$ASC_API_KEY_ID" \
+            --apiIssuer "$ASC_API_ISSUER_ID" \
+            --api-key-path "$ASC_KEY_PATH"
+          echo "✅ Upload to TestFlight submitted."
+
       - name: Summary
         run: |
           echo "## iOS Build Summary" >> $GITHUB_STEP_SUMMARY
@@ -321,4 +335,9 @@ jobs:
           if [ -d "$RUNNER_TEMP/VoidRift-Export" ]; then
             echo "📲 IPA export available in artifacts" >> $GITHUB_STEP_SUMMARY
           fi
-          echo "🎮 Latest web content synced from Vercel deployment" >> $GITHUB_STEP_SUMMARY
+          if [ -n "$ASC_KEY_PATH" ]; then
+            echo "🚀 Build submitted to TestFlight" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚙️  TestFlight upload skipped (no ASC API key configured)" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "🎮 Latest web content synced to iOS bundle" >> $GITHUB_STEP_SUMMARY
