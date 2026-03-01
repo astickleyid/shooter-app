@@ -788,6 +788,13 @@
     dom.leaderboardUsername = document.getElementById('leaderboardUsername');
     dom.leaderboardLogin = document.getElementById('leaderboardLogin');
     dom.leaderboardLogout = document.getElementById('leaderboardLogout');
+    dom.leaderboardDeleteAccount = document.getElementById('leaderboardDeleteAccount');
+    dom.deleteAccountModal = document.getElementById('deleteAccountModal');
+    dom.closeDeleteAccount = document.getElementById('closeDeleteAccount');
+    dom.deleteAccountPassword = document.getElementById('deleteAccountPassword');
+    dom.deleteAccountError = document.getElementById('deleteAccountError');
+    dom.deleteAccountCancel = document.getElementById('deleteAccountCancel');
+    dom.deleteAccountConfirm = document.getElementById('deleteAccountConfirm');
     dom.leaderboardList = document.getElementById('leaderboardList');
     dom.leaderboardStatus = document.getElementById('leaderboardStatus');
     dom.pauseMenuModal = document.getElementById('pauseMenuModal');
@@ -9524,6 +9531,54 @@
     setLeaderboardFilter('all');
   };
 
+  const handleDeleteAccount = () => {
+    if (!Auth.isLoggedIn()) return;
+    // Clear any previous state and open the confirmation modal
+    if (dom.deleteAccountPassword) dom.deleteAccountPassword.value = '';
+    if (dom.deleteAccountError) dom.deleteAccountError.textContent = '';
+    if (dom.deleteAccountModal) dom.deleteAccountModal.style.display = 'flex';
+  };
+
+  const closeDeleteAccountModal = () => {
+    if (dom.deleteAccountModal) dom.deleteAccountModal.style.display = 'none';
+  };
+
+  const confirmDeleteAccount = async () => {
+    const user = Auth.getCurrentUser();
+    if (!user) return;
+    const password = dom.deleteAccountPassword ? dom.deleteAccountPassword.value : '';
+    if (!password) {
+      if (dom.deleteAccountError) dom.deleteAccountError.textContent = 'Please enter your password.';
+      return;
+    }
+    if (dom.deleteAccountError) dom.deleteAccountError.textContent = 'Deleting account...';
+    if (dom.deleteAccountConfirm) dom.deleteAccountConfirm.disabled = true;
+    try {
+      const usersApiUrl = (window.location.hostname === 'localhost')
+        ? 'https://shooter-app-one.vercel.app/api/users?action=delete'
+        : '/api/users?action=delete';
+      const response = await fetch(usersApiUrl, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, password })
+      });
+      const result = await response.json();
+      if (result.success) {
+        closeDeleteAccountModal();
+        Auth.logout();
+        updateAuthUI();
+        setLeaderboardFilter('all');
+      } else {
+        if (dom.deleteAccountError) dom.deleteAccountError.textContent = result.error || 'Deletion failed. Please try again.';
+      }
+    } catch (err) {
+      console.error('Delete account error:', err);
+      if (dom.deleteAccountError) dom.deleteAccountError.textContent = 'Deletion failed. Please try again.';
+    } finally {
+      if (dom.deleteAccountConfirm) dom.deleteAccountConfirm.disabled = false;
+    }
+  };
+
   const updateAuthUI = () => {
     const isLoggedIn = Auth.isLoggedIn();
     const username = Auth.getCurrentUsername();
@@ -9538,6 +9593,10 @@
     
     if (dom.leaderboardLogout) {
       dom.leaderboardLogout.style.display = isLoggedIn ? 'inline-block' : 'none';
+    }
+
+    if (dom.leaderboardDeleteAccount) {
+      dom.leaderboardDeleteAccount.style.display = isLoggedIn ? 'inline-block' : 'none';
     }
   };
 
@@ -10652,6 +10711,15 @@
     dom.closeLeaderboard?.addEventListener('click', closeLeaderboardModal);
     dom.leaderboardLogin?.addEventListener('click', openAuthModal);
     dom.leaderboardLogout?.addEventListener('click', handleAuthLogout);
+    dom.leaderboardDeleteAccount?.addEventListener('click', handleDeleteAccount);
+
+    // Delete account modal
+    dom.closeDeleteAccount?.addEventListener('click', closeDeleteAccountModal);
+    dom.deleteAccountCancel?.addEventListener('click', closeDeleteAccountModal);
+    dom.deleteAccountConfirm?.addEventListener('click', confirmDeleteAccount);
+    dom.deleteAccountModal?.addEventListener('click', (e) => {
+      if (e.target === dom.deleteAccountModal) closeDeleteAccountModal();
+    });
     
     dom.leaderboardModal?.addEventListener('click', (e) => {
       if (e.target === dom.leaderboardModal) closeLeaderboardModal();

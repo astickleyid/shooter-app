@@ -296,6 +296,56 @@ module.exports = async (req, res) => {
       return res.status(200).json({ success: true, users: filtered });
     }
 
+    // Delete account — required for Apple App Store compliance
+    if (action === 'delete' && req.method === 'DELETE') {
+      const { userId, password } = req.body;
+
+      if (!userId) {
+        return res.status(400).json({ error: 'userId is required' });
+      }
+
+      const user = await kv.get(`user:${userId}`);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Require password confirmation before deleting the account
+      if (!password) {
+        return res.status(400).json({ error: 'Password confirmation required' });
+      }
+      const passwordHash = crypto.createHash('sha256').update(password).digest('hex');
+      if (user.passwordHash !== passwordHash) {
+        return res.status(401).json({ error: 'Invalid password' });
+      }
+
+      // Remove all user data from Vercel KV.
+      // Each deletion is attempted independently so that a single failure does
+      // not leave credentials in place while profile data is gone.
+      const errors = [];
+
+      try { await kv.del(`user:${userId}`); } catch (e) { errors.push('profile'); }
+      try { await kv.del(`user:username:${user.username.toLowerCase()}`); } catch (e) { errors.push('username-index'); }
+      try { await kv.srem('users:all', userId); } catch (e) { errors.push('users-set'); }
+
+      // Remove leaderboard entries belonging to this user from the sorted set.
+      try {
+        const ALL_ENTRIES_KEY = 'leaderboard:all_entries';
+        const allEntries = await kv.zrange(ALL_ENTRIES_KEY, 0, -1);
+        const toRemove = allEntries.filter(e => {
+          try { return JSON.parse(e).userId === userId; } catch (_) { return false; }
+        });
+        if (toRemove.length > 0) {
+          await kv.zrem(ALL_ENTRIES_KEY, ...toRemove);
+        }
+      } catch (e) { errors.push('leaderboard'); }
+
+      if (errors.length > 0) {
+        console.error(`Account deletion partial failure for ${userId}. Failed keys: ${errors.join(', ')}`);
+      }
+
+      return res.status(200).json({ success: true, message: 'Account deleted' });
+    }
+
     return res.status(400).json({ error: 'Invalid action' });
   } catch (error) {
     console.error('Fatal error:', error);
