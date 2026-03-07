@@ -16,6 +16,49 @@ const crypto = require('crypto');
 
 const SESSION_TTL_SECONDS = 60 * 60 * 24; // 24h rolling session
 
+// scrypt parameters — N=16384, r=8, p=1 give reasonable security; benchmark on your
+// deployment hardware to confirm actual latency is acceptable (typically 50–200ms).
+const SCRYPT_PARAMS = { N: 16384, r: 8, p: 1, keylen: 64 };
+
+/**
+ * Hash a password with scrypt and a unique random salt.
+ * @param {string} password - The password (or pre-hashed value) to protect.
+ * @returns {{ hash: string, salt: string }}
+ */
+function hashPasswordWithSalt(password) {
+  const salt = crypto.randomBytes(32).toString('hex');
+  const hash = crypto.scryptSync(password, salt, SCRYPT_PARAMS.keylen, {
+    N: SCRYPT_PARAMS.N, r: SCRYPT_PARAMS.r, p: SCRYPT_PARAMS.p,
+  }).toString('hex');
+  return { hash, salt };
+}
+
+/**
+ * Verify a password against a stored hash.
+ * Supports both the current scrypt format and the legacy plain-SHA-256 format
+ * so that existing accounts continue to work until they log in and get migrated.
+ * @param {string} password
+ * @param {string} storedHash
+ * @param {string|null|undefined} storedSalt - Present only for scrypt-format accounts.
+ * @returns {boolean}
+ */
+function verifyPasswordHash(password, storedHash, storedSalt) {
+  if (storedSalt) {
+    const hash = crypto.scryptSync(password, storedSalt, SCRYPT_PARAMS.keylen, {
+      N: SCRYPT_PARAMS.N, r: SCRYPT_PARAMS.r, p: SCRYPT_PARAMS.p,
+    }).toString('hex');
+    try {
+      return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(storedHash, 'hex'));
+    } catch (err) {
+      console.error('timingSafeEqual failed during password verification:', err.message);
+      return false;
+    }
+  }
+  // Legacy SHA-256 fallback for accounts created before the scrypt migration.
+  const legacyHash = crypto.createHash('sha256').update(password).digest('hex');
+  return legacyHash === storedHash;
+}
+
 async function createSession(userId, username) {
   const token = crypto.randomBytes(24).toString('hex');
   const session = {
@@ -93,7 +136,7 @@ module.exports = async (req, res) => {
       }
 
       const userId = 'u_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
-      const passwordHash = crypto.createHash('sha256').update(password).digest('hex');
+      const { hash: passwordHash, salt: passwordSalt } = hashPasswordWithSalt(password);
 
       console.log('Creating user object...');
       const user = {
@@ -101,6 +144,7 @@ module.exports = async (req, res) => {
         username,
         email: email || null,
         passwordHash,
+        passwordSalt,
         createdAt: Date.now(),
         profile: {
           avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${userId}`,
@@ -164,10 +208,15 @@ module.exports = async (req, res) => {
       }
 
       const user = await kv.get(`user:${userId}`);
-      const passwordHash = crypto.createHash('sha256').update(password).digest('hex');
-
-      if (user.passwordHash !== passwordHash) {
+      if (!verifyPasswordHash(password, user.passwordHash, user.passwordSalt)) {
         return res.status(401).json({ error: 'Invalid credentials' });
+      }
+
+      // Transparently migrate legacy SHA-256 accounts to scrypt on successful login.
+      if (!user.passwordSalt) {
+        const { hash, salt } = hashPasswordWithSalt(password);
+        user.passwordHash = hash;
+        user.passwordSalt = salt;
       }
 
       user.lastActive = Date.now();
@@ -206,7 +255,7 @@ module.exports = async (req, res) => {
         return res.status(404).json({ error: 'User not found' });
       }
 
-      const { passwordHash, email, ...publicProfile } = user;
+      const { passwordHash, passwordSalt, email, ...publicProfile } = user;
 
       return res.status(200).json({
         success: true,
@@ -316,8 +365,7 @@ module.exports = async (req, res) => {
       if (!password) {
         return res.status(400).json({ error: 'Password confirmation required' });
       }
-      const passwordHash = crypto.createHash('sha256').update(password).digest('hex');
-      if (user.passwordHash !== passwordHash) {
+      if (!verifyPasswordHash(password, user.passwordHash, user.passwordSalt)) {
         return res.status(401).json({ error: 'Invalid password' });
       }
 

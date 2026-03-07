@@ -72,7 +72,7 @@ Account data and global leaderboard entries are stored in **Vercel KV** (a manag
 - Vercel's Privacy Policy: [https://vercel.com/legal/privacy-policy](https://vercel.com/legal/privacy-policy)
 
 ### 3.2 Password Security
-All passwords are hashed with **SHA-256** plus a random salt before storage. Plaintext passwords are never stored or logged.
+All passwords are hashed using **scrypt** (a memory-hard key derivation function) with a unique random salt per user before storage. Plaintext passwords are never stored or logged. Accounts created before this scheme was introduced are automatically migrated to scrypt on next login.
 
 ### 3.3 Session Security
 Sessions expire after **24 hours** of inactivity and are invalidated on logout. Session tokens are transmitted only over HTTPS.
