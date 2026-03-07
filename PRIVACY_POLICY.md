@@ -15,7 +15,7 @@ Creating an account is optional. If you choose to register, we collect:
 |------|---------|
 | **Username** | Uniquely identifies your profile and displays on leaderboards |
 | **Email address** | Account recovery (optional; may be omitted at registration) |
-| **Password** | Stored as a salted SHA-256 hash — we never store plaintext passwords |
+| **Password** | Stored as a SHA-256 hash — we never store plaintext passwords |
 | **Avatar URL** | Auto-generated placeholder image (via [DiceBear Bottts](https://dicebear.com)) seeded from your user ID |
 
 ### 1.2 Gameplay Statistics
