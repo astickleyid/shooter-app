@@ -327,16 +327,20 @@ module.exports = async (req, res) => {
       try { await kv.del(`user:username:${user.username.toLowerCase()}`); } catch (e) { errors.push('username-index'); }
       try { await kv.srem('users:all', userId); } catch (e) { errors.push('users-set'); }
 
-      // Remove leaderboard entries belonging to this user from the sorted set.
+      // Remove leaderboard entries belonging to this user using a per-user index
+      // to avoid scanning the entire global leaderboard sorted set.
       try {
         const ALL_ENTRIES_KEY = 'leaderboard:all_entries';
-        const allEntries = await kv.zrange(ALL_ENTRIES_KEY, 0, -1);
-        const toRemove = allEntries.filter(e => {
-          try { return JSON.parse(e).userId === userId; } catch (_) { return false; }
-        });
-        if (toRemove.length > 0) {
-          await kv.zrem(ALL_ENTRIES_KEY, ...toRemove);
+        const USER_ENTRIES_KEY = `leaderboard:user:${userId}`;
+
+        const userEntries = await kv.smembers(USER_ENTRIES_KEY);
+
+        if (Array.isArray(userEntries) && userEntries.length > 0) {
+          await kv.zrem(ALL_ENTRIES_KEY, ...userEntries);
         }
+
+        // Clean up the per-user index itself.
+        await kv.del(USER_ENTRIES_KEY);
       } catch (e) { errors.push('leaderboard'); }
 
       if (errors.length > 0) {
