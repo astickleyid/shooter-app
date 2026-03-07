@@ -171,7 +171,7 @@ DEMO ACCOUNT (optional):
    after the review cycle is complete.)
 
 ACCOUNT DELETION:
-- Users can delete their account from the in-app Settings screen.
+- Users can delete their account from inside the app: tap "Leaderboard" (trophy icon on the main menu), then tap "Delete Account" (shown when logged in).
 - Server-side data (Vercel KV) is removed immediately upon deletion.
 
 NO SPECIAL HARDWARE REQUIRED.

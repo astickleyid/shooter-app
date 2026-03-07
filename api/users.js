@@ -33,6 +33,9 @@ async function createSession(userId, username) {
 
   try {
     await kv.set(`session:${token}`, session, { ex: SESSION_TTL_SECONDS });
+    // Track token in per-user index so all sessions can be revoked on account deletion.
+    await kv.sadd(`sessions:user:${userId}`, token);
+    await kv.expire(`sessions:user:${userId}`, SESSION_TTL_SECONDS);
   } catch (err) {
     console.error('Failed to persist session:', err.message);
   }
@@ -319,13 +322,36 @@ module.exports = async (req, res) => {
       }
 
       // Remove all user data from Vercel KV.
-      // Each deletion is attempted independently so that a single failure does
-      // not leave credentials in place while profile data is gone.
-      const errors = [];
+      // The primary user record and credential index are hard failures: if either
+      // cannot be deleted we return an error so the client knows deletion did not
+      // complete (credentials remain intact and the user can retry).
+      try {
+        await kv.del(`user:${userId}`);
+      } catch (e) {
+        console.error(`Failed to delete primary user record for ${userId}:`, e);
+        return res.status(500).json({ error: 'Account deletion failed. Please try again.' });
+      }
+      try {
+        await kv.del(`user:username:${user.username.toLowerCase()}`);
+      } catch (e) {
+        console.error(`Failed to delete username index for ${userId}:`, e);
+        return res.status(500).json({ error: 'Account deletion failed. Please try again.' });
+      }
 
-      try { await kv.del(`user:${userId}`); } catch (e) { errors.push('profile'); }
-      try { await kv.del(`user:username:${user.username.toLowerCase()}`); } catch (e) { errors.push('username-index'); }
-      try { await kv.srem('users:all', userId); } catch (e) { errors.push('users-set'); }
+      // Remaining cleanup is best-effort; log failures but do not block the response.
+      const warnings = [];
+
+      try { await kv.srem('users:all', userId); } catch (e) { warnings.push('users-set'); }
+
+      // Revoke all active sessions for this user.
+      try {
+        const USER_SESSIONS_KEY = `sessions:user:${userId}`;
+        const tokens = await kv.smembers(USER_SESSIONS_KEY);
+        if (Array.isArray(tokens) && tokens.length > 0) {
+          await Promise.all(tokens.map(t => kv.del(`session:${t}`).catch(err => console.error(`Failed to delete session ${t}:`, err))));
+        }
+        await kv.del(USER_SESSIONS_KEY);
+      } catch (e) { warnings.push('sessions'); }
 
       // Remove leaderboard entries belonging to this user using a per-user index
       // to avoid scanning the entire global leaderboard sorted set.
@@ -341,10 +367,10 @@ module.exports = async (req, res) => {
 
         // Clean up the per-user index itself.
         await kv.del(USER_ENTRIES_KEY);
-      } catch (e) { errors.push('leaderboard'); }
+      } catch (e) { warnings.push('leaderboard'); }
 
-      if (errors.length > 0) {
-        console.error(`Account deletion partial failure for ${userId}. Failed keys: ${errors.join(', ')}`);
+      if (warnings.length > 0) {
+        console.error(`Account deletion partial cleanup failure for ${userId}. Failed keys: ${warnings.join(', ')}`);
       }
 
       return res.status(200).json({ success: true, message: 'Account deleted' });
