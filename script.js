@@ -9554,7 +9554,9 @@
     if (dom.deleteAccountError) dom.deleteAccountError.textContent = 'Deleting account...';
     if (dom.deleteAccountConfirm) dom.deleteAccountConfirm.disabled = true;
     try {
-      const usersApiUrl = (window.location.hostname === 'localhost')
+      const { protocol, hostname } = window.location;
+      const isIosOrLocalEnv = protocol === 'file:' || hostname === '' || hostname === 'localhost' || hostname === '127.0.0.1';
+      const usersApiUrl = isIosOrLocalEnv
         ? 'https://shooter-app-one.vercel.app/api/users?action=delete'
         : '/api/users?action=delete';
       const response = await fetch(usersApiUrl, {
