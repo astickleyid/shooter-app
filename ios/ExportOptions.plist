@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  ExportOptions.plist for App Store Connect (TestFlight / App Store) distribution.
+
+	  To use in CI:
+	    1. Fill in your Apple Developer team ID and provisioning profile name below.
+	    2. Base64-encode this file:  base64 -i ExportOptions.plist | pbcopy
+	    3. Store the result as the EXPORT_OPTIONS_PLIST_BASE64 GitHub Actions secret.
+
+	  Required GitHub Actions secrets:
+	    IOS_CERTIFICATE_BASE64          - Base64 of your Distribution (.p12) certificate
+	    P12_PASSWORD                    - Password for the .p12 certificate
+	    KEYCHAIN_PASSWORD               - Temporary keychain password (any random string)
+	    IOS_PROVISIONING_PROFILE_BASE64 - Base64 of your App Store provisioning profile (.mobileprovision)
+	    EXPORT_OPTIONS_PLIST_BASE64     - Base64 of this file (after filling in values)
+	    ASC_API_KEY_ID                  - App Store Connect API key ID
+	    ASC_API_ISSUER_ID               - App Store Connect API issuer ID
+	    ASC_API_KEY_P8_BASE64           - Base64 of your .p8 API key file
+	-->
+
+	<!-- Distribution method: app-store submits to App Store Connect / TestFlight -->
+	<key>method</key>
+	<string>app-store</string>
+
+	<!-- Your Apple Developer Team ID (10-character string, e.g. NCG387GT8Y) -->
+	<key>teamID</key>
+	<string>NCG387GT8Y</string>
+
+	<!-- App bundle identifier -->
+	<key>bundleIdentifier</key>
+	<string>com.voidrift.game</string>
+
+	<!-- Upload directly to App Store Connect (enables TestFlight processing) -->
+	<key>uploadBitcode</key>
+	<false/>
+
+	<key>uploadSymbols</key>
+	<true/>
+
+	<!-- Code signing settings -->
+	<key>signingStyle</key>
+	<string>manual</string>
+
+	<key>provisioningProfiles</key>
+	<dict>
+		<!-- Key: bundle ID, Value: provisioning profile name (as shown in Xcode) -->
+		<key>com.voidrift.game</key>
+		<string>VoidRift App Store</string>
+	</dict>
+</dict>
+</plist>
