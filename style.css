@@ -3986,3 +3986,121 @@ html, body {
   border-color: #86efac;
   background: rgba(15, 23, 42, 0.8);
 }
+
+/* ====== LOCAL LEADERBOARD (game over screen) ====== */
+.personal-best-banner {
+  margin: 0 24px 0;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, rgba(251,191,36,0.2), rgba(245,158,11,0.1));
+  border: 2px solid rgba(251,191,36,0.7);
+  border-radius: 10px;
+  text-align: center;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 18px;
+  font-weight: 800;
+  color: #fbbf24;
+  text-shadow: 0 0 16px rgba(251,191,36,0.8);
+  letter-spacing: 0.06em;
+  animation: bestBannerPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes bestBannerPulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(251,191,36,0.3); }
+  50%       { box-shadow: 0 0 22px rgba(251,191,36,0.7); }
+}
+
+.local-leaderboard-panel {
+  margin: 16px 24px 0;
+  background: rgba(0,0,0,0.7);
+  border: 2px solid rgba(74,222,128,0.25);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.local-lb-title {
+  padding: 10px 16px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #4ade80;
+  background: rgba(74,222,128,0.08);
+  border-bottom: 1px solid rgba(74,222,128,0.2);
+}
+
+.local-lb-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+}
+
+.local-lb-table thead th {
+  padding: 8px 14px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #64748b;
+  border-bottom: 1px solid rgba(74,222,128,0.15);
+}
+
+.local-lb-table thead th:nth-child(2) {
+  text-align: right;
+}
+
+.local-lb-table tbody tr {
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  transition: background 0.2s;
+}
+
+.local-lb-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.local-lb-table tbody tr:hover {
+  background: rgba(74,222,128,0.06);
+}
+
+.local-lb-rank {
+  padding: 9px 14px;
+  color: #94a3b8;
+  font-weight: 700;
+  width: 50px;
+}
+
+.local-lb-score {
+  padding: 9px 14px;
+  color: #e2e8f0;
+  font-weight: 700;
+  text-align: right;
+}
+
+.local-lb-date {
+  padding: 9px 14px;
+  color: #64748b;
+  font-size: 12px;
+  text-align: right;
+}
+
+.local-lb-empty {
+  padding: 16px;
+  text-align: center;
+  color: #475569;
+  font-style: italic;
+}
+
+.local-lb-highlight {
+  background: rgba(251,191,36,0.1) !important;
+}
+
+.local-lb-highlight .local-lb-rank {
+  color: #fbbf24;
+}
+
+.local-lb-highlight .local-lb-score {
+  color: #fbbf24;
+  text-shadow: 0 0 8px rgba(251,191,36,0.5);
+}

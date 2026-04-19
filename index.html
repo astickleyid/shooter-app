@@ -280,6 +280,22 @@
             <p><img src="assets/icons/icon-unlock.svg" alt="" width="16" height="16" style="vertical-align: middle; margin-right: 6px;"/> Login to save your score to the leaderboard!</p>
           </div>
         </div>
+        <div id="personalBestBanner" class="personal-best-banner" style="display:none;">🏆 New Personal Best!</div>
+        <div class="local-leaderboard-panel">
+          <div class="local-lb-title">Your Best Runs</div>
+          <table class="local-lb-table">
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>Score</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody id="localLeaderboardBody">
+              <!-- Populated by showGameOverScreen() -->
+            </tbody>
+          </table>
+        </div>
         <div class="game-over-actions">
           <button id="gameOverRestartBtn" class="game-over-btn primary"><img src="assets/icons/icon-restart.svg" alt="" width="20" height="20"/> Play Again</button>
           <button id="gameOverShopBtn" class="game-over-btn"><img src="assets/icons/icon-shop.svg" alt="" width="20" height="20"/> Upgrades & Shop</button>

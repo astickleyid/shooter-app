@@ -1489,6 +1489,40 @@
     }
   };
 
+  /* ====== LOCAL LEADERBOARD (localStorage top-5) ====== */
+  const LOCAL_SCORES_KEY = 'voidrift_local_scores';
+
+  const LocalLeaderboard = {
+    get() {
+      try {
+        return JSON.parse(localStorage.getItem(LOCAL_SCORES_KEY) || '[]');
+      } catch (e) {
+        return [];
+      }
+    },
+
+    isPersonalBest(newScore) {
+      const entries = this.get();
+      return entries.length === 0 || newScore > entries[0].score;
+    },
+
+    save(newScore) {
+      const entries = this.get();
+      entries.push({
+        score: newScore,
+        date: new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+      });
+      entries.sort((a, b) => b.score - a.score);
+      const top5 = entries.slice(0, 5);
+      try {
+        localStorage.setItem(LOCAL_SCORES_KEY, JSON.stringify(top5));
+      } catch (e) {
+        console.warn('LocalLeaderboard: failed to save', e);
+      }
+      return top5;
+    }
+  };
+
   /* ====== LEADERBOARD SYSTEM ====== */
   const Leaderboard = {
     entries: [],
@@ -9308,6 +9342,10 @@
     gameOverHandled = true;
     Save.setBest(score, level);
     Save.addCredits(Math.floor(score / 25));
+
+    // Local leaderboard — check before saving so isPersonalBest is accurate
+    const isNewBest = LocalLeaderboard.isPersonalBest(score);
+    LocalLeaderboard.save(score);
     
     // Update game stats for achievements
     // Note: Elite enemy tracking to be implemented in future update
@@ -9361,18 +9399,18 @@
       // Submit to leaderboard
       Leaderboard.addEntry(username, finalScore, finalLevel, currentDifficulty)
         .then(rank => {
-          showGameOverScreen(finalScore, finalLevel, rank);
+          showGameOverScreen(finalScore, finalLevel, rank, isNewBest);
         })
         .catch(err => {
           console.warn('Failed to submit leaderboard entry:', err);
-          showGameOverScreen(finalScore, finalLevel, null);
+          showGameOverScreen(finalScore, finalLevel, null, isNewBest);
         });
     } else {
-      showGameOverScreen(finalScore, finalLevel, null);
+      showGameOverScreen(finalScore, finalLevel, null, isNewBest);
     }
   };
 
-  const showGameOverScreen = (finalScore, finalLevel, rank) => {
+  const showGameOverScreen = (finalScore, finalLevel, rank, isNewBest) => {
     // Note: Don't hide gameContainer - the gameOverModal is a child element
     // inside gameContainer, so hiding the container would also hide the modal.
     // The modal overlays on top of the game canvas with its own styling.
@@ -9400,7 +9438,33 @@
         if (loginPromptEl) loginPromptEl.style.display = 'block';
         if (loginBtn) loginBtn.style.display = 'block';
       }
-      
+
+      // --- Local leaderboard ---
+      const bestBanner = document.getElementById('personalBestBanner');
+      if (bestBanner) {
+        bestBanner.style.display = isNewBest ? 'block' : 'none';
+      }
+
+      const localScores = LocalLeaderboard.get();
+      const tbody = document.getElementById('localLeaderboardBody');
+      if (tbody) {
+        tbody.innerHTML = '';
+        if (localScores.length === 0) {
+          const row = document.createElement('tr');
+          row.innerHTML = '<td colspan="3" class="local-lb-empty">No runs recorded yet</td>';
+          tbody.appendChild(row);
+        } else {
+          localScores.forEach((entry, idx) => {
+            const row = document.createElement('tr');
+            if (entry.score === finalScore && idx === 0 && isNewBest) {
+              row.classList.add('local-lb-highlight');
+            }
+            row.innerHTML = `<td class="local-lb-rank">#${idx + 1}</td><td class="local-lb-score">${entry.score.toLocaleString()}</td><td class="local-lb-date">${entry.date}</td>`;
+            tbody.appendChild(row);
+          });
+        }
+      }
+
       gameOverModal.style.display = 'flex';
     }
   };
