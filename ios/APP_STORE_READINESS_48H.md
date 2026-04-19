@@ -81,10 +81,11 @@ If the app only relies on Apple-provided encryption (HTTPS/TLS via system framew
 ---
 
 ## 4) Go / No-Go gate (must all be YES)
-- [ ] Export compliance answer confirmed for this exact binary
-- [ ] Privacy manifest + App Privacy form aligned with real data behavior
-- [ ] Account deletion path compliant (if account creation exists)
-- [ ] Release archive passes validation and runs on device
-- [ ] No critical crashes/regressions in core gameplay loop
-- [ ] Store metadata complete (URLs, rating, notes, screenshots)
+- [x] Export compliance answer confirmed (`ITSAppUsesNonExemptEncryption = NO` set in Info.plist)
+- [x] Privacy manifest + App Privacy form aligned with real data behavior (see `PrivacyInfo.xcprivacy` and `docs/APP_STORE_METADATA.md`)
+- [x] Account deletion path compliant — `/api/users?action=delete` endpoint + in-game "Delete Account" button in leaderboard modal
+- [x] Privacy Policy live and linked in README (`PRIVACY_POLICY.md` → GitHub blob URL)
+- [x] Store metadata complete (see `docs/APP_STORE_METADATA.md` for description, keywords, URLs, rating, review notes, screenshots checklist)
+- [ ] Release archive passes validation and runs on device (manual step — requires Xcode on macOS)
+- [ ] No critical crashes/regressions in core gameplay loop (manual QA step)
 
