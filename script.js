@@ -7838,18 +7838,127 @@
     return card;
   };
 
+  // Featured ships shown in the start-screen hangar modal
+  const HANGAR_FEATURED_SHIPS = [
+    {
+      id: 'spectre',
+      name: 'SPECTRE-9',
+      shipClass: 'Interceptor',
+      desc: 'Stealth recon craft — fastest in the fleet, built for hit-and-run strikes.',
+      pips: { SPEED: 5, HULL: 2, FIREPOWER: 3 }
+    },
+    {
+      id: 'bulwark',
+      name: 'BULWARK-7',
+      shipClass: 'Heavy Tank',
+      desc: 'Siege-rated assault pod with reinforced plating and extended magazine.',
+      pips: { SPEED: 2, HULL: 5, FIREPOWER: 3 }
+    },
+    {
+      id: 'titan',
+      name: 'TITAN HEAVY',
+      shipClass: 'Capital Ship',
+      desc: 'Capital-class gunship with devastating firepower and armored hull.',
+      pips: { SPEED: 1, HULL: 4, FIREPOWER: 5 }
+    }
+  ];
+
+  const createFeaturedShipCard = (shipDef) => {
+    const card = document.createElement('div');
+    card.className = 'ship-card';
+    const isActive = selectedShip === shipDef.id || Save.data.selectedShip === shipDef.id;
+    if (isActive) card.classList.add('active');
+
+    // Ship canvas preview
+    const canvas = document.createElement('canvas');
+    canvas.className = 'ship-card-canvas';
+    canvas.width = 280;
+    canvas.height = 130;
+    card.appendChild(canvas);
+
+    // Name + class badge row
+    const nameRow = document.createElement('div');
+    nameRow.style.cssText = 'display:flex;flex-direction:column;gap:6px;';
+    const nameEl = document.createElement('div');
+    nameEl.className = 'ship-card-name';
+    nameEl.textContent = shipDef.name;
+    const classEl = document.createElement('div');
+    classEl.className = 'ship-card-class';
+    classEl.textContent = shipDef.shipClass;
+    nameRow.appendChild(nameEl);
+    nameRow.appendChild(classEl);
+    card.appendChild(nameRow);
+
+    // Description
+    const descEl = document.createElement('div');
+    descEl.className = 'ship-card-desc';
+    descEl.textContent = shipDef.desc;
+    card.appendChild(descEl);
+
+    // Stat pip bars
+    const statsWrap = document.createElement('div');
+    statsWrap.className = 'ship-card-stats';
+    for (const [statName, pipCount] of Object.entries(shipDef.pips)) {
+      const row = document.createElement('div');
+      row.className = 'stat-row-pip';
+      const label = document.createElement('div');
+      label.className = 'stat-label-pip';
+      label.textContent = statName;
+      const pips = document.createElement('div');
+      pips.className = 'stat-pips';
+      for (let i = 1; i <= 5; i++) {
+        const pip = document.createElement('div');
+        pip.className = 'stat-pip' + (i <= pipCount ? ' filled' : '');
+        pips.appendChild(pip);
+      }
+      row.appendChild(label);
+      row.appendChild(pips);
+      statsWrap.appendChild(row);
+    }
+    card.appendChild(statsWrap);
+
+    // SELECT button
+    const btn = document.createElement('button');
+    btn.className = 'ship-select-btn' + (isActive ? ' selected-btn' : '');
+    btn.textContent = isActive ? 'SELECTED' : 'SELECT';
+    btn.addEventListener('click', () => {
+      selectedShip = shipDef.id;
+      Save.data.selectedShip = shipDef.id;
+      Save.save();
+      if (player) player.reconfigureLoadout(true);
+      renderHangar();
+    });
+    card.appendChild(btn);
+
+    // Draw ship preview
+    requestAnimationFrame(() => {
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#fff';
+      for (let i = 0; i < 35; i++) {
+        const x = Math.random() * canvas.width;
+        const y = Math.random() * canvas.height;
+        ctx.globalAlpha = Math.random() * 0.5 + 0.4;
+        ctx.fillRect(x, y, Math.random() * 1.5 + 0.5, Math.random() * 1.5 + 0.5);
+      }
+      ctx.globalAlpha = 1;
+      const tmpl = getShipTemplate(shipDef.id);
+      ctx.save();
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      drawShip(ctx, shipDef.id, 22 * ((tmpl && tmpl.scale) || 1));
+      ctx.restore();
+    });
+
+    return card;
+  };
+
   const renderHangar = () => {
+    if (!dom.hangarGrid) return;
     dom.hangarGrid.innerHTML = '';
-    dom.hangarGrid.appendChild(createSectionHeader('Starfighters'));
-    SHIP_TEMPLATES.forEach((ship) => dom.hangarGrid.appendChild(createShipCard(ship)));
-    dom.hangarGrid.appendChild(createSectionHeader('Primary Weapons'));
-    ARMORY.primary.forEach((item) => dom.hangarGrid.appendChild(createArmoryCard('primary', item)));
-    dom.hangarGrid.appendChild(createSectionHeader('Secondary Systems'));
-    ARMORY.secondary.forEach((item) => dom.hangarGrid.appendChild(createArmoryCard('secondary', item)));
-    dom.hangarGrid.appendChild(createSectionHeader('Defense Matrix'));
-    ARMORY.defense.forEach((item) => dom.hangarGrid.appendChild(createArmoryCard('defense', item)));
-    dom.hangarGrid.appendChild(createSectionHeader('Ultimate Arsenal'));
-    ARMORY.ultimate.forEach((item) => dom.hangarGrid.appendChild(createArmoryCard('ultimate', item)));
+    HANGAR_FEATURED_SHIPS.forEach((shipDef) => {
+      dom.hangarGrid.appendChild(createFeaturedShipCard(shipDef));
+    });
   };
 
   const openHangar = () => {
@@ -8957,7 +9066,14 @@
     // Always use space mode (planetary mode removed)
     currentGameMode = 'space';
     currentPlanet = null;
-    
+
+    // Persist selectedShip from hangar into Save before init
+    if (selectedShip && selectedShip !== Save.data.selectedShip) {
+      Save.data.selectedShip = selectedShip;
+      Save.save();
+    }
+    console.log('[Hangar] Starting game with ship:', selectedShip || Save.data.selectedShip);
+
     initShipSelection();
     
     // Add smooth transition effect
@@ -9677,6 +9793,13 @@
     Leaderboard.load();
     pilotLevel = Save.data.pilotLevel;
     pilotXP = Save.data.pilotXp;
+    // Sync selectedShip from saved data (default to 'spectre-9' if not one of the 3 featured)
+    const FEATURED_IDS = ['spectre', 'bulwark', 'titan'];
+    if (FEATURED_IDS.includes(Save.data.selectedShip)) {
+      selectedShip = Save.data.selectedShip;
+    } else {
+      selectedShip = 'spectre';
+    }
     initShipSelection();
     syncCredits();
     loadControlSettings(); // Load and apply control settings

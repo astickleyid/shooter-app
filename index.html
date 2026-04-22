@@ -555,13 +555,17 @@
   </div>
 
   <!-- HANGAR MODAL -->
-  <div id="hangarModal">
-    <div id="hangarCard">
-      <div id="hangarHeader">
-        <div id="hangarTitle">Ship Hangar</div>
-        <button id="closeHangar">Close</button>
+  <div id="hangarModal" class="modal">
+    <div class="modal-content hangar-modal">
+      <div class="modal-header">
+        <h2>HANGAR &mdash; Choose Your Ship</h2>
+        <button id="closeHangar" class="closeBtn">&#x2715;</button>
       </div>
-      <div id="hangarGrid"></div>
+      <div class="hangar-content">
+        <div class="hangar-grid" id="hangarGrid">
+          <!-- Ship cards rendered by renderHangar() -->
+        </div>
+      </div>
     </div>
   </div>
 
