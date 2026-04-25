@@ -5471,7 +5471,8 @@
       const hasAim = input.isAiming && (Math.abs(input.aimX) > 0.01 || Math.abs(input.aimY) > 0.01);
       if (hasAim) {
         this.lookAngle = Math.atan2(input.aimY, input.aimX);
-        if (input.fireHeld && this.ammo >= this.ammoPerShot && performance.now() - lastShotTime > stats.fireCD) {
+        const effectiveFireCD = PowerUps.isRapidActive(Date.now()) ? stats.fireCD * 0.5 : stats.fireCD;
+        if (input.fireHeld && this.ammo >= this.ammoPerShot && performance.now() - lastShotTime > effectiveFireCD) {
           this.shoot(stats);
           lastShotTime = performance.now();
         }
@@ -7236,7 +7237,10 @@
     if (wasElite) scoreGain *= 3;
     if (wasBoss) scoreGain *= 20;
     score += scoreGain;
-    
+
+    // Power-up drop chance on enemy death
+    PowerUps.maybeSpawn(enemy.x, enemy.y);
+
     // Phase 1: Show score as damage number
     spawnDamageNumber(enemy.x, enemy.y - enemy.size, `+${scoreGain}`, wasBoss || wasElite);
     
@@ -7969,12 +7973,129 @@
   const closeHangar = () => {
     dom.hangarModal.style.display = 'none';
   };
+  // ─── POWER-UP DROPS ─────────────────────────────────────────────────────────
+  const PowerUps = (() => {
+    const TYPES = {
+      SHIELD: { color: '#22c55e', label: 'SHIELD +30', duration: 0, radius: 10 },
+      RAPID:  { color: '#06b6d4', label: 'RAPID FIRE', duration: 8000, radius: 10 },
+      NUKE:   { color: '#f97316', label: 'NUKE',       duration: 0, radius: 10 },
+    };
+    const TYPE_KEYS = Object.keys(TYPES);
+    let active = [];       // live pickups on the ground
+    let effects = [];      // active timed effects {type, endsAt}
+    const DROP_CHANCE = 0.12;
+
+    function maybeSpawn(x, y) {
+      if (Math.random() > DROP_CHANCE) return;
+      const type = TYPE_KEYS[Math.floor(Math.random() * TYPE_KEYS.length)];
+      active.push({ x, y, type, spawnedAt: Date.now(), angle: 0 });
+    }
+
+    function update(playerX, playerY, now) {
+      // Remove pickups older than 8s
+      active = active.filter(p => now - p.spawnedAt < 8000);
+      // Rotate glyph
+      active.forEach(p => { p.angle = (p.angle + 0.04) % (Math.PI * 2); });
+      // Collect
+      active = active.filter(p => {
+        const dx = p.x - playerX, dy = p.y - playerY;
+        if (Math.sqrt(dx*dx + dy*dy) > 28) return true;
+        apply(p.type, now);
+        showPickupBanner(p.type);
+        return false;
+      });
+      // Expire timed effects
+      effects = effects.filter(e => e.endsAt > now);
+    }
+
+    function apply(type, now) {
+      if (type === 'SHIELD') {
+        if (player && player.health !== undefined) player.health = Math.min(player.health + 30, player.hpMax || 100);
+      } else if (type === 'RAPID') {
+        effects = effects.filter(e => e.type !== 'RAPID');
+        effects.push({ type: 'RAPID', endsAt: now + 8000 });
+      } else if (type === 'NUKE') {
+        nukeAllEnemies();
+      }
+    }
+
+    function nukeAllEnemies() {
+      // Flash the screen
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(249,115,22,0.45);pointer-events:none;z-index:999;transition:opacity 0.6s';
+      document.body.appendChild(overlay);
+      setTimeout(() => { overlay.style.opacity = '0'; setTimeout(() => overlay.remove(), 700); }, 60);
+      // Kill all enemies via handleEnemyDeath for proper scoring
+      if (typeof enemies !== 'undefined' && Array.isArray(enemies)) {
+        for (let i = enemies.length - 1; i >= 0; i--) {
+          handleEnemyDeath(i);
+        }
+      }
+    }
+
+    function isRapidActive(now) {
+      return effects.some(e => e.type === 'RAPID' && e.endsAt > now);
+    }
+
+    function showPickupBanner(type) {
+      const cfg = TYPES[type];
+      const el = document.createElement('div');
+      el.textContent = '⚡ ' + cfg.label;
+      el.style.cssText = `position:fixed;top:22%;left:50%;transform:translateX(-50%);background:${cfg.color};color:#000;font-weight:700;font-size:15px;letter-spacing:.08em;padding:7px 20px;border-radius:6px;pointer-events:none;z-index:998;opacity:1;transition:opacity 0.5s`;
+      document.body.appendChild(el);
+      setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 600); }, 1400);
+    }
+
+    function draw(ctx) {
+      const now = Date.now();
+      active.forEach(p => {
+        const cfg = TYPES[p.type];
+        const age = now - p.spawnedAt;
+        const fadeAlpha = age > 6000 ? 1 - (age - 6000) / 2000 : 1;
+        ctx.save();
+        ctx.globalAlpha = fadeAlpha * (0.7 + 0.3 * Math.sin(p.angle * 3));
+        // Glow
+        const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 18);
+        grad.addColorStop(0, cfg.color);
+        grad.addColorStop(1, 'transparent');
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(p.x, p.y, 18, 0, Math.PI * 2); ctx.fill();
+        // Core orb
+        ctx.fillStyle = cfg.color;
+        ctx.beginPath(); ctx.arc(p.x, p.y, 8, 0, Math.PI * 2); ctx.fill();
+        // Orbit ring
+        ctx.strokeStyle = cfg.color; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(p.x, p.y, 13, p.angle, p.angle + Math.PI * 1.2); ctx.stroke();
+        // Label
+        ctx.globalAlpha = fadeAlpha * 0.9;
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
+        ctx.fillText(p.type, p.x, p.y + 24);
+        ctx.restore();
+      });
+      // Rapid fire HUD indicator
+      const rapidEffect = effects.find(e => e.type === 'RAPID');
+      if (rapidEffect) {
+        const remaining = ((rapidEffect.endsAt - now) / 1000).toFixed(1);
+        ctx.save();
+        ctx.fillStyle = '#06b6d4'; ctx.font = 'bold 12px monospace';
+        ctx.textAlign = 'left'; ctx.globalAlpha = 0.9;
+        ctx.fillText('⚡ RAPID ' + remaining + 's', 12, 110);
+        ctx.restore();
+      }
+    }
+
+    return { maybeSpawn, update, draw, isRapidActive };
+  })();
+  // ─── END POWER-UP DROPS ─────────────────────────────────────────────────────
+
   /* ====== GAME UPDATE ====== */
   const updateGame = (dt, now) => {
     if (!player) return;
     player.update(dt);
     consumeTimedEffects(now);
     updateComboSystem(); // Phase 1: Update combo timer
+    // Power-up pickup collection
+    PowerUps.update(player.x, player.y, Date.now());
     const targetX = player.x - window.innerWidth / 2;
     const targetY = player.y - window.innerHeight / 2;
     camera.x += (targetX - camera.x) * 0.12;
@@ -8441,6 +8562,8 @@
     }
     
     drawParticles(ctx, 16.67);
+    // Draw power-up orbs (in world space, before ctx.restore)
+    PowerUps.draw(ctx);
     player.draw(ctx);
     ctx.restore();
     
