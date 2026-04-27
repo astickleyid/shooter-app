@@ -888,6 +888,15 @@
   let comboTimer = 0;
   const COMBO_TIMEOUT = 2500; // ms - time between kills to maintain combo
   let totalKillsThisRun = 0;
+
+  // Kill Combo Multiplier System
+  let killComboMultiplier = 1;       // Current score multiplier (1–5)
+  let killComboTimerEnd = 0;         // Timestamp when combo window closes
+  const KILL_COMBO_WINDOW = 2000;    // ms - consecutive kill window
+  const KILL_COMBO_MAX = 5;          // Max multiplier
+  let killComboSplashStart = 0;      // When the splash was last shown
+  let killComboEscalated = false;    // True the frame multiplier just increased
+  let killComboEscalatedStart = 0;   // Timestamp for COMBO ESCALATED flash
   let lastKillStreakNotification = 0;
   const KILL_STREAK_MILESTONES = [5, 10, 25, 50, 100, 200];
 
@@ -1674,6 +1683,13 @@
     lastKillStreakNotification = 0;
     damageNumbers.length = 0;
     levelUpAnimationActive = false;
+
+    // Kill combo multiplier reset
+    killComboMultiplier = 1;
+    killComboTimerEnd = 0;
+    killComboSplashStart = 0;
+    killComboEscalated = false;
+    killComboEscalatedStart = 0;
     
     Object.keys(input).forEach((k) => {
       if (typeof input[k] === 'boolean') input[k] = false;
@@ -1793,11 +1809,18 @@
 
   // Phase 1: Reset combo on timeout
   const updateComboSystem = () => {
-    if (comboCount > 0 && performance.now() > comboTimer) {
+    const now = performance.now();
+    if (comboCount > 0 && now > comboTimer) {
       if (comboCount >= 5) {
         addLogEntry(`Combo ended: ${comboCount}x`, '#94a3b8');
       }
       comboCount = 0;
+    }
+
+    // Kill combo multiplier: reset when window expires
+    if (killComboMultiplier > 1 && now > killComboTimerEnd) {
+      killComboMultiplier = 1;
+      killComboTimerEnd = 0;
     }
   };
 
@@ -7231,11 +7254,36 @@
     }
     
     enemiesKilled++;
-    
+
+    // Kill Combo Multiplier: advance/extend on each kill
+    const _kcNow = performance.now();
+    const _prevMultiplier = killComboMultiplier;
+    if (_kcNow < killComboTimerEnd || killComboMultiplier > 1) {
+      // Already in a combo — escalate up to max
+      if (killComboMultiplier < KILL_COMBO_MAX) {
+        killComboMultiplier++;
+        killComboEscalated = true;
+        killComboEscalatedStart = _kcNow;
+      }
+    } else {
+      // First kill starting a new combo
+      killComboMultiplier = 2;
+      killComboEscalated = true;
+      killComboEscalatedStart = _kcNow;
+    }
+    killComboTimerEnd = _kcNow + KILL_COMBO_WINDOW;
+    killComboSplashStart = _kcNow;
+    if (_prevMultiplier === killComboMultiplier) {
+      // At max — escalated flag not needed
+      killComboEscalated = false;
+    }
+
     // Score calculation with elite/boss bonuses
     let scoreGain = 15 + (comboCount > 1 ? comboCount * 2 : 0);
     if (wasElite) scoreGain *= 3;
     if (wasBoss) scoreGain *= 20;
+    // Apply kill combo multiplier
+    scoreGain = Math.round(scoreGain * killComboMultiplier);
     score += scoreGain;
 
     // Power-up drop chance on enemy death
@@ -8580,8 +8628,72 @@
       ctx.restore();
     }
     
-    // SUBTLE: Draw combo counter - SMALLER, positioned in TOP RIGHT corner, out of gameplay area
+    // ── Kill Combo Multiplier Splash (upper-center) ──────────────────────────
     const now = performance.now();
+    if (killComboMultiplier >= 2) {
+      const SPLASH_LINGER = 500; // ms to keep showing after last kill before fade
+      const timeSinceKill = now - killComboSplashStart;
+      const alpha = timeSinceKill < KILL_COMBO_WINDOW - SPLASH_LINGER
+        ? 1
+        : Math.max(0, 1 - (timeSinceKill - (KILL_COMBO_WINDOW - SPLASH_LINGER)) / SPLASH_LINGER);
+
+      if (alpha > 0) {
+        ctx.save();
+        const cx = canvas.width / 2;
+        const cy = 54;
+
+        // Scale-up appear animation (first 200ms after each new kill)
+        const scaleT = Math.min(1, timeSinceKill / 200);
+        const scale = 0.5 + 0.5 * scaleT;
+
+        ctx.globalAlpha = alpha;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        // Glow
+        ctx.shadowColor = '#FFD700';
+        ctx.shadowBlur = 18;
+
+        ctx.font = `bold ${Math.round(32 * scale)}px Arial, sans-serif`;
+        ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+        ctx.lineWidth = 4;
+        ctx.strokeText(`COMBO x${killComboMultiplier}`, cx, cy);
+        ctx.fillStyle = '#FFD700';
+        ctx.fillText(`COMBO x${killComboMultiplier}`, cx, cy);
+
+        ctx.shadowBlur = 0;
+        ctx.restore();
+      }
+
+      // COMBO ESCALATED flash (brief, larger, center-screen)
+      if (killComboEscalated) {
+        const elapsed = now - killComboEscalatedStart;
+        const ESCALATE_DURATION = 700;
+        if (elapsed < ESCALATE_DURATION) {
+          const t = elapsed / ESCALATE_DURATION;
+          const flashAlpha = t < 0.25 ? t / 0.25 : 1 - ((t - 0.25) / 0.75);
+          const flashScale = 0.6 + 0.4 * Math.min(1, elapsed / 150);
+          ctx.save();
+          ctx.globalAlpha = flashAlpha * 0.95;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.shadowColor = '#FFD700';
+          ctx.shadowBlur = 30;
+          ctx.font = `bold ${Math.round(48 * flashScale)}px Arial, sans-serif`;
+          ctx.strokeStyle = 'rgba(0,0,0,0.9)';
+          ctx.lineWidth = 5;
+          ctx.strokeText('COMBO ESCALATED!', canvas.width / 2, canvas.height / 2 - 80);
+          ctx.fillStyle = '#FFD700';
+          ctx.fillText('COMBO ESCALATED!', canvas.width / 2, canvas.height / 2 - 80);
+          ctx.shadowBlur = 0;
+          ctx.restore();
+        } else {
+          killComboEscalated = false;
+        }
+      }
+    }
+
+    // SUBTLE: Draw combo counter - SMALLER, positioned in TOP RIGHT corner, out of gameplay area
     if (comboCount > 1 && now < comboTimer) {
       ctx.save();
       const comboAge = now - (comboTimer - COMBO_TIMEOUT);
