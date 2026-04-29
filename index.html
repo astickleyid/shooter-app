@@ -167,6 +167,15 @@
       <button id="unifiedMenuButton">☰</button>
     </div>
     
+    <!-- BOSS HEALTH BAR -->
+    <div id="bossBar" style="display:none; position:absolute; top:0; left:50%; transform:translateX(-50%); width:60%; max-width:480px; padding:8px 16px; z-index:20; text-align:center;">
+      <div id="bossBarLabel" style="font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:#ff4444; margin-bottom:4px;">&#9888; BOSS</div>
+      <div id="bossBarName" style="font-size:13px; font-weight:600; color:#fff; margin-bottom:6px;">Unknown</div>
+      <div style="background:rgba(255,255,255,0.15); border-radius:4px; height:8px; overflow:hidden;">
+        <div id="bossBarFill" style="height:100%; background:linear-gradient(90deg,#ff2222,#ff6644); width:100%; transition:width 0.1s;"></div>
+      </div>
+    </div>
+
     <!-- ACTION LOG -->
     <div id="actionLog"></div>
     

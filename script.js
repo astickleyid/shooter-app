@@ -744,6 +744,9 @@
     dom.scoreValue = document.getElementById('scoreValue');
     dom.levelValue = document.getElementById('levelValue');
     dom.healthBar = document.getElementById('healthBar');
+    dom.bossBar = document.getElementById('bossBar');
+    dom.bossBarFill = document.getElementById('bossBarFill');
+    dom.bossBarName = document.getElementById('bossBarName');
     dom.ammoBar = document.getElementById('ammoBar');
     dom.creditsText = document.getElementById('creditsText');
     dom.pilotLevelValue = document.getElementById('pilotLevelValue');
@@ -1675,7 +1678,8 @@
     waveStartTime = 0;
     bossActive = false;
     bossEntity = null;
-    
+    if (dom.bossBar) dom.bossBar.style.display = 'none';
+
     // Phase 1: Reset combo and kill streak
     comboCount = 0;
     comboTimer = 0;
@@ -7398,6 +7402,14 @@
     dom.levelValue.textContent = levelText;
     
     dom.healthBar.style.width = `${(player.health / player.hpMax) * 100}%`;
+    if (bossActive && bossEntity) {
+      dom.bossBar.style.display = 'block';
+      const bossPct = Math.max(0, (bossEntity.health / bossEntity.hpMax) * 100);
+      dom.bossBarFill.style.width = bossPct + '%';
+      dom.bossBarName.textContent = (bossEntity.kind || 'BOSS').toUpperCase();
+    } else {
+      dom.bossBar.style.display = 'none';
+    }
     dom.ammoBar.style.width = `${(player.ammo / player.ammoMax) * 100}%`;
     if (dom.ultBar && dom.ultText) {
       const pct = Math.min(100, Math.round((player.ultimateCharge / player.ultimateChargeMax) * 100));
