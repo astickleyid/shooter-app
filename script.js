@@ -767,6 +767,21 @@
     dom.leftTouchZone = document.getElementById('leftTouchZone');
     dom.rightTouchZone = document.getElementById('rightTouchZone');
     dom.abilityButton = document.getElementById('abilityButton');
+    // Wire up Q-ability HUD button (tap to fire special ability on mobile)
+    const _abilityQBtn = document.getElementById('abilityQBtn');
+    if (_abilityQBtn) {
+      _abilityQBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        if (gameRunning && !paused && !countdownActive && !readyUpPhase) {
+          fireSpecialAbility();
+        }
+      }, { passive: false });
+      _abilityQBtn.addEventListener('click', () => {
+        if (gameRunning && !paused && !countdownActive && !readyUpPhase) {
+          fireSpecialAbility();
+        }
+      });
+    }
     dom.controlSettingsButton = document.getElementById('controlSettingsButton');
     dom.controlSettingsModal = document.getElementById('controlSettingsModal');
     dom.closeControlSettings = document.getElementById('closeControlSettings');
@@ -828,6 +843,13 @@
   let enemiesToKill = 15;  // Increased from 10 for better pacing
   let enemiesKilled = 0;
   let lastTime = 0;
+
+  // ── Special Ability State ──────────────────────────────────────────────────
+  let specialCooldown = 0;       // ms remaining on cooldown
+  let specialCooldownMax = 6000; // ms total cooldown (varies per ship)
+  let specialAbilityQueued = false;
+  let shieldWall = null;         // { hp: 3, framesLeft: 180 } for Bulwark-7
+  let specialQKeyLatch = false;  // prevent key-repeat triggering ability twice
   let gameRunning = false;
   let paused = false;
   let lastAmmoRegen = 0;
@@ -1000,7 +1022,9 @@
     f: false,
     F: false,
     r: false,
-    R: false
+    R: false,
+    q: false,
+    Q: false
   };
 
   const defaultArmory = () => ({
@@ -1671,7 +1695,26 @@
     pilotXP = Save.data.pilotXp;
     tookDamageThisLevel = false;
     gameOverHandled = false;
-    
+
+    // Special ability reset
+    specialCooldown = 0;
+    shieldWall = null;
+    specialAbilityQueued = false;
+    specialQKeyLatch = false;
+    // Set cooldown max per selected ship
+    const _sid = Save.data.selectedShip;
+    specialCooldownMax = _sid === 'bulwark' ? 10000 : _sid === 'titan' ? 8000 : 6000;
+    // Show/hide ability HUD
+    const _abilityHud = document.getElementById('abilityHud');
+    if (_abilityHud) {
+      const _isSpecial = (_sid === 'spectre' || _sid === 'bulwark' || _sid === 'titan');
+      _abilityHud.style.display = _isSpecial ? 'flex' : 'none';
+      const _abilityNameEl = document.getElementById('abilityName');
+      if (_abilityNameEl) {
+        _abilityNameEl.textContent = _sid === 'bulwark' ? 'Shield Wall' : _sid === 'titan' ? 'Orbital Strike' : 'Phase Dash';
+      }
+    }
+
     // Wave system reset
     currentWaveType = 'standard';
     waveTimer = 0;
@@ -1758,6 +1801,87 @@
   const shakeScreen = (power = 4, duration = 120) => {
     shakeUntil = Math.max(shakeUntil, performance.now() + duration);
     shakePower = power;
+  };
+
+  // ── Special Ability: fire the Q-key ability for the current ship ───────────
+  const fireSpecialAbility = () => {
+    if (!player || !gameRunning || paused) return;
+    if (specialCooldown > 0) return;
+    const sid = Save.data.selectedShip;
+
+    if (sid === 'spectre') {
+      // Phase Dash — blink 150px in movement direction, invincible for 0.4s
+      const oldX = player.x;
+      const oldY = player.y;
+      const vx = player.vel.x || Math.cos(player.lookAngle);
+      const vy = player.vel.y || Math.sin(player.lookAngle);
+      const len = Math.hypot(vx, vy) || 1;
+      const cx = window.innerWidth;
+      const cy = window.innerHeight;
+      player.x = Math.max(player.size, Math.min(cx - player.size, player.x + (vx / len) * 150));
+      player.y = Math.max(player.size, Math.min(cy - player.size, player.y + (vy / len) * 150));
+      player.invEnd = performance.now() + 400; // 0.4s invincibility
+      // Cyan ghost trail particles at old position
+      for (let i = 0; i < 5; i++) {
+        particles.push({
+          x: oldX + (Math.random() - 0.5) * 12,
+          y: oldY + (Math.random() - 0.5) * 12,
+          vx: (Math.random() - 0.5) * 1.5,
+          vy: (Math.random() - 0.5) * 1.5,
+          life: 350,
+          c: '#22d3ee',
+          s: 4 + Math.random() * 3,
+          type: 'fade'
+        });
+      }
+      addLogEntry('Phase Dash!', '#22d3ee');
+      specialCooldown = specialCooldownMax;
+
+    } else if (sid === 'bulwark') {
+      // Shield Wall — arc absorbs up to 3 bullets for 3s
+      shieldWall = { hp: 3, framesLeft: 180 };
+      addLogEntry('Shield Wall!', '#2dd4bf');
+      specialCooldown = specialCooldownMax;
+
+    } else if (sid === 'titan') {
+      // Orbital Strike — 8 bullets in 360° spread
+      const dmg = player.health ? Math.round(20 * (currentShip?.stats?.damage || 1)) : 20;
+      for (let i = 0; i < 8; i++) {
+        const ang = (i / 8) * Math.PI * 2;
+        const vel = { x: Math.cos(ang), y: Math.sin(ang) };
+        bullets.push(new Bullet(
+          player.x + Math.cos(ang) * player.size,
+          player.y + Math.sin(ang) * player.size,
+          vel, dmg, '#fbbf24', BASE.BULLET_SPEED, BASE.BULLET_SIZE * 1.2, 0
+        ));
+      }
+      // Golden flash particles
+      for (let i = 0; i < 16; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const sp = 2 + Math.random() * 3;
+        particles.push({ x: player.x, y: player.y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, life: 350, c: '#fbbf24', s: 5, type: 'fade' });
+      }
+      shakeScreen(4, 8 * 16); // ~8 frames at 60fps
+      addLogEntry('Orbital Strike!', '#fbbf24');
+      specialCooldown = specialCooldownMax;
+    }
+  };
+
+  // ── Draw shield wall arc in front of Bulwark-7 ────────────────────────────
+  const drawShieldWall = (ctx) => {
+    if (!shieldWall || shieldWall.hp <= 0 || !player) return;
+    const ang = player.lookAngle;
+    const arc = (140 / 180) * Math.PI; // 140°
+    const r = player.size * 2.2;
+    ctx.save();
+    ctx.strokeStyle = `rgba(45,212,191,${0.4 + 0.4 * (shieldWall.framesLeft / 180)})`;
+    ctx.lineWidth = 5;
+    ctx.shadowColor = '#2dd4bf';
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, r, ang - arc / 2, ang + arc / 2);
+    ctx.stroke();
+    ctx.restore();
   };
 
   // Phase 1: Spawn floating damage number
@@ -7455,6 +7579,14 @@
     
     // Update equipment indicator
     updateEquipmentIndicator();
+
+    // ── Update ability HUD cooldown bar ──────────────────────────────────
+    const _fillEl = document.getElementById('abilityCooldownFill');
+    if (_fillEl) {
+      const _pct = specialCooldownMax > 0 ? (1 - specialCooldown / specialCooldownMax) * 100 : 100;
+      _fillEl.style.width = `${Math.max(0, Math.min(100, _pct))}%`;
+      _fillEl.style.background = specialCooldown > 0 ? '#94a3b8' : '#4ade80';
+    }
   };
 
   const renderActionLog = () => {
@@ -8152,6 +8284,22 @@
   const updateGame = (dt, now) => {
     if (!player) return;
     player.update(dt);
+
+    // ── Special ability cooldown tick ──────────────────────────────────────
+    if (specialCooldown > 0) {
+      specialCooldown = Math.max(0, specialCooldown - dt);
+    }
+    // Tick shield wall
+    if (shieldWall) {
+      shieldWall.framesLeft--;
+      if (shieldWall.framesLeft <= 0 || shieldWall.hp <= 0) shieldWall = null;
+    }
+    // Handle queued ability (from Q keypress)
+    if (specialAbilityQueued) {
+      specialAbilityQueued = false;
+      fireSpecialAbility();
+    }
+
     consumeTimedEffects(now);
     updateComboSystem(); // Phase 1: Update combo timer
     // Power-up pickup collection
@@ -8325,13 +8473,31 @@
       }
     }
     
-    // Handle enemy bullets hitting player
+    // Handle enemy bullets hitting player (or shield wall)
     for (let i = bullets.length - 1; i >= 0; i--) {
       const bullet = bullets[i];
       if (!bullet.isEnemy) continue;
       const dx = player.x - bullet.x;
       const dy = player.y - bullet.y;
-      if (Math.hypot(dx, dy) < player.size + bullet.size) {
+      const dist = Math.hypot(dx, dy);
+      if (dist < player.size + bullet.size) {
+        // Check if shield wall intercepts this bullet
+        if (shieldWall && shieldWall.hp > 0) {
+          // Shield covers front 140° arc
+          const bulletAngle = Math.atan2(bullet.y - player.y, bullet.x - player.x);
+          const angleDiff = Math.abs(((bulletAngle - player.lookAngle) + Math.PI * 3) % (Math.PI * 2) - Math.PI);
+          if (angleDiff < (70 / 180) * Math.PI) { // within 70° each side = 140° arc
+            bullets.splice(i, 1);
+            shieldWall.hp--;
+            addParticles('shield', bullet.x, bullet.y, 0, 6);
+            addLogEntry(`Shield Wall: ${shieldWall.hp} HP left`, '#2dd4bf');
+            if (shieldWall.hp <= 0) {
+              shieldWall = null;
+              addLogEntry('Shield Wall broken!', '#f97316');
+            }
+            continue;
+          }
+        }
         bullets.splice(i, 1);
         // Enemy bullets inherit shield penetration from adaptive scaling
         const adaptive = getAdaptiveScaling();
@@ -8625,6 +8791,8 @@
     // Draw power-up orbs (in world space, before ctx.restore)
     PowerUps.draw(ctx);
     player.draw(ctx);
+    // Draw Bulwark-7 shield wall arc
+    drawShieldWall(ctx);
     ctx.restore();
     
     // Draw FPS counter if enabled
@@ -11425,6 +11593,15 @@
         }
       }
       
+      // Q key: fire special ship ability
+      if ((e.key === 'q' || e.key === 'Q') && gameRunning && !paused && !countdownActive && !readyUpPhase) {
+        e.preventDefault();
+        if (!specialQKeyLatch) {
+          specialQKeyLatch = true;
+          specialAbilityQueued = true;
+        }
+      }
+
       // Equipment slot keyboard shortcuts (number keys 1-4)
       if (gameRunning && !paused && !countdownActive && !readyUpPhase) {
         if (handleEquipmentKeyboard(e)) {
@@ -11436,6 +11613,7 @@
       updateFromKeyboard();
     });
     document.addEventListener('keyup', (e) => {
+      if (e.key === 'q' || e.key === 'Q') specialQKeyLatch = false;
       if (Object.prototype.hasOwnProperty.call(keyboard, e.key)) keyboard[e.key] = false;
       updateFromKeyboard();
     });

@@ -176,6 +176,15 @@
       </div>
     </div>
 
+    <!-- ABILITY HUD (Q key special ability) -->
+    <div id="abilityHud" style="position:absolute;bottom:70px;left:50%;transform:translateX(-50%);display:none;align-items:center;gap:8px;font-family:monospace;font-size:13px;color:#fff;z-index:15;">
+      <button id="abilityQBtn" style="border:1px solid rgba(255,255,255,.4);padding:2px 8px;border-radius:4px;background:rgba(0,0,0,.4);color:#fff;cursor:pointer;font-family:monospace;font-size:13px;touch-action:manipulation;">Q</button>
+      <span id="abilityName" style="opacity:.8"></span>
+      <span id="abilityCooldownBar" style="width:80px;height:6px;background:rgba(255,255,255,.15);border-radius:3px;overflow:hidden;display:inline-block;">
+        <div id="abilityCooldownFill" style="height:100%;background:#4ade80;width:100%;transition:width .1s;"></div>
+      </span>
+    </div>
+
     <!-- ACTION LOG -->
     <div id="actionLog"></div>
     
