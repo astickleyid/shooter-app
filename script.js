@@ -4258,14 +4258,14 @@
       const adaptive = getAdaptiveScaling();
       
       // Base size scaling
-      const sizeMap = { heavy: 1.45, swarmer: 0.9, drone: 0.75 };
+      const sizeMap = { heavy: 1.45, swarmer: 0.9, drone: 0.75, sniper: 0.85 };
       let baseSize = BASE.ENEMY_SIZE * (sizeMap[kind] || 1);
       if (isElite) baseSize *= ADAPTIVE_CONSTANTS.ELITE_SIZE_MULT;
       if (isBoss) baseSize *= ADAPTIVE_CONSTANTS.BOSS_SIZE_MULT;
       this.size = baseSize;
       
       // Speed scaling with adaptive difficulty and progression
-      const speedMap = { heavy: 0.85, swarmer: 1.45, drone: 1.2 };
+      const speedMap = { heavy: 0.85, swarmer: 1.45, drone: 1.2, sniper: 0.7 };
       let baseSpeed = BASE.ENEMY_SPEED * (speedMap[kind] || 1.05) * diff.enemySpeed;
       baseSpeed *= adaptive.enemySpeedBoost;
       if (isElite) baseSpeed *= ADAPTIVE_CONSTANTS.ELITE_SPEED_MULT;
@@ -4273,7 +4273,7 @@
       this.speed = baseSpeed;
       
       // Health scaling with progressive difficulty
-      const baseHealth = kind === 'heavy' ? 3 : 1;
+      const baseHealth = kind === 'heavy' ? 3 : kind === 'sniper' ? 1.5 : 1;
       let health = Math.ceil(baseHealth * diff.enemyHealth * adaptive.progressiveHealthBonus);
       if (isElite) health *= ADAPTIVE_CONSTANTS.ELITE_HEALTH_MULT;
       if (isBoss) health *= ADAPTIVE_CONSTANTS.BOSS_BASE_HEALTH_MULT + level * ADAPTIVE_CONSTANTS.BOSS_HEALTH_PER_LEVEL;
@@ -4282,6 +4282,7 @@
       
       // Damage scaling with adaptive difficulty
       this.baseDamage = BASE.ENEMY_DAMAGE * diff.enemyDamage * adaptive.enemyDamageMultiplier;
+      if (kind === 'sniper') this.baseDamage *= 2.2; // Snipers hit hard
       if (isElite) this.baseDamage *= ADAPTIVE_CONSTANTS.ELITE_DAMAGE_MULT;
       if (isBoss) this.baseDamage *= ADAPTIVE_CONSTANTS.BOSS_DAMAGE_MULT;
       
@@ -4302,9 +4303,20 @@
       
       // Shooting capability for ranged enemies - more aggressive at higher levels
       const shootChance = level > ADAPTIVE_CONSTANTS.EASY_LEVELS ? 0.6 : 0.4;
-      this.canShoot = isBoss || (isElite && Math.random() < shootChance);
+      this.canShoot = isBoss || kind === 'sniper' || (isElite && Math.random() < shootChance);
       this.lastShot = 0;
       this.shotCooldown = isBoss ? Math.max(1000, 1500 - level * 30) : Math.max(1500, 2500 - level * 50);
+      
+      // Sniper-specific state: telegraph charge-up before firing
+      if (kind === 'sniper') {
+        this.sniperPhase = 'idle';   // 'idle' | 'aiming' | 'cooldown'
+        this.sniperTimer = 0;
+        this.sniperAimDuration = Math.max(700, 1100 - level * 15); // aim window (ms)
+        this.sniperCooldown = Math.max(1800, 3200 - level * 30);   // time between shots (ms)
+        this.sniperAimAngle = 0;     // locked aim angle during telegraph
+        this.sniperLaserAlpha = 0;   // for fade-in telegraph line
+        this.canShoot = false;       // sniper manages its own firing
+      }
       
       this.animPhase = Math.random() * Math.PI * 2;
       this.hitFlash = 0;
@@ -4874,6 +4886,170 @@
           ctx.fill();
           ctx.globalAlpha = 1;
         }
+      }  // end swarmer draw
+      if (this.kind === 'sniper') {
+        // SPRITE-STYLE TEAL SNIPER - Long-range railgun platform
+        // Narrow, elongated design with a prominent barrel
+        const outlineColor = '#000000';
+        const isAiming = this.sniperPhase === 'aiming';
+        const aimGlow = isAiming ? (Math.sin(performance.now() / 80) * 0.3 + 0.7) : 0;
+
+        // Draw laser telegraph BEFORE rotating with the ship (world space)
+        if (isAiming && player) {
+          ctx.save();
+          ctx.rotate(-this.rot); // undo ship rotation — draw in world-aligned space
+          const aimDx = Math.cos(this.sniperAimAngle);
+          const aimDy = Math.sin(this.sniperAimAngle);
+          const laserLen = 900;
+          const alpha = this.sniperLaserAlpha * (0.5 + aimGlow * 0.5);
+          // Outer glow
+          ctx.save();
+          ctx.globalAlpha = alpha * 0.35;
+          ctx.strokeStyle = '#00ffcc';
+          ctx.lineWidth = 8;
+          ctx.shadowColor = '#00ffcc';
+          ctx.shadowBlur = 18;
+          ctx.beginPath();
+          ctx.moveTo(this.size * 0.9 * Math.cos(this.sniperAimAngle - this.rot + 0),
+                     this.size * 0.9 * Math.sin(this.sniperAimAngle - this.rot + 0));
+          ctx.lineTo(aimDx * laserLen, aimDy * laserLen);
+          ctx.stroke();
+          ctx.restore();
+          // Core beam
+          ctx.save();
+          ctx.globalAlpha = alpha * 0.9;
+          ctx.strokeStyle = '#ccfff6';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(this.size * 0.9 * Math.cos(this.sniperAimAngle - this.rot),
+                     this.size * 0.9 * Math.sin(this.sniperAimAngle - this.rot));
+          ctx.lineTo(aimDx * laserLen, aimDy * laserLen);
+          ctx.stroke();
+          ctx.restore();
+          ctx.restore();
+        }
+
+        // Main elongated body
+        ctx.fillStyle = damaged ? '#0e7490' : '#0891b2';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(this.size * 1.8, 0);           // nose tip
+        ctx.lineTo(this.size * 1.3, -this.size * 0.3);
+        ctx.lineTo(this.size * 0.6, -this.size * 0.55);
+        ctx.lineTo(-this.size * 0.5, -this.size * 0.55);
+        ctx.lineTo(-this.size * 0.9, -this.size * 0.3);
+        ctx.lineTo(-this.size * 1.0, 0);
+        ctx.lineTo(-this.size * 0.9, this.size * 0.3);
+        ctx.lineTo(-this.size * 0.5, this.size * 0.55);
+        ctx.lineTo(this.size * 0.6, this.size * 0.55);
+        ctx.lineTo(this.size * 1.3, this.size * 0.3);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Railgun barrel — the defining visual feature
+        ctx.fillStyle = '#1e293b';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(this.size * 1.8, -this.size * 0.1);
+        ctx.lineTo(this.size * 2.6, -this.size * 0.07);
+        ctx.lineTo(this.size * 2.6, this.size * 0.07);
+        ctx.lineTo(this.size * 1.8, this.size * 0.1);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        // Barrel tip flash when aiming
+        if (isAiming) {
+          ctx.save();
+          ctx.globalAlpha = aimGlow * 0.9;
+          ctx.fillStyle = '#00ffcc';
+          ctx.shadowColor = '#00ffcc';
+          ctx.shadowBlur = 14;
+          ctx.beginPath();
+          ctx.arc(this.size * 2.6, 0, this.size * 0.15, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        // Inner hull panel — darker teal
+        ctx.fillStyle = damaged ? '#155e75' : '#0e7490';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(this.size * 1.4, 0);
+        ctx.lineTo(this.size * 1.0, -this.size * 0.35);
+        ctx.lineTo(-this.size * 0.3, -this.size * 0.4);
+        ctx.lineTo(-this.size * 0.7, 0);
+        ctx.lineTo(-this.size * 0.3, this.size * 0.4);
+        ctx.lineTo(this.size * 1.0, this.size * 0.35);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Cockpit canopy — forward-facing visor
+        ctx.fillStyle = isAiming ? '#00ffcc' : '#38bdf8';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(this.size * 0.9, 0, this.size * 0.28, this.size * 0.18, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#7dd3fc';
+        ctx.beginPath();
+        ctx.ellipse(this.size * 0.95, -this.size * 0.07, this.size * 0.1, this.size * 0.07, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Side sensor wings (small stabilizers)
+        ctx.fillStyle = '#164e63';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
+        // Top fin
+        ctx.beginPath();
+        ctx.moveTo(this.size * 0.3, -this.size * 0.55);
+        ctx.lineTo(this.size * 0.5, -this.size * 0.85);
+        ctx.lineTo(-this.size * 0.1, -this.size * 0.85);
+        ctx.lineTo(-this.size * 0.2, -this.size * 0.55);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        // Bottom fin
+        ctx.beginPath();
+        ctx.moveTo(this.size * 0.3, this.size * 0.55);
+        ctx.lineTo(this.size * 0.5, this.size * 0.85);
+        ctx.lineTo(-this.size * 0.1, this.size * 0.85);
+        ctx.lineTo(-this.size * 0.2, this.size * 0.55);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Panel lines
+        ctx.strokeStyle = '#083344';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(this.size * 1.2, 0);
+        ctx.lineTo(-this.size * 0.5, 0);
+        ctx.moveTo(this.size * 0.6, -this.size * 0.4);
+        ctx.lineTo(this.size * 0.6, this.size * 0.4);
+        ctx.stroke();
+
+        // Engine thrusters
+        const thrusterPulse = Math.sin(performance.now() / 110) * 0.2 + 0.8;
+        ctx.save();
+        ctx.globalAlpha = thrusterPulse;
+        ctx.fillStyle = '#22d3ee';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 0.95, -this.size * 0.22, this.size * 0.13, this.size * 0.09, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 0.95, this.size * 0.22, this.size * 0.13, this.size * 0.09, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
       }
       ctx.shadowBlur = 0;
       ctx.restore();
@@ -5009,6 +5185,85 @@
             this.swoopTimer = 0;
           }
         }
+      } else if (this.kind === 'sniper') {
+        // Sniper: keep preferred distance, strafe sideways, and telegraph shots
+        const preferredMin = 220;
+        const preferredMax = 380;
+        const now = performance.now();
+
+        if (this.sniperPhase === 'idle') {
+          // Strafe to maintain preferred distance
+          if (dist < preferredMin) {
+            // Too close — back away
+            movementX = -(dx / dist);
+            movementY = -(dy / dist);
+          } else if (dist > preferredMax) {
+            // Too far — close in slowly
+            movementX = (dx / dist) * 0.5;
+            movementY = (dy / dist) * 0.5;
+          } else {
+            // At preferred range — strafe perpendicular
+            if (!this.strafeDir) this.strafeDir = Math.random() < 0.5 ? 1 : -1;
+            movementX = (-dy / dist) * this.strafeDir * 0.8;
+            movementY = (dx / dist) * this.strafeDir * 0.8;
+            // Occasionally flip strafe direction
+            if (!this.strafeFlipTimer) this.strafeFlipTimer = 0;
+            this.strafeFlipTimer += dt;
+            if (this.strafeFlipTimer > 1800) {
+              this.strafeDir *= -1;
+              this.strafeFlipTimer = 0;
+            }
+          }
+          // Transition to aiming when in range and cooldown expired
+          this.sniperTimer += dt;
+          if (this.sniperTimer >= this.sniperCooldown && dist < preferredMax + 60 && player) {
+            this.sniperPhase = 'aiming';
+            this.sniperTimer = 0;
+            this.sniperLaserAlpha = 0;
+            // Lock aim angle at the player's current position
+            this.sniperAimAngle = Math.atan2(player.y - this.y, player.x - this.x);
+          }
+        } else if (this.sniperPhase === 'aiming') {
+          // Hold position — minimal movement during aim
+          movementX *= 0.08;
+          movementY *= 0.08;
+          this.sniperTimer += dt;
+          // Fade in the laser telegraph
+          this.sniperLaserAlpha = Math.min(1, this.sniperTimer / (this.sniperAimDuration * 0.5));
+          if (this.sniperTimer >= this.sniperAimDuration && player) {
+            // FIRE the sniper shot
+            const shotAngle = this.sniperAimAngle;
+            const vel = { x: Math.cos(shotAngle), y: Math.sin(shotAngle) };
+            const sniperDamage = this.baseDamage * 1.5;
+            const sniperSpeed = BASE.BULLET_SPEED * 2.2;
+            bullets.push(new Bullet(this.x, this.y, vel, sniperDamage, '#00ffcc', sniperSpeed, BASE.BULLET_SIZE * 1.8, 0, true));
+            addParticles('muzzle', this.x, this.y, shotAngle, 6);
+            addParticles('sparks', this.x, this.y, shotAngle, 4);
+            // Subtle recoil shake
+            shakeScreen(3, 80);
+            this.sniperPhase = 'cooldown';
+            this.sniperTimer = 0;
+            this.sniperLaserAlpha = 0;
+          }
+        } else if (this.sniperPhase === 'cooldown') {
+          // Move during cooldown — reposition
+          if (dist < preferredMin) {
+            movementX = -(dx / dist);
+            movementY = -(dy / dist);
+          } else if (dist > preferredMax) {
+            movementX = (dx / dist) * 0.4;
+            movementY = (dy / dist) * 0.4;
+          } else {
+            movementX *= 0.2;
+            movementY *= 0.2;
+          }
+          this.sniperTimer += dt;
+          if (this.sniperTimer >= this.sniperCooldown * 0.35) {
+            // Short cooldown before ready to aim again
+            this.sniperPhase = 'idle';
+            this.sniperTimer = 0;
+          }
+        }
       }
       
       const nx = movementX + ax;
@@ -5016,7 +5271,14 @@
       const nm = Math.hypot(nx, ny) || 1;
       this.x += (nx / nm) * this.speed * (dt / 16.67);
       this.y += (ny / nm) * this.speed * (dt / 16.67);
-      this.rot = Math.atan2(ny, nx);
+      // Snipers lock rotation to aim angle during telegraph; otherwise face player
+      if (this.kind === 'sniper' && (this.sniperPhase === 'aiming' || this.sniperPhase === 'cooldown')) {
+        this.rot = this.sniperAimAngle;
+      } else if (this.kind === 'sniper' && player) {
+        this.rot = Math.atan2(player.y - this.y, player.x - this.x);
+      } else {
+        this.rot = Math.atan2(ny, nx);
+      }
       
       // Ranged attacks for elite and boss enemies
       const now = performance.now();
@@ -5221,7 +5483,15 @@
       
       // Determine enemy type
       const roll = Math.random();
-      const kind = roll < 0.15 ? 'heavy' : roll < 0.35 ? 'swarmer' : roll < 0.55 ? 'chaser' : 'drone';
+      // Snipers unlock at level 3, chance scales up to 15% by level 10
+      const sniperChance = level >= 3 ? Math.min(0.15, (level - 2) * 0.018) : 0;
+      let kind;
+      if (roll < sniperChance) {
+        kind = 'sniper';
+      } else {
+        const r2 = Math.random();
+        kind = r2 < 0.15 ? 'heavy' : r2 < 0.35 ? 'swarmer' : r2 < 0.55 ? 'chaser' : 'drone';
+      }
       
       // Determine if enemy is elite based on adaptive difficulty
       let eliteChance = adaptive.eliteChance;
@@ -7332,7 +7602,8 @@
                        wasElite ? '#f59e0b' :
                        enemy.kind === 'drone' ? '#ef4444' : 
                        enemy.kind === 'chaser' ? '#e879f9' :
-                       enemy.kind === 'heavy' ? '#4ade80' : '#fb923c';
+                       enemy.kind === 'heavy' ? '#4ade80' :
+                       enemy.kind === 'sniper' ? '#00ffcc' : '#fb923c';
     
     // Phase A.4: Shockwave ring
     addParticles('ring', enemy.x, enemy.y, 0, wasBoss ? 3 : 1, deathColor);
@@ -7369,6 +7640,12 @@
     } else if (enemy.kind === 'swarmer') {
       addParticles('sparks', enemy.x, enemy.y, 0, 15);
       addParticles('pop', enemy.x, enemy.y, 0, 10);
+    } else if (enemy.kind === 'sniper') {
+      addParticles('ring', enemy.x, enemy.y, 0, 2, '#00ffcc');
+      addParticles('sparks', enemy.x, enemy.y, 0, 14);
+      addParticles('debris', enemy.x, enemy.y, 0, 10);
+      shakeScreen(4, 100);
+      addLogEntry('Sniper eliminated!', '#00ffcc');
     } else {
       addParticles('sparks', enemy.x, enemy.y, 0, 12);
       addParticles('debris', enemy.x, enemy.y, 0, 8);
