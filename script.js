@@ -908,6 +908,199 @@
   const MAX_LOG_ENTRIES = 5;
   const LOG_ENTRY_LIFETIME = 4000; // ms
 
+  // ── ROGUELITE PERK SYSTEM ─────────────────────────────────────────────────
+  // Perks selected during a run; reset on game over / new game
+  let waveUpgradeActive = false; // true while card picker is showing
+  let activePerks = [];   // array of perk ids chosen this run
+  let perkMultipliers = {
+    bulletSpeed:    1,
+    maxHp:          0,   // flat bonus added to max HP
+    ammoRegenMult:  1,   // multiplier on regen interval (< 1 = faster)
+    invulnBonus:    0,   // added ms to invuln window
+    chainDamage:    0,   // area damage on kill (0 = disabled)
+    damage:         1,
+    speed:          1,
+    hp:             0,   // immediate HP given once on pickup
+    fireRate:       1,   // multiplier on fire cooldown (< 1 = faster)
+    twinShot:       0,   // probability 0-1 of firing second bullet
+    dashCooldown:   1,   // multiplier on dash/boost cooldown
+    coinBonus:      1    // multiplier on coin/credit drops
+  };
+
+  const PERK_CATALOG = [
+    {
+      id: 'overclock',
+      name: 'Overclock',
+      icon: '⚡',
+      flavor: 'Supercharge your firing circuits.',
+      stat: '+20% Fire Rate',
+      apply(m) { m.fireRate = Math.max(0.3, m.fireRate * 0.8); }
+    },
+    {
+      id: 'iron_hull',
+      name: 'Iron Hull',
+      icon: '🛡',
+      flavor: 'Reinforced plating doubles your staying power.',
+      stat: '+25 Max HP',
+      apply(m) { m.maxHp += 25; }
+    },
+    {
+      id: 'rapid_loader',
+      name: 'Rapid Loader',
+      icon: '🔋',
+      flavor: 'Ammo cells charge at breakneck speed.',
+      stat: 'Ammo Regen +30%',
+      apply(m) { m.ammoRegenMult = Math.max(0.3, m.ammoRegenMult * 0.7); }
+    },
+    {
+      id: 'ghost_protocol',
+      name: 'Ghost Protocol',
+      icon: '👻',
+      flavor: 'Phase shifts buy precious milliseconds.',
+      stat: 'Invuln +100ms',
+      apply(m) { m.invulnBonus += 100; }
+    },
+    {
+      id: 'chain_reaction',
+      name: 'Chain Reaction',
+      icon: '💥',
+      flavor: 'Every kill is a tiny nova waiting to happen.',
+      stat: 'Kills deal 20 area dmg',
+      apply(m) { m.chainDamage = Math.max(m.chainDamage, 20); }
+    },
+    {
+      id: 'overcharge',
+      name: 'Overcharge',
+      icon: '🔥',
+      flavor: 'Your weapons burn hotter with every shot.',
+      stat: '+20% Damage',
+      apply(m) { m.damage *= 1.20; }
+    },
+    {
+      id: 'slipstream',
+      name: 'Slipstream',
+      icon: '💨',
+      flavor: 'Void currents bend to your will.',
+      stat: '+20% Move Speed',
+      apply(m) { m.speed *= 1.20; }
+    },
+    {
+      id: 'fortify',
+      name: 'Fortify',
+      icon: '❤️',
+      flavor: 'Emergency nanobots patch up the hull.',
+      stat: 'Restore 20 HP',
+      apply(m) { m.hp += 20; }
+    },
+    {
+      id: 'twin_shot',
+      name: 'Twin Shot',
+      icon: '🎯',
+      flavor: 'Dual barrels double your threat potential.',
+      stat: '25% chance: 2 bullets',
+      apply(m) { m.twinShot = Math.min(1, m.twinShot + 0.25); }
+    },
+    {
+      id: 'phase_shift',
+      name: 'Phase Shift',
+      icon: '🌀',
+      flavor: 'Fold space between cooldown intervals.',
+      stat: 'Dash Cooldown -25%',
+      apply(m) { m.dashCooldown = Math.max(0.3, m.dashCooldown * 0.75); }
+    },
+    {
+      id: 'salvage',
+      name: 'Salvage',
+      icon: '💰',
+      flavor: 'Strip every wreck for every last credit.',
+      stat: '+50% Coin Drops',
+      apply(m) { m.coinBonus *= 1.5; }
+    },
+    {
+      id: 'railhead',
+      name: 'Railhead',
+      icon: '🚀',
+      flavor: 'Projectiles scream through the void faster.',
+      stat: '+15% Bullet Speed',
+      apply(m) { m.bulletSpeed *= 1.15; }
+    }
+  ];
+
+  /**
+   * Pick n unique perks not yet chosen this run (or all if fewer remain).
+   */
+  const _pickRandomPerks = (n = 3) => {
+    const available = PERK_CATALOG.filter(p => !activePerks.includes(p.id));
+    const pool = available.length ? available : PERK_CATALOG; // allow repeats if catalog exhausted
+    const shuffled = pool.slice().sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, Math.min(n, shuffled.length));
+  };
+
+  /**
+   * Apply a chosen perk to the live multiplier object and
+   * immediately apply one-time effects (HP heal).
+   */
+  const _applyPerk = (perkId) => {
+    const perk = PERK_CATALOG.find(p => p.id === perkId);
+    if (!perk) return;
+    activePerks.push(perkId);
+    perk.apply(perkMultipliers);
+
+    // One-time HP heal
+    if (perkMultipliers.hp > 0 && player) {
+      const heal = perkMultipliers.hp;
+      player.hp = Math.min(player.maxHp + perkMultipliers.maxHp, player.hp + heal);
+      perkMultipliers.hp = 0; // consumed
+    }
+
+    addLogEntry(`PERK: ${perk.name}`, '#a5b4fc');
+  };
+
+  /**
+   * Show the wave-upgrade card picker overlay.
+   * Called just before startCountdownFromReadyUp().
+   * @param {Function} onChosen  callback invoked after a card is picked
+   */
+  const showWaveUpgradeScreen = (onChosen) => {
+    const modal = document.getElementById('waveUpgradeModal');
+    const container = document.getElementById('waveUpgradeCards');
+    const titleEl = document.getElementById('waveUpgradeTitle');
+    if (!modal || !container) { onChosen && onChosen(); return; }
+
+    waveUpgradeActive = true;
+    titleEl && (titleEl.textContent = `CHOOSE AN UPGRADE — WAVE ${readyUpLevel}`);
+
+    const picks = _pickRandomPerks(3);
+    container.innerHTML = '';
+
+    picks.forEach(perk => {
+      const card = document.createElement('div');
+      card.className = 'wave-card';
+      card.innerHTML = `
+        <div class="wave-card-icon">${perk.icon}</div>
+        <div class="wave-card-name">${perk.name}</div>
+        <div class="wave-card-flavor">${perk.flavor}</div>
+        <div class="wave-card-stat">${perk.stat}</div>
+      `;
+      const _pick = () => {
+        if (!waveUpgradeActive) return;
+        waveUpgradeActive = false;
+        _applyPerk(perk.id);
+        modal.classList.remove('active');
+        onChosen && onChosen();
+      };
+      card.addEventListener('click', _pick);
+      card.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        _pick();
+      }, { passive: false });
+      container.appendChild(card);
+    });
+
+    modal.classList.add('active');
+  };
+  // ── END PERK SYSTEM ───────────────────────────────────────────────────────
+
   // Phase 1: Combo & Kill Streak System
   let comboCount = 0;
   let comboTimer = 0;
@@ -1737,6 +1930,24 @@
     killComboSplashStart = 0;
     killComboEscalated = false;
     killComboEscalatedStart = 0;
+
+    // Roguelite perk reset (new run)
+    waveUpgradeActive = false;
+    activePerks = [];
+    perkMultipliers = {
+      bulletSpeed:   1,
+      maxHp:         0,
+      ammoRegenMult: 1,
+      invulnBonus:   0,
+      chainDamage:   0,
+      damage:        1,
+      speed:         1,
+      hp:            0,
+      fireRate:      1,
+      twinShot:      0,
+      dashCooldown:  1,
+      coinBonus:     1
+    };
     
     Object.keys(input).forEach((k) => {
       if (typeof input[k] === 'boolean') input[k] = false;
@@ -5640,16 +5851,16 @@
       // Fire rate: diminishing returns on very fast fire rates
       const fireBase = clamp(140 - L('firerate') * 18 * effectiveness, 55, 999) * shipStat('fireRate', 1);
       
-      // HP: full benefit (survivability shouldn't be nerfed too hard)
-      const hpBase = (BASE.PLAYER_HEALTH + L('shield') * 22) * shipStat('hp', 1);
+      // HP: full benefit (survivability shouldn't be nerfed too hard) + perk bonus
+      const hpBase = (BASE.PLAYER_HEALTH + L('shield') * 22) * shipStat('hp', 1) + perkMultipliers.maxHp;
       
       // Pickup and ammo regen: slight effectiveness reduction
       const pickupBase = (26 + L('magnet') * 14 * effectiveness) * shipStat('pickup', 1);
-      const ammoRegenBase = clamp((BASE.AMMO_REGEN_MS - L('ammo') * 120 * effectiveness) * shipStat('ammoRegen', 1), 280, 2200);
+      const ammoRegenBase = clamp((BASE.AMMO_REGEN_MS - L('ammo') * 120 * effectiveness) * shipStat('ammoRegen', 1) * perkMultipliers.ammoRegenMult, 180, 2200);
       
-      // Speed bonuses: keep full benefit for mobility
-      const baseSpeed = BASE.PLAYER_SPEED * shipStat('speed', 1);
-      const boostSpeed = (BASE.PLAYER_BOOST_SPEED + L('boost') * 0.9) * shipStat('boost', shipStat('speed', 1));
+      // Speed bonuses: keep full benefit for mobility (+ perk multiplier)
+      const baseSpeed = BASE.PLAYER_SPEED * shipStat('speed', 1) * perkMultipliers.speed;
+      const boostSpeed = (BASE.PLAYER_BOOST_SPEED + L('boost') * 0.9) * shipStat('boost', shipStat('speed', 1)) * perkMultipliers.speed;
       
       // Damage and regen: apply effectiveness modifier
       const damageMultiplier = (1 + L('damage') * 0.6 * effectiveness);
@@ -5660,8 +5871,8 @@
       const repulseEffective = repulseBase * adaptive.repulseEffectiveness;
       
       return {
-        fireCD: clamp(fireBase * (weaponStats.cd || 1), 35, 999),
-        dmg: damageMultiplier * shipStat('damage', 1) * (weaponStats.damage || 1),
+        fireCD: clamp(fireBase * (weaponStats.cd || 1) * perkMultipliers.fireRate, 35, 999),
+        dmg: damageMultiplier * shipStat('damage', 1) * (weaponStats.damage || 1) * perkMultipliers.damage,
         multishot: 1 + L('multi') + (weaponStats.shots || 0),
         hpMax: hpBase,
         hpRegen5: regenAmount,
@@ -5979,10 +6190,17 @@
         const vel = { x: Math.cos(angle), y: Math.sin(angle) };
         const sx = this.x + Math.cos(angle) * this.size * 0.9;
         const sy = this.y + Math.sin(angle) * this.size * 0.9;
-        const speed = BASE.BULLET_SPEED * (weaponStats.bulletSpeed || 1);
+        const speed = BASE.BULLET_SPEED * (weaponStats.bulletSpeed || 1) * perkMultipliers.bulletSpeed;
         const size = BASE.BULLET_SIZE * (weaponStats.bulletSize || 1);
         const pierce = weaponStats.pierce || 0;
-        bullets.push(new Bullet(sx, sy, vel, stats.dmg, color, speed, size, pierce));
+        const dmg = stats.dmg * perkMultipliers.damage;
+        bullets.push(new Bullet(sx, sy, vel, dmg, color, speed, size, pierce));
+        // Twin Shot perk: fire a second bullet with slight angle offset
+        if (perkMultipliers.twinShot > 0 && Math.random() < perkMultipliers.twinShot) {
+          const twinAngle = angle + (Math.random() < 0.5 ? 0.08 : -0.08);
+          const twinVel = { x: Math.cos(twinAngle), y: Math.sin(twinAngle) };
+          bullets.push(new Bullet(sx, sy, twinVel, dmg, color, speed, size, pierce));
+        }
       }
       addParticles('muzzle', this.x, this.y, this.lookAngle, 6);
       
@@ -6181,7 +6399,7 @@
       tookDamageThisLevel = true;
       this.health -= amount;
       this.flash = true;
-      this.invEnd = now + BASE.INVULN_MS;
+      this.invEnd = now + BASE.INVULN_MS + perkMultipliers.invulnBonus;
       shakeScreen(4, 120);
       
       // Play player damage sound
@@ -7580,8 +7798,11 @@
     // Phase 1: Add to combo system
     addComboKill();
     
-    // Drop more coins for elite/boss
+    // Drop more coins for elite/boss (+ Salvage perk bonus drops)
     dropCoin(enemy.x, enemy.y);
+    if (perkMultipliers.coinBonus > 1 && Math.random() < (perkMultipliers.coinBonus - 1)) {
+      dropCoin(enemy.x + rand(-15, 15), enemy.y + rand(-15, 15));
+    }
     if (wasElite) {
       dropCoin(enemy.x + rand(-20, 20), enemy.y + rand(-20, 20));
       dropCoin(enemy.x + rand(-20, 20), enemy.y + rand(-20, 20));
@@ -7651,13 +7872,28 @@
       addParticles('debris', enemy.x, enemy.y, 0, 8);
     }
     
+    // Chain Reaction perk: on-kill area explosion
+    if (perkMultipliers.chainDamage > 0) {
+      const chainR = 60;
+      addParticles('ring', enemy.x, enemy.y, 0, 1, '#a5b4fc');
+      enemies.forEach(nearby => {
+        if (nearby !== enemy) {
+          const dx = nearby.x - enemy.x;
+          const dy = nearby.y - enemy.y;
+          if (Math.hypot(dx, dy) <= chainR) {
+            nearby.hp -= perkMultipliers.chainDamage;
+          }
+        }
+      });
+    }
+
     enemies.splice(index, 1);
-    
+
     // Mark boss as dead
     if (wasBoss && enemy === bossEntity) {
       bossEntity = null;
     }
-    
+
     enemiesKilled++;
 
     // Kill Combo Multiplier: advance/extend on each kill
@@ -11729,9 +11965,12 @@
     let tapTimeout = null;
     
     const handleGameTap = (clientX, clientY) => {
-      // NEW: Handle ready-up phase taps - tap anywhere to start
+      // Roguelite: if upgrade picker is open, ignore taps on the game canvas
+      if (waveUpgradeActive) return;
+
+      // Show upgrade card picker on wave clear, then continue to countdown
       if (readyUpPhase) {
-        startCountdownFromReadyUp();
+        showWaveUpgradeScreen(() => startCountdownFromReadyUp());
         return;
       }
       
@@ -11828,7 +12067,9 @@
       if (readyUpPhase) {
         if (e.key === ' ' || e.key === 'Enter') {
           e.preventDefault();
-          startCountdownFromReadyUp();
+          if (!waveUpgradeActive) {
+            showWaveUpgradeScreen(() => startCountdownFromReadyUp());
+          }
           return;
         }
         if (e.key === 's' || e.key === 'S') {
@@ -11897,10 +12138,12 @@
 
     if (dom.canvas) {
       dom.canvas.addEventListener('mousedown', (e) => {
-        // NEW: Handle ready-up phase click - anywhere on screen
+        // Handle ready-up phase click - show upgrade picker first
         if (readyUpPhase) {
           e.preventDefault();
-          startCountdownFromReadyUp();
+          if (!waveUpgradeActive) {
+            showWaveUpgradeScreen(() => startCountdownFromReadyUp());
+          }
           return;
         }
         
