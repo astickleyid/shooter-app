@@ -913,37 +913,109 @@
   let waveUpgradeActive = false; // true while card picker is showing
   let activePerks = [];   // array of perk ids chosen this run
   let perkMultipliers = {
-    bulletSpeed:    1,
-    maxHp:          0,   // flat bonus added to max HP
-    ammoRegenMult:  1,   // multiplier on regen interval (< 1 = faster)
-    invulnBonus:    0,   // added ms to invuln window
-    chainDamage:    0,   // area damage on kill (0 = disabled)
-    damage:         1,
-    speed:          1,
-    hp:             0,   // immediate HP given once on pickup
-    fireRate:       1,   // multiplier on fire cooldown (< 1 = faster)
-    twinShot:       0,   // probability 0-1 of firing second bullet
-    dashCooldown:   1,   // multiplier on dash/boost cooldown
-    coinBonus:      1    // multiplier on coin/credit drops
+    bulletSpeed:         1,
+    maxHp:               0,   // flat bonus added to max HP
+    ammoRegenMult:       1,   // multiplier on regen interval (< 1 = faster)
+    invulnBonus:         0,   // added ms to invuln window
+    chainDamage:         0,   // area damage on kill (0 = disabled)
+    damage:              1,
+    speed:               1,
+    hp:                  0,   // immediate HP given once on pickup
+    fireRate:            1,   // multiplier on fire cooldown (< 1 = faster)
+    twinShot:            0,   // probability 0-1 of firing second bullet
+    dashCooldown:        1,   // multiplier on dash/boost cooldown
+    coinBonus:           1,   // multiplier on coin/credit drops
+    lifestealPerKill:    0,   // HP healed per enemy kill
+    damageTakenMult:     1,   // < 1 = less damage received (Reinforced Hull)
+    scoreMultBonus:      0,   // flat bonus added to base score multiplier (Overclock)
+    specialCooldownMult: 1,   // < 1 = shorter special ability cooldown (Overdrive)
+    piercePlus:          0,   // extra bullet pierce count (Chain Reaction)
+    fragmentOnImpact:    false // bullets explode on impact (Fragmentation)
   };
 
   const PERK_CATALOG = [
+    // ── Core roguelite upgrades (task spec) ──────────────────────────────────
     {
-      id: 'overclock',
-      name: 'Overclock',
+      id: 'chain_reaction',
+      name: 'Chain Reaction',
+      icon: '💥',
+      flavor: 'Bullets pierce through one extra enemy before stopping.',
+      stat: 'Pierce +1 enemy',
+      apply(m) { m.chainDamage = Math.max(m.chainDamage, 20); m.piercePlus += 1; }
+    },
+    {
+      id: 'void_armor',
+      name: 'Void Armor',
+      icon: '🛡️',
+      flavor: 'Crystallised void matter bolts extra armour to your hull.',
+      stat: '+25 Max HP',
+      apply(m) { m.maxHp += 25; }
+    },
+    {
+      id: 'overdrive',
+      name: 'Overdrive',
       icon: '⚡',
-      flavor: 'Supercharge your firing circuits.',
+      flavor: 'Overclock your reactor — special ability recharges faster.',
+      stat: 'Ability Cooldown -30%',
+      apply(m) { m.specialCooldownMult = Math.max(0.3, m.specialCooldownMult * 0.7); }
+    },
+    {
+      id: 'rapid_core',
+      name: 'Rapid Core',
+      icon: '🔫',
+      flavor: 'Upgraded feed mechanism cycles shells at blistering speed.',
       stat: '+20% Fire Rate',
       apply(m) { m.fireRate = Math.max(0.3, m.fireRate * 0.8); }
     },
     {
-      id: 'iron_hull',
-      name: 'Iron Hull',
-      icon: '🛡',
-      flavor: 'Reinforced plating doubles your staying power.',
-      stat: '+25 Max HP',
-      apply(m) { m.maxHp += 25; }
+      id: 'lifesteal',
+      name: 'Lifesteal',
+      icon: '🩸',
+      flavor: 'Nano-collectors harvest biomass from every defeated enemy.',
+      stat: 'Heal 2 HP per kill',
+      apply(m) { m.lifestealPerKill += 2; }
     },
+    {
+      id: 'fragmentation',
+      name: 'Fragmentation',
+      icon: '💢',
+      flavor: 'Impact-fused rounds detonate in a shower of shrapnel.',
+      stat: 'Bullets explode on impact',
+      apply(m) { m.fragmentOnImpact = true; m.chainDamage = Math.max(m.chainDamage, 15); }
+    },
+    {
+      id: 'afterburner',
+      name: 'Afterburner',
+      icon: '🚀',
+      flavor: 'Secondary thruster array fires up, pushing velocity limits.',
+      stat: '+15% Move Speed',
+      apply(m) { m.speed *= 1.15; }
+    },
+    {
+      id: 'reinforced_hull',
+      name: 'Reinforced Hull',
+      icon: '🔩',
+      flavor: 'Layered composite panels spread impact forces across the frame.',
+      stat: 'Damage Taken -15%',
+      apply(m) { m.damageTakenMult = Math.max(0.3, m.damageTakenMult * 0.85); }
+    },
+    {
+      id: 'scavenger',
+      name: 'Scavenger',
+      icon: '💰',
+      flavor: 'Strip every wreck for tech, fuel, and every last credit.',
+      stat: '+30% Credits from Kills',
+      apply(m) { m.coinBonus *= 1.3; }
+    },
+    {
+      id: 'overclock',
+      name: 'Overclock',
+      icon: '🌀',
+      flavor: 'Quantum score-weighting circuits amplify every point earned.',
+      stat: '+0.5× Score Multiplier',
+      apply(m) { m.scoreMultBonus += 0.5; }
+    },
+    // ── Extended pool (extra variety when catalogue is not yet exhausted) ────
     {
       id: 'rapid_loader',
       name: 'Rapid Loader',
@@ -961,36 +1033,12 @@
       apply(m) { m.invulnBonus += 100; }
     },
     {
-      id: 'chain_reaction',
-      name: 'Chain Reaction',
-      icon: '💥',
-      flavor: 'Every kill is a tiny nova waiting to happen.',
-      stat: 'Kills deal 20 area dmg',
-      apply(m) { m.chainDamage = Math.max(m.chainDamage, 20); }
-    },
-    {
       id: 'overcharge',
       name: 'Overcharge',
       icon: '🔥',
       flavor: 'Your weapons burn hotter with every shot.',
       stat: '+20% Damage',
       apply(m) { m.damage *= 1.20; }
-    },
-    {
-      id: 'slipstream',
-      name: 'Slipstream',
-      icon: '💨',
-      flavor: 'Void currents bend to your will.',
-      stat: '+20% Move Speed',
-      apply(m) { m.speed *= 1.20; }
-    },
-    {
-      id: 'fortify',
-      name: 'Fortify',
-      icon: '❤️',
-      flavor: 'Emergency nanobots patch up the hull.',
-      stat: 'Restore 20 HP',
-      apply(m) { m.hp += 20; }
     },
     {
       id: 'twin_shot',
@@ -1001,28 +1049,12 @@
       apply(m) { m.twinShot = Math.min(1, m.twinShot + 0.25); }
     },
     {
-      id: 'phase_shift',
-      name: 'Phase Shift',
-      icon: '🌀',
-      flavor: 'Fold space between cooldown intervals.',
-      stat: 'Dash Cooldown -25%',
-      apply(m) { m.dashCooldown = Math.max(0.3, m.dashCooldown * 0.75); }
-    },
-    {
-      id: 'salvage',
-      name: 'Salvage',
-      icon: '💰',
-      flavor: 'Strip every wreck for every last credit.',
-      stat: '+50% Coin Drops',
-      apply(m) { m.coinBonus *= 1.5; }
-    },
-    {
-      id: 'railhead',
-      name: 'Railhead',
-      icon: '🚀',
-      flavor: 'Projectiles scream through the void faster.',
-      stat: '+15% Bullet Speed',
-      apply(m) { m.bulletSpeed *= 1.15; }
+      id: 'fortify',
+      name: 'Fortify',
+      icon: '❤️',
+      flavor: 'Emergency nanobots patch up the hull.',
+      stat: 'Restore 20 HP',
+      apply(m) { m.hp += 20; }
     }
   ];
 
@@ -1046,10 +1078,11 @@
     activePerks.push(perkId);
     perk.apply(perkMultipliers);
 
-    // One-time HP heal
+    // One-time HP heal (Fortify perk)
     if (perkMultipliers.hp > 0 && player) {
       const heal = perkMultipliers.hp;
-      player.hp = Math.min(player.maxHp + perkMultipliers.maxHp, player.hp + heal);
+      const maxHp = (player.hpMax || player.health) + perkMultipliers.maxHp;
+      player.health = Math.min(maxHp, player.health + heal);
       perkMultipliers.hp = 0; // consumed
     }
 
@@ -1935,18 +1968,24 @@
     waveUpgradeActive = false;
     activePerks = [];
     perkMultipliers = {
-      bulletSpeed:   1,
-      maxHp:         0,
-      ammoRegenMult: 1,
-      invulnBonus:   0,
-      chainDamage:   0,
-      damage:        1,
-      speed:         1,
-      hp:            0,
-      fireRate:      1,
-      twinShot:      0,
-      dashCooldown:  1,
-      coinBonus:     1
+      bulletSpeed:         1,
+      maxHp:               0,
+      ammoRegenMult:       1,
+      invulnBonus:         0,
+      chainDamage:         0,
+      damage:              1,
+      speed:               1,
+      hp:                  0,
+      fireRate:            1,
+      twinShot:            0,
+      dashCooldown:        1,
+      coinBonus:           1,
+      lifestealPerKill:    0,
+      damageTakenMult:     1,
+      scoreMultBonus:      0,
+      specialCooldownMult: 1,
+      piercePlus:          0,
+      fragmentOnImpact:    false
     };
     
     Object.keys(input).forEach((k) => {
@@ -2046,13 +2085,13 @@
         });
       }
       addLogEntry('Phase Dash!', '#22d3ee');
-      specialCooldown = specialCooldownMax;
+      specialCooldown = specialCooldownMax * perkMultipliers.specialCooldownMult;
 
     } else if (sid === 'bulwark') {
       // Shield Wall — arc absorbs up to 3 bullets for 3s
       shieldWall = { hp: 3, framesLeft: 180 };
       addLogEntry('Shield Wall!', '#2dd4bf');
-      specialCooldown = specialCooldownMax;
+      specialCooldown = specialCooldownMax * perkMultipliers.specialCooldownMult;
 
     } else if (sid === 'titan') {
       // Orbital Strike — 8 bullets in 360° spread
@@ -2074,7 +2113,7 @@
       }
       shakeScreen(4, 8 * 16); // ~8 frames at 60fps
       addLogEntry('Orbital Strike!', '#fbbf24');
-      specialCooldown = specialCooldownMax;
+      specialCooldown = specialCooldownMax * perkMultipliers.specialCooldownMult;
     }
   };
 
@@ -6192,7 +6231,7 @@
         const sy = this.y + Math.sin(angle) * this.size * 0.9;
         const speed = BASE.BULLET_SPEED * (weaponStats.bulletSpeed || 1) * perkMultipliers.bulletSpeed;
         const size = BASE.BULLET_SIZE * (weaponStats.bulletSize || 1);
-        const pierce = weaponStats.pierce || 0;
+        const pierce = (weaponStats.pierce || 0) + perkMultipliers.piercePlus;
         const dmg = stats.dmg * perkMultipliers.damage;
         bullets.push(new Bullet(sx, sy, vel, dmg, color, speed, size, pierce));
         // Twin Shot perk: fire a second bullet with slight angle offset
@@ -6395,6 +6434,9 @@
           applyRadialDamage(this.x, this.y, this.size * 4, mitigated * (this.defenseStats.reflect || 0.25), { knockback: 2, chargeMult: 0.2 });
         }
       }
+      if (amount <= 0) return;
+      // Reinforced Hull perk: reduce damage taken
+      amount *= perkMultipliers.damageTakenMult;
       if (amount <= 0) return;
       tookDamageThisLevel = true;
       this.health -= amount;
@@ -7887,6 +7929,12 @@
       });
     }
 
+    // Lifesteal perk: heal on each kill
+    if (perkMultipliers.lifestealPerKill > 0 && player) {
+      const maxHp = (player.hpMax || player.health) + perkMultipliers.maxHp;
+      player.health = Math.min(maxHp, player.health + perkMultipliers.lifestealPerKill);
+    }
+
     enemies.splice(index, 1);
 
     // Mark boss as dead
@@ -7923,8 +7971,9 @@
     let scoreGain = 15 + (comboCount > 1 ? comboCount * 2 : 0);
     if (wasElite) scoreGain *= 3;
     if (wasBoss) scoreGain *= 20;
-    // Apply kill combo multiplier
-    scoreGain = Math.round(scoreGain * killComboMultiplier);
+    // Apply kill combo multiplier + Overclock perk score bonus
+    const effectiveMultiplier = killComboMultiplier + perkMultipliers.scoreMultBonus;
+    scoreGain = Math.round(scoreGain * effectiveMultiplier);
     score += scoreGain;
 
     // Power-up drop chance on enemy death
@@ -8868,6 +8917,22 @@
           }
           
           if (enemy.health <= 0) handleEnemyDeath(j);
+          // Fragmentation perk: bullet explodes on impact with small splash
+          if (perkMultipliers.fragmentOnImpact) {
+            const fragR = 40;
+            addParticles('ring', bullet.x, bullet.y, 0, 1, '#f97316');
+            addParticles('sparks', bullet.x, bullet.y, 0, 8);
+            enemies.forEach((nearby, ni) => {
+              if (ni !== j) {
+                const fdx = nearby.x - bullet.x;
+                const fdy = nearby.y - bullet.y;
+                if (Math.hypot(fdx, fdy) <= fragR) {
+                  nearby.health -= bullet.damage * 0.4;
+                  if (nearby.health <= 0) handleEnemyDeath(ni);
+                }
+              }
+            });
+          }
           if (bullet.pierce > 0) {
             bullet.pierce--;
             continue;
