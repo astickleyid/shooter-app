@@ -9734,6 +9734,106 @@
       // Restore UI elements when countdown is not active
       restoreUIElements();
     }
+
+    // Off-screen enemy direction indicators (always in screen space, drawn last)
+    if (!countdownActive) drawOffScreenIndicators(ctx);
+  };
+
+  /* ====== OFF-SCREEN ENEMY INDICATORS ====== */
+  // Draw HUD arrows at screen edges pointing toward enemies outside the viewport.
+  // Standard twin-stick shooter pattern (Hades, Enter the Gungeon, etc.).
+  const drawOffScreenIndicators = (ctx) => {
+    if (!gameRunning || paused || !player || enemies.length === 0) return;
+
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const MARGIN = 28;       // distance from screen edge to arrow tip
+    const ARROW_SIZE = 11;   // half-width of the arrow triangle
+    const MIN_DIST_SQ = 60 * 60; // only show if enemy is at least 60px outside viewport
+
+    ctx.save();
+
+    for (const enemy of enemies) {
+      // Skip if enemy is already on screen (with a small inset buffer)
+      const onScreen =
+        enemy.x >= -20 && enemy.x <= W + 20 &&
+        enemy.y >= -20 && enemy.y <= H + 20;
+      if (onScreen) continue;
+
+      // Direction from screen center to enemy
+      const cx = W / 2;
+      const cy = H / 2;
+      const dx = enemy.x - cx;
+      const dy = enemy.y - cy;
+      const distSq = dx * dx + dy * dy;
+      if (distSq < MIN_DIST_SQ) continue;
+
+      const angle = Math.atan2(dy, dx);
+
+      // Find intersection of the direction ray with the screen rectangle
+      const cosA = Math.cos(angle);
+      const sinA = Math.sin(angle);
+
+      // Clamp to screen edges
+      let tx, ty;
+      if (Math.abs(cosA) * H > Math.abs(sinA) * W) {
+        // Hits left or right edge
+        const sign = cosA > 0 ? 1 : -1;
+        tx = cx + sign * (W / 2 - MARGIN);
+        ty = cy + sinA * ((W / 2 - MARGIN) / Math.abs(cosA));
+      } else {
+        // Hits top or bottom edge
+        const sign = sinA > 0 ? 1 : -1;
+        ty = cy + sign * (H / 2 - MARGIN);
+        tx = cx + cosA * ((H / 2 - MARGIN) / Math.abs(sinA));
+      }
+
+      // Color by threat level
+      let color;
+      if (enemy.isBoss) {
+        color = '#ff4444';          // red — boss
+      } else if (enemy.isElite || enemy.kind === 'sniper') {
+        color = '#f97316';          // orange — elite / sniper
+      } else if (enemy.kind === 'heavy') {
+        color = '#fbbf24';          // amber — heavy
+      } else {
+        color = 'rgba(255,255,255,0.75)'; // white — standard
+      }
+
+      // Pulse opacity: enemies further away pulse more urgently
+      const dist = Math.sqrt(distSq);
+      const pulseSpeed = enemy.isBoss ? 3 : 1.5;
+      const pulse = 0.55 + 0.45 * Math.sin(performance.now() * 0.001 * pulseSpeed);
+      const alpha = enemy.isBoss ? 0.9 : (0.45 + 0.45 * pulse);
+
+      ctx.save();
+      ctx.translate(tx, ty);
+      ctx.rotate(angle);
+      ctx.globalAlpha = alpha;
+
+      // Drop shadow for visibility on bright backgrounds
+      ctx.shadowColor = 'rgba(0,0,0,0.7)';
+      ctx.shadowBlur = 6;
+
+      // Draw filled triangle arrow
+      ctx.beginPath();
+      ctx.moveTo(ARROW_SIZE + 2, 0);               // tip
+      ctx.lineTo(-ARROW_SIZE, -ARROW_SIZE * 0.65); // left wing
+      ctx.lineTo(-ARROW_SIZE, ARROW_SIZE * 0.65);  // right wing
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.fill();
+
+      // Thin outline for contrast
+      ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.shadowBlur = 0;
+      ctx.restore();
+    }
+
+    ctx.restore();
   };
 
   /* ====== MAIN LOOP ====== */
