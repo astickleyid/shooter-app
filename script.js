@@ -1710,28 +1710,41 @@
     },
     
     showAchievementNotification(achievement) {
+      // Stack offset: count existing toasts so they don't overlap
+      const existing = document.querySelectorAll('.achievement-toast');
+      const stackOffset = existing.length * 90;
+
       // Create achievement toast notification
       const toast = document.createElement('div');
       toast.className = 'achievement-toast';
+      toast.style.top = `${20 + stackOffset}px`;
       toast.innerHTML = `
-        <div class="achievement-toast-icon">${achievement.icon}</div>
+        <div class="achievement-toast-icon">
+          <img src="${achievement.icon}" alt="${achievement.name}" width="36" height="36"
+               onerror="this.style.display='none';this.parentElement.textContent='🏆'" />
+        </div>
         <div class="achievement-toast-content">
           <div class="achievement-toast-title">Achievement Unlocked!</div>
           <div class="achievement-toast-name">${achievement.name}</div>
+          <div class="achievement-toast-desc">${achievement.desc}</div>
         </div>
       `;
       document.body.appendChild(toast);
-      
+
       // Animate in
-      setTimeout(() => toast.classList.add('show'), 100);
-      
-      // Remove after 4 seconds
+      setTimeout(() => toast.classList.add('show'), 50);
+
+      // Remove after 4.5 seconds
       setTimeout(() => {
         toast.classList.remove('show');
         setTimeout(() => {
           if (toast.parentNode) toast.remove();
-        }, 300);
-      }, 4000);
+          // Re-stack remaining toasts after this one is removed
+          document.querySelectorAll('.achievement-toast').forEach((el, idx) => {
+            (el as HTMLElement).style.top = `${20 + idx * 90}px`;
+          });
+        }, 350);
+      }, 4500);
     },
     
     // Update stats after a game
