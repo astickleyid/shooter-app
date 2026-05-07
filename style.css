@@ -1570,6 +1570,79 @@ html, body {
   margin-top: 2px;
 }
 
+/* ── Rarity badge ────────────────────────────────────────────────────────── */
+.wave-card-rarity {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  font-family: 'Courier New', monospace;
+  padding: 2px 8px;
+  border-radius: 4px;
+  align-self: flex-start;
+  margin-bottom: -2px;
+}
+
+/* COMMON — slate-grey badge, default card border stays indigo */
+.wave-card-rarity--common {
+  background: rgba(100, 116, 139, 0.25);
+  border: 1px solid rgba(100, 116, 139, 0.5);
+  color: #94a3b8;
+}
+
+/* RARE — azure/blue */
+.wave-card-rarity--rare {
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.5);
+  color: #38bdf8;
+}
+.wave-card--rare {
+  border-color: rgba(56, 189, 248, 0.5);
+  box-shadow: 0 0 22px rgba(56, 189, 248, 0.25), 0 8px 24px rgba(0,0,0,0.7);
+}
+.wave-card--rare::before {
+  background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.8), transparent);
+}
+.wave-card--rare:hover {
+  border-color: rgba(56, 189, 248, 0.9);
+  box-shadow: 0 0 44px rgba(56, 189, 248, 0.55), 0 16px 40px rgba(0,0,0,0.8);
+}
+@keyframes waveCardPulse--rare {
+  0%, 100% { box-shadow: 0 0 22px rgba(56, 189, 248, 0.3), 0 8px 24px rgba(0,0,0,0.7); }
+  50%       { box-shadow: 0 0 38px rgba(56, 189, 248, 0.6), 0 8px 24px rgba(0,0,0,0.7); }
+}
+.wave-card--rare {
+  animation: waveCardPulse--rare 2.4s ease-in-out infinite;
+}
+.wave-card--rare:hover { animation: none; }
+
+/* EPIC — gold/amber with shimmer */
+.wave-card-rarity--epic {
+  background: rgba(251, 191, 36, 0.2);
+  border: 1px solid rgba(251, 191, 36, 0.6);
+  color: #fbbf24;
+}
+.wave-card--epic {
+  background: linear-gradient(160deg, #100d00 0%, #0a0800 100%);
+  border-color: rgba(251, 191, 36, 0.6);
+  box-shadow: 0 0 28px rgba(251, 191, 36, 0.35), 0 8px 24px rgba(0,0,0,0.7);
+}
+.wave-card--epic::before {
+  background: linear-gradient(90deg, transparent, rgba(251, 191, 36, 0.9), transparent);
+}
+.wave-card--epic:hover {
+  border-color: rgba(251, 191, 36, 1);
+  box-shadow: 0 0 60px rgba(251, 191, 36, 0.65), 0 16px 40px rgba(0,0,0,0.8);
+}
+@keyframes waveCardPulse--epic {
+  0%, 100% { box-shadow: 0 0 28px rgba(251, 191, 36, 0.35), 0 8px 24px rgba(0,0,0,0.7); }
+  50%       { box-shadow: 0 0 50px rgba(251, 191, 36, 0.7), 0 8px 24px rgba(0,0,0,0.7); }
+}
+.wave-card--epic {
+  animation: waveCardPulse--epic 1.8s ease-in-out infinite;
+}
+.wave-card--epic:hover { animation: none; }
+
 /* Settings Modal */
 .modal {
   position: fixed;

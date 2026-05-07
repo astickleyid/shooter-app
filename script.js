@@ -933,59 +933,38 @@
     fragmentOnImpact:    false // bullets explode on impact (Fragmentation)
   };
 
+  // ── RARITY TIER DEFINITIONS ─────────────────────────────────────────────────
+  // common: 60% base weight, rare: 30%, epic: 10% (scales with wave number)
+  const PERK_RARITY = {
+    common: { label: 'COMMON', weight: 6 },
+    rare:   { label: 'RARE',   weight: 3 },
+    epic:   { label: 'EPIC',   weight: 1 }
+  };
+
   const PERK_CATALOG = [
-    // ── Core roguelite upgrades (task spec) ──────────────────────────────────
-    {
-      id: 'chain_reaction',
-      name: 'Chain Reaction',
-      icon: '💥',
-      flavor: 'Bullets pierce through one extra enemy before stopping.',
-      stat: 'Pierce +1 enemy',
-      apply(m) { m.chainDamage = Math.max(m.chainDamage, 20); m.piercePlus += 1; }
-    },
+    // ── COMMON ───────────────────────────────────────────────────────────────
     {
       id: 'void_armor',
       name: 'Void Armor',
+      rarity: 'common',
       icon: '🛡️',
       flavor: 'Crystallised void matter bolts extra armour to your hull.',
       stat: '+25 Max HP',
       apply(m) { m.maxHp += 25; }
     },
     {
-      id: 'overdrive',
-      name: 'Overdrive',
-      icon: '⚡',
-      flavor: 'Overclock your reactor — special ability recharges faster.',
-      stat: 'Ability Cooldown -30%',
-      apply(m) { m.specialCooldownMult = Math.max(0.3, m.specialCooldownMult * 0.7); }
-    },
-    {
       id: 'rapid_core',
       name: 'Rapid Core',
+      rarity: 'common',
       icon: '🔫',
       flavor: 'Upgraded feed mechanism cycles shells at blistering speed.',
       stat: '+20% Fire Rate',
       apply(m) { m.fireRate = Math.max(0.3, m.fireRate * 0.8); }
     },
     {
-      id: 'lifesteal',
-      name: 'Lifesteal',
-      icon: '🩸',
-      flavor: 'Nano-collectors harvest biomass from every defeated enemy.',
-      stat: 'Heal 2 HP per kill',
-      apply(m) { m.lifestealPerKill += 2; }
-    },
-    {
-      id: 'fragmentation',
-      name: 'Fragmentation',
-      icon: '💢',
-      flavor: 'Impact-fused rounds detonate in a shower of shrapnel.',
-      stat: 'Bullets explode on impact',
-      apply(m) { m.fragmentOnImpact = true; m.chainDamage = Math.max(m.chainDamage, 15); }
-    },
-    {
       id: 'afterburner',
       name: 'Afterburner',
+      rarity: 'common',
       icon: '🚀',
       flavor: 'Secondary thruster array fires up, pushing velocity limits.',
       stat: '+15% Move Speed',
@@ -994,6 +973,7 @@
     {
       id: 'reinforced_hull',
       name: 'Reinforced Hull',
+      rarity: 'common',
       icon: '🔩',
       flavor: 'Layered composite panels spread impact forces across the frame.',
       stat: 'Damage Taken -15%',
@@ -1002,23 +982,16 @@
     {
       id: 'scavenger',
       name: 'Scavenger',
+      rarity: 'common',
       icon: '💰',
       flavor: 'Strip every wreck for tech, fuel, and every last credit.',
       stat: '+30% Credits from Kills',
       apply(m) { m.coinBonus *= 1.3; }
     },
     {
-      id: 'overclock',
-      name: 'Overclock',
-      icon: '🌀',
-      flavor: 'Quantum score-weighting circuits amplify every point earned.',
-      stat: '+0.5× Score Multiplier',
-      apply(m) { m.scoreMultBonus += 0.5; }
-    },
-    // ── Extended pool (extra variety when catalogue is not yet exhausted) ────
-    {
       id: 'rapid_loader',
       name: 'Rapid Loader',
+      rarity: 'common',
       icon: '🔋',
       flavor: 'Ammo cells charge at breakneck speed.',
       stat: 'Ammo Regen +30%',
@@ -1027,14 +1000,53 @@
     {
       id: 'ghost_protocol',
       name: 'Ghost Protocol',
+      rarity: 'common',
       icon: '👻',
       flavor: 'Phase shifts buy precious milliseconds.',
       stat: 'Invuln +100ms',
       apply(m) { m.invulnBonus += 100; }
     },
     {
+      id: 'fortify',
+      name: 'Fortify',
+      rarity: 'common',
+      icon: '❤️',
+      flavor: 'Emergency nanobots patch up the hull.',
+      stat: 'Restore 20 HP',
+      apply(m) { m.hp += 20; }
+    },
+    // ── RARE ─────────────────────────────────────────────────────────────────
+    {
+      id: 'chain_reaction',
+      name: 'Chain Reaction',
+      rarity: 'rare',
+      icon: '💥',
+      flavor: 'Bullets pierce through one extra enemy before stopping.',
+      stat: 'Pierce +1 enemy',
+      apply(m) { m.chainDamage = Math.max(m.chainDamage, 20); m.piercePlus += 1; }
+    },
+    {
+      id: 'overdrive',
+      name: 'Overdrive',
+      rarity: 'rare',
+      icon: '⚡',
+      flavor: 'Overclock your reactor — special ability recharges faster.',
+      stat: 'Ability Cooldown -30%',
+      apply(m) { m.specialCooldownMult = Math.max(0.3, m.specialCooldownMult * 0.7); }
+    },
+    {
+      id: 'lifesteal',
+      name: 'Lifesteal',
+      rarity: 'rare',
+      icon: '🩸',
+      flavor: 'Nano-collectors harvest biomass from every defeated enemy.',
+      stat: 'Heal 2 HP per kill',
+      apply(m) { m.lifestealPerKill += 2; }
+    },
+    {
       id: 'overcharge',
       name: 'Overcharge',
+      rarity: 'rare',
       icon: '🔥',
       flavor: 'Your weapons burn hotter with every shot.',
       stat: '+20% Damage',
@@ -1043,29 +1055,113 @@
     {
       id: 'twin_shot',
       name: 'Twin Shot',
+      rarity: 'rare',
       icon: '🎯',
       flavor: 'Dual barrels double your threat potential.',
       stat: '25% chance: 2 bullets',
       apply(m) { m.twinShot = Math.min(1, m.twinShot + 0.25); }
     },
     {
-      id: 'fortify',
-      name: 'Fortify',
-      icon: '❤️',
-      flavor: 'Emergency nanobots patch up the hull.',
-      stat: 'Restore 20 HP',
-      apply(m) { m.hp += 20; }
+      id: 'overclock',
+      name: 'Overclock',
+      rarity: 'rare',
+      icon: '🌀',
+      flavor: 'Quantum score-weighting circuits amplify every point earned.',
+      stat: '+0.5× Score Multiplier',
+      apply(m) { m.scoreMultBonus += 0.5; }
+    },
+    // ── EPIC ─────────────────────────────────────────────────────────────────
+    {
+      id: 'fragmentation',
+      name: 'Fragmentation',
+      rarity: 'epic',
+      icon: '💢',
+      flavor: 'Impact-fused rounds detonate in a shower of shrapnel.',
+      stat: 'Bullets explode on impact',
+      apply(m) { m.fragmentOnImpact = true; m.chainDamage = Math.max(m.chainDamage, 15); }
+    },
+    {
+      id: 'void_reaper',
+      name: 'Void Reaper',
+      rarity: 'epic',
+      icon: '☠️',
+      flavor: 'A spectral blade trails your hull, shredding anything in your wake.',
+      stat: '+50% Damage, +25% Speed',
+      apply(m) { m.damage *= 1.5; m.speed *= 1.25; }
+    },
+    {
+      id: 'singularity',
+      name: 'Singularity',
+      rarity: 'epic',
+      icon: '🌑',
+      flavor: 'Collapse local space — bullets pierce ALL enemies and arc back.',
+      stat: 'Pierce ALL + Twin Shot 50%',
+      apply(m) { m.piercePlus += 99; m.twinShot = Math.min(1, m.twinShot + 0.5); }
     }
   ];
 
   /**
-   * Pick n unique perks not yet chosen this run (or all if fewer remain).
+   * Compute rarity weights adjusted for wave number.
+   * Later waves increase the chance of Rare/Epic cards.
+   * wave 1-3: common 60 / rare 30 / epic 10
+   * wave 4-6: common 45 / rare 35 / epic 20
+   * wave 7+ : common 30 / rare 35 / epic 35
+   */
+  const _rarityWeightsForWave = (wave) => {
+    if (wave >= 7) return { common: 30, rare: 35, epic: 35 };
+    if (wave >= 4) return { common: 45, rare: 35, epic: 20 };
+    return { common: 60, rare: 30, epic: 10 };
+  };
+
+  /**
+   * Weighted random draw of one rarity tier.
+   */
+  const _drawRarity = (weights) => {
+    const total = weights.common + weights.rare + weights.epic;
+    const roll = Math.random() * total;
+    if (roll < weights.common) return 'common';
+    if (roll < weights.common + weights.rare) return 'rare';
+    return 'epic';
+  };
+
+  /**
+   * Pick n unique perks not yet chosen this run using rarity-weighted draws.
+   * Falls back gracefully if a rarity tier is exhausted.
    */
   const _pickRandomPerks = (n = 3) => {
+    const weights = _rarityWeightsForWave(readyUpLevel);
     const available = PERK_CATALOG.filter(p => !activePerks.includes(p.id));
-    const pool = available.length ? available : PERK_CATALOG; // allow repeats if catalog exhausted
-    const shuffled = pool.slice().sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, Math.min(n, shuffled.length));
+    const pool = available.length ? available : PERK_CATALOG;
+
+    const picks = [];
+    const usedIds = new Set();
+
+    for (let i = 0; i < n; i++) {
+      // Try to pick a card of a drawn rarity; if none available fall through tiers
+      const rarityOrder = ['epic', 'rare', 'common'];
+      let drawnRarity = _drawRarity(weights);
+      // Rotate the priority list so drawn rarity is first
+      const priority = [drawnRarity, ...rarityOrder.filter(r => r !== drawnRarity)];
+
+      let picked = null;
+      for (const rarity of priority) {
+        const candidates = pool.filter(p => p.rarity === rarity && !usedIds.has(p.id));
+        if (candidates.length) {
+          picked = candidates[Math.floor(Math.random() * candidates.length)];
+          break;
+        }
+      }
+      if (!picked) {
+        // Absolute fallback: any unused card
+        const remaining = pool.filter(p => !usedIds.has(p.id));
+        if (remaining.length) picked = remaining[Math.floor(Math.random() * remaining.length)];
+      }
+      if (picked) {
+        usedIds.add(picked.id);
+        picks.push(picked);
+      }
+    }
+    return picks;
   };
 
   /**
@@ -1108,8 +1204,9 @@
 
     picks.forEach(perk => {
       const card = document.createElement('div');
-      card.className = 'wave-card';
+      card.className = `wave-card wave-card--${perk.rarity || 'common'}`;
       card.innerHTML = `
+        <div class="wave-card-rarity wave-card-rarity--${perk.rarity || 'common'}">${(perk.rarity || 'common').toUpperCase()}</div>
         <div class="wave-card-icon">${perk.icon}</div>
         <div class="wave-card-name">${perk.name}</div>
         <div class="wave-card-flavor">${perk.flavor}</div>
@@ -1741,7 +1838,7 @@
           if (toast.parentNode) toast.remove();
           // Re-stack remaining toasts after this one is removed
           document.querySelectorAll('.achievement-toast').forEach((el, idx) => {
-            (el as HTMLElement).style.top = `${20 + idx * 90}px`;
+            el.style.top = `${20 + idx * 90}px`;
           });
         }, 350);
       }, 4500);
@@ -4521,14 +4618,14 @@
       const adaptive = getAdaptiveScaling();
       
       // Base size scaling
-      const sizeMap = { heavy: 1.45, swarmer: 0.9, drone: 0.75, sniper: 0.85 };
+      const sizeMap = { heavy: 1.45, swarmer: 0.9, drone: 0.75, sniper: 0.85, phantom: 0.95 };
       let baseSize = BASE.ENEMY_SIZE * (sizeMap[kind] || 1);
       if (isElite) baseSize *= ADAPTIVE_CONSTANTS.ELITE_SIZE_MULT;
       if (isBoss) baseSize *= ADAPTIVE_CONSTANTS.BOSS_SIZE_MULT;
       this.size = baseSize;
       
       // Speed scaling with adaptive difficulty and progression
-      const speedMap = { heavy: 0.85, swarmer: 1.45, drone: 1.2, sniper: 0.7 };
+      const speedMap = { heavy: 0.85, swarmer: 1.45, drone: 1.2, sniper: 0.7, phantom: 1.1 };
       let baseSpeed = BASE.ENEMY_SPEED * (speedMap[kind] || 1.05) * diff.enemySpeed;
       baseSpeed *= adaptive.enemySpeedBoost;
       if (isElite) baseSpeed *= ADAPTIVE_CONSTANTS.ELITE_SPEED_MULT;
@@ -4580,7 +4677,18 @@
         this.sniperLaserAlpha = 0;   // for fade-in telegraph line
         this.canShoot = false;       // sniper manages its own firing
       }
-      
+
+      // Phantom-specific state — phases in/out of invulnerability on a cycle
+      if (kind === 'phantom') {
+        this.phantomPhase = 'solid';      // 'solid' | 'phasing_out' | 'phased' | 'phasing_in'
+        this.phantomTimer = rand(800, 1600); // stagger initial phase so phantoms don't sync
+        this.phantomSolidDuration  = Math.max(1400, 2600 - level * 30);  // shrinks at higher levels
+        this.phantomPhasedDuration = Math.max(800,  1800 - level * 20);
+        this.phantomTransition     = 500; // ms for fade in/out
+        this.phantomAlpha = 1;
+        this.phantomInvulnerable = false;
+      }
+
       this.animPhase = Math.random() * Math.PI * 2;
       this.hitFlash = 0;
     }
@@ -5314,6 +5422,102 @@
         ctx.stroke();
         ctx.restore();
       }
+
+      // ── PHANTOM DRAW ──────────────────────────────────────────────────────
+      if (this.kind === 'phantom') {
+        const phAlpha = this.phantomAlpha ?? 1;
+        const phased  = this.phantomInvulnerable;
+        const t = performance.now();
+        const ripple = Math.sin(t / 160 + this.animPhase) * 0.08 + 1;
+
+        // When fully phased show a faint distortion ring instead of the ship
+        if (phased && phAlpha < 0.12) {
+          ctx.save();
+          ctx.globalAlpha = 0.22 + Math.sin(t / 220) * 0.1;
+          ctx.strokeStyle = '#c084fc';
+          ctx.lineWidth = 2;
+          ctx.shadowColor = '#a855f7';
+          ctx.shadowBlur = 14;
+          ctx.beginPath();
+          ctx.arc(0, 0, this.size * 1.3 * ripple, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        } else {
+          ctx.globalAlpha = phAlpha;
+
+          // Outer phase shimmer ring
+          if (phAlpha < 0.85) {
+            ctx.save();
+            ctx.globalAlpha = (1 - phAlpha) * 0.55;
+            ctx.strokeStyle = '#c084fc';
+            ctx.lineWidth = 3;
+            ctx.shadowColor = '#a855f7';
+            ctx.shadowBlur = 20;
+            ctx.beginPath();
+            ctx.arc(0, 0, this.size * (1.6 + (1 - phAlpha) * 0.8) * ripple, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+          }
+
+          // Main body — angular diamond silhouette
+          const baseColor  = damaged ? '#6b21a8' : '#9333ea';
+          const innerColor = damaged ? '#581c87' : '#7e22ce';
+          ctx.fillStyle = baseColor;
+          ctx.strokeStyle = '#000';
+          ctx.lineWidth = 3;
+          ctx.shadowColor = '#c084fc';
+          ctx.shadowBlur   = phased ? 0 : 16;
+          ctx.beginPath();
+          ctx.moveTo( this.size * 1.4,  0);
+          ctx.lineTo( this.size * 0.4, -this.size * 0.9);
+          ctx.lineTo(-this.size * 0.6, -this.size * 0.6);
+          ctx.lineTo(-this.size * 1.1,  0);
+          ctx.lineTo(-this.size * 0.6,  this.size * 0.6);
+          ctx.lineTo( this.size * 0.4,  this.size * 0.9);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+
+          // Inner hull
+          ctx.fillStyle = innerColor;
+          ctx.strokeStyle = '#000';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo( this.size * 1.0,  0);
+          ctx.lineTo( this.size * 0.3, -this.size * 0.5);
+          ctx.lineTo(-this.size * 0.5,  0);
+          ctx.lineTo( this.size * 0.3,  this.size * 0.5);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+
+          // Core gem
+          const gemGlow = Math.sin(t / 140 + this.animPhase) * 0.4 + 0.6;
+          ctx.save();
+          ctx.globalAlpha *= gemGlow;
+          ctx.fillStyle = '#e879f9';
+          ctx.shadowColor = '#f0abfc';
+          ctx.shadowBlur = 12;
+          ctx.beginPath();
+          ctx.ellipse(this.size * 0.1, 0, this.size * 0.22, this.size * 0.22, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+
+          // Wing-tip accents
+          ctx.strokeStyle = '#d946ef';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(this.size * 0.4, -this.size * 0.9);
+          ctx.lineTo(this.size * 0.6, -this.size * 0.55);
+          ctx.moveTo(this.size * 0.4,  this.size * 0.9);
+          ctx.lineTo(this.size * 0.6,  this.size * 0.55);
+          ctx.stroke();
+
+          ctx.globalAlpha = 1;
+        }
+      }
+      // ── END PHANTOM DRAW ──────────────────────────────────────────────────
+
       ctx.shadowBlur = 0;
       ctx.restore();
     }
@@ -5527,8 +5731,70 @@
             this.sniperTimer = 0;
           }
         }
+      } else if (this.kind === 'phantom') {
+        // Phantom: phase cycle — solid → phasing_out → phased → phasing_in → solid
+        this.phantomTimer += dt;
+        switch (this.phantomPhase) {
+          case 'solid':
+            // Approach player aggressively while solid
+            movementX = (dx / dist) * 1.15;
+            movementY = (dy / dist) * 1.15;
+            this.phantomAlpha = 1;
+            this.phantomInvulnerable = false;
+            if (this.phantomTimer >= this.phantomSolidDuration) {
+              this.phantomPhase = 'phasing_out';
+              this.phantomTimer = 0;
+              addLogEntry('👻 Phantom phasing!', '#c084fc');
+            }
+            break;
+          case 'phasing_out':
+            // Fade out + speed burst — dashes to flank position
+            {
+              const t = Math.min(1, this.phantomTimer / this.phantomTransition);
+              this.phantomAlpha = 1 - t;
+              // Faster during transition — dash sideways
+              movementX = (-dy / dist) * 1.8 + (dx / dist) * 0.4;
+              movementY = (dx / dist)  * 1.8 + (dy / dist) * 0.4;
+              if (t >= 1) {
+                this.phantomPhase = 'phased';
+                this.phantomTimer = 0;
+                this.phantomInvulnerable = true;
+                this.phantomAlpha = 0;
+              }
+            }
+            break;
+          case 'phased':
+            // Invisible — circle rapidly around player
+            {
+              if (!this.phantomCircleDir) this.phantomCircleDir = Math.random() < 0.5 ? 1 : -1;
+              movementX = (-dy / dist) * this.phantomCircleDir * 1.6 + (dx / dist) * 0.3;
+              movementY = (dx  / dist) * this.phantomCircleDir * 1.6 + (dy / dist) * 0.3;
+              this.phantomAlpha = 0;
+              if (this.phantomTimer >= this.phantomPhasedDuration) {
+                this.phantomPhase = 'phasing_in';
+                this.phantomTimer = 0;
+              }
+            }
+            break;
+          case 'phasing_in':
+            // Rematerialise — snap toward player
+            {
+              const t = Math.min(1, this.phantomTimer / this.phantomTransition);
+              this.phantomAlpha = t;
+              movementX = (dx / dist) * 1.3;
+              movementY = (dy / dist) * 1.3;
+              if (t >= 1) {
+                this.phantomPhase = 'solid';
+                this.phantomTimer = 0;
+                this.phantomInvulnerable = false;
+                this.phantomAlpha = 1;
+                addParticles('ring', this.x, this.y, 0, 1, '#c084fc');
+              }
+            }
+            break;
+        }
       }
-      
+
       const nx = movementX + ax;
       const ny = movementY + ay;
       const nm = Math.hypot(nx, ny) || 1;
@@ -5747,10 +6013,14 @@
       // Determine enemy type
       const roll = Math.random();
       // Snipers unlock at level 3, chance scales up to 15% by level 10
-      const sniperChance = level >= 3 ? Math.min(0.15, (level - 2) * 0.018) : 0;
+      const sniperChance  = level >= 3 ? Math.min(0.15, (level - 2) * 0.018) : 0;
+      // Phantoms unlock at level 5, chance scales up to 12% by level 12
+      const phantomChance = level >= 5 ? Math.min(0.12, (level - 4) * 0.017) : 0;
       let kind;
       if (roll < sniperChance) {
         kind = 'sniper';
+      } else if (roll < sniperChance + phantomChance) {
+        kind = 'phantom';
       } else {
         const r2 = Math.random();
         kind = r2 < 0.15 ? 'heavy' : r2 < 0.35 ? 'swarmer' : r2 < 0.55 ? 'chaser' : 'drone';
@@ -7879,7 +8149,8 @@
                        enemy.kind === 'drone' ? '#ef4444' : 
                        enemy.kind === 'chaser' ? '#e879f9' :
                        enemy.kind === 'heavy' ? '#4ade80' :
-                       enemy.kind === 'sniper' ? '#00ffcc' : '#fb923c';
+                       enemy.kind === 'sniper'  ? '#00ffcc' :
+                       enemy.kind === 'phantom' ? '#c084fc' : '#fb923c';
     
     // Phase A.4: Shockwave ring
     addParticles('ring', enemy.x, enemy.y, 0, wasBoss ? 3 : 1, deathColor);
@@ -8910,6 +9181,8 @@
       }
       for (let j = enemies.length - 1; j >= 0; j--) {
         const enemy = enemies[j];
+        // Phantom passes through bullets while phased — invulnerable window
+        if (enemy.phantomInvulnerable) continue;
         const dx = bullet.x - enemy.x;
         const dy = bullet.y - enemy.y;
         if (Math.hypot(dx, dy) < bullet.size + enemy.size) {
