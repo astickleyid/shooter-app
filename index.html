@@ -108,6 +108,32 @@
     </div>
   </div>
 
+  <!-- DELETE ACCOUNT CONFIRMATION MODAL -->
+  <div id="deleteAccountModal" class="modal" style="display: none;">
+    <div class="modal-content auth-modal">
+      <div class="modal-header">
+        <h2 style="color: #ef4444;">Delete Account</h2>
+        <button id="closeDeleteAccount" class="closeBtn">✕</button>
+      </div>
+      <div class="auth-content">
+        <div class="auth-section">
+          <p style="color: #94a3b8; font-size: 14px; margin-bottom: 16px;">
+            This will permanently delete your account and all associated data. This action cannot be undone.
+          </p>
+          <label>
+            <span class="auth-label">Confirm Password</span>
+            <input type="password" id="deleteAccountPassword" class="auth-input" placeholder="Enter your password" autocomplete="current-password" />
+          </label>
+          <div id="deleteAccountError" class="auth-error"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="deleteAccountCancel" class="secondaryBtn">Cancel</button>
+        <button id="deleteAccountConfirm" class="primaryBtn" style="background: #ef4444;">Delete My Account</button>
+      </div>
+    </div>
+  </div>
+
   <!-- LEADERBOARD MODAL -->
   <div id="leaderboardModal" class="modal">
     <div class="modal-content leaderboard-modal">
@@ -119,6 +145,7 @@
         <div class="leaderboard-user-info">
           <span id="leaderboardUsername">Not logged in</span>
           <button id="leaderboardLogout" class="secondaryBtn" style="display: none;">Logout</button>
+          <button id="leaderboardDeleteAccount" class="secondaryBtn" style="display: none; color: #ef4444;">Delete Account</button>
           <button id="leaderboardLogin" class="secondaryBtn">Login</button>
         </div>
         <div id="leaderboardStatus" class="leaderboard-status" style="display: none;"></div>
