@@ -8,24 +8,9 @@
 const AUTH_CONFIG = {
   // Auto-detect API URL based on environment
   API_BASE: (function() {
-    // Non-browser / test environments: keep relative API path
-    if (typeof window === 'undefined') {
-      return '/api';
-    }
-
-    const { protocol, hostname } = window.location;
-
-    // Treat localhost and file-based environments (e.g., iOS WKWebView) the same
-    if (
-      hostname === 'localhost' ||
-      hostname === '127.0.0.1' ||
-      protocol === 'file:' ||
-      !hostname
-    ) {
+    if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
       return 'https://shooter-app-one.vercel.app/api';
     }
-
-    // For hosted web deployments, use relative path so frontend/backend share host
     return '/api';
   })(),
   STORAGE_KEY: 'voidrift_session',
@@ -335,54 +320,6 @@ const AuthSystem = {
       if (error.message.includes('fetch') || error.message.includes('network')) {
         return { success: false, error: 'Unable to save stats. Please check your internet connection.' };
       }
-      return { success: false, error: error.message };
-    }
-  },
-          this.notifyAuthChange();
-          
-          return {
-            success: true,
-            xpGain: response.xpGain || 0,
-            levelUp: response.profile.level > oldLevel
-          };
-        }
-        
-        return { success: false, error: response.error };
-      }
-      
-      // Update local stats
-      if (!this.session.user.profile) this.session.user.profile = {};
-      if (!this.session.user.stats) this.session.user.stats = {};
-      
-      const profile = this.session.user.profile;
-      const stats = this.session.user.stats;
-      
-      // Update profile stats
-      profile.gamesPlayed = (profile.gamesPlayed || 0) + 1;
-      profile.totalScore = (profile.totalScore || 0) + (gameData.score || 0);
-      profile.highScore = Math.max(profile.highScore || 0, gameData.score || 0);
-      
-      // Update detailed stats
-      stats.kills = (stats.kills || 0) + (gameData.kills || 0);
-      stats.deaths = (stats.deaths || 0) + (gameData.deaths || 0);
-      stats.playTime = (stats.playTime || 0) + (gameData.duration || 0);
-      
-      // Calculate XP gain
-      const xpGain = Math.floor((gameData.score || 0) / 10);
-      profile.xp = (profile.xp || 0) + xpGain;
-      const oldLevel = profile.level || 1;
-      profile.level = Math.floor(profile.xp / 100) + 1;
-      
-      this.saveSession();
-      this.notifyAuthChange();
-      
-      return {
-        success: true,
-        xpGain,
-        levelUp: profile.level > oldLevel
-      };
-    } catch (error) {
-      console.error('Stats update error:', error);
       return { success: false, error: error.message };
     }
   },

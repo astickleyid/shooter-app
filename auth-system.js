@@ -323,54 +323,6 @@ const AuthSystem = {
       return { success: false, error: error.message };
     }
   },
-          this.notifyAuthChange();
-          
-          return {
-            success: true,
-            xpGain: response.xpGain || 0,
-            levelUp: response.profile.level > oldLevel
-          };
-        }
-        
-        return { success: false, error: response.error };
-      }
-      
-      // Update local stats
-      if (!this.session.user.profile) this.session.user.profile = {};
-      if (!this.session.user.stats) this.session.user.stats = {};
-      
-      const profile = this.session.user.profile;
-      const stats = this.session.user.stats;
-      
-      // Update profile stats
-      profile.gamesPlayed = (profile.gamesPlayed || 0) + 1;
-      profile.totalScore = (profile.totalScore || 0) + (gameData.score || 0);
-      profile.highScore = Math.max(profile.highScore || 0, gameData.score || 0);
-      
-      // Update detailed stats
-      stats.kills = (stats.kills || 0) + (gameData.kills || 0);
-      stats.deaths = (stats.deaths || 0) + (gameData.deaths || 0);
-      stats.playTime = (stats.playTime || 0) + (gameData.duration || 0);
-      
-      // Calculate XP gain
-      const xpGain = Math.floor((gameData.score || 0) / 10);
-      profile.xp = (profile.xp || 0) + xpGain;
-      const oldLevel = profile.level || 1;
-      profile.level = Math.floor(profile.xp / 100) + 1;
-      
-      this.saveSession();
-      this.notifyAuthChange();
-      
-      return {
-        success: true,
-        xpGain,
-        levelUp: profile.level > oldLevel
-      };
-    } catch (error) {
-      console.error('Stats update error:', error);
-      return { success: false, error: error.message };
-    }
-  },
   
   /**
    * Register callback for auth state changes
