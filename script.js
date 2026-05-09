@@ -4618,14 +4618,14 @@
       const adaptive = getAdaptiveScaling();
       
       // Base size scaling
-      const sizeMap = { heavy: 1.45, swarmer: 0.9, drone: 0.75, sniper: 0.85, phantom: 0.95 };
+      const sizeMap = { heavy: 1.45, swarmer: 0.9, drone: 0.75, sniper: 0.85, phantom: 0.95, splitter: 1.15, shard: 0.55 };
       let baseSize = BASE.ENEMY_SIZE * (sizeMap[kind] || 1);
       if (isElite) baseSize *= ADAPTIVE_CONSTANTS.ELITE_SIZE_MULT;
       if (isBoss) baseSize *= ADAPTIVE_CONSTANTS.BOSS_SIZE_MULT;
       this.size = baseSize;
       
       // Speed scaling with adaptive difficulty and progression
-      const speedMap = { heavy: 0.85, swarmer: 1.45, drone: 1.2, sniper: 0.7, phantom: 1.1 };
+      const speedMap = { heavy: 0.85, swarmer: 1.45, drone: 1.2, sniper: 0.7, phantom: 1.1, splitter: 1.0, shard: 1.6 };
       let baseSpeed = BASE.ENEMY_SPEED * (speedMap[kind] || 1.05) * diff.enemySpeed;
       baseSpeed *= adaptive.enemySpeedBoost;
       if (isElite) baseSpeed *= ADAPTIVE_CONSTANTS.ELITE_SPEED_MULT;
@@ -4633,7 +4633,7 @@
       this.speed = baseSpeed;
       
       // Health scaling with progressive difficulty
-      const baseHealth = kind === 'heavy' ? 3 : kind === 'sniper' ? 1.5 : 1;
+      const baseHealth = kind === 'heavy' ? 3 : kind === 'sniper' ? 1.5 : kind === 'splitter' ? 2 : kind === 'shard' ? 0.6 : 1;
       let health = Math.ceil(baseHealth * diff.enemyHealth * adaptive.progressiveHealthBonus);
       if (isElite) health *= ADAPTIVE_CONSTANTS.ELITE_HEALTH_MULT;
       if (isBoss) health *= ADAPTIVE_CONSTANTS.BOSS_BASE_HEALTH_MULT + level * ADAPTIVE_CONSTANTS.BOSS_HEALTH_PER_LEVEL;
@@ -4687,6 +4687,19 @@
         this.phantomTransition     = 500; // ms for fade in/out
         this.phantomAlpha = 1;
         this.phantomInvulnerable = false;
+      }
+
+      // Splitter-specific state — splits into shards on death
+      if (kind === 'splitter') {
+        this.splitOnDeath = true;
+        this.isShard = false;
+      } else if (kind === 'shard') {
+        this.splitOnDeath = false;
+        this.isShard = true;
+        this.shardAngleOffset = (Math.random() - 0.5) * 0.8;
+      } else {
+        this.splitOnDeath = false;
+        this.isShard = false;
       }
 
       this.animPhase = Math.random() * Math.PI * 2;
@@ -5518,6 +5531,89 @@
       }
       // ── END PHANTOM DRAW ──────────────────────────────────────────────────
 
+      // ── SPLITTER DRAW ─────────────────────────────────────────────────────
+      if (this.kind === 'splitter') {
+        const t = performance.now();
+        const baseColor  = this.isElite ? '#fbbf24' : (damaged ? '#ea6a0a' : '#f97316');
+        const innerColor = this.isElite ? '#f59e0b' : '#c2410c';
+        const glowColor  = this.isElite ? '#fde68a' : '#fed7aa';
+
+        ctx.shadowColor = glowColor;
+        ctx.shadowBlur  = 18;
+        ctx.fillStyle   = baseColor;
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth   = 3;
+
+        // Hexagon body (6 vertices)
+        const hexR = this.size;
+        ctx.beginPath();
+        for (let v = 0; v < 6; v++) {
+          const a = (Math.PI / 3) * v;
+          if (v === 0) ctx.moveTo(Math.cos(a) * hexR, Math.sin(a) * hexR);
+          else         ctx.lineTo(Math.cos(a) * hexR, Math.sin(a) * hexR);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Inner hex
+        ctx.fillStyle   = innerColor;
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth   = 1.5;
+        const hexR2 = this.size * 0.55;
+        ctx.beginPath();
+        for (let v = 0; v < 6; v++) {
+          const a = (Math.PI / 3) * v;
+          if (v === 0) ctx.moveTo(Math.cos(a) * hexR2, Math.sin(a) * hexR2);
+          else         ctx.lineTo(Math.cos(a) * hexR2, Math.sin(a) * hexR2);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // 3 crack lines radiating from center (hinting at split)
+        ctx.strokeStyle = '#fff7ed';
+        ctx.lineWidth   = 1.5;
+        ctx.globalAlpha = 0.7;
+        const crackAngles = [0, Math.PI * 2 / 3, Math.PI * 4 / 3];
+        for (const ca of crackAngles) {
+          const pulseFrac = Math.sin(t / 220 + ca + this.animPhase) * 0.15 + 0.85;
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(Math.cos(ca) * hexR * pulseFrac, Math.sin(ca) * hexR * pulseFrac);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+      }
+      // ── END SPLITTER DRAW ─────────────────────────────────────────────────
+
+      // ── SHARD DRAW ────────────────────────────────────────────────────────
+      if (this.kind === 'shard') {
+        const t = performance.now();
+        const spin = t * 0.004 + this.animPhase;
+
+        ctx.shadowColor = '#fdba74';
+        ctx.shadowBlur  = 10;
+        ctx.fillStyle   = '#fb923c';
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth   = 2;
+
+        // Small spinning diamond
+        ctx.save();
+        ctx.rotate(spin);
+        const sr = this.size;
+        ctx.beginPath();
+        ctx.moveTo(0,   -sr);
+        ctx.lineTo(sr,   0);
+        ctx.lineTo(0,    sr);
+        ctx.lineTo(-sr,  0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
+      // ── END SHARD DRAW ────────────────────────────────────────────────────
+
       ctx.shadowBlur = 0;
       ctx.restore();
     }
@@ -5795,6 +5891,16 @@
         }
       }
 
+      // Splitter: straight tracking toward player (no special movement)
+      // (movementX/movementY already set to dx/dist, dy/dist — nothing to override)
+
+      // Shard: fast erratic wobble charge at player
+      if (this.kind === 'shard') {
+        if (!this.shardAngleOffset) this.shardAngleOffset = (Math.random() - 0.5) * 0.8;
+        movementX = (dx / dist) + Math.sin(Date.now() * 0.005 + this.shardAngleOffset) * 0.3;
+        movementY = (dy / dist) + Math.cos(Date.now() * 0.005 + this.shardAngleOffset) * 0.3;
+      }
+
       const nx = movementX + ax;
       const ny = movementY + ay;
       const nm = Math.hypot(nx, ny) || 1;
@@ -6016,11 +6122,15 @@
       const sniperChance  = level >= 3 ? Math.min(0.15, (level - 2) * 0.018) : 0;
       // Phantoms unlock at level 5, chance scales up to 12% by level 12
       const phantomChance = level >= 5 ? Math.min(0.12, (level - 4) * 0.017) : 0;
+      // Splitters unlock at level 7, chance scales up to 10% by level 13
+      const splitterChance = level >= 7 ? Math.min(0.10, (level - 6) * 0.015) : 0;
       let kind;
       if (roll < sniperChance) {
         kind = 'sniper';
       } else if (roll < sniperChance + phantomChance) {
         kind = 'phantom';
+      } else if (roll < sniperChance + phantomChance + splitterChance) {
+        kind = 'splitter';
       } else {
         const r2 = Math.random();
         kind = r2 < 0.15 ? 'heavy' : r2 < 0.35 ? 'swarmer' : r2 < 0.55 ? 'chaser' : 'drone';
@@ -8146,11 +8256,13 @@
     // Phase A.4: Enhanced death effects based on enemy type
     const deathColor = wasBoss ? '#7c3aed' :
                        wasElite ? '#f59e0b' :
-                       enemy.kind === 'drone' ? '#ef4444' : 
+                       enemy.kind === 'drone' ? '#ef4444' :
                        enemy.kind === 'chaser' ? '#e879f9' :
                        enemy.kind === 'heavy' ? '#4ade80' :
                        enemy.kind === 'sniper'  ? '#00ffcc' :
-                       enemy.kind === 'phantom' ? '#c084fc' : '#fb923c';
+                       enemy.kind === 'phantom' ? '#c084fc' :
+                       enemy.kind === 'splitter' ? '#f97316' :
+                       enemy.kind === 'shard' ? '#fb923c' : '#fb923c';
     
     // Phase A.4: Shockwave ring
     addParticles('ring', enemy.x, enemy.y, 0, wasBoss ? 3 : 1, deathColor);
@@ -8193,6 +8305,15 @@
       addParticles('debris', enemy.x, enemy.y, 0, 10);
       shakeScreen(4, 100);
       addLogEntry('Sniper eliminated!', '#00ffcc');
+    } else if (enemy.kind === 'splitter') {
+      addParticles('ring', enemy.x, enemy.y, 0, 2, '#f97316');
+      addParticles('sparks', enemy.x, enemy.y, 0, 16);
+      addParticles('debris', enemy.x, enemy.y, 0, 10);
+      shakeScreen(3, 100);
+      addLogEntry('Splitter fractured!', '#f97316');
+    } else if (enemy.kind === 'shard') {
+      addParticles('sparks', enemy.x, enemy.y, 0, 8);
+      addParticles('pop', enemy.x, enemy.y, 0, 5);
     } else {
       addParticles('sparks', enemy.x, enemy.y, 0, 12);
       addParticles('debris', enemy.x, enemy.y, 0, 8);
@@ -8217,6 +8338,20 @@
     if (perkMultipliers.lifestealPerKill > 0 && player) {
       const maxHp = (player.hpMax || player.health) + perkMultipliers.maxHp;
       player.health = Math.min(maxHp, player.health + perkMultipliers.lifestealPerKill);
+    }
+
+    // Splitter death: spawn 2 shard mini-enemies
+    if (enemy.splitOnDeath && !enemy.isBoss) {
+      const splitCount = 2;
+      for (let s = 0; s < splitCount; s++) {
+        const angle = (Math.PI * 2 / splitCount) * s + Math.random() * 0.5;
+        const offset = enemy.size * 0.6;
+        const sx = enemy.x + Math.cos(angle) * offset;
+        const sy = enemy.y + Math.sin(angle) * offset;
+        const shard = new Enemy(sx, sy, 'shard', false, false);
+        enemies.push(shard);
+      }
+      addParticles('sparks', enemy.x, enemy.y, 0, 8);
     }
 
     enemies.splice(index, 1);
