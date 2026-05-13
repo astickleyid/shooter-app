@@ -10701,6 +10701,7 @@
 
   const startGame = () => {
     resetRuntimeState();
+    runStartTime = performance.now();
     currentDifficulty = Save.data.difficulty || 'normal';  // Load saved difficulty
     
     // Always use space mode (planetary mode removed)
@@ -10831,6 +10832,7 @@
       
       // Restart from level 1
       resetRuntimeState();
+      runStartTime = performance.now();
       initShipSelection();
       startLevel(1, true);
       
@@ -11199,6 +11201,22 @@
         timeEl.textContent = mm > 0 ? `${mm}m ${ss}s` : `${runTimeSec}s`;
       }
       if (accuracyEl) accuracyEl.textContent = `${runAccuracyPct}%`;
+
+      // Perk loadout
+      const perksSection = document.getElementById('gameOverPerks');
+      const perksList = document.getElementById('gameOverPerksList');
+      if (perksSection && perksList) {
+        if (activePerks && activePerks.length > 0) {
+          perksList.innerHTML = activePerks.map(perkId => {
+            const perk = PERK_CATALOG.find(p => p.id === perkId);
+            if (!perk) return '';
+            return `<span class="game-over-perk-chip">${perk.icon} ${perk.name}</span>`;
+          }).join('');
+          perksSection.style.display = 'block';
+        } else {
+          perksSection.style.display = 'none';
+        }
+      }
 
       if (rank !== null) {
         if (rankContainer) rankContainer.style.display = 'flex';
@@ -12646,6 +12664,7 @@
       closeUnifiedMenu();
       // Restart game from level 1
       resetRuntimeState();
+      runStartTime = performance.now();
       initShipSelection();
       startLevel(1, true);
     });

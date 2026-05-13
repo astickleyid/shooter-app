@@ -4493,3 +4493,37 @@ html, body {
   color: #fbbf24;
   text-shadow: 0 0 8px rgba(251,191,36,0.5);
 }
+
+/* Game Over — Perk Loadout */
+.game-over-perks {
+  margin: 12px 0 0;
+  padding: 10px 14px;
+  background: rgba(99,102,241,0.08);
+  border: 1px solid rgba(99,102,241,0.18);
+  border-radius: 8px;
+  text-align: left;
+}
+.game-over-perks__label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #818cf8;
+  margin-bottom: 8px;
+}
+.game-over-perks__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.game-over-perk-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: rgba(99,102,241,0.15);
+  border: 1px solid rgba(99,102,241,0.25);
+  border-radius: 20px;
+  font-size: 11px;
+  color: #c7d2fe;
+  white-space: nowrap;
+}
