@@ -860,6 +860,9 @@
   let pilotXP = 0;
   let tookDamageThisLevel = false;
   let gameOverHandled = false;
+  let runShotsFired = 0;
+  let runShotsHit = 0;
+  let runStartTime = 0;
   let countdownActive = false;
   let countdownEnd = 0;
   let countdownCompletedLevel = 0;
@@ -2064,6 +2067,9 @@
     comboTimer = 0;
     totalKillsThisRun = 0;
     lastKillStreakNotification = 0;
+    runShotsFired = 0;
+    runShotsHit = 0;
+    runStartTime = 0;
     damageNumbers.length = 0;
     levelUpAnimationActive = false;
 
@@ -4618,14 +4624,14 @@
       const adaptive = getAdaptiveScaling();
       
       // Base size scaling
-      const sizeMap = { heavy: 1.45, swarmer: 0.9, drone: 0.75, sniper: 0.85, phantom: 0.95, splitter: 1.15, shard: 0.55 };
+      const sizeMap = { heavy: 1.45, swarmer: 0.9, drone: 0.75, sniper: 0.85, phantom: 0.95, splitter: 1.15, shard: 0.55, carrier: 1.7 };
       let baseSize = BASE.ENEMY_SIZE * (sizeMap[kind] || 1);
       if (isElite) baseSize *= ADAPTIVE_CONSTANTS.ELITE_SIZE_MULT;
       if (isBoss) baseSize *= ADAPTIVE_CONSTANTS.BOSS_SIZE_MULT;
       this.size = baseSize;
       
       // Speed scaling with adaptive difficulty and progression
-      const speedMap = { heavy: 0.85, swarmer: 1.45, drone: 1.2, sniper: 0.7, phantom: 1.1, splitter: 1.0, shard: 1.6 };
+      const speedMap = { heavy: 0.85, swarmer: 1.45, drone: 1.2, sniper: 0.7, phantom: 1.1, splitter: 1.0, shard: 1.6, carrier: 0.6 };
       let baseSpeed = BASE.ENEMY_SPEED * (speedMap[kind] || 1.05) * diff.enemySpeed;
       baseSpeed *= adaptive.enemySpeedBoost;
       if (isElite) baseSpeed *= ADAPTIVE_CONSTANTS.ELITE_SPEED_MULT;
@@ -4633,7 +4639,7 @@
       this.speed = baseSpeed;
       
       // Health scaling with progressive difficulty
-      const baseHealth = kind === 'heavy' ? 3 : kind === 'sniper' ? 1.5 : kind === 'splitter' ? 2 : kind === 'shard' ? 0.6 : 1;
+      const baseHealth = kind === 'heavy' ? 3 : kind === 'sniper' ? 1.5 : kind === 'splitter' ? 2 : kind === 'shard' ? 0.6 : kind === 'carrier' ? 3.5 : 1;
       let health = Math.ceil(baseHealth * diff.enemyHealth * adaptive.progressiveHealthBonus);
       if (isElite) health *= ADAPTIVE_CONSTANTS.ELITE_HEALTH_MULT;
       if (isBoss) health *= ADAPTIVE_CONSTANTS.BOSS_BASE_HEALTH_MULT + level * ADAPTIVE_CONSTANTS.BOSS_HEALTH_PER_LEVEL;
@@ -4700,6 +4706,13 @@
       } else {
         this.splitOnDeath = false;
         this.isShard = false;
+      }
+
+      // Carrier-specific state — periodically spawns drone escorts
+      if (kind === 'carrier') {
+        this.droneSpawnInterval = 3500; // ms between drone launches
+        this.lastDroneSpawn = performance.now() + 1500; // initial delay
+        this.maxEscorts = 3; // max concurrent drones spawned by this carrier
       }
 
       this.animPhase = Math.random() * Math.PI * 2;
@@ -5614,6 +5627,74 @@
       }
       // ── END SHARD DRAW ────────────────────────────────────────────────────
 
+      // ── CARRIER DRAW ──────────────────────────────────────────────────────
+      if (this.kind === 'carrier') {
+        const t = performance.now();
+        const baseColor  = this.isElite ? '#818cf8' : (damaged ? '#4338ca' : '#4f46e5');
+        const accentColor = this.isElite ? '#c7d2fe' : '#a5b4fc';
+        const glowColor  = this.isElite ? '#c7d2fe' : '#6366f1';
+
+        ctx.shadowColor = glowColor;
+        ctx.shadowBlur  = 22;
+
+        // Main hull — wide flat diamond / carrier shape
+        ctx.fillStyle   = baseColor;
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth   = 3;
+        ctx.beginPath();
+        ctx.moveTo( this.size * 1.1,  0);               // front nose
+        ctx.lineTo( this.size * 0.3, -this.size * 0.85); // top-front
+        ctx.lineTo(-this.size * 0.85, -this.size * 0.55); // top-rear wing
+        ctx.lineTo(-this.size * 1.0,   0);               // rear center
+        ctx.lineTo(-this.size * 0.85,  this.size * 0.55); // bottom-rear wing
+        ctx.lineTo( this.size * 0.3,   this.size * 0.85); // bottom-front
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Armored center ridge
+        ctx.fillStyle   = accentColor;
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth   = 2;
+        ctx.beginPath();
+        ctx.moveTo( this.size * 0.9,  0);
+        ctx.lineTo( this.size * 0.2, -this.size * 0.35);
+        ctx.lineTo(-this.size * 0.6, -this.size * 0.2);
+        ctx.lineTo(-this.size * 0.6,  this.size * 0.2);
+        ctx.lineTo( this.size * 0.2,  this.size * 0.35);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Drone bay ports — 3 small squares along the rear flank
+        const bayPulse = Math.sin(t / 400) * 0.4 + 0.6;
+        ctx.fillStyle   = `rgba(99,102,241,${bayPulse})`;
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth   = 1.5;
+        const bayOffsets = [-this.size * 0.42, 0, this.size * 0.42];
+        for (const bOff of bayOffsets) {
+          const bx = -this.size * 0.65;
+          const by = bOff;
+          ctx.fillRect(bx - this.size * 0.1, by - this.size * 0.1, this.size * 0.2, this.size * 0.2);
+          ctx.strokeRect(bx - this.size * 0.1, by - this.size * 0.1, this.size * 0.2, this.size * 0.2);
+        }
+
+        // Engine glow — rear thrusters
+        const thrPulse = Math.sin(t / 130) * 0.25 + 0.75;
+        ctx.globalAlpha = thrPulse;
+        ctx.fillStyle   = '#818cf8';
+        ctx.shadowColor = '#6366f1';
+        ctx.shadowBlur  = 14;
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 0.95, -this.size * 0.38, this.size * 0.18, this.size * 0.1, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 0.95,  this.size * 0.38, this.size * 0.18, this.size * 0.1, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      // ── END CARRIER DRAW ──────────────────────────────────────────────────
+
       ctx.shadowBlur = 0;
       ctx.restore();
     }
@@ -5901,6 +5982,33 @@
         movementY = (dy / dist) + Math.cos(Date.now() * 0.005 + this.shardAngleOffset) * 0.3;
       }
 
+      // Carrier: slow steady approach, periodically launches drone escorts
+      if (this.kind === 'carrier') {
+        // Gentle drift — slightly slower than default, maintains deliberate presence
+        movementX = dx / dist * 0.75;
+        movementY = dy / dist * 0.75;
+
+        // Drone launch logic
+        const now = performance.now();
+        if (now - this.lastDroneSpawn > this.droneSpawnInterval) {
+          this.lastDroneSpawn = now;
+          // Count drones nearby — don't exceed escort cap
+          const nearbyDrones = enemies.filter(e =>
+            e !== this && e.kind === 'drone' && Math.hypot(e.x - this.x, e.y - this.y) < 350
+          ).length;
+          if (nearbyDrones < this.maxEscorts) {
+            const launchAngle = Math.random() * Math.PI * 2;
+            const launchDist  = this.size + 20;
+            enemies.push(new Enemy(
+              this.x + Math.cos(launchAngle) * launchDist,
+              this.y + Math.sin(launchAngle) * launchDist,
+              'drone', false, false
+            ));
+            addLogEntry('📡 Carrier launched a drone!', '#6366f1');
+          }
+        }
+      }
+
       const nx = movementX + ax;
       const ny = movementY + ay;
       const nm = Math.hypot(nx, ny) || 1;
@@ -6124,6 +6232,8 @@
       const phantomChance = level >= 5 ? Math.min(0.12, (level - 4) * 0.017) : 0;
       // Splitters unlock at level 7, chance scales up to 10% by level 13
       const splitterChance = level >= 7 ? Math.min(0.10, (level - 6) * 0.015) : 0;
+      // Carriers unlock at level 8 — slow armored hulk that launches drone escorts
+      const carrierChance = level >= 8 ? Math.min(0.08, (level - 7) * 0.012) : 0;
       let kind;
       if (roll < sniperChance) {
         kind = 'sniper';
@@ -6131,6 +6241,8 @@
         kind = 'phantom';
       } else if (roll < sniperChance + phantomChance + splitterChance) {
         kind = 'splitter';
+      } else if (roll < sniperChance + phantomChance + splitterChance + carrierChance) {
+        kind = 'carrier';
       } else {
         const r2 = Math.random();
         kind = r2 < 0.15 ? 'heavy' : r2 < 0.35 ? 'swarmer' : r2 < 0.55 ? 'chaser' : 'drone';
@@ -6627,6 +6739,7 @@
         const pierce = (weaponStats.pierce || 0) + perkMultipliers.piercePlus;
         const dmg = stats.dmg * perkMultipliers.damage;
         bullets.push(new Bullet(sx, sy, vel, dmg, color, speed, size, pierce));
+        runShotsFired++;
         // Twin Shot perk: fire a second bullet with slight angle offset
         if (perkMultipliers.twinShot > 0 && Math.random() < perkMultipliers.twinShot) {
           const twinAngle = angle + (Math.random() < 0.5 ? 0.08 : -0.08);
@@ -8262,7 +8375,8 @@
                        enemy.kind === 'sniper'  ? '#00ffcc' :
                        enemy.kind === 'phantom' ? '#c084fc' :
                        enemy.kind === 'splitter' ? '#f97316' :
-                       enemy.kind === 'shard' ? '#fb923c' : '#fb923c';
+                       enemy.kind === 'shard' ? '#fb923c' :
+                       enemy.kind === 'carrier' ? '#6366f1' : '#fb923c';
     
     // Phase A.4: Shockwave ring
     addParticles('ring', enemy.x, enemy.y, 0, wasBoss ? 3 : 1, deathColor);
@@ -8314,6 +8428,13 @@
     } else if (enemy.kind === 'shard') {
       addParticles('sparks', enemy.x, enemy.y, 0, 8);
       addParticles('pop', enemy.x, enemy.y, 0, 5);
+    } else if (enemy.kind === 'carrier') {
+      addParticles('debris', enemy.x, enemy.y, 0, 28);
+      addParticles('sparks', enemy.x, enemy.y, 0, 20);
+      addParticles('ring', enemy.x, enemy.y, 0, 3, '#6366f1');
+      addParticles('smoke', enemy.x, enemy.y, 0, 10);
+      shakeScreen(9, 300);
+      addLogEntry('📡 Carrier hull breach!', '#6366f1');
     } else {
       addParticles('sparks', enemy.x, enemy.y, 0, 12);
       addParticles('debris', enemy.x, enemy.y, 0, 8);
@@ -8388,6 +8509,7 @@
 
     // Score calculation with elite/boss bonuses
     let scoreGain = 15 + (comboCount > 1 ? comboCount * 2 : 0);
+    if (enemy.kind === 'carrier') scoreGain = Math.round(scoreGain * 2.5); // Carriers are high-value targets
     if (wasElite) scoreGain *= 3;
     if (wasBoss) scoreGain *= 20;
     // Apply kill combo multiplier + Overclock perk score bonus
@@ -9322,7 +9444,8 @@
         const dy = bullet.y - enemy.y;
         if (Math.hypot(dx, dy) < bullet.size + enemy.size) {
           enemy.health -= bullet.damage;
-          
+          runShotsHit++;
+
           // Phase 1: Show damage number
           spawnDamageNumber(enemy.x, enemy.y, bullet.damage, false);
           
@@ -10217,6 +10340,8 @@
         color = '#f97316';          // orange — elite / sniper
       } else if (enemy.kind === 'heavy') {
         color = '#fbbf24';          // amber — heavy
+      } else if (enemy.kind === 'carrier') {
+        color = '#818cf8';          // indigo — carrier
       } else {
         color = 'rgba(255,255,255,0.75)'; // white — standard
       }
@@ -10379,6 +10504,7 @@
     
     lastTime = performance.now();
     lastAmmoRegen = lastTime;
+    runStartTime = lastTime;
     gameRunning = true;
     paused = false;
     loop(lastTime);
@@ -10896,9 +11022,10 @@
         
         lastTime = performance.now();
         lastAmmoRegen = lastTime;
+        runStartTime = lastTime;
         gameRunning = true;
         paused = false;
-        
+
         // Update HUD
         updateHUD();
         
@@ -11011,7 +11138,10 @@
     // Submit to leaderboard and update stats if logged in
     const finalScore = score;
     const finalLevel = level;
-    
+    const runKillCount = totalKillsThisRun;
+    const runTimeSec = runStartTime > 0 ? Math.floor((performance.now() - runStartTime) / 1000) : 0;
+    const runAccuracyPct = runShotsFired > 0 ? Math.round((runShotsHit / runShotsFired) * 100) : 0;
+
     if (Auth.isLoggedIn()) {
       const username = Auth.getCurrentUsername();
       
@@ -11029,18 +11159,18 @@
       // Submit to leaderboard
       Leaderboard.addEntry(username, finalScore, finalLevel, currentDifficulty)
         .then(rank => {
-          showGameOverScreen(finalScore, finalLevel, rank, isNewBest);
+          showGameOverScreen(finalScore, finalLevel, rank, isNewBest, runKillCount, runTimeSec, runAccuracyPct);
         })
         .catch(err => {
           console.warn('Failed to submit leaderboard entry:', err);
-          showGameOverScreen(finalScore, finalLevel, null, isNewBest);
+          showGameOverScreen(finalScore, finalLevel, null, isNewBest, runKillCount, runTimeSec, runAccuracyPct);
         });
     } else {
-      showGameOverScreen(finalScore, finalLevel, null, isNewBest);
+      showGameOverScreen(finalScore, finalLevel, null, isNewBest, runKillCount, runTimeSec, runAccuracyPct);
     }
   };
 
-  const showGameOverScreen = (finalScore, finalLevel, rank, isNewBest) => {
+  const showGameOverScreen = (finalScore, finalLevel, rank, isNewBest, runKillCount = 0, runTimeSec = 0, runAccuracyPct = 0) => {
     // Note: Don't hide gameContainer - the gameOverModal is a child element
     // inside gameContainer, so hiding the container would also hide the modal.
     // The modal overlays on top of the game canvas with its own styling.
@@ -11057,7 +11187,19 @@
       
       if (scoreEl) scoreEl.textContent = finalScore.toLocaleString();
       if (levelEl) levelEl.textContent = finalLevel;
-      
+
+      // Run stats
+      const killsEl = document.getElementById('gameOverKills');
+      const timeEl = document.getElementById('gameOverTime');
+      const accuracyEl = document.getElementById('gameOverAccuracy');
+      if (killsEl) killsEl.textContent = runKillCount;
+      if (timeEl) {
+        const mm = Math.floor(runTimeSec / 60);
+        const ss = String(runTimeSec % 60).padStart(2, '0');
+        timeEl.textContent = mm > 0 ? `${mm}m ${ss}s` : `${runTimeSec}s`;
+      }
+      if (accuracyEl) accuracyEl.textContent = `${runAccuracyPct}%`;
+
       if (rank !== null) {
         if (rankContainer) rankContainer.style.display = 'flex';
         if (rankEl) rankEl.textContent = `#${rank}`;
