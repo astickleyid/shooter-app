@@ -4624,14 +4624,14 @@
       const adaptive = getAdaptiveScaling();
       
       // Base size scaling
-      const sizeMap = { heavy: 1.45, swarmer: 0.9, drone: 0.75, sniper: 0.85, phantom: 0.95, splitter: 1.15, shard: 0.55, carrier: 1.7 };
+      const sizeMap = { heavy: 1.45, swarmer: 0.9, drone: 0.75, sniper: 0.85, phantom: 0.95, splitter: 1.15, shard: 0.55, carrier: 1.7, berserker: 1.25 };
       let baseSize = BASE.ENEMY_SIZE * (sizeMap[kind] || 1);
       if (isElite) baseSize *= ADAPTIVE_CONSTANTS.ELITE_SIZE_MULT;
       if (isBoss) baseSize *= ADAPTIVE_CONSTANTS.BOSS_SIZE_MULT;
       this.size = baseSize;
       
       // Speed scaling with adaptive difficulty and progression
-      const speedMap = { heavy: 0.85, swarmer: 1.45, drone: 1.2, sniper: 0.7, phantom: 1.1, splitter: 1.0, shard: 1.6, carrier: 0.6 };
+      const speedMap = { heavy: 0.85, swarmer: 1.45, drone: 1.2, sniper: 0.7, phantom: 1.1, splitter: 1.0, shard: 1.6, carrier: 0.6, berserker: 0.7 };
       let baseSpeed = BASE.ENEMY_SPEED * (speedMap[kind] || 1.05) * diff.enemySpeed;
       baseSpeed *= adaptive.enemySpeedBoost;
       if (isElite) baseSpeed *= ADAPTIVE_CONSTANTS.ELITE_SPEED_MULT;
@@ -4639,7 +4639,7 @@
       this.speed = baseSpeed;
       
       // Health scaling with progressive difficulty
-      const baseHealth = kind === 'heavy' ? 3 : kind === 'sniper' ? 1.5 : kind === 'splitter' ? 2 : kind === 'shard' ? 0.6 : kind === 'carrier' ? 3.5 : 1;
+      const baseHealth = kind === 'heavy' ? 3 : kind === 'sniper' ? 1.5 : kind === 'splitter' ? 2 : kind === 'shard' ? 0.6 : kind === 'carrier' ? 3.5 : kind === 'berserker' ? 2.5 : 1;
       let health = Math.ceil(baseHealth * diff.enemyHealth * adaptive.progressiveHealthBonus);
       if (isElite) health *= ADAPTIVE_CONSTANTS.ELITE_HEALTH_MULT;
       if (isBoss) health *= ADAPTIVE_CONSTANTS.BOSS_BASE_HEALTH_MULT + level * ADAPTIVE_CONSTANTS.BOSS_HEALTH_PER_LEVEL;
@@ -4713,6 +4713,13 @@
         this.droneSpawnInterval = 3500; // ms between drone launches
         this.lastDroneSpawn = performance.now() + 1500; // initial delay
         this.maxEscorts = 3; // max concurrent drones spawned by this carrier
+      }
+
+      if (kind === 'berserker') {
+        this.enraged = false;
+        this.enrageFlash = 0; // for visual flash pulse
+        this.vx = 0;
+        this.vy = 0;
       }
 
       this.animPhase = Math.random() * Math.PI * 2;
@@ -5695,6 +5702,53 @@
       }
       // ── END CARRIER DRAW ──────────────────────────────────────────────────
 
+      // ── BERSERKER DRAW ────────────────────────────────────────────────────
+      if (this.kind === 'berserker') {
+        const enraged = this.enraged;
+        const flash = enraged ? 0.7 + Math.sin(performance.now() / 80) * 0.3 : 1;
+        const baseColor = enraged ? `rgba(220,38,38,${flash})` : '#f97316';
+        const coreColor = enraged ? `rgba(255,100,100,${flash})` : '#fbbf24';
+        
+        // Outer angular hull — aggressive hexagonal shape
+        ctx.strokeStyle = baseColor;
+        ctx.fillStyle = enraged ? `rgba(220,38,38,0.15)` : 'rgba(249,115,22,0.1)';
+        ctx.lineWidth = enraged ? 2.5 : 2;
+        ctx.beginPath();
+        const pts = 6;
+        for (let i = 0; i < pts; i++) {
+          const angle = (i / pts) * Math.PI * 2 - Math.PI / 2;
+          const r = this.size * (i % 2 === 0 ? 1.0 : 0.7);
+          i === 0 ? ctx.moveTo(Math.cos(angle) * r, Math.sin(angle) * r) 
+                  : ctx.lineTo(Math.cos(angle) * r, Math.sin(angle) * r);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        
+        // Inner core
+        const coreGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size * 0.45);
+        coreGrad.addColorStop(0, coreColor);
+        coreGrad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = coreGrad;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size * 0.45, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Enrage sparks
+        if (enraged) {
+          const sparkCount = 4;
+          for (let i = 0; i < sparkCount; i++) {
+            const sa = (performance.now() / 120 + i * Math.PI * 2 / sparkCount);
+            const sr = this.size * 0.8 + Math.sin(performance.now() / 100 + i) * this.size * 0.15;
+            ctx.beginPath();
+            ctx.arc(Math.cos(sa) * sr, Math.sin(sa) * sr, 3, 0, Math.PI * 2);
+            ctx.fillStyle = '#fca5a5';
+            ctx.fill();
+          }
+        }
+      }
+      // ── END BERSERKER DRAW ────────────────────────────────────────────────
+
       ctx.shadowBlur = 0;
       ctx.restore();
     }
@@ -5970,6 +6024,35 @@
             }
             break;
         }
+      } else if (this.kind === 'berserker') {
+        // Trigger enrage below 50% HP
+        if (!this.enraged && this.health <= this.maxHealth * 0.5) {
+          this.enraged = true;
+          this.speed *= 2.2; // surge of speed on enrage
+        }
+        if (player) {
+          if (this.enraged) {
+            // Sprint directly at player
+            const dx = player.x - this.x;
+            const dy = player.y - this.y;
+            const d = Math.hypot(dx, dy) || 1;
+            this.vx = (dx / d) * this.speed * 1.1;
+            this.vy = (dy / d) * this.speed * 1.1;
+          } else {
+            // Slow erratic approach — circle then lunge
+            const dx = player.x - this.x;
+            const dy = player.y - this.y;
+            const d = Math.hypot(dx, dy) || 1;
+            const circleAngle = Math.atan2(dy, dx) + 0.4;
+            this.vx += (Math.cos(circleAngle) * this.speed * 0.08);
+            this.vy += (Math.sin(circleAngle) * this.speed * 0.08);
+            const maxV = this.speed * 1.2;
+            const cv = Math.hypot(this.vx, this.vy);
+            if (cv > maxV) { this.vx = (this.vx / cv) * maxV; this.vy = (this.vy / cv) * maxV; }
+          }
+          movementX = (this.vx / (this.speed || 1));
+          movementY = (this.vy / (this.speed || 1));
+        }
       }
 
       // Splitter: straight tracking toward player (no special movement)
@@ -6234,6 +6317,8 @@
       const splitterChance = level >= 7 ? Math.min(0.10, (level - 6) * 0.015) : 0;
       // Carriers unlock at level 8 — slow armored hulk that launches drone escorts
       const carrierChance = level >= 8 ? Math.min(0.08, (level - 7) * 0.012) : 0;
+      // Berserkers unlock at level 9 — slow until enraged, then sprint directly at player
+      const berserkerChance = level >= 9 ? Math.min(0.09, (level - 8) * 0.014) : 0;
       let kind;
       if (roll < sniperChance) {
         kind = 'sniper';
@@ -6243,6 +6328,8 @@
         kind = 'splitter';
       } else if (roll < sniperChance + phantomChance + splitterChance + carrierChance) {
         kind = 'carrier';
+      } else if (roll < sniperChance + phantomChance + splitterChance + carrierChance + berserkerChance) {
+        kind = 'berserker';
       } else {
         const r2 = Math.random();
         kind = r2 < 0.15 ? 'heavy' : r2 < 0.35 ? 'swarmer' : r2 < 0.55 ? 'chaser' : 'drone';
@@ -8376,7 +8463,7 @@
                        enemy.kind === 'phantom' ? '#c084fc' :
                        enemy.kind === 'splitter' ? '#f97316' :
                        enemy.kind === 'shard' ? '#fb923c' :
-                       enemy.kind === 'carrier' ? '#6366f1' : '#fb923c';
+                       enemy.kind === 'carrier' ? '#6366f1' : enemy.kind === 'berserker' ? '#dc2626' : '#fb923c';
     
     // Phase A.4: Shockwave ring
     addParticles('ring', enemy.x, enemy.y, 0, wasBoss ? 3 : 1, deathColor);
