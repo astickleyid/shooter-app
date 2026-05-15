@@ -1,0 +1,8 @@
+app_identifier "com.voidrift.game"
+apple_id "PASTE_YOUR_APPLE_ID@email.com"      # Replace
+itc_team_id "PASTE_YOUR_ITC_TEAM_ID"          # From App Store Connect
+team_id "PASTE_YOUR_TEAM_ID"                   # From Apple Developer Portal
+
+# Android
+json_key_file "fastlane/google-play-key.json" # Download from Play Console
+package_name "com.voidrift.game"

@@ -491,6 +491,66 @@ const FirebaseBackend = {
   },
 
   /**
+   * Get friends list for a user
+   */
+  async getFriends(userId) {
+    if (!this.db) return { success: false, error: 'Not initialized' };
+    try {
+      const snap = await this.db.ref(`social/friends/${userId}`).once('value');
+      return { success: true, friends: snap.val() ? Object.values(snap.val()) : [] };
+    } catch (e) { return { success: false, error: e.message }; }
+  },
+
+  /**
+   * Send friend request by username lookup
+   */
+  async sendFriendRequestByUsername(fromUserId, toUsername) {
+    if (!this.db) return { success: false, error: 'Not initialized' };
+    try {
+      // Look up toUser by username
+      const snap = await this.db.ref('users').orderByChild('username').equalTo(toUsername).once('value');
+      if (!snap.exists()) return { success: false, error: 'User not found' };
+      const toUserId = Object.keys(snap.val())[0];
+      await this.db.ref(`social/friendRequests/${toUserId}/${fromUserId}`).set({
+        from: fromUserId, timestamp: Date.now(), status: 'pending'
+      });
+      return { success: true };
+    } catch (e) { return { success: false, error: e.message }; }
+  },
+
+  /**
+   * Log activity event for a user
+   */
+  async logActivity(userId, type, data = {}) {
+    if (!this.db) return;
+    try {
+      const ref = this.db.ref(`social/activity/${userId}`).push();
+      await ref.set({ type, data, timestamp: Date.now() });
+      // Keep only last 50 events
+      const snap = await this.db.ref(`social/activity/${userId}`).orderByChild('timestamp').once('value');
+      const entries = [];
+      snap.forEach(child => entries.push({ key: child.key, val: child.val() }));
+      if (entries.length > 50) {
+        const toDelete = entries.slice(0, entries.length - 50);
+        for (const e of toDelete) await this.db.ref(`social/activity/${userId}/${e.key}`).remove();
+      }
+    } catch (e) { /* silent */ }
+  },
+
+  /**
+   * Get activity feed for a user
+   */
+  async getActivityFeed(userId, limit = 20) {
+    if (!this.db) return { success: false, error: 'Not initialized' };
+    try {
+      const snap = await this.db.ref(`social/activity/${userId}`).orderByChild('timestamp').limitToLast(limit).once('value');
+      const feed = [];
+      snap.forEach(child => feed.push(child.val()));
+      return { success: true, feed: feed.reverse() };
+    } catch (e) { return { success: false, error: e.message }; }
+  },
+
+  /**
    * Health check
    */
   async healthCheck() {

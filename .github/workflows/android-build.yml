@@ -1,0 +1,98 @@
+name: Android Build & Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '**.js'
+      - '**.html'
+      - '**.css'
+      - 'capacitor.config.ts'
+      - 'android/**'
+  workflow_dispatch:
+    inputs:
+      deploy_to_play:
+        description: 'Deploy to Google Play (internal track)'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  build:
+    name: Build Android APK / AAB
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Sync Capacitor
+        run: npx cap sync android
+
+      - name: Make gradlew executable
+        run: chmod +x android/gradlew
+
+      - name: Build Debug APK
+        run: cd android && ./gradlew assembleDebug
+
+      - name: Build Release Bundle (main branch only)
+        if: github.ref == 'refs/heads/main'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+        run: |
+          # Decode keystore
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
+
+          # Build signed release bundle
+          cd android && ./gradlew bundleRelease \
+            -Pandroid.injected.signing.store.file=release.keystore \
+            -Pandroid.injected.signing.store.password="$STORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
+
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: void-rift-debug
+          path: android/app/build/outputs/apk/debug/*.apk
+          retention-days: 7
+
+      - name: Upload Release Bundle
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: void-rift-release-bundle
+          path: android/app/build/outputs/bundle/release/*.aab
+          retention-days: 30
+
+      - name: Deploy to Google Play (Internal Track)
+        if: github.ref == 'refs/heads/main' && github.event.inputs.deploy_to_play == 'true'
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.voidrift.game
+          releaseFiles: android/app/build/outputs/bundle/release/*.aab
+          track: internal
+          status: completed
+          whatsNewDirectory: fastlane/metadata/android/en-US/changelogs/

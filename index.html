@@ -333,6 +333,9 @@
           </table>
         </div>
         <div class="game-over-actions">
+          <button id="gameOverWatchAdBtn" class="game-over-btn ad-continue-btn" style="display:none;">
+            <span>📺</span> Watch Ad to Continue
+          </button>
           <button id="gameOverRestartBtn" class="game-over-btn primary"><img src="assets/icons/icon-restart.svg" alt="" width="20" height="20"/> Play Again</button>
           <button id="gameOverShopBtn" class="game-over-btn"><img src="assets/icons/icon-shop.svg" alt="" width="20" height="20"/> Upgrades & Shop</button>
           <button id="gameOverHangarBtn" class="game-over-btn"><img src="assets/icons/icon-hangar.svg" alt="" width="20" height="20"/> Ship Hangar</button>
@@ -628,40 +631,33 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
   <script src="firebase-backend.js"></script>
   
-  <!-- Firebase Configuration - REPLACE WITH YOUR CONFIG -->
+  <!-- Firebase Configuration — edit firebase-config.js with your credentials -->
+  <script src="firebase-config.js"></script>
+
+  <!-- Firebase SDK (already loaded above) -->
+  <!-- firebase-backend.js already loaded above -->
+
   <script>
-    // Get your config from: https://console.firebase.google.com/
-    // See FIREBASE_SETUP.md for instructions
-    const firebaseConfig = {
-      // Paste your Firebase config here
-      // Example:
-      // apiKey: "AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-      // authDomain: "your-app.firebaseapp.com",
-      // databaseURL: "https://your-app.firebaseio.com",
-      // projectId: "your-app",
-      // storageBucket: "your-app.appspot.com",
-      // messagingSenderId: "123456789",
-      // appId: "1:123456789:web:abcdef"
-    };
-    
-    // Initialize Firebase (only if config is set)
-    if (firebaseConfig.apiKey) {
-      FirebaseBackend.initialize(firebaseConfig);
+    // Initialize Firebase from config file
+    if (typeof window.FIREBASE_CONFIG !== 'undefined' && window.FIREBASE_CONFIG.apiKey && !window.FIREBASE_CONFIG.apiKey.startsWith('PASTE')) {
+      FirebaseBackend.initialize(window.FIREBASE_CONFIG);
     } else {
-      console.warn('⚠️ Firebase not configured. Add your config to index.html');
-      console.warn('📖 See FIREBASE_SETUP.md for setup instructions');
+      console.warn('⚠️ Firebase not configured. Edit firebase-config.js with your project credentials.');
+      console.warn('📖 See FIREBASE_SETUP.md for step-by-step instructions.');
     }
   </script>
-  
+
   <!-- Game Scripts -->
   <script src="auth-system.js"></script>
   <script src="leaderboard-system.js"></script>
+  <script src="social-api.js"></script>
   <script src="social-ui.js"></script>
-  
+
   <!-- Firebase Adapter - Makes existing code work with Firebase -->
   <script src="firebase-adapter.js"></script>
   
   <script src="audio-manager.js"></script>
+  <script src="admob-manager.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

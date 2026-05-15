@@ -860,6 +860,7 @@
   let pilotXP = 0;
   let tookDamageThisLevel = false;
   let gameOverHandled = false;
+  let continueUsed = false;
   let runShotsFired = 0;
   let runShotsHit = 0;
   let runStartTime = 0;
@@ -2034,6 +2035,7 @@
     pilotXP = Save.data.pilotXp;
     tookDamageThisLevel = false;
     gameOverHandled = false;
+    continueUsed = false;
 
     // Special ability reset
     specialCooldown = 0;
@@ -9804,8 +9806,61 @@
     }
     
     tookDamageThisLevel = false;
+
+    // Show rewarded ad prompt every 3 waves
+    tryShowWaveCreditAd(completedLevel);
   };
-  
+
+  // ── Wave-completion rewarded ad prompt ────────────────────────────────────
+  const tryShowWaveCreditAd = (completedLevel) => {
+    // Only fire on every 3rd wave (wave 3, 6, 9, …)
+    if (completedLevel % 3 !== 0) return;
+    // Only show if AdMobManager is available
+    if (typeof AdMobManager === 'undefined') return;
+    // On native, require ad to be loaded; on web the manager always simulates
+    if (!AdMobManager.canShow) return;
+
+    // Remove any existing prompt first
+    const existing = document.getElementById('wave-ad-prompt');
+    if (existing) existing.remove();
+
+    const prompt = document.createElement('div');
+    prompt.id = 'wave-ad-prompt';
+    prompt.className = 'wave-ad-prompt';
+    prompt.innerHTML = `
+      <div class="wave-ad-prompt__text">
+        🎬 Watch a short video for <strong style="color:#4ade80">+100 credits</strong>
+      </div>
+      <button class="wave-ad-prompt__watch" id="wave-ad-watch-btn">Watch</button>
+      <button class="wave-ad-prompt__dismiss" id="wave-ad-dismiss-btn" aria-label="Dismiss">×</button>
+    `;
+    document.body.appendChild(prompt);
+
+    // Auto-dismiss after 8 seconds
+    const autoDismiss = setTimeout(() => prompt.remove(), 8000);
+
+    document.getElementById('wave-ad-dismiss-btn').addEventListener('click', () => {
+      clearTimeout(autoDismiss);
+      prompt.remove();
+    });
+
+    document.getElementById('wave-ad-watch-btn').addEventListener('click', () => {
+      clearTimeout(autoDismiss);
+      prompt.remove();
+      AdMobManager.showRewarded(
+        () => {
+          // onRewarded: add 100 credits
+          Save.addCredits(100);
+          updateHUD();
+          addLogEntry('🎬 +100 CR bonus from ad reward!', '#4ade80');
+        },
+        () => {
+          // onCancel: nothing to do, prompt already removed
+        }
+      );
+    });
+  };
+
   // NEW: Function to start countdown from ready-up phase
   const startCountdownFromReadyUp = () => {
     if (!readyUpPhase) return;
@@ -11342,17 +11397,64 @@
         }
       }
 
+      // Watch Ad to Continue button
+      const watchAdBtn = document.getElementById('gameOverWatchAdBtn');
+      if (watchAdBtn) {
+        // Show only if AdMob is available and player hasn't already used a continue this run
+        const canContinue = typeof AdMobManager !== 'undefined' && !continueUsed;
+        watchAdBtn.style.display = canContinue ? 'flex' : 'none';
+
+        watchAdBtn.onclick = () => {
+          if (typeof AdMobManager === 'undefined') return;
+          watchAdBtn.disabled = true;
+          watchAdBtn.textContent = 'Loading ad…';
+
+          AdMobManager.showRewarded(
+            // Rewarded: grant 1 continue
+            () => {
+              gameOverModal.style.display = 'none';
+              _continueRun(finalScore, finalLevel);
+            },
+            // Cancelled/not ready
+            (reason) => {
+              watchAdBtn.disabled = false;
+              watchAdBtn.innerHTML = '<span>📺</span> Watch Ad to Continue';
+              if (reason === 'not_ready') {
+                watchAdBtn.title = 'Ad is loading, try again in a moment';
+              }
+            }
+          );
+        };
+      }
+
       gameOverModal.style.display = 'flex';
     }
   };
-  
+
   const closeGameOverScreen = () => {
     const gameOverModal = document.getElementById('gameOverModal');
     if (gameOverModal) {
       gameOverModal.style.display = 'none';
     }
   };
-  
+
+  const _continueRun = (lastScore, lastLevel) => {
+    // Revive player with 30% HP, reset game over state
+    continueUsed = true; // prevent double-continue
+
+    if (player) {
+      player.health = Math.ceil(player.hpMax * 0.3);
+      // Grant 3 seconds of invulnerability using the timestamp-based system
+      player.invEnd = performance.now() + 3000;
+    }
+
+    gameOverHandled = false; // re-enable game over detection
+    gameRunning = true;
+
+    // Show a brief "REVIVED" flash
+    addLogEntry('⚡ REVIVED! Fight on!', '#4ade80');
+  };
+
   const returnToMainMenu = () => {
     // Close any open modals
     closeGameOverScreen();
@@ -11552,6 +11654,7 @@
     Save.load();
     Auth.load();
     Leaderboard.load();
+    if (typeof AdMobManager !== 'undefined') AdMobManager.initialize();
     pilotLevel = Save.data.pilotLevel;
     pilotXP = Save.data.pilotXp;
     // Sync selectedShip from saved data (default to 'spectre-9' if not one of the 3 featured)

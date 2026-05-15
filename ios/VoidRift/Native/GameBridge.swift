@@ -30,7 +30,11 @@ class GameBridge: NSObject {
         webView.configuration.userContentController.add(self, name: "gcShowLeaderboard")
         webView.configuration.userContentController.add(self, name: "gcShowAchievements")
         webView.configuration.userContentController.add(self, name: "gcLoadFriends")
-        
+
+        // AdMob message handlers
+        webView.configuration.userContentController.add(self, name: "adPreloadRewarded")
+        webView.configuration.userContentController.add(self, name: "adShowRewarded")
+
         // Inject bridge script
         injectBridgeScript()
     }
@@ -60,6 +64,15 @@ class GameBridge: NSObject {
             },
             getOrientation: function() {
                 return window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
+            },
+            // AdMob ads integration
+            ads: {
+                preloadRewarded: function() {
+                    window.webkit.messageHandlers.adPreloadRewarded.postMessage({});
+                },
+                showRewarded: function() {
+                    window.webkit.messageHandlers.adShowRewarded.postMessage({});
+                }
             },
             // Game Center integration
             gameCenter: {
@@ -170,6 +183,11 @@ extension GameBridge: WKScriptMessageHandler {
             handleGameCenterShowAchievements()
         case "gcLoadFriends":
             handleGameCenterLoadFriends(message.body)
+        // AdMob handlers
+        case "adPreloadRewarded":
+            AdMobManager.shared.preloadRewarded()
+        case "adShowRewarded":
+            handleAdShowRewarded()
         default:
             break
         }
@@ -242,8 +260,24 @@ extension GameBridge: WKScriptMessageHandler {
         }
     }
     
+    // MARK: - AdMob Handlers
+
+    private func handleAdShowRewarded() {
+        DispatchQueue.main.async { [weak self] in
+            guard let webView = self?.webView,
+                  let presenting = webView.window?.rootViewController else { return }
+
+            AdMobManager.shared.showRewarded(from: presenting) { [weak self] rewarded in
+                let js = rewarded
+                    ? "window.dispatchEvent(new CustomEvent('adRewarded', {detail:{type:'coins',amount:1}}));"
+                    : "window.dispatchEvent(new CustomEvent('adClosed'));"
+                self?.webView?.evaluateJavaScript(js, completionHandler: nil)
+            }
+        }
+    }
+
     // MARK: - Game Center Handlers
-    
+
     private func handleGameCenterAuthenticate() {
         GameCenterManager.shared.authenticatePlayer { [weak self] success in
             self?.notifyGameCenterStatus(authenticated: success)

@@ -9,7 +9,11 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "lint": "eslint script.js",
-    "lint:fix": "eslint script.js --fix"
+    "lint:fix": "eslint script.js --fix",
+    "cap:sync": "npx cap sync",
+    "cap:android": "npx cap open android",
+    "cap:build:android": "npx cap sync android && cd android && ./gradlew bundleRelease",
+    "cap:add:android": "npx cap add android"
   },
   "repository": {
     "type": "git",
@@ -24,7 +28,12 @@
   ],
   "author": "",
   "license": "MIT",
-  "dependencies": {},
+  "dependencies": {
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/cli": "^6.0.0",
+    "@capacitor/android": "^6.0.0",
+    "@capacitor-community/admob": "^6.0.0"
+  },
   "devDependencies": {
     "eslint": "^8.57.0",
     "jest": "^30.2.0",

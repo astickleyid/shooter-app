@@ -1,0 +1,58 @@
+# Fastfile — VOID RIFT
+# Run: `bundle exec fastlane ios beta` or `bundle exec fastlane android deploy`
+#
+# SETUP:
+#   gem install bundler
+#   bundle install
+#   fastlane match init  (iOS code signing)
+#   fastlane supply init (Android setup)
+
+default_platform(:ios)
+
+platform :ios do
+  desc "Push to TestFlight"
+  lane :beta do
+    sync_code_signing(type: "appstore")
+    build_app(
+      workspace: "ios/VoidRift.xcworkspace",
+      scheme: "VoidRift",
+      configuration: "Release",
+      output_directory: "build/",
+      output_name: "VoidRift.ipa"
+    )
+    upload_to_testflight(
+      skip_waiting_for_build_processing: true
+    )
+  end
+
+  desc "Submit to App Store"
+  lane :release do
+    sync_code_signing(type: "appstore")
+    build_app(
+      workspace: "ios/VoidRift.xcworkspace",
+      scheme: "VoidRift",
+      configuration: "Release"
+    )
+    upload_to_app_store(
+      skip_screenshots: true,
+      skip_metadata: false,
+      submit_for_review: false,   # Set true to auto-submit
+      automatic_release: false    # Set true to auto-release after approval
+    )
+  end
+end
+
+platform :android do
+  desc "Deploy to Play Store internal track"
+  lane :deploy do
+    gradle(
+      task: "bundle",
+      build_type: "Release",
+      project_dir: "android/"
+    )
+    upload_to_play_store(
+      track: "internal",
+      aab: "android/app/build/outputs/bundle/release/app-release.aab"
+    )
+  end
+end
