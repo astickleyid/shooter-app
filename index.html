@@ -65,6 +65,10 @@
         <img class="nav-icon" src="assets/icons/icon-hangar.svg" alt="" width="20" height="20"/>
         <span class="nav-label">Hangar</span>
       </button>
+      <button id="openPermanentHangar" class="nav-btn">
+        <img class="nav-icon" src="assets/icons/achievement-upgrade.svg" alt="" width="20" height="20"/>
+        <span class="nav-label">Base Mods</span>
+      </button>
       <button id="leaderboardButton" class="nav-btn">
         <img class="nav-icon" src="assets/icons/icon-trophy.svg" alt="" width="20" height="20"/>
         <span class="nav-label">Rankings</span>
@@ -659,5 +663,45 @@
   <script src="audio-manager.js"></script>
   <script src="admob-manager.js"></script>
   <script src="script.js"></script>
+
+  <!-- Persistent Upgrade Hangar (Base Mods) -->
+  <script type="module">
+    import { openHangar, closeHangar } from './hangar-ui.js';
+
+    // Wire up the Base Mods nav button on the start screen.
+    // We delay until DOMContentLoaded so the button element is guaranteed
+    // to exist, and pass credit callbacks that bridge into the main game's
+    // Save object when it has been initialised by script.js.
+    document.addEventListener('DOMContentLoaded', () => {
+      const btn = document.getElementById('openPermanentHangar');
+      if (!btn) return;
+
+      btn.addEventListener('click', () => {
+        openHangar({
+          // Read credits from the main game Save if available, otherwise
+          // fall back to the hangar's own internal credit pool.
+          getCredits: () => {
+            if (window.Save && typeof window.Save.data?.credits === 'number') {
+              return window.Save.data.credits;
+            }
+            return undefined; // signals HangarSystem to use internal pool
+          },
+          spendCredits: (amount) => {
+            if (window.Save && typeof window.Save.spendCredits === 'function') {
+              return window.Save.spendCredits(amount);
+            }
+            return false; // fall back — internal pool handles it
+          },
+          onClose: () => {
+            // Refresh any on-screen credits display after the shop closes
+            const creditsEl = document.getElementById('creditsText');
+            if (creditsEl && window.Save) {
+              creditsEl.textContent = window.Save.data.credits;
+            }
+          }
+        });
+      });
+    });
+  </script>
 </body>
 </html>
