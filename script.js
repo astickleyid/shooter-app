@@ -1315,6 +1315,33 @@
 
   let currentShip = null;
 
+  // Wave intro banner — shown for 2 seconds between waves
+  const WAVE_ENEMY_HINTS = {
+    1: 'SWARMERS INCOMING',
+    2: 'SWARMERS INCOMING',
+    3: 'HEAVY UNITS DETECTED',
+    4: 'HEAVY UNITS DETECTED',
+    5: 'SNIPER THREAT CONFIRMED',
+    6: 'SNIPER THREAT CONFIRMED',
+    7: 'PHANTOM SQUADRON',
+    8: 'CARRIER DETECTED',
+    9: 'BERSERKER ALERT',
+  };
+
+  const showWaveBanner = (waveNum, hint) => {
+    const banner = document.getElementById('waveBanner');
+    const num    = document.getElementById('waveBannerNumber');
+    const sub    = document.getElementById('waveBannerSub');
+    if (!banner || !num || !sub) return;
+    num.textContent = `WAVE ${waveNum}`;
+    sub.textContent = hint || WAVE_ENEMY_HINTS[waveNum] || (waveNum >= 10 ? 'CRITICAL THREAT LEVEL' : 'INCOMING');
+    banner.style.display = 'flex';
+    banner.style.animation = 'none';
+    void banner.offsetWidth; // force reflow so animation restarts
+    banner.style.animation = 'waveBannerShow 2s ease forwards';
+    setTimeout(() => { banner.style.display = 'none'; }, 2000);
+  };
+
   // Helper function to get current difficulty settings
   const getDifficulty = () => DIFFICULTY_PRESETS[currentDifficulty] || DIFFICULTY_PRESETS.normal;
 
@@ -9756,7 +9783,11 @@
     } else {
       currentWaveType = 'standard';
     }
-    
+
+    // Show wave intro banner
+    const _bossHint = currentWaveType === 'boss' ? 'BOSS WAVE — MAXIMUM THREAT' : undefined;
+    showWaveBanner(level, _bossHint);
+
     const waveType = WAVE_TYPES[currentWaveType];
     const diff = getDifficulty();
     
@@ -11282,6 +11313,16 @@
     // Submit to leaderboard and update stats if logged in
     const finalScore = score;
     const finalLevel = level;
+
+    // Save daily challenge best and restore Math.random
+    if (window.DAILY_CHALLENGE_ACTIVE) {
+      import('./daily-challenge.js').then(({ saveDailyBest, deactivateDailyChallenge }) => {
+        saveDailyBest(finalScore);
+        deactivateDailyChallenge();
+        const bestEl = document.getElementById('dailyBestDisplay');
+        if (bestEl) bestEl.textContent = `Best: ${finalScore.toLocaleString()}`;
+      }).catch(err => console.warn('[DailyChallenge] Save failed:', err));
+    }
     const runKillCount = totalKillsThisRun;
     const runTimeSec = runStartTime > 0 ? Math.floor((performance.now() - runStartTime) / 1000) : 0;
     const runAccuracyPct = runShotsFired > 0 ? Math.round((runShotsHit / runShotsFired) * 100) : 0;

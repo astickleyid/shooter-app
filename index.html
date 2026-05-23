@@ -69,6 +69,11 @@
         <img class="nav-icon" src="assets/icons/achievement-upgrade.svg" alt="" width="20" height="20"/>
         <span class="nav-label">Base Mods</span>
       </button>
+      <button id="dailyChallengeButton" class="nav-btn">
+        <span style="font-size:18px;">🗓️</span>
+        <span class="nav-label">Daily</span>
+        <span id="dailyBestDisplay" style="font-size:10px; opacity:0.7; display:block;"></span>
+      </button>
       <button id="leaderboardButton" class="nav-btn">
         <img class="nav-icon" src="assets/icons/icon-trophy.svg" alt="" width="20" height="20"/>
         <span class="nav-label">Rankings</span>
@@ -582,6 +587,14 @@
     </div>
   </div>
 
+  <!-- WAVE BANNER (appears between waves for ~2 seconds) -->
+  <div id="waveBanner" style="display:none;">
+    <div id="waveBannerInner">
+      <div id="waveBannerNumber">WAVE 1</div>
+      <div id="waveBannerSub">INCOMING</div>
+    </div>
+  </div>
+
   <!-- WAVE UPGRADE MODAL -->
   <div id="waveUpgradeModal" class="wave-upgrade-modal" role="dialog" aria-modal="true" aria-labelledby="waveUpgradeTitle">
     <div class="wave-upgrade-backdrop"></div>
@@ -700,6 +713,31 @@
             }
           }
         });
+      });
+    });
+  </script>
+
+  <!-- Daily Challenge wiring -->
+  <script type="module">
+    import { activateDailyChallenge, getTodayBest, todayStr } from './daily-challenge.js';
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const btn = document.getElementById('dailyChallengeButton');
+      const bestDisplay = document.getElementById('dailyBestDisplay');
+      if (!btn) return;
+
+      // Show today's best score if one exists
+      const best = getTodayBest();
+      if (best > 0) {
+        bestDisplay.textContent = `Best: ${best.toLocaleString()}`;
+      }
+
+      btn.addEventListener('click', () => {
+        activateDailyChallenge();
+        // Lock difficulty to normal for a level playing field
+        const diffSelect = document.getElementById('difficultySelect');
+        if (diffSelect) diffSelect.value = 'normal';
+        document.getElementById('startButton').click();
       });
     });
   </script>
