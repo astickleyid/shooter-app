@@ -36,6 +36,14 @@ const GameRenderer3D = (function() {
   let muzzleFlashes = [];
   let trailParticles = [];
 
+  // Radar/minimap system
+  let radarScene = null;
+  let radarCamera = null;
+  let radarRenderer = null;
+  let radarPlayerDot = null;
+  let radarEnemyDots = [];
+  let radarContainer = null;
+
   // Materials cache
   const materials = {};
 
@@ -123,6 +131,9 @@ const GameRenderer3D = (function() {
 
     // Create speed lines for boost effect
     createSpeedLines();
+
+    // Create radar/minimap
+    createRadar();
 
     // Initialize materials
     initMaterials();
@@ -350,6 +361,178 @@ const GameRenderer3D = (function() {
     speedLines = new THREE.LineSegments(geometry, material);
     speedLines.frustumCulled = false;
     scene.add(speedLines);
+  }
+
+  /**
+   * Create radar/minimap overlay
+   */
+  function createRadar() {
+    // Create radar container element
+    radarContainer = document.createElement('div');
+    radarContainer.id = 'radar3D';
+    radarContainer.style.cssText = `
+      position: absolute;
+      bottom: 80px;
+      right: 10px;
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      border: 2px solid rgba(74, 222, 128, 0.5);
+      background: rgba(0, 10, 20, 0.8);
+      overflow: hidden;
+      z-index: 50;
+      box-shadow: 0 0 20px rgba(74, 222, 128, 0.2), inset 0 0 30px rgba(0, 0, 0, 0.5);
+    `;
+
+    // Add scan line effect
+    const scanLine = document.createElement('div');
+    scanLine.style.cssText = `
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 50%;
+      height: 2px;
+      background: linear-gradient(90deg, rgba(74, 222, 128, 0.8), transparent);
+      transform-origin: left center;
+      animation: radarScan 3s linear infinite;
+    `;
+    radarContainer.appendChild(scanLine);
+
+    // Add center dot (player)
+    const centerDot = document.createElement('div');
+    centerDot.style.cssText = `
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 8px;
+      height: 8px;
+      margin: -4px 0 0 -4px;
+      border-radius: 50%;
+      background: #4ade80;
+      box-shadow: 0 0 8px #4ade80;
+    `;
+    radarContainer.appendChild(centerDot);
+
+    // Add cardinal direction markers
+    const directions = [
+      { text: 'N', top: '5px', left: '50%', transform: 'translateX(-50%)' },
+      { text: 'S', bottom: '5px', left: '50%', transform: 'translateX(-50%)' },
+      { text: 'E', right: '8px', top: '50%', transform: 'translateY(-50%)' },
+      { text: 'W', left: '8px', top: '50%', transform: 'translateY(-50%)' }
+    ];
+
+    directions.forEach(dir => {
+      const marker = document.createElement('div');
+      marker.textContent = dir.text;
+      marker.style.cssText = `
+        position: absolute;
+        color: rgba(74, 222, 128, 0.6);
+        font-size: 10px;
+        font-family: monospace;
+        ${dir.top ? `top: ${dir.top};` : ''}
+        ${dir.bottom ? `bottom: ${dir.bottom};` : ''}
+        ${dir.left ? `left: ${dir.left};` : ''}
+        ${dir.right ? `right: ${dir.right};` : ''}
+        transform: ${dir.transform};
+      `;
+      radarContainer.appendChild(marker);
+    });
+
+    // Add range rings
+    [0.33, 0.66].forEach(scale => {
+      const ring = document.createElement('div');
+      const size = 140 * scale;
+      ring.style.cssText = `
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: ${size}px;
+        height: ${size}px;
+        margin: ${-size/2}px 0 0 ${-size/2}px;
+        border-radius: 50%;
+        border: 1px solid rgba(74, 222, 128, 0.15);
+      `;
+      radarContainer.appendChild(ring);
+    });
+
+    // Add CSS animation
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes radarScan {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+      .radar-enemy {
+        position: absolute;
+        width: 6px;
+        height: 6px;
+        margin: -3px 0 0 -3px;
+        border-radius: 50%;
+        background: #ef4444;
+        box-shadow: 0 0 6px #ef4444;
+        transition: left 0.1s, top 0.1s;
+      }
+      .radar-enemy.elite {
+        background: #fbbf24;
+        box-shadow: 0 0 8px #fbbf24;
+        width: 8px;
+        height: 8px;
+        margin: -4px 0 0 -4px;
+      }
+      .radar-enemy.boss {
+        background: #a855f7;
+        box-shadow: 0 0 10px #a855f7;
+        width: 12px;
+        height: 12px;
+        margin: -6px 0 0 -6px;
+      }
+    `;
+    document.head.appendChild(style);
+
+    const gameContainer = document.getElementById('gameContainer');
+    if (gameContainer) {
+      gameContainer.appendChild(radarContainer);
+    }
+  }
+
+  /**
+   * Update radar with enemy positions
+   */
+  function updateRadar(playerPos, playerAngle, enemies) {
+    if (!radarContainer) return;
+
+    // Clear old enemy dots
+    radarContainer.querySelectorAll('.radar-enemy').forEach(el => el.remove());
+
+    const radarRadius = 65; // pixels
+    const worldRadius = 50; // game units visible on radar
+
+    enemies.forEach(enemy => {
+      // Calculate relative position
+      const dx = (enemy.x / 10) - playerPos.x;
+      const dz = (enemy.y / 10) - playerPos.z;
+
+      // Rotate by player angle
+      const rotatedX = dx * Math.cos(-playerAngle) - dz * Math.sin(-playerAngle);
+      const rotatedZ = dx * Math.sin(-playerAngle) + dz * Math.cos(-playerAngle);
+
+      // Scale to radar size
+      const radarX = (rotatedX / worldRadius) * radarRadius;
+      const radarY = (-rotatedZ / worldRadius) * radarRadius;
+
+      // Only show if within radar range
+      const dist = Math.sqrt(radarX * radarX + radarY * radarY);
+      if (dist < radarRadius) {
+        const dot = document.createElement('div');
+        dot.className = 'radar-enemy';
+        if (enemy.type === 'elite') dot.classList.add('elite');
+        if (enemy.type === 'boss') dot.classList.add('boss');
+
+        dot.style.left = `${70 + radarX}px`;
+        dot.style.top = `${70 + radarY}px`;
+        radarContainer.appendChild(dot);
+      }
+    });
   }
 
   /**
@@ -1240,43 +1423,214 @@ const GameRenderer3D = (function() {
   }
 
   /**
-   * Create particle explosion
+   * Create multi-layered explosion effect
    */
   function createExplosion(position, color = 0xfbbf24, count = 30) {
+    // === LAYER 1: Initial flash ===
+    const flashGeom = new THREE.SphereGeometry(2, 16, 16);
+    const flashMat = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 1,
+      blending: THREE.AdditiveBlending
+    });
+    const flash = new THREE.Mesh(flashGeom, flashMat);
+    flash.position.copy(position);
+    scene.add(flash);
+
+    // Flash animation
+    const flashData = { mesh: flash, scale: 1, life: 1.0 };
+    const animateFlash = () => {
+      flashData.scale += 0.8;
+      flashData.life -= 0.15;
+      flash.scale.setScalar(flashData.scale);
+      flash.material.opacity = flashData.life;
+      if (flashData.life > 0) {
+        requestAnimationFrame(animateFlash);
+      } else {
+        scene.remove(flash);
+        flash.geometry.dispose();
+        flash.material.dispose();
+      }
+    };
+    animateFlash();
+
+    // === LAYER 2: Core fireball ===
+    const fireballGeom = new THREE.SphereGeometry(1.5, 12, 12);
+    const fireballMat = new THREE.MeshBasicMaterial({
+      color: color,
+      transparent: true,
+      opacity: 0.9,
+      blending: THREE.AdditiveBlending
+    });
+    const fireball = new THREE.Mesh(fireballGeom, fireballMat);
+    fireball.position.copy(position);
+    scene.add(fireball);
+
+    const fireData = { mesh: fireball, scale: 1, life: 1.0 };
+    const animateFireball = () => {
+      fireData.scale += 0.3;
+      fireData.life -= 0.05;
+      fireball.scale.setScalar(fireData.scale);
+      fireball.material.opacity = fireData.life * 0.8;
+      if (fireData.life > 0) {
+        requestAnimationFrame(animateFireball);
+      } else {
+        scene.remove(fireball);
+        fireball.geometry.dispose();
+        fireball.material.dispose();
+      }
+    };
+    animateFireball();
+
+    // === LAYER 3: Shockwave ring ===
+    const ringGeom = new THREE.RingGeometry(0.5, 1, 32);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: color,
+      transparent: true,
+      opacity: 0.7,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending
+    });
+    const ring = new THREE.Mesh(ringGeom, ringMat);
+    ring.position.copy(position);
+    ring.rotation.x = -Math.PI / 2;
+    scene.add(ring);
+
+    const ringData = { mesh: ring, scale: 1, life: 1.0 };
+    const animateRing = () => {
+      ringData.scale += 0.5;
+      ringData.life -= 0.04;
+      ring.scale.setScalar(ringData.scale);
+      ring.material.opacity = ringData.life * 0.6;
+      if (ringData.life > 0) {
+        requestAnimationFrame(animateRing);
+      } else {
+        scene.remove(ring);
+        ring.geometry.dispose();
+        ring.material.dispose();
+      }
+    };
+    animateRing();
+
+    // === LAYER 4: Debris particles ===
     const geometry = new THREE.BufferGeometry();
     const positions = new Float32Array(count * 3);
     const velocities = [];
+    const sizes = new Float32Array(count);
 
     for (let i = 0; i < count; i++) {
       positions[i * 3] = position.x;
       positions[i * 3 + 1] = position.y;
       positions[i * 3 + 2] = position.z;
 
+      const speed = 15 + Math.random() * 15;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+
       velocities.push({
-        x: (Math.random() - 0.5) * 20,
-        y: (Math.random() - 0.5) * 20,
-        z: (Math.random() - 0.5) * 20
+        x: speed * Math.sin(phi) * Math.cos(theta),
+        y: speed * Math.sin(phi) * Math.sin(theta) + Math.random() * 5,
+        z: speed * Math.cos(phi)
       });
+
+      sizes[i] = 0.3 + Math.random() * 0.5;
     }
 
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 
     const material = new THREE.PointsMaterial({
       color: color,
-      size: 0.5,
+      size: 0.6,
       transparent: true,
-      opacity: 1
+      opacity: 1,
+      blending: THREE.AdditiveBlending
     });
 
     const particles = new THREE.Points(geometry, material);
     particles.userData = {
       velocities,
       life: 1.0,
-      decay: 0.02
+      decay: 0.018
     };
 
     scene.add(particles);
     particleSystems.push(particles);
+
+    // === LAYER 5: Spark streaks ===
+    const sparkCount = Math.floor(count / 3);
+    for (let i = 0; i < sparkCount; i++) {
+      const sparkGeom = new THREE.BufferGeometry();
+      const sparkPos = new Float32Array(6);
+      sparkPos[0] = position.x;
+      sparkPos[1] = position.y;
+      sparkPos[2] = position.z;
+      sparkPos[3] = position.x;
+      sparkPos[4] = position.y;
+      sparkPos[5] = position.z;
+      sparkGeom.setAttribute('position', new THREE.BufferAttribute(sparkPos, 3));
+
+      const sparkMat = new THREE.LineBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 1,
+        blending: THREE.AdditiveBlending
+      });
+
+      const spark = new THREE.Line(sparkGeom, sparkMat);
+      const sparkVel = {
+        x: (Math.random() - 0.5) * 40,
+        y: (Math.random() - 0.5) * 40 + 10,
+        z: (Math.random() - 0.5) * 40
+      };
+
+      scene.add(spark);
+
+      const sparkData = { line: spark, vel: sparkVel, life: 1.0, positions: sparkPos };
+      const animateSpark = () => {
+        sparkData.life -= 0.06;
+        const pos = spark.geometry.attributes.position.array;
+
+        // Move tail
+        pos[0] = pos[3];
+        pos[1] = pos[4];
+        pos[2] = pos[5];
+
+        // Move head
+        pos[3] += sparkData.vel.x * 0.05;
+        pos[4] += sparkData.vel.y * 0.05;
+        pos[5] += sparkData.vel.z * 0.05;
+
+        sparkData.vel.y -= 0.8; // gravity
+
+        spark.geometry.attributes.position.needsUpdate = true;
+        spark.material.opacity = sparkData.life;
+
+        if (sparkData.life > 0) {
+          requestAnimationFrame(animateSpark);
+        } else {
+          scene.remove(spark);
+          spark.geometry.dispose();
+          spark.material.dispose();
+        }
+      };
+      animateSpark();
+    }
+
+    // Temporary point light for flash
+    const explosionLight = new THREE.PointLight(color, 5, 20);
+    explosionLight.position.copy(position);
+    scene.add(explosionLight);
+
+    const fadeLight = () => {
+      explosionLight.intensity -= 0.4;
+      if (explosionLight.intensity > 0) {
+        requestAnimationFrame(fadeLight);
+      } else {
+        scene.remove(explosionLight);
+      }
+    };
+    fadeLight();
 
     return particles;
   }
@@ -1644,6 +1998,11 @@ const GameRenderer3D = (function() {
       gridFloor.position.z = Math.round(playerShip.position.z / 50) * 50;
     }
 
+    // Update radar with enemy positions
+    if (playerShip && gameState?.enemies) {
+      updateRadar(playerShip.position, playerShip.rotation.y, gameState.enemies);
+    }
+
     // Render
     if (composer) {
       composer.render();
@@ -1720,6 +2079,12 @@ const GameRenderer3D = (function() {
     bulletMeshes = [];
     asteroidMeshes = [];
     particleSystems = [];
+
+    // Clean up radar
+    if (radarContainer) {
+      radarContainer.remove();
+      radarContainer = null;
+    }
   }
 
   /**
@@ -1732,6 +2097,10 @@ const GameRenderer3D = (function() {
     const canvas2D = document.getElementById('gameCanvas');
     if (canvas2D) {
       canvas2D.style.display = enabled ? 'none' : 'block';
+    }
+    // Show/hide radar
+    if (radarContainer) {
+      radarContainer.style.display = enabled ? 'block' : 'none';
     }
   }
 
