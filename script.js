@@ -9272,9 +9272,6 @@
           shadows: true,
           bloom: true
         });
-        if (renderer3DInitialized) {
-          console.log('🎮 3D Third-Person mode activated');
-        }
       }
 
       // Render in 3D if initialized
