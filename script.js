@@ -9310,6 +9310,16 @@
             x: a.x,
             y: a.y,
             size: a.size || 30
+          })),
+          coins: coins.map(c => ({
+            x: c.x,
+            y: c.y,
+            value: c.value || 1
+          })),
+          supplies: supplies.map(s => ({
+            x: s.x,
+            y: s.y,
+            type: s.type || 'health'
           }))
         };
         GameRenderer3D.render(gameState);

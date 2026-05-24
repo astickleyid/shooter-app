@@ -16,6 +16,8 @@ const GameRenderer3D = (function() {
   let bulletMeshes = [];
   let particleSystems = [];
   let asteroidMeshes = [];
+  let coinMeshes = [];
+  let supplyMeshes = [];
   let starField = null;
   let nebulaBackground = null;
 
@@ -1423,6 +1425,108 @@ const GameRenderer3D = (function() {
   }
 
   /**
+   * Create collectible coin
+   */
+  function createCoin() {
+    const group = new THREE.Group();
+
+    // Coin body - octahedron for gem-like appearance
+    const coinGeom = new THREE.OctahedronGeometry(0.6, 0);
+    const coinMat = new THREE.MeshStandardMaterial({
+      color: 0xfbbf24,
+      metalness: 0.9,
+      roughness: 0.1,
+      emissive: 0xfbbf24,
+      emissiveIntensity: 0.5
+    });
+    const coin = new THREE.Mesh(coinGeom, coinMat);
+    group.add(coin);
+
+    // Inner glow
+    const glowGeom = new THREE.SphereGeometry(0.4, 8, 8);
+    const glowMat = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.6
+    });
+    const glow = new THREE.Mesh(glowGeom, glowMat);
+    group.add(glow);
+
+    // Point light
+    const light = new THREE.PointLight(0xfbbf24, 1, 5);
+    group.add(light);
+
+    return group;
+  }
+
+  /**
+   * Create supply pickup
+   */
+  function createSupply(type = 'health') {
+    const group = new THREE.Group();
+
+    let color, emissive;
+    switch (type) {
+      case 'health':
+        color = 0x22c55e;
+        emissive = 0x22c55e;
+        break;
+      case 'ammo':
+        color = 0x3b82f6;
+        emissive = 0x3b82f6;
+        break;
+      case 'shield':
+        color = 0xa855f7;
+        emissive = 0xa855f7;
+        break;
+      default:
+        color = 0x22c55e;
+        emissive = 0x22c55e;
+    }
+
+    // Supply container - box with rounded edges effect
+    const boxGeom = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+    const boxMat = new THREE.MeshStandardMaterial({
+      color: color,
+      metalness: 0.7,
+      roughness: 0.2,
+      emissive: emissive,
+      emissiveIntensity: 0.4
+    });
+    const box = new THREE.Mesh(boxGeom, boxMat);
+    group.add(box);
+
+    // Cross symbol for health, or other icons
+    if (type === 'health') {
+      const crossMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      const crossH = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.15, 0.15), crossMat);
+      crossH.position.z = 0.41;
+      group.add(crossH);
+      const crossV = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.5, 0.15), crossMat);
+      crossV.position.z = 0.41;
+      group.add(crossV);
+    }
+
+    // Floating animation ring
+    const ringGeom = new THREE.TorusGeometry(0.7, 0.05, 8, 24);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: color,
+      transparent: true,
+      opacity: 0.5
+    });
+    const ring = new THREE.Mesh(ringGeom, ringMat);
+    ring.rotation.x = Math.PI / 2;
+    ring.name = 'supplyRing';
+    group.add(ring);
+
+    // Point light
+    const light = new THREE.PointLight(color, 0.8, 4);
+    group.add(light);
+
+    return group;
+  }
+
+  /**
    * Create multi-layered explosion effect
    */
   function createExplosion(position, color = 0xfbbf24, count = 30) {
@@ -1926,6 +2030,72 @@ const GameRenderer3D = (function() {
   }
 
   /**
+   * Update coins
+   */
+  function updateCoins(coins) {
+    const now = Date.now();
+
+    // Sync coin count
+    while (coinMeshes.length < coins.length) {
+      const coin = createCoin();
+      scene.add(coin);
+      coinMeshes.push(coin);
+    }
+    while (coinMeshes.length > coins.length) {
+      const mesh = coinMeshes.pop();
+      scene.remove(mesh);
+    }
+
+    // Update positions with floating animation
+    coins.forEach((coin, i) => {
+      const mesh = coinMeshes[i];
+      mesh.position.x = coin.x / 10;
+      mesh.position.z = coin.y / 10;
+      mesh.position.y = Math.sin(now / 300 + i) * 0.3 + 0.5;
+      mesh.rotation.y += 0.03;
+
+      // Pulse scale based on value
+      const pulseScale = 1 + Math.sin(now / 200 + i) * 0.1;
+      mesh.scale.setScalar(pulseScale * (coin.value > 1 ? 1.3 : 1));
+    });
+  }
+
+  /**
+   * Update supplies
+   */
+  function updateSupplies(supplies) {
+    const now = Date.now();
+
+    // Sync supply count
+    while (supplyMeshes.length < supplies.length) {
+      const supply = createSupply('health');
+      scene.add(supply);
+      supplyMeshes.push(supply);
+    }
+    while (supplyMeshes.length > supplies.length) {
+      const mesh = supplyMeshes.pop();
+      scene.remove(mesh);
+    }
+
+    // Update positions with floating/rotating animation
+    supplies.forEach((supply, i) => {
+      const mesh = supplyMeshes[i];
+      mesh.position.x = supply.x / 10;
+      mesh.position.z = supply.y / 10;
+      mesh.position.y = Math.sin(now / 400 + i * 0.5) * 0.25 + 0.6;
+      mesh.rotation.y += 0.02;
+
+      // Animate supply ring
+      mesh.traverse((child) => {
+        if (child.name === 'supplyRing') {
+          child.rotation.z += 0.01;
+          child.scale.setScalar(1 + Math.sin(now / 250 + i) * 0.15);
+        }
+      });
+    });
+  }
+
+  /**
    * Update particle systems
    */
   function updateParticles(dt) {
@@ -1984,6 +2154,12 @@ const GameRenderer3D = (function() {
       }
       if (gameState.asteroids) {
         updateAsteroids(gameState.asteroids);
+      }
+      if (gameState.coins) {
+        updateCoins(gameState.coins);
+      }
+      if (gameState.supplies) {
+        updateSupplies(gameState.supplies);
       }
     }
 
