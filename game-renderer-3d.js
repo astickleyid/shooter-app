@@ -2165,6 +2165,18 @@ const GameRenderer3D = (function() {
 
       if (data.life <= 0) {
         scene.remove(particles);
+        if (particles.geometry) {
+          particles.geometry.dispose();
+        }
+        if (Array.isArray(particles.material)) {
+          particles.material.forEach(material => {
+            if (material) {
+              material.dispose();
+            }
+          });
+        } else if (particles.material) {
+          particles.material.dispose();
+        }
         particleSystems.splice(i, 1);
       }
     }
