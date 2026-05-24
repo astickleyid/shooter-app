@@ -21,11 +21,11 @@ const GameRenderer3D = (function() {
   let starField = null;
   let nebulaBackground = null;
 
-  // Camera settings
-  const CAMERA_DISTANCE = 40;
-  const CAMERA_HEIGHT = 25;
-  const CAMERA_LOOK_AHEAD = 15;
-  const CAMERA_SMOOTHING = 0.08;
+  // Camera settings - closer third-person view
+  const CAMERA_DISTANCE = 25;
+  const CAMERA_HEIGHT = 12;
+  const CAMERA_LOOK_AHEAD = 20;
+  const CAMERA_SMOOTHING = 0.1;
 
   // Camera state for dynamic effects
   let cameraShake = { x: 0, y: 0, z: 0, intensity: 0 };
@@ -1148,8 +1148,8 @@ const GameRenderer3D = (function() {
     targetingLine.name = 'targetingLine';
     group.add(targetingLine);
 
-    // Ship scale
-    group.scale.setScalar(0.8);
+    // Ship scale - larger for better visibility in 3D view
+    group.scale.setScalar(1.8);
 
     return group;
   }
