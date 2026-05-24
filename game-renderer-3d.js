@@ -1742,6 +1742,10 @@ const GameRenderer3D = (function() {
   /**
    * Update player ship position and rotation
    */
+  // Track ship's current rotation for smooth interpolation
+  let currentShipRotation = 0;
+  let lastMoveAngle = 0;
+
   function updatePlayer(playerData, shipTemplate) {
     if (!playerShip) {
       playerShip = createPlayerShip(shipTemplate);
@@ -1752,20 +1756,54 @@ const GameRenderer3D = (function() {
     const targetX = playerData.x / 10;
     const targetZ = playerData.y / 10;
 
-    // Smooth position interpolation
-    playerShip.position.x += (targetX - playerShip.position.x) * 0.15;
-    playerShip.position.z += (targetZ - playerShip.position.z) * 0.15;
+    // Smooth position interpolation for fluid movement
+    const posLerp = 0.12;
+    playerShip.position.x += (targetX - playerShip.position.x) * posLerp;
+    playerShip.position.z += (targetZ - playerShip.position.z) * posLerp;
     playerShip.position.y = 0;
 
-    // Rotation based on look angle
-    const targetRotation = -playerData.lookAngle + Math.PI / 2;
-    playerShip.rotation.y = targetRotation;
+    // Use actual velocity for movement direction (inertia-based)
+    const velX = playerData.actualVel?.x || playerData.vel?.x || 0;
+    const velY = playerData.actualVel?.y || playerData.vel?.y || 0;
+    const speed = Math.sqrt(velX * velX + velY * velY);
 
-    // Banking effect based on movement
-    const moveX = playerData.vel?.x || 0;
-    const moveZ = playerData.vel?.y || 0;
-    playerShip.rotation.z = -moveX * 0.3;
-    playerShip.rotation.x = moveZ * 0.15;
+    // Calculate target rotation from movement direction
+    let targetRotation;
+    if (speed > 0.5) {
+      // Ship faces movement direction - convert 2D angle to 3D rotation
+      // In 2D: angle 0 = right, angle PI/2 = down
+      // In 3D: rotation 0 = forward (-Z), need to adjust
+      const moveAngle = Math.atan2(velY, velX);
+      lastMoveAngle = moveAngle;
+      targetRotation = -moveAngle + Math.PI / 2;
+    } else {
+      // Keep last direction when stationary
+      targetRotation = -lastMoveAngle + Math.PI / 2;
+    }
+
+    // Smooth rotation interpolation for fluid turning
+    // Handle angle wrapping for shortest rotation path
+    let angleDiff = targetRotation - currentShipRotation;
+    while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+    while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+
+    // Lerp speed based on movement - faster turn when moving fast
+    const rotLerp = speed > 2 ? 0.08 : 0.05;
+    currentShipRotation += angleDiff * rotLerp;
+    playerShip.rotation.y = currentShipRotation;
+
+    // Dynamic banking effect based on turning and movement
+    const turnRate = angleDiff;
+    const bankAmount = Math.max(-0.4, Math.min(0.4, turnRate * 0.8));
+
+    // Pitch based on forward/backward relative velocity
+    const forwardVel = Math.cos(currentShipRotation - Math.PI / 2) * velX +
+                       Math.sin(currentShipRotation - Math.PI / 2) * velY;
+    const pitchAmount = Math.max(-0.2, Math.min(0.2, -forwardVel * 0.04));
+
+    // Smooth banking and pitch
+    playerShip.rotation.z += (bankAmount - playerShip.rotation.z) * 0.1;
+    playerShip.rotation.x += (pitchAmount - playerShip.rotation.x) * 0.1;
 
     // Update visual effects based on state
     const isBoosting = playerData.isBoosting;
@@ -1822,38 +1860,51 @@ const GameRenderer3D = (function() {
     }
 
     // Update speed lines for boost effect
-    updateSpeedLines(isBoosting, playerData.vel);
+    updateSpeedLines(isBoosting, playerData.actualVel || playerData.vel);
 
     // Update camera to follow player with dynamic effects
-    updateCamera(playerShip.position, targetRotation, isBoosting);
+    updateCamera(playerShip.position, currentShipRotation, isBoosting, speed);
   }
 
   // Track last bullet count for muzzle flash triggers
   let lastBulletCount = 0;
 
+  // Track smooth camera rotation
+  let smoothCameraRotation = 0;
+
   /**
    * Update third-person camera with dynamic effects
    */
-  function updateCamera(targetPos, targetRotation, isBoosting = false) {
+  function updateCamera(targetPos, targetRotation, isBoosting = false, speed = 0) {
     // Dynamic FOV - widen during boost for speed sensation
     targetFOV = isBoosting ? 75 : 60;
     cameraFOV += (targetFOV - cameraFOV) * 0.05;
     camera.fov = cameraFOV;
     camera.updateProjectionMatrix();
 
-    // Dynamic distance - pull back slightly during boost
-    const dynamicDistance = isBoosting ? CAMERA_DISTANCE * 1.15 : CAMERA_DISTANCE;
+    // Smooth camera rotation to follow ship direction
+    let camAngleDiff = targetRotation - smoothCameraRotation;
+    while (camAngleDiff > Math.PI) camAngleDiff -= Math.PI * 2;
+    while (camAngleDiff < -Math.PI) camAngleDiff += Math.PI * 2;
+    smoothCameraRotation += camAngleDiff * 0.06;
+
+    // Dynamic distance - pull back slightly during boost or high speed
+    const speedFactor = Math.min(speed / 5, 1);
+    const dynamicDistance = CAMERA_DISTANCE * (1 + (isBoosting ? 0.15 : speedFactor * 0.1));
+    const dynamicHeight = CAMERA_HEIGHT * (1 + speedFactor * 0.1);
 
     const offset = new THREE.Vector3(
-      -Math.cos(targetRotation - Math.PI / 2) * dynamicDistance,
-      CAMERA_HEIGHT,
-      -Math.sin(targetRotation - Math.PI / 2) * dynamicDistance
+      -Math.cos(smoothCameraRotation - Math.PI / 2) * dynamicDistance,
+      dynamicHeight,
+      -Math.sin(smoothCameraRotation - Math.PI / 2) * dynamicDistance
     );
 
+    // Look ahead more when moving faster
+    const dynamicLookAhead = CAMERA_LOOK_AHEAD * (1 + speedFactor * 0.5);
     const lookAhead = new THREE.Vector3(
-      Math.cos(targetRotation - Math.PI / 2) * CAMERA_LOOK_AHEAD,
+      Math.cos(smoothCameraRotation - Math.PI / 2) * dynamicLookAhead,
       0,
-      Math.sin(targetRotation - Math.PI / 2) * CAMERA_LOOK_AHEAD
+      Math.sin(smoothCameraRotation - Math.PI / 2) * dynamicLookAhead
     );
 
     const targetCameraPos = targetPos.clone().add(offset);
@@ -1864,13 +1915,9 @@ const GameRenderer3D = (function() {
     targetCameraPos.y += cameraShake.y;
     targetCameraPos.z += cameraShake.z;
 
-    // Smooth camera movement
-    camera.position.lerp(targetCameraPos, CAMERA_SMOOTHING);
-
-    const currentLookAt = new THREE.Vector3();
-    camera.getWorldDirection(currentLookAt);
-    currentLookAt.multiplyScalar(50).add(camera.position);
-    currentLookAt.lerp(targetLookAt, CAMERA_SMOOTHING * 2);
+    // Smooth camera movement - slightly faster when moving
+    const camSmooth = CAMERA_SMOOTHING * (1 + speedFactor * 0.3);
+    camera.position.lerp(targetCameraPos, camSmooth);
     camera.lookAt(targetLookAt);
   }
 

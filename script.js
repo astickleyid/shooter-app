@@ -9285,6 +9285,7 @@
             y: player.y,
             lookAngle: player.lookAngle,
             vel: player.vel,
+            actualVel: player.actualVel,
             health: player.health,
             hpMax: player.hpMax,
             isBoosting: input.isBoosting,
