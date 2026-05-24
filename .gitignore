@@ -54,5 +54,6 @@ temp/
 
 # Three.js libraries are needed for both web and iOS
 # They are referenced via import maps in index.html
-# !libs/
+!lib/
+!lib/*.js
 !ios/VoidRift/WebContent/libs/
