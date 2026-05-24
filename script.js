@@ -9873,8 +9873,8 @@
       }
 
       const alpha = 1 - (age / dmg.lifetime);
-      const screenX = (dmg.x - camera.x) / 10 * 20 + canvas.width / 2;
-      const screenY = canvas.height / 2 - (age * 0.08);
+      const screenX = dmg.x - camera.x;
+      const screenY = dmg.y - camera.y - (age * 0.08);
       ctx.save();
       ctx.font = `bold ${dmg.size}px Arial`;
       ctx.fillStyle = dmg.color.replace(')', `, ${alpha})`).replace('rgb', 'rgba');
