@@ -33,6 +33,13 @@ import {
   purchaseUpgrade
 } from './src/systems/HangarSystem.js';
 
+import {
+  ACHIEVEMENT_CATALOG,
+  loadAchievements,
+  updateStats,
+  getUnlocked
+} from './src/systems/AchievementSystem.js';
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Style injection — dark sci-fi aesthetic matching VOID RIFT's visual language
 // ─────────────────────────────────────────────────────────────────────────────
@@ -547,6 +554,332 @@ const HANGAR_UI_CSS = `
       grid-template-columns: 1fr;
     }
   }
+
+  /* ── Tab bar ───────────────────────────────────────────────── */
+  #hangarTabBar {
+    flex-shrink: 0;
+    display: flex;
+    gap: 6px;
+    padding: 12px 24px 0;
+    border-bottom: 1px solid rgba(74, 222, 128, 0.2);
+    background: rgba(0, 0, 0, 0.3);
+  }
+
+  .hangar-tab-btn {
+    padding: 8px 20px;
+    border-radius: 6px 6px 0 0;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border: 1px solid transparent;
+    border-bottom: none;
+    color: rgba(100, 116, 139, 0.8);
+    background: rgba(255, 255, 255, 0.03);
+    transition: all 0.2s ease;
+    position: relative;
+    bottom: -1px;
+  }
+
+  .hangar-tab-btn:hover {
+    color: rgba(74, 222, 128, 0.7);
+    background: rgba(74, 222, 128, 0.05);
+  }
+
+  .hangar-tab-btn.active {
+    color: #4ade80;
+    background: rgba(6, 9, 20, 0.97);
+    border-color: rgba(74, 222, 128, 0.2);
+    text-shadow: 0 0 10px rgba(74, 222, 128, 0.5);
+  }
+
+  /* ── Achievement grid ──────────────────────────────────────── */
+  .achievement-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 16px;
+  }
+
+  .achievement-count {
+    font-size: 11px;
+    font-weight: 700;
+    color: rgba(74, 222, 128, 0.55);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 18px;
+  }
+
+  .achievement-count span {
+    color: #4ade80;
+    text-shadow: 0 0 10px rgba(74, 222, 128, 0.5);
+  }
+
+  /* ── Achievement card ──────────────────────────────────────── */
+  .achievement-card {
+    background: rgba(10, 16, 32, 0.9);
+    border: 1px solid rgba(74, 222, 128, 0.18);
+    border-radius: 10px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.22s ease;
+  }
+
+  .achievement-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg,
+      transparent,
+      rgba(74, 222, 128, 0.5),
+      transparent);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .achievement-card.is-unlocked {
+    border-color: rgba(74, 222, 128, 0.4);
+    box-shadow:
+      0 0 18px rgba(74, 222, 128, 0.1),
+      inset 0 0 24px rgba(74, 222, 128, 0.04);
+  }
+
+  .achievement-card.is-unlocked::before {
+    opacity: 1;
+  }
+
+  .achievement-card.is-unlocked:hover {
+    border-color: rgba(74, 222, 128, 0.65);
+    box-shadow:
+      0 0 28px rgba(74, 222, 128, 0.18),
+      inset 0 0 30px rgba(74, 222, 128, 0.06);
+    transform: translateY(-2px);
+  }
+
+  .achievement-card.is-locked {
+    border-color: rgba(255, 255, 255, 0.07);
+    opacity: 0.55;
+    filter: grayscale(0.6);
+  }
+
+  .achievement-card-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .achievement-card-icon {
+    font-size: 28px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  .achievement-card.is-unlocked .achievement-card-icon {
+    filter: drop-shadow(0 0 8px rgba(74, 222, 128, 0.6));
+  }
+
+  .achievement-card.is-locked .achievement-card-icon {
+    filter: grayscale(1) brightness(0.5);
+  }
+
+  .achievement-card-title-block {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .achievement-card-name {
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    line-height: 1.2;
+    margin-bottom: 4px;
+  }
+
+  .achievement-card.is-unlocked .achievement-card-name {
+    color: #e2e8f0;
+  }
+
+  .achievement-card.is-locked .achievement-card-name {
+    color: rgba(148, 163, 184, 0.5);
+  }
+
+  .achievement-card-desc {
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .achievement-card.is-unlocked .achievement-card-desc {
+    color: rgba(148, 163, 184, 0.85);
+  }
+
+  .achievement-card.is-locked .achievement-card-desc {
+    color: rgba(100, 116, 139, 0.6);
+    font-style: italic;
+    letter-spacing: 0.05em;
+  }
+
+  .achievement-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 4px;
+    align-self: flex-start;
+  }
+
+  .achievement-badge.unlocked {
+    background: rgba(74, 222, 128, 0.12);
+    border: 1px solid rgba(74, 222, 128, 0.35);
+    color: #4ade80;
+    text-shadow: 0 0 8px rgba(74, 222, 128, 0.4);
+  }
+
+  .achievement-badge.locked {
+    background: rgba(100, 116, 139, 0.08);
+    border: 1px solid rgba(100, 116, 139, 0.2);
+    color: rgba(100, 116, 139, 0.5);
+  }
+
+  /* ── Achievement unlock toast ──────────────────────────────── */
+  #hangar-toast-container {
+    position: absolute;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    pointer-events: none;
+    width: 360px;
+    max-width: calc(100vw - 32px);
+  }
+
+  .hangar-toast {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 20px;
+    background: rgba(6, 9, 20, 0.97);
+    border: 1px solid rgba(74, 222, 128, 0.55);
+    border-radius: 10px;
+    box-shadow:
+      0 0 30px rgba(74, 222, 128, 0.2),
+      0 8px 24px rgba(0, 0, 0, 0.6);
+    width: 100%;
+    animation: toast-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    pointer-events: none;
+  }
+
+  .hangar-toast.toast-out {
+    animation: toast-out 0.3s ease forwards;
+  }
+
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(-16px) scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes toast-out {
+    from {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(-10px) scale(0.95);
+    }
+  }
+
+  .hangar-toast-icon {
+    font-size: 28px;
+    line-height: 1;
+    filter: drop-shadow(0 0 8px rgba(74, 222, 128, 0.7));
+    flex-shrink: 0;
+  }
+
+  .hangar-toast-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .hangar-toast-label {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(74, 222, 128, 0.65);
+    margin-bottom: 3px;
+  }
+
+  .hangar-toast-name {
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: #e2e8f0;
+    line-height: 1.2;
+    text-shadow: 0 0 12px rgba(74, 222, 128, 0.3);
+  }
+
+  .hangar-toast-desc {
+    font-size: 11px;
+    color: rgba(148, 163, 184, 0.75);
+    margin-top: 2px;
+    line-height: 1.4;
+  }
+
+  /* ── Responsive achievements ────────────────────────────────── */
+  @media (max-width: 480px) {
+    .achievement-grid {
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .achievement-card {
+      padding: 14px;
+    }
+    .achievement-card-icon {
+      font-size: 22px;
+    }
+    .achievement-card-name {
+      font-size: 11px;
+    }
+    .achievement-card-desc {
+      font-size: 11px;
+    }
+    #hangarTabBar {
+      padding: 10px 16px 0;
+    }
+    .hangar-tab-btn {
+      padding: 7px 14px;
+      font-size: 10px;
+    }
+  }
+
+  @media (max-width: 340px) {
+    .achievement-grid {
+      grid-template-columns: 1fr;
+    }
+  }
 `;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -557,6 +890,7 @@ let _overlay = null;
 let _hangarState = null;
 let _options = {};
 let _keyHandler = null;
+let _activeTab = 'upgrades'; // 'upgrades' | 'achievements'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -673,10 +1007,13 @@ function renderCard(item) {
 }
 
 /**
- * Rebuild the entire grid without tearing down the full overlay.
+ * Rebuild the entire upgrade grid without tearing down the full overlay.
+ * No-ops when the achievements tab is active.
  */
 function refreshGrid() {
-  const grid = document.querySelector('#hangarOverlay .hangar-grid');
+  if (_activeTab !== 'upgrades') return;
+
+  const grid = document.querySelector('#hangarContent .hangar-grid');
   const badge = document.getElementById('hangar-credits-amount');
   if (!grid) return;
 
@@ -687,6 +1024,126 @@ function refreshGrid() {
 
   if (badge) {
     badge.textContent = getLiveCredits().toLocaleString();
+  }
+}
+
+/**
+ * Show a brief toast notification for a newly-unlocked achievement.
+ */
+function showAchievementToast(achievement) {
+  let container = document.getElementById('hangar-toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'hangar-toast-container';
+    const panel = document.getElementById('hangarPanel');
+    if (panel) panel.appendChild(container);
+    else document.body.appendChild(container);
+  }
+
+  const toast = document.createElement('div');
+  toast.className = 'hangar-toast';
+  toast.innerHTML = `
+    <div class="hangar-toast-icon">${achievement.icon}</div>
+    <div class="hangar-toast-body">
+      <div class="hangar-toast-label">Achievement Unlocked</div>
+      <div class="hangar-toast-name">${achievement.name}</div>
+      <div class="hangar-toast-desc">${achievement.desc}</div>
+    </div>
+  `;
+  container.appendChild(toast);
+
+  // Auto-dismiss after 3.5 s
+  setTimeout(() => {
+    toast.classList.add('toast-out');
+    toast.addEventListener('animationend', () => {
+      if (toast.parentNode) toast.parentNode.removeChild(toast);
+    }, { once: true });
+  }, 3500);
+}
+
+/**
+ * Render a single achievement card element.
+ */
+function renderAchievementCard(achievement, isUnlocked) {
+  const card = document.createElement('div');
+  card.className = `achievement-card ${isUnlocked ? 'is-unlocked' : 'is-locked'}`;
+  card.dataset.achievementId = achievement.id;
+
+  const desc = isUnlocked ? achievement.desc : '???';
+  const badgeClass = isUnlocked ? 'unlocked' : 'locked';
+  const badgeText = isUnlocked ? '✦ Unlocked' : '— Locked';
+
+  card.innerHTML = `
+    <div class="achievement-card-header">
+      <div class="achievement-card-icon">${achievement.icon}</div>
+      <div class="achievement-card-title-block">
+        <div class="achievement-card-name">${achievement.name}</div>
+        <div class="achievement-card-desc">${desc}</div>
+      </div>
+    </div>
+    <div class="achievement-badge ${badgeClass}">${badgeText}</div>
+  `;
+
+  return card;
+}
+
+/**
+ * Rebuild the achievements view inside #hangarContent.
+ */
+function renderAchievementsView() {
+  const content = document.getElementById('hangarContent');
+  if (!content) return;
+
+  const { unlockedIds } = loadAchievements();
+  const unlockedCount = unlockedIds.length;
+  const total = ACHIEVEMENT_CATALOG.length;
+
+  content.innerHTML = '';
+
+  const countEl = document.createElement('div');
+  countEl.className = 'achievement-count';
+  countEl.innerHTML = `<span>${unlockedCount}</span> / ${total} UNLOCKED`;
+  content.appendChild(countEl);
+
+  const grid = document.createElement('div');
+  grid.className = 'achievement-grid';
+
+  // Unlocked first, then locked
+  const unlocked = ACHIEVEMENT_CATALOG.filter(a => unlockedIds.includes(a.id));
+  const locked = ACHIEVEMENT_CATALOG.filter(a => !unlockedIds.includes(a.id));
+
+  for (const a of unlocked) grid.appendChild(renderAchievementCard(a, true));
+  for (const a of locked)   grid.appendChild(renderAchievementCard(a, false));
+
+  content.appendChild(grid);
+}
+
+/**
+ * Rebuild the upgrades view inside #hangarContent (wraps existing grid).
+ */
+function renderUpgradesView() {
+  const content = document.getElementById('hangarContent');
+  if (!content) return;
+  content.innerHTML = '<div class="hangar-grid"></div>';
+  refreshGrid();
+}
+
+/**
+ * Switch the active tab ('upgrades' or 'achievements'), update tab buttons,
+ * and re-render the content area.
+ */
+function switchTab(tab) {
+  _activeTab = tab;
+
+  const tabBtns = document.querySelectorAll('.hangar-tab-btn');
+  tabBtns.forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tab);
+  });
+
+  if (tab === 'achievements') {
+    renderAchievementsView();
+  } else {
+    renderUpgradesView();
   }
 }
 
@@ -749,6 +1206,7 @@ export function openHangar(opts = {}) {
   injectStyles();
   _options = opts;
   _hangarState = loadHangar();
+  _activeTab = 'upgrades';
 
   // ── Build DOM ────────────────────────────────────────────────
 
@@ -757,12 +1215,6 @@ export function openHangar(opts = {}) {
   _overlay.setAttribute('role', 'dialog');
   _overlay.setAttribute('aria-modal', 'true');
   _overlay.setAttribute('aria-label', 'Hangar — Permanent Upgrades');
-
-  // Grid HTML is built dynamically; collect card markup here
-  const cardsHTML = HANGAR_CATALOG.map(item => {
-    // placeholder — will be populated after overlay insertion
-    return `<div></div>`;
-  }).join('');
 
   _overlay.innerHTML = `
     <div id="hangarPanel">
@@ -779,6 +1231,11 @@ export function openHangar(opts = {}) {
           </div>
           <button class="hangar-close-btn" id="hangarCloseBtn" aria-label="Close Hangar">✕</button>
         </div>
+      </div>
+
+      <div id="hangarTabBar">
+        <button class="hangar-tab-btn active" data-tab="upgrades">Upgrades</button>
+        <button class="hangar-tab-btn" data-tab="achievements">Achievements</button>
       </div>
 
       <div id="hangarContent">
@@ -800,6 +1257,11 @@ export function openHangar(opts = {}) {
   // ── Event listeners ──────────────────────────────────────────
 
   document.getElementById('hangarCloseBtn').addEventListener('click', closeHangar);
+
+  // Tab switching
+  document.querySelectorAll('.hangar-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
 
   // Close on backdrop click (outside the panel)
   _overlay.addEventListener('click', (e) => {
@@ -847,4 +1309,13 @@ export function closeHangar() {
 if (typeof window !== 'undefined') {
   window.openHangar = openHangar;
   window.closeHangar = closeHangar;
+  // Expose achievement helpers so gameplay code can call them directly
+  window.updateAchievementStats = function(partialStats) {
+    const newlyUnlocked = updateStats(partialStats);
+    newlyUnlocked.forEach(a => showAchievementToast(a));
+    return newlyUnlocked;
+  };
 }
+
+// ── Named achievement exports for module consumers ────────────────────────────
+export { updateStats, getUnlocked, loadAchievements };
