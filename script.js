@@ -670,6 +670,9 @@
   let waveStartTime = 0;
   let bossActive = false;
   let bossEntity = null;
+  let leviathanWavePending = false;
+  let leviathanKilledThisRun = 0;
+  let bossWaveAnnouncementStart = 0; // timestamp for BOSS WAVE! canvas overlay
 
   /* ====== PLANETARY GAME MODE SYSTEM ====== */
   // Game modes - space (default twin-stick) and planetary (side-scrolling with gravity)
@@ -1326,6 +1329,7 @@
     7: 'PHANTOM SQUADRON',
     8: 'CARRIER DETECTED',
     9: 'BERSERKER ALERT',
+    10: 'LEVIATHAN BOSS — MAXIMUM THREAT',
   };
 
   const showWaveBanner = (waveNum, hint) => {
@@ -1564,6 +1568,7 @@
     { id: 'centurion', name: 'Centurion', desc: 'Kill 100 enemies in total', icon: 'assets/icons/achievement-sword.svg', category: 'combat', requirement: { totalKills: 100 } },
     { id: 'slayer', name: 'Slayer', desc: 'Kill 1000 enemies in total', icon: 'assets/icons/achievement-skull.svg', category: 'combat', requirement: { totalKills: 1000 } },
     { id: 'boss_hunter', name: 'Boss Hunter', desc: 'Defeat your first boss', icon: 'assets/icons/achievement-boss.svg', category: 'combat', requirement: { bossKills: 1 } },
+    { id: 'leviathan_slayer', name: 'LEVIATHAN SLAYER', desc: 'Defeat the Leviathan boss', icon: 'assets/icons/achievement-skull.svg', category: 'combat', requirement: { leviathanKills: 1 } },
     { id: 'elite_destroyer', name: 'Elite Destroyer', desc: 'Kill 50 elite enemies', icon: 'assets/icons/achievement-diamond.svg', category: 'combat', requirement: { eliteKills: 50 } },
     
     // Survival achievements
@@ -1620,6 +1625,7 @@
       unlockedAchievements: [],
       totalKills: 0,
       bossKills: 0,
+      leviathanKills: 0,
       eliteKills: 0,
       gamesPlayed: 0,
       totalPlayTime: 0,
@@ -1800,6 +1806,7 @@
         if (req.kills && profile.totalKills >= req.kills) unlocked = true;
         if (req.totalKills && profile.totalKills >= req.totalKills) unlocked = true;
         if (req.bossKills && profile.bossKills >= req.bossKills) unlocked = true;
+        if (req.leviathanKills && (profile.leviathanKills || 0) >= req.leviathanKills) unlocked = true;
         if (req.eliteKills && profile.eliteKills >= req.eliteKills) unlocked = true;
         if (req.level && profile.highestLevel >= req.level) unlocked = true;
         if (req.score && profile.bestScore >= req.score) unlocked = true;
@@ -1880,6 +1887,7 @@
       this.playerProfile.gamesPlayed++;
       this.playerProfile.totalKills += stats.kills || 0;
       this.playerProfile.bossKills += stats.bossKills || 0;
+      this.playerProfile.leviathanKills = (this.playerProfile.leviathanKills || 0) + (stats.leviathanKills || 0);
       this.playerProfile.eliteKills += stats.eliteKills || 0;
       this.playerProfile.totalPlayTime += stats.playTime || 0;
       
@@ -2089,6 +2097,9 @@
     waveStartTime = 0;
     bossActive = false;
     bossEntity = null;
+    leviathanWavePending = false;
+    leviathanKilledThisRun = 0;
+    bossWaveAnnouncementStart = 0;
     if (dom.bossBar) dom.bossBar.style.display = 'none';
 
     // Phase 1: Reset combo and kill streak
@@ -4653,14 +4664,14 @@
       const adaptive = getAdaptiveScaling();
       
       // Base size scaling
-      const sizeMap = { heavy: 1.45, swarmer: 0.9, drone: 0.75, sniper: 0.85, phantom: 0.95, splitter: 1.15, shard: 0.55, carrier: 1.7, berserker: 1.25 };
+      const sizeMap = { heavy: 1.45, swarmer: 0.9, drone: 0.75, sniper: 0.85, phantom: 0.95, splitter: 1.15, shard: 0.55, carrier: 1.7, berserker: 1.25, leviathan: 2.75 };
       let baseSize = BASE.ENEMY_SIZE * (sizeMap[kind] || 1);
       if (isElite) baseSize *= ADAPTIVE_CONSTANTS.ELITE_SIZE_MULT;
       if (isBoss) baseSize *= ADAPTIVE_CONSTANTS.BOSS_SIZE_MULT;
       this.size = baseSize;
       
       // Speed scaling with adaptive difficulty and progression
-      const speedMap = { heavy: 0.85, swarmer: 1.45, drone: 1.2, sniper: 0.7, phantom: 1.1, splitter: 1.0, shard: 1.6, carrier: 0.6, berserker: 0.7 };
+      const speedMap = { heavy: 0.85, swarmer: 1.45, drone: 1.2, sniper: 0.7, phantom: 1.1, splitter: 1.0, shard: 1.6, carrier: 0.6, berserker: 0.7, leviathan: 0.4 };
       let baseSpeed = BASE.ENEMY_SPEED * (speedMap[kind] || 1.05) * diff.enemySpeed;
       baseSpeed *= adaptive.enemySpeedBoost;
       if (isElite) baseSpeed *= ADAPTIVE_CONSTANTS.ELITE_SPEED_MULT;
@@ -4668,7 +4679,7 @@
       this.speed = baseSpeed;
       
       // Health scaling with progressive difficulty
-      const baseHealth = kind === 'heavy' ? 3 : kind === 'sniper' ? 1.5 : kind === 'splitter' ? 2 : kind === 'shard' ? 0.6 : kind === 'carrier' ? 3.5 : kind === 'berserker' ? 2.5 : 1;
+      const baseHealth = kind === 'heavy' ? 3 : kind === 'sniper' ? 1.5 : kind === 'splitter' ? 2 : kind === 'shard' ? 0.6 : kind === 'carrier' ? 3.5 : kind === 'berserker' ? 2.5 : kind === 'leviathan' ? 1 : 1;
       let health = Math.ceil(baseHealth * diff.enemyHealth * adaptive.progressiveHealthBonus);
       if (isElite) health *= ADAPTIVE_CONSTANTS.ELITE_HEALTH_MULT;
       if (isBoss) health *= ADAPTIVE_CONSTANTS.BOSS_BASE_HEALTH_MULT + level * ADAPTIVE_CONSTANTS.BOSS_HEALTH_PER_LEVEL;
@@ -4749,6 +4760,21 @@
         this.enrageFlash = 0; // for visual flash pulse
         this.vx = 0;
         this.vy = 0;
+      }
+
+      // Leviathan-specific state — multi-phase boss with escalating attacks
+      if (kind === 'leviathan') {
+        this.leviathanPhase = 1;         // 1=normal, 2=enraged, 3=critical
+        this.leviathanShotTimer = 0;     // time of last leviathan shot
+        this.leviathanBaseSpeed = this.speed; // preserve original speed for phase scaling
+        this.canShoot = false;           // leviathan manages its own shooting
+        // Override health: 500 + scaling based on wave tier (every 10 waves)
+        const waveTier = Math.max(1, Math.floor(level / 10));
+        const levHealth = Math.ceil((500 + (waveTier - 1) * 200) * diff.enemyHealth);
+        this.health = levHealth;
+        this.maxHealth = levHealth;
+        this.hpMax = levHealth; // for boss bar compatibility
+        this.baseDamage = BASE.ENEMY_DAMAGE * diff.enemyDamage * 1.8;
       }
 
       this.animPhase = Math.random() * Math.PI * 2;
@@ -5778,6 +5804,116 @@
       }
       // ── END BERSERKER DRAW ────────────────────────────────────────────────
 
+      // ── LEVIATHAN DRAW ────────────────────────────────────────────────────
+      if (this.kind === 'leviathan') {
+        const hp = this.health / this.maxHealth;
+        const phase = this.leviathanPhase || 1;
+        const nowMs = performance.now();
+
+        // Color shifts by phase
+        const hullColor   = phase >= 3 ? '#FF2020' : phase >= 2 ? '#cc4400' : '#8B0000';
+        const accentColor = phase >= 3 ? '#FF6060' : phase >= 2 ? '#FF4010' : '#FF2020';
+        const coreAlpha   = phase >= 3
+          ? 0.5 + Math.abs(Math.sin(nowMs / 60)) * 0.5
+          : phase >= 2
+            ? 0.6 + Math.sin(nowMs / 150) * 0.4
+            : 0.5 + Math.sin(nowMs / 300) * 0.25;
+
+        // Outer crimson aura
+        const auraGlow = Math.sin(nowMs / 200) * 0.3 + 0.7;
+        ctx.save();
+        ctx.globalAlpha = 0.35 * auraGlow;
+        ctx.shadowColor = accentColor;
+        ctx.shadowBlur = 50;
+        ctx.fillStyle = hullColor;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size * 1.6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // Large hexagonal hull
+        ctx.strokeStyle = accentColor;
+        ctx.fillStyle = 'rgba(139,0,0,0.18)';
+        ctx.lineWidth = 3;
+        ctx.shadowColor = accentColor;
+        ctx.shadowBlur = 18;
+        ctx.beginPath();
+        const hexPts = 6;
+        for (let i = 0; i < hexPts; i++) {
+          const ang = (i / hexPts) * Math.PI * 2 - Math.PI / 6;
+          const r = this.size * (i % 2 === 0 ? 1.0 : 0.85);
+          i === 0 ? ctx.moveTo(Math.cos(ang) * r, Math.sin(ang) * r)
+                  : ctx.lineTo(Math.cos(ang) * r, Math.sin(ang) * r);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Inner angular detail ring
+        ctx.strokeStyle = hullColor;
+        ctx.lineWidth = 1.5;
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        for (let i = 0; i < hexPts; i++) {
+          const ang = (i / hexPts) * Math.PI * 2 - Math.PI / 6;
+          const r = this.size * 0.6;
+          i === 0 ? ctx.moveTo(Math.cos(ang) * r, Math.sin(ang) * r)
+                  : ctx.lineTo(Math.cos(ang) * r, Math.sin(ang) * r);
+        }
+        ctx.closePath();
+        ctx.stroke();
+
+        // Rotating outer ring of 6 weapon ports
+        const ringAngle = nowMs / 1800;
+        for (let i = 0; i < 6; i++) {
+          const portAng = ringAngle + (i / 6) * Math.PI * 2;
+          const portR = this.size * 1.15;
+          const px = Math.cos(portAng) * portR;
+          const py = Math.sin(portAng) * portR;
+          ctx.beginPath();
+          ctx.arc(px, py, 5, 0, Math.PI * 2);
+          ctx.fillStyle = accentColor;
+          ctx.shadowColor = accentColor;
+          ctx.shadowBlur = 12;
+          ctx.fill();
+          // Port connector line
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(px * 0.85, py * 0.85);
+          ctx.strokeStyle = 'rgba(255,32,32,0.25)';
+          ctx.lineWidth = 1;
+          ctx.shadowBlur = 0;
+          ctx.stroke();
+        }
+
+        // Pulsing core
+        const coreGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size * 0.38);
+        coreGrad.addColorStop(0, `rgba(255,220,220,${coreAlpha})`);
+        coreGrad.addColorStop(0.4, `rgba(255,32,32,${coreAlpha * 0.8})`);
+        coreGrad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = coreGrad;
+        ctx.shadowColor = '#FF2020';
+        ctx.shadowBlur = 25;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size * 0.38, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Phase 3 rapid flash overlay
+        if (phase >= 3) {
+          const flashAlpha = Math.abs(Math.sin(nowMs / 120)) * 0.3;
+          ctx.save();
+          ctx.globalAlpha = flashAlpha;
+          ctx.fillStyle = '#FF2020';
+          ctx.beginPath();
+          ctx.arc(0, 0, this.size, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        ctx.shadowBlur = 0;
+      }
+      // ── END LEVIATHAN DRAW ────────────────────────────────────────────────────
+
       ctx.shadowBlur = 0;
       ctx.restore();
     }
@@ -6082,6 +6218,41 @@
           movementX = (this.vx / (this.speed || 1));
           movementY = (this.vy / (this.speed || 1));
         }
+      } else if (this.kind === 'leviathan') {
+        // Update phase based on HP
+        const hpPct = this.health / this.maxHealth;
+        const prevPhase = this.leviathanPhase;
+        if (hpPct <= 0.33) {
+          this.leviathanPhase = 3;
+        } else if (hpPct <= 0.66) {
+          this.leviathanPhase = 2;
+        } else {
+          this.leviathanPhase = 1;
+        }
+        // Speed escalation on phase change
+        if (this.leviathanPhase !== prevPhase) {
+          const base = this.leviathanBaseSpeed || this.speed;
+          if (this.leviathanPhase === 2) {
+            this.speed = base * (0.7 / 0.4); // phase 2 speed = 0.7
+            addLogEntry('⚠️ LEVIATHAN ENRAGES!', '#ef4444');
+            shakeScreen(6, 300);
+          } else if (this.leviathanPhase === 3) {
+            this.speed = base * (1.0 / 0.4); // phase 3 speed = 1.0
+            addLogEntry('☠️ LEVIATHAN CRITICAL — FULL ASSAULT!', '#FF2020');
+            shakeScreen(10, 400);
+          }
+        }
+        // Slow steady approach toward player
+        movementX = dx / dist;
+        movementY = dy / dist;
+
+        // Leviathan shooting — managed here instead of via canShoot
+        const lNow = performance.now();
+        const shotCd = this.leviathanPhase >= 3 ? 1500 : 2500;
+        if (player && lNow - (this.leviathanShotTimer || 0) > shotCd) {
+          this.leviathanShotTimer = lNow;
+          this.leviathanFirePhase(this.leviathanPhase);
+        }
       }
 
       // Splitter: straight tracking toward player (no special movement)
@@ -6210,6 +6381,48 @@
       }
     }
     
+    leviathanFirePhase(phase) {
+      if (!player) return;
+      const dx = player.x - this.x;
+      const dy = player.y - this.y;
+      const baseAngle = Math.atan2(dy, dx);
+      const damage = this.baseDamage * ADAPTIVE_CONSTANTS.RANGED_DAMAGE_MULT * 1.2;
+      const speed = BASE.BULLET_SPEED * 0.75;
+      const size = BASE.BULLET_SIZE * 1.8;
+      const color = '#FF2020';
+
+      if (phase >= 3) {
+        // Phase 3: 8 bullets in full circle
+        for (let i = 0; i < 8; i++) {
+          const ang = (i / 8) * Math.PI * 2;
+          const vel = { x: Math.cos(ang), y: Math.sin(ang) };
+          bullets.push(new Bullet(this.x, this.y, vel, damage, color, speed, size, 0, true));
+        }
+        addParticles('nova', this.x, this.y, 0, 16);
+        shakeScreen(6, 200);
+        addLogEntry('☠️ Leviathan full barrage!', '#FF2020');
+      } else if (phase >= 2) {
+        // Phase 2: 6 bullets in wide spread
+        const spread = Math.PI * 0.6;
+        for (let i = 0; i < 6; i++) {
+          const ang = baseAngle - spread / 2 + (i / 5) * spread;
+          const vel = { x: Math.cos(ang), y: Math.sin(ang) };
+          bullets.push(new Bullet(this.x, this.y, vel, damage, color, speed, size, 0, true));
+        }
+        addParticles('muzzle', this.x, this.y, baseAngle, 8);
+        addLogEntry('⚠️ Leviathan wide volley!', '#FF4010');
+      } else {
+        // Phase 1: 3 bullets in spread cone
+        const spread = Math.PI * 0.3;
+        for (let i = 0; i < 3; i++) {
+          const ang = baseAngle - spread / 2 + (i / 2) * spread;
+          const vel = { x: Math.cos(ang), y: Math.sin(ang) };
+          bullets.push(new Bullet(this.x, this.y, vel, damage, color, speed, size, 0, true));
+        }
+        addParticles('muzzle', this.x, this.y, baseAngle, 5);
+      }
+    }
+
     // Get the actual damage this enemy deals (with penetration calculations)
     getDamage() {
       return this.baseDamage || BASE.ENEMY_DAMAGE;
@@ -8458,16 +8671,31 @@
     // Check if this was the boss
     const wasBoss = enemy.isBoss;
     const wasElite = enemy.isElite;
-    
+    const wasLeviathan = enemy.kind === 'leviathan';
+
     // Phase 1: Add to combo system
     addComboKill();
-    
+
     // Drop more coins for elite/boss (+ Salvage perk bonus drops)
     dropCoin(enemy.x, enemy.y);
     if (perkMultipliers.coinBonus > 1 && Math.random() < (perkMultipliers.coinBonus - 1)) {
       dropCoin(enemy.x + rand(-15, 15), enemy.y + rand(-15, 15));
     }
-    if (wasElite) {
+    if (wasLeviathan) {
+      // Leviathan drops 3-5 credit pickups + big explosion
+      const dropCount = 3 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < dropCount; i++) {
+        dropCoin(enemy.x + rand(-50, 50), enemy.y + rand(-50, 50));
+      }
+      dropSupply(enemy.x, enemy.y);
+      dropSupply(enemy.x + rand(-40, 40), enemy.y + rand(-40, 40));
+      Save.addCredits(250);
+      leviathanKilledThisRun++;
+      // Unlock LEVIATHAN SLAYER achievement
+      Auth.playerProfile.leviathanKills = (Auth.playerProfile.leviathanKills || 0) + 1;
+      Auth.saveProfile();
+      Auth.checkAchievements();
+    } else if (wasElite) {
       dropCoin(enemy.x + rand(-20, 20), enemy.y + rand(-20, 20));
       dropCoin(enemy.x + rand(-20, 20), enemy.y + rand(-20, 20));
     }
@@ -8478,12 +8706,13 @@
       dropSupply(enemy.x, enemy.y);
       dropSupply(enemy.x + 30, enemy.y);
       dropSupply(enemy.x - 30, enemy.y);
-    } else if (chance(wasElite ? 0.5 : 0.22)) {
+    } else if (!wasLeviathan && chance(wasElite ? 0.5 : 0.22)) {
       dropSupply(enemy.x, enemy.y);
     }
     
     // Phase A.4: Enhanced death effects based on enemy type
-    const deathColor = wasBoss ? '#7c3aed' :
+    const deathColor = wasLeviathan ? '#FF2020' :
+                       wasBoss ? '#7c3aed' :
                        wasElite ? '#f59e0b' :
                        enemy.kind === 'drone' ? '#ef4444' :
                        enemy.kind === 'chaser' ? '#e879f9' :
@@ -8509,7 +8738,19 @@
     }
     
     // Enhanced effects for boss/elite
-    if (wasBoss) {
+    if (wasLeviathan) {
+      // Massive Leviathan death explosion
+      addParticles('debris', enemy.x, enemy.y, 0, 40);
+      addParticles('smoke', enemy.x, enemy.y, 0, 30);
+      addParticles('sparks', enemy.x, enemy.y, 0, 50);
+      addParticles('nova', enemy.x, enemy.y, 0, 30);
+      addParticles('ring', enemy.x, enemy.y, 0, 5, '#FF2020');
+      addParticles('levelup', enemy.x, enemy.y, 0, 40);
+      shakeScreen(20, 800);
+      addLogEntry('☠️ LEVIATHAN DESTROYED!', '#FF2020');
+      // Nullify bossEntity so checkWaveCompletion fires
+      if (bossEntity === enemy) bossEntity = null;
+    } else if (wasBoss) {
       addParticles('debris', enemy.x, enemy.y, 0, 24);
       addParticles('smoke', enemy.x, enemy.y, 0, 20);
       addParticles('sparks', enemy.x, enemy.y, 0, 30);
@@ -8593,8 +8834,8 @@
 
     enemies.splice(index, 1);
 
-    // Mark boss as dead
-    if (wasBoss && enemy === bossEntity) {
+    // Mark boss as dead (including Leviathan which sets bossEntity to null inline in death effects)
+    if ((wasBoss || wasLeviathan) && enemy === bossEntity) {
       bossEntity = null;
     }
 
@@ -8747,9 +8988,10 @@
     dom.healthBar.style.width = `${(player.health / player.hpMax) * 100}%`;
     if (bossActive && bossEntity) {
       dom.bossBar.style.display = 'block';
-      const bossPct = Math.max(0, (bossEntity.health / bossEntity.hpMax) * 100);
+      const bossMaxHp = bossEntity.hpMax || bossEntity.maxHealth || 1;
+      const bossPct = Math.max(0, (bossEntity.health / bossMaxHp) * 100);
       dom.bossBarFill.style.width = bossPct + '%';
-      dom.bossBarName.textContent = (bossEntity.kind || 'BOSS').toUpperCase();
+      dom.bossBarName.textContent = bossEntity.kind === 'leviathan' ? 'LEVIATHAN' : (bossEntity.kind || 'BOSS').toUpperCase();
     } else {
       dom.bossBar.style.display = 'none';
     }
@@ -9770,22 +10012,32 @@
     // Determine wave type based on level and player power
     const adaptive = getAdaptiveScaling();
     const bossLevel = level % adaptive.bossInterval === 0;
-    
-    if (bossLevel) {
+    const leviathanLevel = level % 10 === 0; // Leviathan spawns at wave 10, 20, 30, ...
+
+    if (leviathanLevel) {
+      // Leviathan boss wave — takes priority over generic boss
       currentWaveType = 'boss';
+      leviathanWavePending = true;
+      addLogEntry(`☠️ LEVIATHAN APPROACHES — FLEE OR FIGHT!`, '#FF2020');
+    } else if (bossLevel) {
+      currentWaveType = 'boss';
+      leviathanWavePending = false;
       addLogEntry(`⚠️ BOSS WAVE INCOMING!`, '#dc2626');
     } else if (level % 5 === 0 && getPowerRatio() > 0.3) {
       // Every 5th level (non-boss), special wave type
       const waveTypes = ['swarm', 'elite', 'survival', 'hazard'];
       currentWaveType = waveTypes[Math.floor(Math.random() * waveTypes.length)];
+      leviathanWavePending = false;
       const waveInfo = WAVE_TYPES[currentWaveType];
       addLogEntry(`🎯 ${waveInfo.name}: ${waveInfo.desc}`, '#f59e0b');
     } else {
       currentWaveType = 'standard';
+      leviathanWavePending = false;
     }
 
     // Show wave intro banner
-    const _bossHint = currentWaveType === 'boss' ? 'BOSS WAVE — MAXIMUM THREAT' : undefined;
+    const _bossHint = leviathanWavePending ? 'LEVIATHAN BOSS — MAXIMUM THREAT'
+      : currentWaveType === 'boss' ? 'BOSS WAVE — MAXIMUM THREAT' : undefined;
     showWaveBanner(level, _bossHint);
 
     const waveType = WAVE_TYPES[currentWaveType];
@@ -9928,16 +10180,32 @@
   const spawnBoss = () => {
     if (!player) return;
     const pos = randomAround(player.x, player.y, viewRadius(0.6), viewRadius(0.9));
-    const bossKind = Math.random() < 0.5 ? 'heavy' : 'chaser';
-    bossEntity = new Enemy(pos.x, pos.y, bossKind, false, true);
-    enemies.push(bossEntity);
-    bossActive = true;
-    addLogEntry('💀 BOSS HAS ARRIVED!', '#dc2626');
-    shakeScreen(10, 400);
-    
-    // Play boss spawn sound
-    if (typeof AudioManager !== 'undefined') {
-      AudioManager.playBossSpawn();
+
+    if (leviathanWavePending) {
+      // Spawn the LEVIATHAN boss
+      leviathanWavePending = false;
+      bossEntity = new Enemy(pos.x, pos.y, 'leviathan', false, false);
+      // Give it the isBoss flag for boss bar, but leviathan manages its own stats
+      bossEntity.isBoss = false; // leviathan is its own thing, not the generic isBoss
+      bossEntity.hpMax = bossEntity.maxHealth; // ensure boss bar compat
+      enemies.push(bossEntity);
+      bossActive = true;
+      bossWaveAnnouncementStart = performance.now();
+      addLogEntry('☠️ LEVIATHAN HAS ARRIVED!', '#FF2020');
+      shakeScreen(15, 600);
+      if (typeof AudioManager !== 'undefined') {
+        AudioManager.playBossSpawn();
+      }
+    } else {
+      const bossKind = Math.random() < 0.5 ? 'heavy' : 'chaser';
+      bossEntity = new Enemy(pos.x, pos.y, bossKind, false, true);
+      enemies.push(bossEntity);
+      bossActive = true;
+      addLogEntry('💀 BOSS HAS ARRIVED!', '#dc2626');
+      shakeScreen(10, 400);
+      if (typeof AudioManager !== 'undefined') {
+        AudioManager.playBossSpawn();
+      }
     }
   };
 
@@ -10308,8 +10576,55 @@
       }
     }
     
+    // ── BOSS WAVE! canvas announcement (Leviathan spawn) ─────────────────────
+    if (bossWaveAnnouncementStart > 0) {
+      const announceDur = 2000; // 2 seconds
+      const announceElapsed = performance.now() - bossWaveAnnouncementStart;
+      if (announceElapsed < announceDur) {
+        ctx.save();
+        const progress = announceElapsed / announceDur;
+        let announceAlpha;
+        if (progress < 0.2) {
+          announceAlpha = progress / 0.2;
+        } else if (progress < 0.7) {
+          announceAlpha = 1;
+        } else {
+          announceAlpha = 1 - ((progress - 0.7) / 0.3);
+        }
+        const cx = window.innerWidth / 2;
+        const cy = window.innerHeight / 2;
+        // Red screen tint
+        ctx.fillStyle = `rgba(139,0,0,${announceAlpha * 0.25})`;
+        ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+        // Title
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = `bold 72px Arial, sans-serif`;
+        ctx.shadowColor = '#FF2020';
+        ctx.shadowBlur = 40;
+        ctx.fillStyle = `rgba(255,32,32,${announceAlpha})`;
+        ctx.strokeStyle = `rgba(0,0,0,${announceAlpha * 0.9})`;
+        ctx.lineWidth = 4;
+        ctx.strokeText('BOSS WAVE!', cx, cy - 30);
+        ctx.fillText('BOSS WAVE!', cx, cy - 30);
+        // Subtitle
+        ctx.font = `bold 32px Arial, sans-serif`;
+        ctx.shadowBlur = 20;
+        ctx.fillStyle = `rgba(255,160,160,${announceAlpha})`;
+        ctx.strokeStyle = `rgba(0,0,0,${announceAlpha * 0.9})`;
+        ctx.lineWidth = 3;
+        ctx.strokeText('LEVIATHAN APPROACHES', cx, cy + 30);
+        ctx.fillText('LEVIATHAN APPROACHES', cx, cy + 30);
+        ctx.shadowBlur = 0;
+        ctx.restore();
+      } else {
+        bossWaveAnnouncementStart = 0;
+      }
+    }
+    // ── END BOSS WAVE! announcement ───────────────────────────────────────────
+
     // Ready-up overlay is drawn separately after HUD (see drawReadyUpOverlay function)
-    
+
     // Draw countdown - Command Center style to match mission briefing
     if (countdownActive) {
       // Dim UI elements to make countdown overlay more prominent
@@ -11284,6 +11599,7 @@
     Auth.updateGameStats({
       kills: totalKillsThisRun,
       bossKills: bossActive ? 0 : (bossEntity ? 1 : 0),
+      leviathanKills: leviathanKilledThisRun,
       eliteKills: 0,
       playTime: performance.now() - (waveStartTime || performance.now()),
       flawlessLevel: !tookDamageThisLevel
@@ -11465,6 +11781,72 @@
               }
             }
           );
+        };
+      }
+
+      // Share Score button
+      const shareBtn = document.getElementById('gameOverShareBtn');
+      if (shareBtn) {
+        // Build share text with current run stats
+        const _buildShareText = () => {
+          const mm = Math.floor(runTimeSec / 60);
+          const ss = String(runTimeSec % 60).padStart(2, '0');
+          const timeStr = mm > 0 ? `${mm}m ${ss}s` : `${runTimeSec}s`;
+          const lines = [
+            `🚀 VOID RIFT`,
+            ``,
+            `Score: ${finalScore.toLocaleString()}`,
+            `Wave: ${finalLevel}`,
+            `Kills: ${runKillCount}`,
+            `Accuracy: ${runAccuracyPct}%`,
+            `Time: ${timeStr}`,
+          ];
+          if (isNewBest) lines.splice(2, 0, `🏆 New Personal Best!`);
+          lines.push(``, `Can you beat it? https://shooter-app-one.vercel.app`);
+          return lines.join('\n');
+        };
+
+        shareBtn.onclick = async () => {
+          const shareText = _buildShareText();
+          const originalHTML = shareBtn.innerHTML;
+
+          // Try Web Share API first (native sheet on iOS/Android)
+          if (navigator.share) {
+            try {
+              await navigator.share({
+                title: 'VOID RIFT',
+                text: shareText,
+              });
+              return;
+            } catch (err) {
+              // User cancelled or share failed — fall through to clipboard
+              if (err.name === 'AbortError') return;
+            }
+          }
+
+          // Clipboard fallback for desktop
+          try {
+            await navigator.clipboard.writeText(shareText);
+          } catch (_) {
+            // Final fallback: execCommand
+            const ta = document.createElement('textarea');
+            ta.value = shareText;
+            ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+          }
+
+          // "Copied!" feedback
+          shareBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Copied!`;
+          shareBtn.classList.add('copied');
+          shareBtn.disabled = true;
+          setTimeout(() => {
+            shareBtn.innerHTML = originalHTML;
+            shareBtn.classList.remove('copied');
+            shareBtn.disabled = false;
+          }, 2200);
         };
       }
 
