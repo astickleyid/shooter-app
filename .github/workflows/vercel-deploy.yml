@@ -18,10 +18,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Skip deploy when Vercel secrets are missing
+        if: ${{ secrets.VERCEL_TOKEN == '' || secrets.VERCEL_ORG_ID == '' || secrets.VERCEL_PROJECT_ID == '' }}
+        run: echo "Skipping preview deploy because required Vercel secrets are not configured."
+
       - name: Install Vercel CLI
+        if: ${{ secrets.VERCEL_TOKEN != '' && secrets.VERCEL_ORG_ID != '' && secrets.VERCEL_PROJECT_ID != '' }}
         run: npm i -g vercel@latest
 
       - name: Pull Vercel environment
+        if: ${{ secrets.VERCEL_TOKEN != '' && secrets.VERCEL_ORG_ID != '' && secrets.VERCEL_PROJECT_ID != '' }}
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -29,6 +35,7 @@ jobs:
         run: vercel pull --yes --environment=preview --token=$VERCEL_TOKEN
 
       - name: Deploy (Preview)
+        if: ${{ secrets.VERCEL_TOKEN != '' && secrets.VERCEL_ORG_ID != '' && secrets.VERCEL_PROJECT_ID != '' }}
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
