@@ -880,6 +880,10 @@
   // Fullscreen state
   let isFullscreen = false;
 
+  // 3D Rendering state
+  let use3DRendering = true; // Enable 3D third-person view by default
+  let renderer3DInitialized = false;
+
   // Equipment interaction system - Enhanced secondary weapons dock
   let lastTapTime = 0;
   let tapCount = 0;
@@ -9258,9 +9262,80 @@
 
   /* ====== RENDERING ====== */
   const drawGame = () => {
+    // 3D Rendering mode
+    if (use3DRendering && typeof GameRenderer3D !== 'undefined') {
+      // Initialize 3D renderer if not done
+      if (!renderer3DInitialized && GameRenderer3D.isAvailable()) {
+        const container = document.getElementById('gameContainer');
+        renderer3DInitialized = GameRenderer3D.init(container, {
+          quality: 'high',
+          shadows: true,
+          bloom: true
+        });
+      }
+
+      // Render in 3D if initialized
+      if (renderer3DInitialized && player) {
+        const gameState = {
+          player: {
+            x: player.x,
+            y: player.y,
+            lookAngle: player.lookAngle,
+            vel: player.vel,
+            actualVel: player.actualVel,
+            health: player.health,
+            hpMax: player.hpMax,
+            isBoosting: input.isBoosting,
+            invEnd: player.invEnd,
+            isDefenseActive: player.isDefenseActive ? player.isDefenseActive(performance.now()) : false
+          },
+          shipTemplate: currentShip,
+          enemies: enemies.map((e, idx) => ({
+            id: e.id || idx,
+            x: e.x,
+            y: e.y,
+            size: e.size,
+            type: e.isElite ? 'elite' : (e.isBoss ? 'boss' : (e.speed > 2 ? 'fast' : 'basic')),
+            angle: e.angle || Math.atan2(player.y - e.y, player.x - e.x)
+          })),
+          bullets: bullets.map(b => ({
+            x: b.x,
+            y: b.y,
+            angle: b.angle || 0,
+            isEnemy: b.enemy || false
+          })),
+          asteroids: obstacles.filter(o => o.constructor.name === 'Asteroid' || o.type === 'asteroid').map(a => ({
+            x: a.x,
+            y: a.y,
+            size: a.size || 30
+          })),
+          coins: coins.map(c => ({
+            x: c.x,
+            y: c.y,
+            value: c.value || 1
+          })),
+          supplies: supplies.map(s => ({
+            x: s.x,
+            y: s.y,
+            type: s.type || 'health'
+          }))
+        };
+        GameRenderer3D.render(gameState);
+
+        // Still draw 2D HUD elements on top
+        const ctx = dom.ctx;
+        const canvas = dom.canvas;
+        if (ctx && canvas) {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          draw2DOverlays(ctx, canvas);
+        }
+        return;
+      }
+    }
+
     // Need context for 2D rendering
     if (!dom.ctx) return;
-    
+
     // Fallback to 2D rendering
     const ctx = dom.ctx;
     const canvas = dom.canvas;
@@ -9736,6 +9811,79 @@
     }
   };
 
+  // Helper function to draw 2D overlays on top of 3D scene
+  const draw2DOverlays = (ctx, canvas) => {
+    const now = performance.now();
+
+    // Draw FPS counter if enabled
+    if (showFPS && fps > 0) {
+      ctx.save();
+      ctx.font = 'bold 16px monospace';
+      ctx.fillStyle = fps >= 55 ? '#4ade80' : fps >= 30 ? '#fbbf24' : '#ef4444';
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 3;
+      ctx.textAlign = 'right';
+      ctx.strokeText(`${fps} FPS (3D)`, canvas.width - 10, 30);
+      ctx.fillText(`${fps} FPS (3D)`, canvas.width - 10, 30);
+      ctx.restore();
+    }
+
+    // Draw combo multiplier if active
+    if (killComboMultiplier >= 2) {
+      const SPLASH_LINGER = 500;
+      const timeSinceKill = now - killComboSplashStart;
+      const alpha = timeSinceKill < KILL_COMBO_WINDOW - SPLASH_LINGER
+        ? 1
+        : Math.max(0, 1 - (timeSinceKill - (KILL_COMBO_WINDOW - SPLASH_LINGER)) / SPLASH_LINGER);
+
+      if (alpha > 0) {
+        ctx.save();
+        const cx = canvas.width / 2;
+        const cy = 54;
+        const scaleT = Math.min(1, timeSinceKill / 200);
+        const scale = 0.5 + 0.5 * scaleT;
+
+        ctx.globalAlpha = alpha;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = '#FFD700';
+        ctx.shadowBlur = 18;
+
+        ctx.font = `bold ${Math.round(32 * scale)}px Arial, sans-serif`;
+        ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+        ctx.lineWidth = 4;
+        ctx.strokeText(`COMBO x${killComboMultiplier}`, cx, cy);
+        ctx.fillStyle = '#FFD700';
+        ctx.fillText(`COMBO x${killComboMultiplier}`, cx, cy);
+        ctx.shadowBlur = 0;
+        ctx.restore();
+      }
+    }
+
+    // Draw floating damage numbers
+    for (let i = damageNumbers.length - 1; i >= 0; i--) {
+      const dmg = damageNumbers[i];
+      const age = now - dmg.time;
+      if (age > dmg.lifetime) {
+        damageNumbers.splice(i, 1);
+        continue;
+      }
+
+      const alpha = 1 - (age / dmg.lifetime);
+      const screenX = dmg.x - camera.x;
+      const screenY = dmg.y - camera.y - (age * 0.08);
+      ctx.save();
+      ctx.font = `bold ${dmg.size}px Arial`;
+      ctx.fillStyle = dmg.color.replace(')', `, ${alpha})`).replace('rgb', 'rgba');
+      ctx.strokeStyle = `rgba(0, 0, 0, ${alpha * 0.8})`;
+      ctx.lineWidth = 3;
+      ctx.textAlign = 'center';
+      ctx.strokeText(dmg.text, screenX, screenY);
+      ctx.fillText(dmg.text, screenX, screenY);
+      ctx.restore();
+    }
+  };
+
   /* ====== MAIN LOOP ====== */
   let animationFrame = null;
 
@@ -9790,16 +9938,50 @@
     dom.canvas.height = Math.floor(window.innerHeight * dpr);
     dom.canvas.style.width = '100%';
     dom.canvas.style.height = '100%';
-    
+
     // Create 2D context if needed
     if (!dom.ctx && dom.canvas) {
-      dom.ctx = dom.canvas.getContext('2d');
+      dom.ctx = dom.canvas.getContext('2d', { alpha: true });
     }
-    
+
     if (dom.ctx) {
       dom.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
+
+    // Configure canvas for 3D overlay mode
+    if (use3DRendering && typeof GameRenderer3D !== 'undefined') {
+      dom.canvas.style.position = 'absolute';
+      dom.canvas.style.top = '0';
+      dom.canvas.style.left = '0';
+      dom.canvas.style.zIndex = '5';
+      dom.canvas.style.pointerEvents = 'none';
+      dom.canvas.style.background = 'transparent';
+    } else {
+      dom.canvas.style.position = '';
+      dom.canvas.style.zIndex = '';
+      dom.canvas.style.pointerEvents = '';
+      dom.canvas.style.background = '';
+    }
+
     return dpr;
+  };
+
+  // Toggle between 2D and 3D rendering modes
+  const toggle3DMode = () => {
+    use3DRendering = !use3DRendering;
+    if (use3DRendering) {
+      console.log('🎮 Switching to 3D third-person mode');
+      if (typeof GameRenderer3D !== 'undefined') {
+        GameRenderer3D.setEnabled(true);
+      }
+    } else {
+      console.log('🎮 Switching to classic 2D mode');
+      if (typeof GameRenderer3D !== 'undefined') {
+        GameRenderer3D.setEnabled(false);
+      }
+    }
+    setupCanvas();
+    return use3DRendering;
   };
 
   const startLevel = (lvl, resetScore) => {
@@ -10836,6 +11018,8 @@
     openHangar,
     toggleFullscreen,
     toggleFPS,
+    toggle3DMode,
+    is3DMode: () => use3DRendering,
     getGameState: () => ({
       gameRunning,
       paused,
@@ -10845,7 +11029,8 @@
       enemiesToKill,
       fps,
       isFullscreen,
-      difficulty: currentDifficulty
+      difficulty: currentDifficulty,
+      use3DRendering
     })
   };
 
@@ -12167,6 +12352,12 @@
       if (e.key === 'g' || e.key === 'G') {
         e.preventDefault();
         toggleFPS();
+      }
+      // V key: toggle between 2D and 3D rendering modes
+      if (e.key === 'v' || e.key === 'V') {
+        e.preventDefault();
+        const is3D = toggle3DMode();
+        console.log(`🎮 View mode: ${is3D ? '3D Third-Person' : '2D Top-Down'}`);
       }
       if (e.key === 'f' || e.key === 'F') {
         // Only allow 'f' for fullscreen if defense isn't using it in game
