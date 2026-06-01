@@ -2027,6 +2027,13 @@
       Save.data.selectedShip = currentShip.id;
       Save.save();
     }
+    // Apply equipped skin colors so drawShip previews use the right palette
+    const _initSkin = typeof window.getEquippedSkin === 'function'
+      ? window.getEquippedSkin(currentShip.id)
+      : null;
+    if (_initSkin && _initSkin.id !== currentShip.id + '_default') {
+      currentShip = { ...currentShip, colors: { ...currentShip.colors, ..._initSkin.colors } };
+    }
   };
 
   const getShipTemplate = (id) => SHIP_TEMPLATES.find((ship) => ship.id === id) || null;
@@ -6679,7 +6686,16 @@
       this.ultimate = currentUltimateSystem();
       currentShip = getShipTemplate(Save.data.selectedShip);
       const template = currentShip || SHIP_TEMPLATES[0];
-      this.shipColors = template.colors || {};
+      // Apply equipped skin colors if available (overrides template defaults)
+      const _equippedSkin = typeof window.getEquippedSkin === 'function'
+        ? window.getEquippedSkin(template.id)
+        : null;
+      if (_equippedSkin && _equippedSkin.id !== template.id + '_default') {
+        this.shipColors = { ...template.colors, ..._equippedSkin.colors };
+        currentShip = { ...currentShip, colors: this.shipColors };
+      } else {
+        this.shipColors = template.colors || {};
+      }
       const prevHealthRatio = preserveVitals && this.hpMax ? this.health / this.hpMax : 1;
       const prevAmmoRatio = preserveVitals && this.ammoMax ? this.ammo / this.ammoMax : 1;
       const prevSecondaryRatio = preserveVitals && this.secondaryCapacity ? this.secondaryAmmo / this.secondaryCapacity : 1;

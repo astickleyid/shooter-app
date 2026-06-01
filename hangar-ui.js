@@ -880,7 +880,325 @@ const HANGAR_UI_CSS = `
       grid-template-columns: 1fr;
     }
   }
+
+  /* ── Skins tab ─────────────────────────────────────────────── */
+  .skins-ship-selector {
+    display: flex;
+    gap: 8px;
+    padding: 16px 24px 12px;
+    border-bottom: 1px solid rgba(74, 222, 128, 0.1);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+
+  .skin-ship-btn {
+    padding: 6px 14px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border: 1px solid rgba(100, 116, 139, 0.3);
+    color: rgba(100, 116, 139, 0.7);
+    background: rgba(255, 255, 255, 0.03);
+    transition: all 0.15s ease;
+  }
+
+  .skin-ship-btn:hover {
+    border-color: rgba(74, 222, 128, 0.4);
+    color: rgba(74, 222, 128, 0.8);
+  }
+
+  .skin-ship-btn.active {
+    border-color: rgba(74, 222, 128, 0.6);
+    color: #4ade80;
+    background: rgba(74, 222, 128, 0.08);
+    text-shadow: 0 0 8px rgba(74, 222, 128, 0.4);
+  }
+
+  .skins-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 14px;
+    padding: 20px 24px;
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  .skin-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(74, 222, 128, 0.12);
+    border-radius: 10px;
+    padding: 16px 14px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .skin-card:hover {
+    border-color: rgba(74, 222, 128, 0.3);
+    background: rgba(74, 222, 128, 0.04);
+    transform: translateY(-1px);
+  }
+
+  .skin-card.is-equipped {
+    border-color: rgba(74, 222, 128, 0.7);
+    background: rgba(74, 222, 128, 0.08);
+    box-shadow: 0 0 16px rgba(74, 222, 128, 0.1);
+  }
+
+  .skin-card.is-equipped::before {
+    content: 'EQUIPPED';
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    color: #4ade80;
+    background: rgba(74, 222, 128, 0.15);
+    padding: 2px 6px;
+    border-radius: 3px;
+    border: 1px solid rgba(74, 222, 128, 0.3);
+  }
+
+  .skin-swatch-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .skin-swatch {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    flex-shrink: 0;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.15), 0 2px 6px rgba(0,0,0,0.4);
+  }
+
+  .skin-swatch-mini {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .skin-swatch-accent {
+    width: 24px;
+    height: 10px;
+    border-radius: 3px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .skin-swatch-engine {
+    width: 24px;
+    height: 10px;
+    border-radius: 3px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    opacity: 0.8;
+  }
+
+  .skin-info {
+    flex: 1;
+  }
+
+  .skin-name {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: #e2e8f0;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+  }
+
+  .skin-desc {
+    font-size: 10px;
+    color: rgba(100, 116, 139, 0.8);
+    line-height: 1.4;
+  }
+
+  .skin-action-btn {
+    width: 100%;
+    padding: 7px 10px;
+    border-radius: 5px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+    text-align: center;
+  }
+
+  .skin-action-btn.free {
+    background: rgba(74, 222, 128, 0.12);
+    border-color: rgba(74, 222, 128, 0.4);
+    color: #4ade80;
+  }
+
+  .skin-action-btn.free:hover {
+    background: rgba(74, 222, 128, 0.2);
+  }
+
+  .skin-action-btn.buy {
+    background: rgba(251, 191, 36, 0.1);
+    border-color: rgba(251, 191, 36, 0.4);
+    color: #fbbf24;
+  }
+
+  .skin-action-btn.buy:hover {
+    background: rgba(251, 191, 36, 0.18);
+  }
+
+  .skin-action-btn.buy.cant-afford {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .skin-action-btn.equipped-btn {
+    background: rgba(74, 222, 128, 0.08);
+    border-color: rgba(74, 222, 128, 0.3);
+    color: rgba(74, 222, 128, 0.6);
+    cursor: default;
+  }
+
+  .skin-action-btn.owned {
+    background: rgba(148, 163, 184, 0.08);
+    border-color: rgba(148, 163, 184, 0.3);
+    color: #94a3b8;
+  }
+
+  .skin-action-btn.owned:hover {
+    background: rgba(74, 222, 128, 0.08);
+    border-color: rgba(74, 222, 128, 0.3);
+    color: #4ade80;
+  }
+
+  @media (max-width: 480px) {
+    .skins-grid {
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      padding: 14px 16px;
+    }
+    .skins-ship-selector {
+      padding: 12px 16px 10px;
+    }
+  }
 `;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Skin data
+// ─────────────────────────────────────────────────────────────────────────────
+
+const SHIP_SKINS = {
+  vanguard: [
+    { id: 'vanguard_default', name: 'Default', price: 0, colors: { primary: '#0ea5e9', accent: '#38bdf8', thruster: '#f97316' }, desc: 'Stock sky blue' },
+    { id: 'vanguard_crimson', name: 'Crimson', price: 200, colors: { primary: '#f87171', accent: '#fca5a5', thruster: '#ef4444' }, desc: 'Blood red variant' },
+    { id: 'vanguard_gold', name: 'Gold Rush', price: 350, colors: { primary: '#fbbf24', accent: '#fde68a', thruster: '#f59e0b' }, desc: 'Elite gilded finish' },
+    { id: 'vanguard_void', name: 'Void Dark', price: 500, colors: { primary: '#818cf8', accent: '#c4b5fd', thruster: '#6366f1' }, desc: 'Deep space purple' },
+  ],
+  phantom: [
+    { id: 'phantom_default', name: 'Default', price: 0, colors: { primary: '#14b8a6', accent: '#34d399', thruster: '#22d3ee' }, desc: 'Stock teal' },
+    { id: 'phantom_emerald', name: 'Emerald', price: 200, colors: { primary: '#34d399', accent: '#6ee7b7', thruster: '#10b981' }, desc: 'Stealth green' },
+    { id: 'phantom_gold', name: 'Gold Rush', price: 350, colors: { primary: '#fbbf24', accent: '#fde68a', thruster: '#f59e0b' }, desc: 'Elite gilded finish' },
+    { id: 'phantom_neon', name: 'Neon Pink', price: 500, colors: { primary: '#f472b6', accent: '#fbcfe8', thruster: '#ec4899' }, desc: 'Hot pink neon' },
+  ],
+  spectre: [
+    { id: 'spectre_default', name: 'Default', price: 0, colors: { primary: '#6366f1', accent: '#818cf8', thruster: '#c084fc' }, desc: 'Stock indigo' },
+    { id: 'spectre_arctic', name: 'Arctic', price: 200, colors: { primary: '#67e8f9', accent: '#a5f3fc', thruster: '#22d3ee' }, desc: 'Ice blue variant' },
+    { id: 'spectre_gold', name: 'Gold Rush', price: 350, colors: { primary: '#fbbf24', accent: '#fde68a', thruster: '#f59e0b' }, desc: 'Elite gilded finish' },
+    { id: 'spectre_void', name: 'Void Dark', price: 500, colors: { primary: '#e879f9', accent: '#f0abfc', thruster: '#d946ef' }, desc: 'Neon magenta' },
+  ],
+  bulwark: [
+    { id: 'bulwark_default', name: 'Default', price: 0, colors: { primary: '#475569', accent: '#94a3b8', thruster: '#facc15' }, desc: 'Stock slate' },
+    { id: 'bulwark_crimson', name: 'Crimson', price: 200, colors: { primary: '#f87171', accent: '#fca5a5', thruster: '#ef4444' }, desc: 'Battle red' },
+    { id: 'bulwark_gold', name: 'Gold Rush', price: 350, colors: { primary: '#fbbf24', accent: '#fde68a', thruster: '#f59e0b' }, desc: 'Elite gilded finish' },
+    { id: 'bulwark_void', name: 'Void Dark', price: 500, colors: { primary: '#818cf8', accent: '#c4b5fd', thruster: '#6366f1' }, desc: 'Deep space purple' },
+  ],
+  titan: [
+    { id: 'titan_default', name: 'Default', price: 0, colors: { primary: '#78716c', accent: '#57534e', thruster: '#dc2626' }, desc: 'Stock stone' },
+    { id: 'titan_arctic', name: 'Arctic', price: 200, colors: { primary: '#67e8f9', accent: '#a5f3fc', thruster: '#22d3ee' }, desc: 'Ice blue variant' },
+    { id: 'titan_gold', name: 'Gold Rush', price: 350, colors: { primary: '#fbbf24', accent: '#fde68a', thruster: '#f59e0b' }, desc: 'Elite gilded finish' },
+    { id: 'titan_void', name: 'Void Dark', price: 500, colors: { primary: '#e879f9', accent: '#f0abfc', thruster: '#d946ef' }, desc: 'Neon magenta' },
+  ],
+  emberwing: [
+    { id: 'emberwing_default', name: 'Default', price: 0, colors: { primary: '#ef4444', accent: '#fb7185', thruster: '#f97316' }, desc: 'Stock ember red' },
+    { id: 'emberwing_plasma', name: 'Plasma', price: 200, colors: { primary: '#38bdf8', accent: '#7dd3fc', thruster: '#0ea5e9' }, desc: 'Electric blue' },
+    { id: 'emberwing_gold', name: 'Gold Rush', price: 350, colors: { primary: '#fbbf24', accent: '#fde68a', thruster: '#f59e0b' }, desc: 'Elite gilded finish' },
+    { id: 'emberwing_void', name: 'Void Dark', price: 500, colors: { primary: '#c084fc', accent: '#e9d5ff', thruster: '#a855f7' }, desc: 'Dark purple' },
+  ],
+};
+
+const SKINS_STORAGE_KEY = 'voidrift_skins';
+
+function loadSkinsState() {
+  try {
+    const raw = localStorage.getItem(SKINS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        return {
+          owned: Array.isArray(parsed.owned) ? parsed.owned : [],
+          equipped: (parsed.equipped && typeof parsed.equipped === 'object') ? parsed.equipped : {},
+        };
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
+  return { owned: [], equipped: {} };
+}
+
+function saveSkinsState(state) {
+  try {
+    localStorage.setItem(SKINS_STORAGE_KEY, JSON.stringify(state));
+  } catch (e) {
+    // ignore
+  }
+}
+
+function getEquippedSkinId(shipId) {
+  const state = loadSkinsState();
+  return state.equipped[shipId] || (shipId + '_default');
+}
+
+function getEquippedSkin(shipId) {
+  const skinId = getEquippedSkinId(shipId);
+  const skins = SHIP_SKINS[shipId] || [];
+  return skins.find(s => s.id === skinId) || skins[0] || null;
+}
+
+function isSkinOwned(skinId) {
+  const state = loadSkinsState();
+  return state.owned.includes(skinId);
+}
+
+function equipSkin(shipId, skinId) {
+  const state = loadSkinsState();
+  state.equipped[shipId] = skinId;
+  saveSkinsState(state);
+}
+
+function buySkin(skinId, price) {
+  const credits = getLiveCredits();
+  if (credits < price) return false;
+  const spent = trySpendCredits(price);
+  if (!spent) return false;
+  const state = loadSkinsState();
+  if (!state.owned.includes(skinId)) state.owned.push(skinId);
+  saveSkinsState(state);
+  return true;
+}
+
+// Expose getEquippedSkin for use by the main game (script.js / index.html)
+if (typeof window !== 'undefined') {
+  window.getEquippedSkin = getEquippedSkin;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Module state
@@ -890,7 +1208,8 @@ let _overlay = null;
 let _hangarState = null;
 let _options = {};
 let _keyHandler = null;
-let _activeTab = 'upgrades'; // 'upgrades' | 'achievements'
+let _activeTab = 'upgrades'; // 'upgrades' | 'achievements' | 'skins'
+let _skinsShipFilter = null; // which ship's skins are shown
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -1129,8 +1448,136 @@ function renderUpgradesView() {
 }
 
 /**
- * Switch the active tab ('upgrades' or 'achievements'), update tab buttons,
- * and re-render the content area.
+ * Render the skins tab. Shows a ship filter row and a grid of skin cards
+ * for the currently selected ship filter.
+ */
+function renderSkinsView() {
+  const content = document.getElementById('hangarContent');
+  if (!content) return;
+
+  // Determine which ships have skin definitions
+  const shipIds = Object.keys(SHIP_SKINS);
+
+  // Default filter: prefer the currently equipped ship, fall back to first
+  const currentShipId = (
+    (typeof _options.getSelectedShip === 'function' && _options.getSelectedShip()) ||
+    (typeof window !== 'undefined' && window.Save && window.Save.data && window.Save.data.selectedShip) ||
+    shipIds[0]
+  );
+
+  if (!_skinsShipFilter || !SHIP_SKINS[_skinsShipFilter]) {
+    _skinsShipFilter = SHIP_SKINS[currentShipId] ? currentShipId : shipIds[0];
+  }
+
+  const skinLabels = {
+    vanguard: 'Vanguard',
+    phantom: 'Phantom',
+    spectre: 'Spectre',
+    bulwark: 'Bulwark',
+    titan: 'Titan',
+    emberwing: 'Emberwing',
+  };
+
+  // Build ship filter buttons
+  const filterHtml = shipIds.map(sid => {
+    const active = sid === _skinsShipFilter ? ' active' : '';
+    const label = skinLabels[sid] || sid;
+    return `<button class="skin-ship-btn${active}" data-ship="${sid}">${label}</button>`;
+  }).join('');
+
+  // Build skin cards
+  const skins = SHIP_SKINS[_skinsShipFilter] || [];
+  const equippedId = getEquippedSkinId(_skinsShipFilter);
+  const credits = getLiveCredits();
+
+  const cardsHtml = skins.map(skin => {
+    const isEquipped = skin.id === equippedId;
+    const owned = skin.price === 0 || isSkinOwned(skin.id);
+    const canAfford = credits >= skin.price;
+    const cardClass = isEquipped ? ' is-equipped' : '';
+
+    let btnHtml;
+    if (isEquipped) {
+      btnHtml = `<button class="skin-action-btn equipped-btn" disabled>✦ Equipped</button>`;
+    } else if (owned) {
+      btnHtml = `<button class="skin-action-btn owned" data-action="equip" data-skin="${skin.id}" data-ship="${_skinsShipFilter}">Equip</button>`;
+    } else if (skin.price === 0) {
+      btnHtml = `<button class="skin-action-btn free" data-action="equip" data-skin="${skin.id}" data-ship="${_skinsShipFilter}">Equip Free</button>`;
+    } else {
+      const affordClass = canAfford ? '' : ' cant-afford';
+      const label = canAfford ? `Buy — ${skin.price.toLocaleString()} CR` : `${skin.price.toLocaleString()} CR`;
+      btnHtml = `<button class="skin-action-btn buy${affordClass}" ${canAfford ? '' : 'disabled'} data-action="buy" data-skin="${skin.id}" data-ship="${_skinsShipFilter}" data-price="${skin.price}">${label}</button>`;
+    }
+
+    return `
+      <div class="skin-card${cardClass}" data-skin-id="${skin.id}">
+        <div class="skin-swatch-row">
+          <div class="skin-swatch" style="background:${skin.colors.primary};"></div>
+          <div class="skin-swatch-mini">
+            <div class="skin-swatch-accent" style="background:${skin.colors.accent};"></div>
+            <div class="skin-swatch-engine" style="background:${skin.colors.thruster};"></div>
+          </div>
+          <div class="skin-info">
+            <div class="skin-name">${skin.name}</div>
+            <div class="skin-desc">${skin.desc}</div>
+          </div>
+        </div>
+        ${btnHtml}
+      </div>`;
+  }).join('');
+
+  content.innerHTML = `
+    <div class="skins-ship-selector">${filterHtml}</div>
+    <div class="skins-grid">${cardsHtml}</div>
+  `;
+
+  // ── Event listeners ──────────────────────────────────────────
+
+  // Ship filter buttons
+  content.querySelectorAll('.skin-ship-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _skinsShipFilter = btn.dataset.ship;
+      renderSkinsView();
+    });
+  });
+
+  // Skin action buttons (equip / buy)
+  content.querySelectorAll('[data-action]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const action = btn.dataset.action;
+      const skinId = btn.dataset.skin;
+      const shipId = btn.dataset.ship;
+      const price = parseInt(btn.dataset.price || '0', 10);
+
+      if (action === 'equip') {
+        equipSkin(shipId, skinId);
+        // Notify game of skin change if callback is provided
+        if (typeof _options.onSkinEquip === 'function') {
+          const skin = (SHIP_SKINS[shipId] || []).find(s => s.id === skinId);
+          _options.onSkinEquip(shipId, skinId, skin);
+        }
+        renderSkinsView();
+      } else if (action === 'buy') {
+        const success = buySkin(skinId, price);
+        if (success) {
+          equipSkin(shipId, skinId);
+          if (typeof _options.onSkinEquip === 'function') {
+            const skin = (SHIP_SKINS[shipId] || []).find(s => s.id === skinId);
+            _options.onSkinEquip(shipId, skinId, skin);
+          }
+          // Refresh credits display
+          const crEl = document.getElementById('hangar-credits-amount');
+          if (crEl) crEl.textContent = getLiveCredits().toLocaleString();
+          renderSkinsView();
+        }
+      }
+    });
+  });
+}
+
+/**
+ * Switch the active tab ('upgrades', 'achievements', or 'skins'), update tab
+ * buttons, and re-render the content area.
  */
 function switchTab(tab) {
   _activeTab = tab;
@@ -1142,6 +1589,8 @@ function switchTab(tab) {
 
   if (tab === 'achievements') {
     renderAchievementsView();
+  } else if (tab === 'skins') {
+    renderSkinsView();
   } else {
     renderUpgradesView();
   }
@@ -1207,6 +1656,7 @@ export function openHangar(opts = {}) {
   _options = opts;
   _hangarState = loadHangar();
   _activeTab = 'upgrades';
+  _skinsShipFilter = null; // reset so it picks up current ship on open
 
   // ── Build DOM ────────────────────────────────────────────────
 
@@ -1235,6 +1685,7 @@ export function openHangar(opts = {}) {
 
       <div id="hangarTabBar">
         <button class="hangar-tab-btn active" data-tab="upgrades">Upgrades</button>
+        <button class="hangar-tab-btn" data-tab="skins">Skins</button>
         <button class="hangar-tab-btn" data-tab="achievements">Achievements</button>
       </div>
 

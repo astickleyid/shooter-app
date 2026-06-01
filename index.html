@@ -290,6 +290,11 @@
         <div class="game-over-header">
           <h1 id="gameOverTitle"><img src="assets/icons/icon-gameover.svg" alt="" width="40" height="40" style="vertical-align: middle; margin-right: 12px;"/> GAME OVER</h1>
         </div>
+        <!-- Personal best banner — shown by JS when player beats their high score -->
+        <div id="personalBestBanner" class="personal-best-banner" style="display:none;">
+          <span class="personal-best-icon">🏆</span>
+          <span class="personal-best-text">NEW PERSONAL BEST!</span>
+        </div>
         <div class="game-over-stats">
           <div class="stat-item">
             <span class="stat-label">Final Score</span>
@@ -325,7 +330,6 @@
           <div class="game-over-perks__label">RUN LOADOUT</div>
           <div class="game-over-perks__list" id="gameOverPerksList"></div>
         </div>
-        <div id="personalBestBanner" class="personal-best-banner" style="display:none;">🏆 New Personal Best!</div>
         <div class="local-leaderboard-panel">
           <div class="local-lb-title">Your Best Runs</div>
           <table class="local-lb-table">
@@ -344,6 +348,10 @@
         <div class="game-over-actions">
           <button id="gameOverWatchAdBtn" class="game-over-btn ad-continue-btn" style="display:none;">
             <span>📺</span> Watch Ad to Continue
+          </button>
+          <button id="gameOverShareBtn" class="game-over-btn share-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            Share Score
           </button>
           <button id="gameOverRestartBtn" class="game-over-btn primary"><img src="assets/icons/icon-restart.svg" alt="" width="20" height="20"/> Play Again</button>
           <button id="gameOverShopBtn" class="game-over-btn"><img src="assets/icons/icon-shop.svg" alt="" width="20" height="20"/> Upgrades & Shop</button>
@@ -704,6 +712,16 @@
               return window.Save.spendCredits(amount);
             }
             return false; // fall back — internal pool handles it
+          },
+          // Provide the currently selected ship so the Skins tab defaults to it
+          getSelectedShip: () => {
+            return (window.Save && window.Save.data && window.Save.data.selectedShip) || 'vanguard';
+          },
+          // When a skin is equipped, re-init ship selection so colors update immediately
+          onSkinEquip: (shipId, skinId, skin) => {
+            if (window.__VOID_RIFT__ && typeof window.__VOID_RIFT__.initShipSelection === 'function') {
+              window.__VOID_RIFT__.initShipSelection();
+            }
           },
           onClose: () => {
             // Refresh any on-screen credits display after the shop closes
