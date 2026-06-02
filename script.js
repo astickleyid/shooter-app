@@ -11747,7 +11747,7 @@
       // --- Local leaderboard ---
       const bestBanner = document.getElementById('personalBestBanner');
       if (bestBanner) {
-        bestBanner.style.display = isNewBest ? 'block' : 'none';
+        bestBanner.style.display = isNewBest ? 'flex' : 'none';
       }
 
       const localScores = LocalLeaderboard.get();

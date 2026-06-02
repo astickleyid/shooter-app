@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VOID RIFT — Press Kit</title>
+  <meta name="description" content="Press kit for VOID RIFT — Twin-Stick Space Shooter for iOS, Android, and Web." />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #07090f;
+      --surface: #0e1219;
+      --surface2: #141b27;
+      --border: rgba(99,156,255,0.15);
+      --accent: #6b8fff;
+      --accent2: #38d9ff;
+      --text: #e8edf5;
+      --muted: rgba(232,237,245,0.5);
+      --mono: 'SF Mono', 'Fira Mono', 'Cascadia Code', monospace;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 15px;
+      line-height: 1.65;
+      padding: 0;
+    }
+
+    .shell {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* ── Header ── */
+    .site-header {
+      border-bottom: 1px solid var(--border);
+      padding: 20px 0;
+    }
+    .site-header__inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+    .logo__mark {
+      width: 34px;
+      height: 34px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -1px;
+    }
+    .logo__name {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .badge {
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 4px;
+      background: rgba(107,143,255,0.12);
+      color: var(--accent);
+      border: 1px solid rgba(107,143,255,0.25);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      padding: 72px 0 56px;
+      text-align: center;
+    }
+    .hero__eyebrow {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      display: block;
+      margin-bottom: 16px;
+    }
+    .hero h1 {
+      font-size: clamp(2.4rem, 6vw, 4rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      background: linear-gradient(135deg, #fff 40%, var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 16px;
+    }
+    .hero__tagline {
+      font-size: 1.05rem;
+      color: var(--muted);
+      max-width: 52ch;
+      margin: 0 auto 32px;
+    }
+    .hero__meta {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .meta-pill {
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 6px 14px;
+      border-radius: 6px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .meta-pill strong { color: var(--text); }
+
+    /* ── Divider ── */
+    hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 0;
+    }
+
+    /* ── Sections ── */
+    .section {
+      padding: 56px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .section:last-child { border-bottom: none; }
+    .section__label {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent);
+      display: block;
+      margin-bottom: 10px;
+    }
+    .section h2 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 20px;
+    }
+    p + p { margin-top: 14px; }
+
+    /* ── Fact grid ── */
+    .fact-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-top: 24px;
+    }
+    .fact-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px 20px;
+    }
+    .fact-card__label {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      display: block;
+      margin-bottom: 6px;
+    }
+    .fact-card__value {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    /* ── Feature list ── */
+    .feature-list {
+      list-style: none;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .feature-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+    .feature-list li::before {
+      content: '→';
+      color: var(--accent);
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    /* ── Screenshots ── */
+    .screenshots-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 16px;
+      margin-top: 24px;
+    }
+    .screenshot-placeholder {
+      aspect-ratio: 9/19.5;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 11px;
+      text-align: center;
+      padding: 20px;
+    }
+    .screenshot-placeholder svg { opacity: 0.3; }
+
+    /* ── Download buttons ── */
+    .download-grid {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 24px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: opacity 0.15s;
+      cursor: pointer;
+      border: none;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn--primary {
+      background: linear-gradient(135deg, var(--accent), #4d6fe8);
+      color: #fff;
+    }
+    .btn--secondary {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .btn--disabled {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      cursor: default;
+      opacity: 0.6;
+    }
+
+    /* ── Assets download box ── */
+    .asset-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-top: 24px;
+    }
+    .asset-box__title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .asset-box__desc {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+    .asset-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .asset-list li {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--muted);
+      font-family: var(--mono);
+    }
+    .asset-list li::before {
+      content: '📄';
+      font-style: normal;
+    }
+
+    /* ── Contact ── */
+    .contact-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px;
+      margin-top: 24px;
+    }
+    .contact-card p { color: var(--muted); font-size: 14px; }
+    .contact-card a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .contact-card a:hover { text-decoration: underline; }
+
+    /* ── Footer ── */
+    .site-footer {
+      padding: 32px 0;
+      border-top: 1px solid var(--border);
+      text-align: center;
+    }
+    .site-footer p {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: rgba(232,237,245,0.25);
+    }
+
+    @media (max-width: 600px) {
+      .hero { padding: 48px 0 40px; }
+      .hero h1 { font-size: 2.2rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="site-header">
+    <div class="shell site-header__inner">
+      <a href="https://voidrift.vercel.app" class="logo" target="_blank" rel="noreferrer">
+        <div class="logo__mark">VR</div>
+        <span class="logo__name">Void Rift</span>
+      </a>
+      <span class="badge">Press Kit</span>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="shell">
+      <span class="hero__eyebrow">Twin-Stick Space Shooter · iOS · Android · Web</span>
+      <h1>VOID RIFT</h1>
+      <p class="hero__tagline">
+        A fast-paced browser-based twin-stick shooter with ships, upgrades, daily challenges, missions, achievements, and a global leaderboard — built from scratch with no game engine.
+      </p>
+      <div class="hero__meta">
+        <span class="meta-pill"><strong>Price:</strong> Free to Play</span>
+        <span class="meta-pill"><strong>Platforms:</strong> Web · iOS · Android</span>
+        <span class="meta-pill"><strong>Genre:</strong> Action · Arcade · Roguelite</span>
+        <span class="meta-pill"><strong>Age rating:</strong> 9+</span>
+        <span class="meta-pill"><strong>Developer:</strong> Austin Stickley</span>
+      </div>
+    </div>
+  </section>
+
+  <hr />
+
+  <!-- Play Now -->
+  <section class="section">
+    <div class="shell">
+      <span class="section__label">Links</span>
+      <h2>Download &amp; Play</h2>
+      <div class="download-grid">
+        <a href="https://voidrift.vercel.app" class="btn btn--primary" target="_blank" rel="noreferrer">
+          🌐 Play in Browser
+        </a>
+        <a href="#" class="btn btn--disabled" aria-disabled="true">
+          🍎 App Store — Coming Soon
+        </a>
+        <a href="#" class="btn btn--disabled" aria-disabled="true">
+          🤖 Google Play — Coming Soon
+        </a>
+        <a href="https://github.com/astickleyid/shooter-app" class="btn btn--secondary" target="_blank" rel="noreferrer">
+          📦 Source Code
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- About -->
+  <section class="section">
+    <div class="shell">
+      <span class="section__label">About</span>
+      <h2>What is VOID RIFT?</h2>
+      <p>
+        VOID RIFT is a twin-stick space shooter built as a complete game product — entirely in vanilla JavaScript using the Canvas API, with no game engine. Players choose from a roster of ships with distinct stats, survive escalating enemy waves, earn in-game currency, and spend it in a persistent upgrade shop between sessions.
+      </p>
+      <p>
+        The game combines classic arcade action with modern mobile game design: a roguelite wave-upgrade system delivers a new power each wave, a kill combo multiplier rewards aggressive play, and an adaptive difficulty curve keeps sessions challenging at every skill level. It's free to start and rewards long-term play with a global leaderboard, a mission system, daily challenge runs, and an achievement system with 10 unlockable accomplishments.
+      </p>
+
+      <div class="fact-grid">
+        <div class="fact-card">
+          <span class="fact-card__label">Ship classes</span>
+          <div class="fact-card__value">8 playable ships</div>
+        </div>
+        <div class="fact-card">
+          <span class="fact-card__label">Enemy types</span>
+          <div class="fact-card__value">8 enemy variants</div>
+        </div>
+        <div class="fact-card">
+          <span class="fact-card__label">Achievements</span>
+          <div class="fact-card__value">10 unlockable</div>
+        </div>
+        <div class="fact-card">
+          <span class="fact-card__label">Upgrade paths</span>
+          <div class="fact-card__value">Persistent shop + roguelite</div>
+        </div>
+        <div class="fact-card">
+          <span class="fact-card__label">Daily challenge</span>
+          <div class="fact-card__value">New seed daily</div>
+        </div>
+        <div class="fact-card">
+          <span class="fact-card__label">Platforms</span>
+          <div class="fact-card__value">Web · iOS · Android</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="section">
+    <div class="shell">
+      <span class="section__label">Features</span>
+      <h2>Key Systems</h2>
+      <ul class="feature-list">
+        <li>8 ships with unique stats, weapons, and special abilities</li>
+        <li>Persistent upgrade shop — spend credits between sessions</li>
+        <li>Roguelite wave upgrades — choose one of three power boosts each wave</li>
+        <li>Kill combo multiplier — rewards sustained aggression</li>
+        <li>Boss waves with unique attack patterns</li>
+        <li>8 enemy types: standard, carrier, phantom, splitter, sniper, berserker, elite, boss</li>
+        <li>Daily challenge mode — seeded run, shared globally, daily best score</li>
+        <li>Mission system with objectives and rewards</li>
+        <li>Achievement system — 10 unlocks with in-app toast notifications</li>
+        <li>Global leaderboard (Firebase Realtime Database)</li>
+        <li>Audio manager with dynamic music and SFX layers</li>
+        <li>Adaptive difficulty scaling by wave and player level</li>
+        <li>Capacitor iOS wrapper (WKWebView native shell)</li>
+        <li>Power-up drops mid-wave (health, shield, speed, damage)</li>
+        <li>Full save system — persists ship, upgrades, scores</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Screenshots -->
+  <section class="section">
+    <div class="shell">
+      <span class="section__label">Screenshots</span>
+      <h2>Visuals</h2>
+      <p style="color: var(--muted); font-size: 14px; margin-bottom: 4px;">
+        Screenshots will be added prior to App Store submission. Capture at 1290×2796px (6.7") from an iPhone 15 Pro Max simulator.
+      </p>
+      <div class="screenshots-grid">
+        <div class="screenshot-placeholder">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/>
+          </svg>
+          Gameplay — Wave combat
+        </div>
+        <div class="screenshot-placeholder">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/>
+          </svg>
+          Ship Hangar — Selection
+        </div>
+        <div class="screenshot-placeholder">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/>
+          </svg>
+          Upgrade Shop
+        </div>
+        <div class="screenshot-placeholder">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/>
+          </svg>
+          Leaderboard
+        </div>
+        <div class="screenshot-placeholder">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/>
+          </svg>
+          Daily Challenge
+        </div>
+        <div class="screenshot-placeholder">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/>
+          </svg>
+          Achievements Tab
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Press Assets -->
+  <section class="section">
+    <div class="shell">
+      <span class="section__label">Assets</span>
+      <h2>Press-Ready Assets</h2>
+      <div class="asset-box">
+        <p class="asset-box__title">Assets Checklist (to be completed before launch)</p>
+        <p class="asset-box__desc">
+          Host these files at <code style="font-family: var(--mono); font-size: 12px; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px;">/presskit-assets/</code> once captured.
+        </p>
+        <ul class="asset-list">
+          <li>icon-1024.png — App icon, no rounded corners, 1024×1024px</li>
+          <li>icon-512.png — Play Store feature icon, 512×512px</li>
+          <li>gameplay-1.png — Combat screenshot, 1290×2796 (6.7")</li>
+          <li>gameplay-2.png — Boss wave screenshot, 1290×2796</li>
+          <li>hangar.png — Ship selection screen, 1290×2796</li>
+          <li>shop.png — Upgrade shop screen, 1290×2796</li>
+          <li>leaderboard.png — Leaderboard screen, 1290×2796</li>
+          <li>gameplay.gif — 15–30s gameplay clip, under 5MB</li>
+          <li>feature-graphic.png — Play Store feature graphic, 1024×500px</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Short & Long Descriptions -->
+  <section class="section">
+    <div class="shell">
+      <span class="section__label">Copy</span>
+      <h2>App Descriptions</h2>
+
+      <p style="font-weight: 600; margin-bottom: 8px; margin-top: 24px;">Short description (80 chars)</p>
+      <div class="asset-box" style="padding: 16px 20px;">
+        <p style="font-family: var(--mono); font-size: 13px; color: var(--text);">
+          "Twin-stick space shooter — ships, upgrades, missions &amp; leaderboard. Free."
+        </p>
+      </div>
+
+      <p style="font-weight: 600; margin-bottom: 8px; margin-top: 20px;">Long description</p>
+      <div class="asset-box" style="padding: 16px 20px;">
+        <p style="font-size: 14px; color: var(--muted); line-height: 1.75;">
+          VOID RIFT is a fast-paced twin-stick space shooter built for mobile — free to play, no account required, and designed to feel just as good on a small screen as it does in a browser.<br /><br />
+
+          Choose from 8 ships, each with different speed, armor, firepower, and a unique special ability. Fight through escalating waves of enemy types — carriers that deploy drones, phantoms that cloak, berserkers that charge, snipers that fire from range, and boss waves that push your skills to the limit.<br /><br />
+
+          Between runs, spend earned credits in the upgrade shop to permanently improve your stats. Each wave also offers a roguelite power boost — pick one of three options to adapt your build mid-run. Kill combos multiply your score. Power-ups drop in the heat of combat.<br /><br />
+
+          <strong>Features:</strong><br />
+          • 8 ships with distinct weapons and special abilities<br />
+          • Persistent upgrade shop between sessions<br />
+          • Roguelite wave upgrades — new power every wave<br />
+          • 8 enemy types including bosses<br />
+          • Daily Challenge — new seeded run every day<br />
+          • Mission system with objectives and rewards<br />
+          • 10 achievements to unlock<br />
+          • Global leaderboard<br />
+          • No ads during gameplay — rewarded ads only on the death screen (optional)<br />
+          • Remove Ads available as a one-time purchase
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Developer -->
+  <section class="section">
+    <div class="shell">
+      <span class="section__label">Developer</span>
+      <h2>About the Developer</h2>
+      <p>
+        VOID RIFT is an independent game built by Austin Stickley, a solo product engineer and game developer based in the United States. The game is written entirely in vanilla JavaScript using the Canvas API — no game engine — and packaged for iOS and Android via Capacitor. It is the most technically self-contained project in Austin's portfolio, with every system — physics, save state, leaderboard, social, adaptive difficulty, audio — built by hand in a single codebase.
+      </p>
+
+      <div class="contact-card">
+        <p style="font-weight: 600; color: var(--text); margin-bottom: 12px;">Press Contact</p>
+        <p>For screenshots, GIFs, review keys, or interview requests:</p>
+        <p style="margin-top: 10px;">
+          <a href="mailto:astickleyid@gmail.com">astickleyid@gmail.com</a>
+        </p>
+        <p style="margin-top: 6px;">
+          <a href="https://github.com/astickleyid" target="_blank" rel="noreferrer">github.com/astickleyid</a>
+        </p>
+        <p style="margin-top: 6px; font-size: 13px;">Response time: typically within 24 hours.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Technical -->
+  <section class="section">
+    <div class="shell">
+      <span class="section__label">Technical</span>
+      <h2>Tech Stack</h2>
+      <div class="fact-grid">
+        <div class="fact-card">
+          <span class="fact-card__label">Game engine</span>
+          <div class="fact-card__value">None — Vanilla JS + Canvas API</div>
+        </div>
+        <div class="fact-card">
+          <span class="fact-card__label">Mobile</span>
+          <div class="fact-card__value">Capacitor (iOS WKWebView)</div>
+        </div>
+        <div class="fact-card">
+          <span class="fact-card__label">Backend</span>
+          <div class="fact-card__value">Vercel Serverless + KV</div>
+        </div>
+        <div class="fact-card">
+          <span class="fact-card__label">Leaderboard</span>
+          <div class="fact-card__value">Firebase Realtime DB</div>
+        </div>
+        <div class="fact-card">
+          <span class="fact-card__label">Monetization</span>
+          <div class="fact-card__value">AdMob rewarded + IAP</div>
+        </div>
+        <div class="fact-card">
+          <span class="fact-card__label">CI / CD</span>
+          <div class="fact-card__value">GitHub Actions (iOS + Vercel)</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="shell">
+      <p>© 2026 Austin Stickley · VOID RIFT · astickleyid@gmail.com</p>
+    </div>
+  </footer>
+
+</body>
+</html>

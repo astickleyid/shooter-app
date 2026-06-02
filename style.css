@@ -3077,6 +3077,32 @@ html, body {
   box-shadow: 0 0 24px rgba(74, 222, 128, 0.55);
 }
 
+.game-over-btn.share-btn {
+  background: linear-gradient(135deg, rgba(56,189,248,0.15) 0%, rgba(14,165,233,0.1) 100%);
+  border-color: rgba(56,189,248,0.5);
+  color: #7dd3fc;
+  gap: 9px;
+}
+
+.game-over-btn.share-btn:hover {
+  background: linear-gradient(135deg, rgba(56,189,248,0.3) 0%, rgba(14,165,233,0.2) 100%);
+  border-color: #38bdf8;
+  color: #e0f2fe;
+  box-shadow: 0 6px 20px rgba(56,189,248,0.35);
+  transform: translateY(-2px);
+}
+
+.game-over-btn.share-btn.copied {
+  background: linear-gradient(135deg, rgba(74,222,128,0.25) 0%, rgba(34,197,94,0.15) 100%);
+  border-color: rgba(74,222,128,0.6);
+  color: #86efac;
+  box-shadow: 0 4px 14px rgba(74,222,128,0.3);
+}
+
+.game-over-btn.share-btn svg {
+  flex-shrink: 0;
+}
+
 /* Authentication Modal */
 .auth-modal {
   width: min(440px, 92vw);
@@ -4521,19 +4547,32 @@ html, body {
 
 /* ====== LOCAL LEADERBOARD (game over screen) ====== */
 .personal-best-banner {
-  margin: 0 24px 0;
-  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 10px 20px;
   background: linear-gradient(135deg, rgba(251,191,36,0.2), rgba(245,158,11,0.1));
   border: 2px solid rgba(251,191,36,0.7);
   border-radius: 10px;
   text-align: center;
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 18px;
+  animation: bestBannerPulse 1.6s ease-in-out infinite;
+}
+
+.personal-best-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.personal-best-text {
+  font-family: var(--font-mono, 'Courier New', Courier, monospace);
+  font-size: 0.95rem;
   font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   color: #fbbf24;
   text-shadow: 0 0 16px rgba(251,191,36,0.8);
-  letter-spacing: 0.06em;
-  animation: bestBannerPulse 1.6s ease-in-out infinite;
 }
 
 @keyframes bestBannerPulse {
