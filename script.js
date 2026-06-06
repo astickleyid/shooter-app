@@ -770,6 +770,9 @@
     dom.leftTouchZone = document.getElementById('leftTouchZone');
     dom.rightTouchZone = document.getElementById('rightTouchZone');
     dom.abilityButton = document.getElementById('abilityButton');
+    dom.comboHud = document.getElementById('comboHud');
+    dom.comboTimerBar = document.getElementById('comboTimerBar');
+    dom.comboMultDisplay = document.getElementById('comboMultDisplay');
     // Wire up Q-ability HUD button (tap to fire special ability on mobile)
     const _abilityQBtn = document.getElementById('abilityQBtn');
     if (_abilityQBtn) {
@@ -10014,8 +10017,14 @@
   const advanceLevel = () => {
     Save.addCredits(Math.floor(20 + level * 5 + enemiesKilled * 1.5));
     addXP(90 + level * 12);
-    if (!tookDamageThisLevel) addXP(110 + level * 18);
-    
+    if (!tookDamageThisLevel) {
+      addXP(110 + level * 18);
+      // Perfect Wave bonus — extra credits + announcement
+      const perfectBonus = Math.floor(40 + level * 10);
+      Save.addCredits(perfectBonus);
+      addLogEntry(`🌟 PERFECT WAVE! +${perfectBonus} bonus credits`, '#4ade80');
+    }
+
     // Play level advance sound
     if (typeof AudioManager !== 'undefined') {
       AudioManager.playLevelAdvance();
@@ -10452,6 +10461,23 @@
       }
     }
 
+    // ── Combo Timer DOM HUD (live depleting progress bar) ───────────────────
+    if (dom.comboHud && dom.comboTimerBar && dom.comboMultDisplay) {
+      if (killComboMultiplier > 1 && killComboTimerEnd > now) {
+        const pct = Math.max(0, (killComboTimerEnd - now) / KILL_COMBO_WINDOW) * 100;
+        const comboColors = { 2: '#eab308', 3: '#f97316', 4: '#ef4444', 5: '#a855f7' };
+        const barColor = comboColors[killComboMultiplier] || '#6366f1';
+        dom.comboHud.style.display = 'block';
+        dom.comboMultDisplay.textContent = `×${killComboMultiplier}`;
+        dom.comboMultDisplay.style.color = barColor;
+        dom.comboTimerBar.style.width = pct + '%';
+        dom.comboTimerBar.style.background = barColor;
+        dom.comboTimerBar.style.boxShadow = `0 0 6px ${barColor}`;
+      } else {
+        dom.comboHud.style.display = 'none';
+      }
+    }
+
     // SUBTLE: Draw combo counter - SMALLER, positioned in TOP RIGHT corner, out of gameplay area
     if (comboCount > 1 && now < comboTimer) {
       ctx.save();
@@ -10591,7 +10617,55 @@
         ctx.restore();
       }
     }
-    
+
+    // ── BOSS INCOMING countdown HUD (waves 7-9 of each 10-wave cycle) ─────────
+    {
+      const waveInCycle = level % 10;
+      if (waveInCycle >= 7 && waveInCycle <= 9 && currentWaveType !== 'boss') {
+        const wavesLeft = 10 - waveInCycle; // 3, 2, or 1
+        const pulse = 0.65 + 0.35 * Math.sin(performance.now() / 600);
+        const label = `⚠ BOSS IN ${wavesLeft} WAVE${wavesLeft > 1 ? 'S' : ''}`;
+
+        ctx.save();
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'top';
+
+        const bwX = canvas.width - 12;
+        const bwY = 122; // below combo (y=70) and kill-streak (y=95)
+
+        // Measure text for backing rect
+        ctx.font = 'bold 13px Arial, sans-serif';
+        const textW = ctx.measureText(label).width;
+        const padH = 5;
+        const padV = 3;
+        const rectX = bwX - textW - padH;
+        const rectY = bwY - padV;
+        const rectW = textW + padH * 2;
+        const rectH = 13 + padV * 2;
+
+        // Semi-transparent backing rect
+        ctx.fillStyle = `rgba(80, 0, 0, ${0.55 * pulse})`;
+        ctx.fillRect(rectX, rectY, rectW, rectH);
+
+        // Thin red border
+        ctx.strokeStyle = `rgba(255, 60, 60, ${0.7 * pulse})`;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(rectX, rectY, rectW, rectH);
+
+        // Warning text
+        ctx.fillStyle = `rgba(255, 120, 60, ${pulse})`;
+        ctx.shadowColor = '#ff3020';
+        ctx.shadowBlur = 6;
+        ctx.strokeStyle = `rgba(0, 0, 0, ${0.85 * pulse})`;
+        ctx.lineWidth = 2;
+        ctx.strokeText(label, bwX, bwY);
+        ctx.fillText(label, bwX, bwY);
+
+        ctx.shadowBlur = 0;
+        ctx.restore();
+      }
+    }
+
     // ── BOSS WAVE! canvas announcement (Leviathan spawn) ─────────────────────
     if (bossWaveAnnouncementStart > 0) {
       const announceDur = 2000; // 2 seconds
