@@ -1,0 +1,20 @@
+/* ============================================================
+   VOID RIFT — Game Center-only mode (iOS v1)
+   Activated by gc-only-mode.js ONLY inside the native iOS shell.
+   Hides the custom email/password account + social UI so the
+   App Store build relies solely on Apple Game Center for
+   identity and leaderboards.
+
+   Fully reversible: delete this file, gc-only-mode.js, and the
+   include lines in index.html to restore the web behavior.
+   ============================================================ */
+
+html.gc-only #loginButton,
+html.gc-only #profileButton,
+html.gc-only #leaderboardLogin,
+html.gc-only #gameOverLoginPrompt,
+html.gc-only #gameOverLoginBtn,
+html.gc-only #authModal,
+html.gc-only .social-modal {
+  display: none !important;
+}

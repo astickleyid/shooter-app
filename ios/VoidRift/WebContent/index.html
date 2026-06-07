@@ -13,6 +13,7 @@
   <!-- Link external styles -->
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="social-ui.css" />
+  <link rel="stylesheet" href="gc-only-mode.css" />
 </head>
 <body>
   <!-- INITIAL LOADING OVERLAY -->
@@ -65,6 +66,15 @@
         <img class="nav-icon" src="assets/icons/icon-hangar.svg" alt="" width="20" height="20"/>
         <span class="nav-label">Hangar</span>
       </button>
+      <button id="openPermanentHangar" class="nav-btn">
+        <img class="nav-icon" src="assets/icons/achievement-upgrade.svg" alt="" width="20" height="20"/>
+        <span class="nav-label">Base Mods</span>
+      </button>
+      <button id="dailyChallengeButton" class="nav-btn">
+        <span style="font-size:18px;">🗓️</span>
+        <span class="nav-label">Daily</span>
+        <span id="dailyBestDisplay" style="font-size:10px; opacity:0.7; display:block;"></span>
+      </button>
       <button id="leaderboardButton" class="nav-btn">
         <img class="nav-icon" src="assets/icons/icon-trophy.svg" alt="" width="20" height="20"/>
         <span class="nav-label">Rankings</span>
@@ -75,6 +85,8 @@
       <button id="profileButton" class="footer-btn" style="display: none;"><img src="assets/icons/icon-profile.svg" alt="Profile" width="16" height="16"/></button>
       <span class="footer-divider"></span>
       <button id="loginButton" class="footer-btn footer-btn-text">Login</button>
+      <span class="footer-divider"></span>
+      <a href="presskit.html" class="footer-btn footer-btn-text" target="_blank" rel="noopener" title="Press Kit">Press Kit</a>
     </div>
   </div>
 
@@ -167,6 +179,34 @@
       <button id="unifiedMenuButton">☰</button>
     </div>
     
+    <!-- BOSS HEALTH BAR -->
+    <div id="bossBar" style="display:none; position:absolute; top:0; left:50%; transform:translateX(-50%); width:60%; max-width:480px; padding:8px 16px; z-index:20; text-align:center;">
+      <div id="bossBarLabel" style="font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:#ff4444; margin-bottom:4px;">&#9888; BOSS</div>
+      <div id="bossBarName" style="font-size:13px; font-weight:600; color:#fff; margin-bottom:6px;">Unknown</div>
+      <div style="background:rgba(255,255,255,0.15); border-radius:4px; height:8px; overflow:hidden;">
+        <div id="bossBarFill" style="height:100%; background:linear-gradient(90deg,#ff2222,#ff6644); width:100%; transition:width 0.1s;"></div>
+      </div>
+    </div>
+
+    <!-- COMBO TIMER HUD -->
+    <div id="comboHud" style="display:none; position:fixed; top:60px; left:50%; transform:translateX(-50%); z-index:100; text-align:center; pointer-events:none;">
+      <div style="font-size:11px; color:#fff; opacity:0.7; font-family:monospace; margin-bottom:3px;">
+        <span id="comboMultDisplay">×2</span>
+      </div>
+      <div style="width:120px; height:5px; background:rgba(255,255,255,0.15); border-radius:3px; overflow:hidden;">
+        <div id="comboTimerBar" style="height:100%; width:100%; border-radius:3px; transition:background 0.3s;"></div>
+      </div>
+    </div>
+
+    <!-- ABILITY HUD (Q key special ability) -->
+    <div id="abilityHud" style="position:absolute;bottom:70px;left:50%;transform:translateX(-50%);display:none;align-items:center;gap:8px;font-family:monospace;font-size:13px;color:#fff;z-index:15;">
+      <button id="abilityQBtn" style="border:1px solid rgba(255,255,255,.4);padding:2px 8px;border-radius:4px;background:rgba(0,0,0,.4);color:#fff;cursor:pointer;font-family:monospace;font-size:13px;touch-action:manipulation;">Q</button>
+      <span id="abilityName" style="opacity:.8"></span>
+      <span id="abilityCooldownBar" style="width:80px;height:6px;background:rgba(255,255,255,.15);border-radius:3px;overflow:hidden;display:inline-block;">
+        <div id="abilityCooldownFill" style="height:100%;background:#4ade80;width:100%;transition:width .1s;"></div>
+      </span>
+    </div>
+
     <!-- ACTION LOG -->
     <div id="actionLog"></div>
     
@@ -263,6 +303,11 @@
         <div class="game-over-header">
           <h1 id="gameOverTitle"><img src="assets/icons/icon-gameover.svg" alt="" width="40" height="40" style="vertical-align: middle; margin-right: 12px;"/> GAME OVER</h1>
         </div>
+        <!-- Personal best banner — shown by JS when player beats their high score -->
+        <div id="personalBestBanner" class="personal-best-banner" style="display:none;">
+          <span class="personal-best-icon">🏆</span>
+          <span class="personal-best-text">NEW PERSONAL BEST!</span>
+        </div>
         <div class="game-over-stats">
           <div class="stat-item">
             <span class="stat-label">Final Score</span>
@@ -280,7 +325,47 @@
             <p><img src="assets/icons/icon-unlock.svg" alt="" width="16" height="16" style="vertical-align: middle; margin-right: 6px;"/> Login to save your score to the leaderboard!</p>
           </div>
         </div>
+        <div class="game-over-run-stats">
+          <div class="run-stat-item">
+            <span class="run-stat-label">KILLS</span>
+            <span id="gameOverKills" class="run-stat-value">0</span>
+          </div>
+          <div class="run-stat-item">
+            <span class="run-stat-label">TIME</span>
+            <span id="gameOverTime" class="run-stat-value">0s</span>
+          </div>
+          <div class="run-stat-item">
+            <span class="run-stat-label">ACCURACY</span>
+            <span id="gameOverAccuracy" class="run-stat-value">0%</span>
+          </div>
+        </div>
+        <div class="game-over-perks" id="gameOverPerks" style="display:none;">
+          <div class="game-over-perks__label">RUN LOADOUT</div>
+          <div class="game-over-perks__list" id="gameOverPerksList"></div>
+        </div>
+        <div class="local-leaderboard-panel">
+          <div class="local-lb-title">Your Best Runs</div>
+          <table class="local-lb-table">
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>Score</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody id="localLeaderboardBody">
+              <!-- Populated by showGameOverScreen() -->
+            </tbody>
+          </table>
+        </div>
         <div class="game-over-actions">
+          <button id="gameOverWatchAdBtn" class="game-over-btn ad-continue-btn" style="display:none;">
+            <span>📺</span> Watch Ad to Continue
+          </button>
+          <button id="gameOverShareBtn" class="game-over-btn share-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            Share Score
+          </button>
           <button id="gameOverRestartBtn" class="game-over-btn primary"><img src="assets/icons/icon-restart.svg" alt="" width="20" height="20"/> Play Again</button>
           <button id="gameOverShopBtn" class="game-over-btn"><img src="assets/icons/icon-shop.svg" alt="" width="20" height="20"/> Upgrades & Shop</button>
           <button id="gameOverHangarBtn" class="game-over-btn"><img src="assets/icons/icon-hangar.svg" alt="" width="20" height="20"/> Ship Hangar</button>
@@ -523,6 +608,29 @@
     </div>
   </div>
 
+  <!-- WAVE BANNER (appears between waves for ~2 seconds) -->
+  <div id="waveBanner" style="display:none;">
+    <div id="waveBannerInner">
+      <div id="waveBannerNumber">WAVE 1</div>
+      <div id="waveBannerSub">INCOMING</div>
+    </div>
+  </div>
+
+  <!-- WAVE UPGRADE MODAL -->
+  <div id="waveUpgradeModal" class="wave-upgrade-modal" role="dialog" aria-modal="true" aria-labelledby="waveUpgradeTitle">
+    <div class="wave-upgrade-backdrop"></div>
+    <div class="wave-upgrade-panel">
+      <div class="wave-upgrade-header">
+        <div class="wave-upgrade-subtitle">WAVE COMPLETE</div>
+        <h2 id="waveUpgradeTitle" class="wave-upgrade-title">CHOOSE AN UPGRADE</h2>
+        <div class="wave-upgrade-hint">Select one perk to carry into the next wave</div>
+      </div>
+      <div class="wave-upgrade-cards" id="waveUpgradeCards">
+        <!-- Cards injected by showWaveUpgradeScreen() -->
+      </div>
+    </div>
+  </div>
+
   <!-- SHOP MODAL -->
   <div id="shopModal">
     <div id="shopCard">
@@ -539,13 +647,17 @@
   </div>
 
   <!-- HANGAR MODAL -->
-  <div id="hangarModal">
-    <div id="hangarCard">
-      <div id="hangarHeader">
-        <div id="hangarTitle">Ship Hangar</div>
-        <button id="closeHangar">Close</button>
+  <div id="hangarModal" class="modal">
+    <div class="modal-content hangar-modal">
+      <div class="modal-header">
+        <h2>HANGAR &mdash; Choose Your Ship</h2>
+        <button id="closeHangar" class="closeBtn">&#x2715;</button>
       </div>
-      <div id="hangarGrid"></div>
+      <div class="hangar-content">
+        <div class="hangar-grid" id="hangarGrid">
+          <!-- Ship cards rendered by renderHangar() -->
+        </div>
+      </div>
     </div>
   </div>
 
@@ -557,39 +669,110 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
   <script src="firebase-backend.js"></script>
   
-  <!-- Firebase Configuration - REPLACE WITH YOUR CONFIG -->
+  <!-- Firebase Configuration — edit firebase-config.js with your credentials -->
+  <script src="firebase-config.js"></script>
+
+  <!-- Firebase SDK (already loaded above) -->
+  <!-- firebase-backend.js already loaded above -->
+
   <script>
-    // Get your config from: https://console.firebase.google.com/
-    // See FIREBASE_SETUP.md for instructions
-    const firebaseConfig = {
-      // Paste your Firebase config here
-      // Example:
-      // apiKey: "AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-      // authDomain: "your-app.firebaseapp.com",
-      // databaseURL: "https://your-app.firebaseio.com",
-      // projectId: "your-app",
-      // storageBucket: "your-app.appspot.com",
-      // messagingSenderId: "123456789",
-      // appId: "1:123456789:web:abcdef"
-    };
-    
-    // Initialize Firebase (only if config is set)
-    if (firebaseConfig.apiKey) {
-      FirebaseBackend.initialize(firebaseConfig);
+    // Initialize Firebase from config file
+    if (typeof window.FIREBASE_CONFIG !== 'undefined' && window.FIREBASE_CONFIG.apiKey && !window.FIREBASE_CONFIG.apiKey.startsWith('PASTE')) {
+      FirebaseBackend.initialize(window.FIREBASE_CONFIG);
     } else {
-      console.warn('⚠️ Firebase not configured. Add your config to index.html');
-      console.warn('📖 See FIREBASE_SETUP.md for setup instructions');
+      console.warn('⚠️ Firebase not configured. Edit firebase-config.js with your project credentials.');
+      console.warn('📖 See FIREBASE_SETUP.md for step-by-step instructions.');
     }
   </script>
-  
-  <!-- Firebase Adapter - Makes existing code work with Firebase -->
-  <script src="firebase-adapter.js"></script>
-  
+
   <!-- Game Scripts -->
   <script src="auth-system.js"></script>
   <script src="leaderboard-system.js"></script>
+  <script src="social-api.js"></script>
   <script src="social-ui.js"></script>
+
+  <!-- Firebase Adapter - Makes existing code work with Firebase -->
+  <script src="firebase-adapter.js"></script>
+  
   <script src="audio-manager.js"></script>
+  <script src="admob-manager.js"></script>
   <script src="script.js"></script>
+  <!-- Game Center-only mode for the native iOS build (no-op on web) -->
+  <script src="gc-only-mode.js"></script>
+
+  <!-- Persistent Upgrade Hangar (Base Mods) -->
+  <script type="module">
+    import { openHangar, closeHangar } from './hangar-ui.js';
+
+    // Wire up the Base Mods nav button on the start screen.
+    // We delay until DOMContentLoaded so the button element is guaranteed
+    // to exist, and pass credit callbacks that bridge into the main game's
+    // Save object when it has been initialised by script.js.
+    document.addEventListener('DOMContentLoaded', () => {
+      const btn = document.getElementById('openPermanentHangar');
+      if (!btn) return;
+
+      btn.addEventListener('click', () => {
+        openHangar({
+          // Read credits from the main game Save if available, otherwise
+          // fall back to the hangar's own internal credit pool.
+          getCredits: () => {
+            if (window.Save && typeof window.Save.data?.credits === 'number') {
+              return window.Save.data.credits;
+            }
+            return undefined; // signals HangarSystem to use internal pool
+          },
+          spendCredits: (amount) => {
+            if (window.Save && typeof window.Save.spendCredits === 'function') {
+              return window.Save.spendCredits(amount);
+            }
+            return false; // fall back — internal pool handles it
+          },
+          // Provide the currently selected ship so the Skins tab defaults to it
+          getSelectedShip: () => {
+            return (window.Save && window.Save.data && window.Save.data.selectedShip) || 'vanguard';
+          },
+          // When a skin is equipped, re-init ship selection so colors update immediately
+          onSkinEquip: (shipId, skinId, skin) => {
+            if (window.__VOID_RIFT__ && typeof window.__VOID_RIFT__.initShipSelection === 'function') {
+              window.__VOID_RIFT__.initShipSelection();
+            }
+          },
+          onClose: () => {
+            // Refresh any on-screen credits display after the shop closes
+            const creditsEl = document.getElementById('creditsText');
+            if (creditsEl && window.Save) {
+              creditsEl.textContent = window.Save.data.credits;
+            }
+          }
+        });
+      });
+    });
+  </script>
+
+  <!-- Daily Challenge wiring -->
+  <script type="module">
+    import { activateDailyChallenge, getTodayBest, todayStr } from './daily-challenge.js';
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const btn = document.getElementById('dailyChallengeButton');
+      const bestDisplay = document.getElementById('dailyBestDisplay');
+      if (!btn) return;
+
+      // Show today's best score if one exists
+      const best = getTodayBest();
+      if (best > 0) {
+        bestDisplay.textContent = `Best: ${best.toLocaleString()}`;
+      }
+
+      btn.addEventListener('click', () => {
+        activateDailyChallenge();
+        // Lock difficulty to normal for a level playing field
+        const diffSelect = document.getElementById('difficultySelect');
+        if (diffSelect) diffSelect.value = 'normal';
+        document.getElementById('startButton').click();
+      });
+    });
+  </script>
 </body>
 </html>

@@ -1399,6 +1399,250 @@ html, body {
   color: #fff;
 }
 
+/* ==========================================
+   WAVE UPGRADE (ROGUELITE CARD PICKER)
+   ========================================== */
+
+.wave-upgrade-modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+}
+
+.wave-upgrade-modal.active {
+  display: flex;
+}
+
+.wave-upgrade-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.88);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.wave-upgrade-panel {
+  position: relative;
+  z-index: 1;
+  width: min(900px, 96vw);
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  padding: 32px 16px;
+}
+
+.wave-upgrade-header {
+  text-align: center;
+  animation: waveUpgradeFadeIn 0.4s ease;
+}
+
+.wave-upgrade-subtitle {
+  font-family: 'Courier New', monospace;
+  font-size: clamp(11px, 2.5vw, 14px);
+  letter-spacing: 0.25em;
+  color: #4ade80;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  opacity: 0.8;
+}
+
+.wave-upgrade-title {
+  font-size: clamp(22px, 5vw, 38px);
+  font-weight: 900;
+  color: #fff;
+  text-shadow:
+    0 0 20px rgba(99, 102, 241, 0.9),
+    0 0 40px rgba(99, 102, 241, 0.5),
+    0 2px 6px rgba(0, 0, 0, 0.9);
+  letter-spacing: 0.1em;
+  margin: 0 0 8px;
+}
+
+.wave-upgrade-hint {
+  font-size: clamp(12px, 2.5vw, 14px);
+  color: #94a3b8;
+  letter-spacing: 0.05em;
+}
+
+.wave-upgrade-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  width: 100%;
+  animation: waveUpgradeFadeIn 0.5s ease 0.1s both;
+}
+
+@media (max-width: 580px) {
+  .wave-upgrade-cards {
+    grid-template-columns: 1fr;
+    max-width: 340px;
+  }
+}
+
+@keyframes waveUpgradeFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes waveCardPulse {
+  0%, 100% { box-shadow: 0 0 18px rgba(99, 102, 241, 0.35), 0 8px 24px rgba(0,0,0,0.7); }
+  50%       { box-shadow: 0 0 32px rgba(99, 102, 241, 0.6), 0 8px 24px rgba(0,0,0,0.7); }
+}
+
+.wave-card {
+  background: linear-gradient(160deg, #0c0c18 0%, #0a0a14 100%);
+  border: 2px solid rgba(99, 102, 241, 0.4);
+  border-radius: 14px;
+  padding: 22px 18px;
+  cursor: pointer;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  box-shadow: 0 0 18px rgba(99, 102, 241, 0.25), 0 8px 24px rgba(0,0,0,0.7);
+  animation: waveCardPulse 2.4s ease-in-out infinite;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  position: relative;
+  overflow: hidden;
+}
+
+.wave-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.8), transparent);
+}
+
+.wave-card:hover {
+  transform: translateY(-5px) scale(1.02);
+  border-color: rgba(139, 92, 246, 0.85);
+  box-shadow: 0 0 40px rgba(139, 92, 246, 0.55), 0 16px 40px rgba(0,0,0,0.8);
+  animation: none;
+}
+
+.wave-card:active {
+  transform: translateY(-2px) scale(0.99);
+}
+
+.wave-card-icon {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.wave-card-name {
+  font-size: clamp(15px, 2.5vw, 18px);
+  font-weight: 800;
+  color: #e2e8f0;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.wave-card-flavor {
+  font-size: clamp(11px, 2vw, 13px);
+  color: #94a3b8;
+  line-height: 1.45;
+  flex: 1;
+}
+
+.wave-card-stat {
+  display: inline-block;
+  background: rgba(99, 102, 241, 0.18);
+  border: 1px solid rgba(99, 102, 241, 0.45);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: clamp(11px, 2vw, 13px);
+  font-weight: 700;
+  color: #a5b4fc;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.05em;
+  margin-top: 2px;
+}
+
+/* ── Rarity badge ────────────────────────────────────────────────────────── */
+.wave-card-rarity {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  font-family: 'Courier New', monospace;
+  padding: 2px 8px;
+  border-radius: 4px;
+  align-self: flex-start;
+  margin-bottom: -2px;
+}
+
+/* COMMON — slate-grey badge, default card border stays indigo */
+.wave-card-rarity--common {
+  background: rgba(100, 116, 139, 0.25);
+  border: 1px solid rgba(100, 116, 139, 0.5);
+  color: #94a3b8;
+}
+
+/* RARE — azure/blue */
+.wave-card-rarity--rare {
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.5);
+  color: #38bdf8;
+}
+.wave-card--rare {
+  border-color: rgba(56, 189, 248, 0.5);
+  box-shadow: 0 0 22px rgba(56, 189, 248, 0.25), 0 8px 24px rgba(0,0,0,0.7);
+}
+.wave-card--rare::before {
+  background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.8), transparent);
+}
+.wave-card--rare:hover {
+  border-color: rgba(56, 189, 248, 0.9);
+  box-shadow: 0 0 44px rgba(56, 189, 248, 0.55), 0 16px 40px rgba(0,0,0,0.8);
+}
+@keyframes waveCardPulse--rare {
+  0%, 100% { box-shadow: 0 0 22px rgba(56, 189, 248, 0.3), 0 8px 24px rgba(0,0,0,0.7); }
+  50%       { box-shadow: 0 0 38px rgba(56, 189, 248, 0.6), 0 8px 24px rgba(0,0,0,0.7); }
+}
+.wave-card--rare {
+  animation: waveCardPulse--rare 2.4s ease-in-out infinite;
+}
+.wave-card--rare:hover { animation: none; }
+
+/* EPIC — gold/amber with shimmer */
+.wave-card-rarity--epic {
+  background: rgba(251, 191, 36, 0.2);
+  border: 1px solid rgba(251, 191, 36, 0.6);
+  color: #fbbf24;
+}
+.wave-card--epic {
+  background: linear-gradient(160deg, #100d00 0%, #0a0800 100%);
+  border-color: rgba(251, 191, 36, 0.6);
+  box-shadow: 0 0 28px rgba(251, 191, 36, 0.35), 0 8px 24px rgba(0,0,0,0.7);
+}
+.wave-card--epic::before {
+  background: linear-gradient(90deg, transparent, rgba(251, 191, 36, 0.9), transparent);
+}
+.wave-card--epic:hover {
+  border-color: rgba(251, 191, 36, 1);
+  box-shadow: 0 0 60px rgba(251, 191, 36, 0.65), 0 16px 40px rgba(0,0,0,0.8);
+}
+@keyframes waveCardPulse--epic {
+  0%, 100% { box-shadow: 0 0 28px rgba(251, 191, 36, 0.35), 0 8px 24px rgba(0,0,0,0.7); }
+  50%       { box-shadow: 0 0 50px rgba(251, 191, 36, 0.7), 0 8px 24px rgba(0,0,0,0.7); }
+}
+.wave-card--epic {
+  animation: waveCardPulse--epic 1.8s ease-in-out infinite;
+}
+.wave-card--epic:hover { animation: none; }
+
 /* Settings Modal */
 .modal {
   position: fixed;
@@ -2113,97 +2357,188 @@ html, body {
 }
 
 /* HANGAR */
-#hangarModal {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.75);
-  backdrop-filter: blur(4px);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  z-index: 30;
-  padding: 20px;
-}
+/* ==============================
+   HANGAR MODAL — Ship Selection
+   ============================== */
 
-#hangarCard {
-  background: linear-gradient(145deg, rgba(0,0,0,0.95), rgba(0,0,0,0.85));
-  backdrop-filter: blur(20px);
-  border: 2px solid rgba(74, 222, 128,0.5);
-  border-radius: 20px;
-  width: min(1000px, 100%);
-  max-height: calc(100vh - 60px);
+.hangar-modal {
+  width: min(960px, 95vw);
+  max-height: 85vh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 25px 60px rgba(0,0,0,0.8), 0 0 80px rgba(74,222,128,0.15), inset 0 1px 0 rgba(255,255,255,0.1);
 }
 
-#hangarHeader {
-  padding: 20px 24px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(10px);
-  border-bottom: 2px solid rgba(74, 222, 128,0.4);
-}
-
-#hangarTitle {
-  font-weight: 900;
-  font-size: 24px;
-  letter-spacing: 0.06em;
-  color: #86efac;
-  text-transform: uppercase;
-  text-shadow: 0 0 10px rgba(134, 239, 172, 0.3);
-}
-
-#closeHangar {
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(10px);
-  border: 2px solid rgba(148, 163, 184, 0.4);
-  color: #94a3b8;
-  border-radius: 10px;
-  padding: 10px 18px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-weight: 700;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
-}
-
-#closeHangar:hover {
-  background: rgba(239, 68, 68, 0.2);
-  border-color: #ef4444;
-  color: #ef4444;
-  box-shadow: 0 6px 16px rgba(239,68,68,0.3), inset 0 1px 0 rgba(255,255,255,0.15);
-  transform: translateY(-1px);
-}
-
-#hangarGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 18px;
-  padding: 20px 24px 28px;
+.hangar-content {
+  padding: 24px;
   overflow-y: auto;
+  flex: 1;
 }
 
-#hangarGrid::-webkit-scrollbar {
+.hangar-content::-webkit-scrollbar {
   width: 8px;
 }
 
-#hangarGrid::-webkit-scrollbar-track {
+.hangar-content::-webkit-scrollbar-track {
   background: rgba(15, 23, 42, 0.5);
   border-radius: 4px;
 }
 
-#hangarGrid::-webkit-scrollbar-thumb {
+.hangar-content::-webkit-scrollbar-thumb {
   background: rgba(74, 222, 128, 0.5);
   border-radius: 4px;
 }
 
-#hangarGrid::-webkit-scrollbar-thumb:hover {
-  background: rgba(74, 222, 128, 0.7);
+.hangar-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
 }
 
+.ship-card {
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(15px);
+  border: 2px solid rgba(74, 222, 128, 0.35);
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: relative;
+  transition: all 0.25s ease;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+}
+
+.ship-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(74, 222, 128, 0.65);
+  box-shadow: 0 16px 36px rgba(74, 222, 128, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.ship-card.active {
+  border-color: #4ade80;
+  box-shadow: 0 0 30px rgba(74, 222, 128, 0.45), inset 0 1px 0 rgba(74, 222, 128, 0.15);
+  background: rgba(0, 10, 0, 0.85);
+}
+
+.ship-card-canvas {
+  width: 100%;
+  height: 130px;
+  display: block;
+  border-radius: 10px;
+  background: #000;
+  border: 1px solid rgba(74, 222, 128, 0.25);
+  box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.8);
+}
+
+.ship-card-name {
+  font-weight: 900;
+  font-size: 18px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #e2e8f0;
+}
+
+.ship-card-class {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.12);
+  border: 1px solid rgba(74, 222, 128, 0.35);
+  border-radius: 6px;
+  padding: 3px 10px;
+}
+
+.ship-card-desc {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #94a3b8;
+  flex: 1;
+}
+
+.ship-card-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.stat-row-pip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.stat-row-pip .stat-label-pip {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #9ca3af;
+  min-width: 80px;
+}
+
+.stat-pips {
+  display: flex;
+  gap: 5px;
+}
+
+.stat-pip {
+  width: 18px;
+  height: 8px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(74, 222, 128, 0.2);
+  transition: background 0.2s ease;
+}
+
+.stat-pip.filled {
+  background: #4ade80;
+  border-color: #4ade80;
+  box-shadow: 0 0 6px rgba(74, 222, 128, 0.6);
+}
+
+.ship-select-btn {
+  align-self: stretch;
+  background: linear-gradient(135deg, #4ade80, #22c55e);
+  color: #000;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 18px;
+  cursor: pointer;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 13px;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(74, 222, 128, 0.4);
+}
+
+.ship-select-btn:hover {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  box-shadow: 0 6px 20px rgba(74, 222, 128, 0.6);
+  transform: translateY(-2px);
+}
+
+.ship-select-btn.selected-btn {
+  background: rgba(0, 0, 0, 0.5);
+  color: #4ade80;
+  border: 2px solid rgba(74, 222, 128, 0.4);
+  cursor: default;
+  box-shadow: none;
+  transform: none;
+}
+
+.ship-select-btn.selected-btn:hover {
+  background: rgba(0, 0, 0, 0.5);
+  transform: none;
+  box-shadow: none;
+}
+
+/* Legacy hangar (armory) — keep working inside game pause menu */
 .hangarSectionHeader {
   grid-column: 1 / -1;
   font-weight: 900;
@@ -2213,14 +2548,14 @@ html, body {
   color: #86efac;
   margin-top: 20px;
   margin-bottom: 8px;
-  border-bottom: 2px solid rgba(74, 222, 128,0.3);
+  border-bottom: 2px solid rgba(74, 222, 128, 0.3);
   padding-bottom: 6px;
 }
 
 .hangarShip {
   background: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(15px);
-  border: 2px solid rgba(74, 222, 128,0.4);
+  border: 2px solid rgba(74, 222, 128, 0.4);
   border-radius: 16px;
   padding: 16px;
   display: flex;
@@ -2228,18 +2563,18 @@ html, body {
   gap: 14px;
   position: relative;
   transition: all 0.25s ease;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .hangarShip:hover {
   transform: translateY(-4px);
-  box-shadow: 0 16px 36px rgba(74, 222, 128, 0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+  box-shadow: 0 16px 36px rgba(74, 222, 128, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
   border-color: rgba(74, 222, 128, 0.7);
 }
 
 .hangarShip.selected {
-  border-color: rgba(251,191,36,0.8);
-  box-shadow: 0 0 30px rgba(251,191,36,0.5), inset 0 1px 0 rgba(251,191,36,0.2);
+  border-color: rgba(251, 191, 36, 0.8);
+  box-shadow: 0 0 30px rgba(251, 191, 36, 0.5), inset 0 1px 0 rgba(251, 191, 36, 0.2);
   background: rgba(0, 0, 0, 0.85);
 }
 
@@ -2249,8 +2584,8 @@ html, body {
   display: block;
   border-radius: 12px;
   background: #000;
-  border: 2px solid rgba(74, 222, 128,0.3);
-  box-shadow: inset 0 0 40px rgba(0,0,0,0.8), 0 4px 12px rgba(0,0,0,0.3);
+  border: 2px solid rgba(74, 222, 128, 0.3);
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.8), 0 4px 12px rgba(0, 0, 0, 0.3);
   position: relative;
   overflow: hidden;
 }
@@ -2311,17 +2646,17 @@ html, body {
   background: linear-gradient(90deg, #4ade80, #22c55e);
   border-radius: 3px;
   transition: width 0.3s ease;
-  box-shadow: 0 0 8px rgba(74, 222, 128, 0.6), inset 0 1px 0 rgba(255,255,255,0.2);
+  box-shadow: 0 0 8px rgba(74, 222, 128, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .stat-bar-fill.stat-low {
   background: linear-gradient(90deg, #ef4444, #dc2626);
-  box-shadow: 0 0 8px rgba(239, 68, 68, 0.6), inset 0 1px 0 rgba(255,255,255,0.2);
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .stat-bar-fill.stat-high {
   background: linear-gradient(90deg, #22c55e, #16a34a);
-  box-shadow: 0 0 10px rgba(34, 197, 94, 0.7), inset 0 1px 0 rgba(255,255,255,0.3);
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
 .hangarShip button {
@@ -2337,12 +2672,12 @@ html, body {
   letter-spacing: 0.05em;
   font-size: 13px;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 14px rgba(74, 222, 128, 0.4), inset 0 1px 0 rgba(255,255,255,0.2);
+  box-shadow: 0 4px 14px rgba(74, 222, 128, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .hangarShip button:hover:not(:disabled) {
   background: linear-gradient(135deg, #22c55e, #16a34a);
-  box-shadow: 0 6px 20px rgba(74, 222, 128, 0.6), inset 0 1px 0 rgba(255,255,255,0.3);
+  box-shadow: 0 6px 20px rgba(74, 222, 128, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3);
   transform: translateY(-2px);
 }
 
@@ -2356,7 +2691,7 @@ html, body {
   backdrop-filter: blur(8px);
   color: #6b7280;
   cursor: not-allowed;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
   border: 2px solid rgba(74, 222, 128, 0.3);
 }
 
@@ -2609,6 +2944,47 @@ html, body {
   box-shadow: 0 4px 12px rgba(251,191,36,0.4);
 }
 
+.game-over-run-stats {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  padding: 0 24px 20px;
+  background: rgba(0,0,0,0.8);
+}
+
+.run-stat-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 10px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(148,163,184,0.2);
+  border-radius: 10px;
+  transition: border-color 0.25s ease;
+}
+
+.run-stat-item:hover {
+  border-color: rgba(134,239,172,0.45);
+}
+
+.run-stat-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.run-stat-value {
+  font-size: 22px;
+  font-weight: 900;
+  color: #e2e8f0;
+  text-shadow: 0 0 10px rgba(134,239,172,0.35);
+  line-height: 1;
+}
+
 .login-prompt {
   text-align: center;
   padding: 16px;
@@ -2687,6 +3063,44 @@ html, body {
   background: rgba(100,116,139,0.7);
   border-color: #94a3b8;
   color: #fff;
+}
+
+.game-over-btn.ad-continue-btn {
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+  border: 1px solid #4ade80;
+  box-shadow: 0 0 16px rgba(74, 222, 128, 0.35);
+  font-size: 14px;
+  letter-spacing: 0.03em;
+}
+.game-over-btn.ad-continue-btn:hover {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  box-shadow: 0 0 24px rgba(74, 222, 128, 0.55);
+}
+
+.game-over-btn.share-btn {
+  background: linear-gradient(135deg, rgba(56,189,248,0.15) 0%, rgba(14,165,233,0.1) 100%);
+  border-color: rgba(56,189,248,0.5);
+  color: #7dd3fc;
+  gap: 9px;
+}
+
+.game-over-btn.share-btn:hover {
+  background: linear-gradient(135deg, rgba(56,189,248,0.3) 0%, rgba(14,165,233,0.2) 100%);
+  border-color: #38bdf8;
+  color: #e0f2fe;
+  box-shadow: 0 6px 20px rgba(56,189,248,0.35);
+  transform: translateY(-2px);
+}
+
+.game-over-btn.share-btn.copied {
+  background: linear-gradient(135deg, rgba(74,222,128,0.25) 0%, rgba(34,197,94,0.15) 100%);
+  border-color: rgba(74,222,128,0.6);
+  color: #86efac;
+  box-shadow: 0 4px 14px rgba(74,222,128,0.3);
+}
+
+.game-over-btn.share-btn svg {
+  flex-shrink: 0;
 }
 
 /* Authentication Modal */
@@ -3535,6 +3949,82 @@ html, body {
   box-shadow: 0 6px 20px rgba(134, 239, 172, 0.3);
 }
 
+/* Wave ad prompt overlay */
+.wave-ad-prompt {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 600;
+  background: rgba(0, 0, 0, 0.88);
+  border: 1px solid rgba(74, 222, 128, 0.4);
+  border-radius: 12px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-family: 'Orbitron', 'Courier New', monospace;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 0 24px rgba(74, 222, 128, 0.15), 0 4px 16px rgba(0, 0, 0, 0.6);
+  animation: waveAdPromptSlideIn 0.35s ease;
+  max-width: min(420px, 94vw);
+}
+
+@keyframes waveAdPromptSlideIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(16px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.wave-ad-prompt__text {
+  font-size: clamp(11px, 3vw, 13px);
+  color: #e2e8f0;
+  line-height: 1.4;
+  flex: 1;
+}
+
+.wave-ad-prompt__watch {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-family: 'Orbitron', 'Courier New', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.wave-ad-prompt__watch:hover {
+  background: linear-gradient(135deg, #4ade80, #22c55e);
+  transform: translateY(-1px);
+}
+
+.wave-ad-prompt__dismiss {
+  background: transparent;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 6px;
+  color: #94a3b8;
+  font-size: 16px;
+  line-height: 1;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.wave-ad-prompt__dismiss:hover {
+  color: #e2e8f0;
+  border-color: rgba(148, 163, 184, 0.6);
+}
+
 /* Responsive adjustments for start screen */
 @media screen and (max-height: 600px) {
   #startScreen {
@@ -3622,6 +4112,61 @@ html, body {
 @keyframes pulse-badge {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.1); }
+}
+
+/* ==========================================
+   WAVE INTRO BANNER
+   ========================================== */
+
+#waveBanner {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 8500;
+  pointer-events: none;
+}
+
+#waveBannerInner {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+#waveBannerNumber {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: clamp(48px, 10vw, 96px);
+  font-weight: 900;
+  color: #ffffff;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  text-shadow:
+    0 0 30px rgba(255, 255, 255, 0.6),
+    0 0 60px rgba(14, 165, 233, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.9);
+}
+
+#waveBannerSub {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: clamp(14px, 3vw, 22px);
+  font-weight: 700;
+  color: #0ea5e9;
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  text-shadow:
+    0 0 16px rgba(14, 165, 233, 0.8),
+    0 0 32px rgba(14, 165, 233, 0.4);
+}
+
+@keyframes waveBannerShow {
+  0%   { opacity: 0; transform: scale(0.92); }
+  15%  { opacity: 1; transform: scale(1); }
+  75%  { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.04); }
 }
 
 /* ===== ENHANCED PROFILE STYLES ===== */
@@ -3887,9 +4432,22 @@ html, body {
 }
 
 .achievement-toast-name {
-  font-size: 16px;
+  font-size: 15px;
   color: #e2e8f0;
   font-weight: 600;
+  line-height: 1.2;
+}
+
+.achievement-toast-desc {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 2px;
+  line-height: 1.3;
+}
+
+.achievement-toast-icon img {
+  display: block;
+  filter: drop-shadow(0 0 6px rgba(74, 222, 128, 0.5));
 }
 
 /* Enhanced Profile Card */
@@ -3985,4 +4543,169 @@ html, body {
   outline: none;
   border-color: #86efac;
   background: rgba(15, 23, 42, 0.8);
+}
+
+/* ====== LOCAL LEADERBOARD (game over screen) ====== */
+.personal-best-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, rgba(251,191,36,0.2), rgba(245,158,11,0.1));
+  border: 2px solid rgba(251,191,36,0.7);
+  border-radius: 10px;
+  text-align: center;
+  animation: bestBannerPulse 1.6s ease-in-out infinite;
+}
+
+.personal-best-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.personal-best-text {
+  font-family: var(--font-mono, 'Courier New', Courier, monospace);
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #fbbf24;
+  text-shadow: 0 0 16px rgba(251,191,36,0.8);
+}
+
+@keyframes bestBannerPulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(251,191,36,0.3); }
+  50%       { box-shadow: 0 0 22px rgba(251,191,36,0.7); }
+}
+
+.local-leaderboard-panel {
+  margin: 16px 24px 0;
+  background: rgba(0,0,0,0.7);
+  border: 2px solid rgba(74,222,128,0.25);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.local-lb-title {
+  padding: 10px 16px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #4ade80;
+  background: rgba(74,222,128,0.08);
+  border-bottom: 1px solid rgba(74,222,128,0.2);
+}
+
+.local-lb-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+}
+
+.local-lb-table thead th {
+  padding: 8px 14px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #64748b;
+  border-bottom: 1px solid rgba(74,222,128,0.15);
+}
+
+.local-lb-table thead th:nth-child(2) {
+  text-align: right;
+}
+
+.local-lb-table tbody tr {
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  transition: background 0.2s;
+}
+
+.local-lb-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.local-lb-table tbody tr:hover {
+  background: rgba(74,222,128,0.06);
+}
+
+.local-lb-rank {
+  padding: 9px 14px;
+  color: #94a3b8;
+  font-weight: 700;
+  width: 50px;
+}
+
+.local-lb-score {
+  padding: 9px 14px;
+  color: #e2e8f0;
+  font-weight: 700;
+  text-align: right;
+}
+
+.local-lb-date {
+  padding: 9px 14px;
+  color: #64748b;
+  font-size: 12px;
+  text-align: right;
+}
+
+.local-lb-empty {
+  padding: 16px;
+  text-align: center;
+  color: #475569;
+  font-style: italic;
+}
+
+.local-lb-highlight {
+  background: rgba(251,191,36,0.1) !important;
+}
+
+.local-lb-highlight .local-lb-rank {
+  color: #fbbf24;
+}
+
+.local-lb-highlight .local-lb-score {
+  color: #fbbf24;
+  text-shadow: 0 0 8px rgba(251,191,36,0.5);
+}
+
+/* Game Over — Perk Loadout */
+.game-over-perks {
+  margin: 12px 0 0;
+  padding: 10px 14px;
+  background: rgba(99,102,241,0.08);
+  border: 1px solid rgba(99,102,241,0.18);
+  border-radius: 8px;
+  text-align: left;
+}
+.game-over-perks__label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #818cf8;
+  margin-bottom: 8px;
+}
+.game-over-perks__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.game-over-perk-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: rgba(99,102,241,0.15);
+  border: 1px solid rgba(99,102,241,0.25);
+  border-radius: 20px;
+  font-size: 11px;
+  color: #c7d2fe;
+  white-space: nowrap;
 }

@@ -670,6 +670,9 @@
   let waveStartTime = 0;
   let bossActive = false;
   let bossEntity = null;
+  let leviathanWavePending = false;
+  let leviathanKilledThisRun = 0;
+  let bossWaveAnnouncementStart = 0; // timestamp for BOSS WAVE! canvas overlay
 
   /* ====== PLANETARY GAME MODE SYSTEM ====== */
   // Game modes - space (default twin-stick) and planetary (side-scrolling with gravity)
@@ -744,6 +747,9 @@
     dom.scoreValue = document.getElementById('scoreValue');
     dom.levelValue = document.getElementById('levelValue');
     dom.healthBar = document.getElementById('healthBar');
+    dom.bossBar = document.getElementById('bossBar');
+    dom.bossBarFill = document.getElementById('bossBarFill');
+    dom.bossBarName = document.getElementById('bossBarName');
     dom.ammoBar = document.getElementById('ammoBar');
     dom.creditsText = document.getElementById('creditsText');
     dom.pilotLevelValue = document.getElementById('pilotLevelValue');
@@ -764,6 +770,24 @@
     dom.leftTouchZone = document.getElementById('leftTouchZone');
     dom.rightTouchZone = document.getElementById('rightTouchZone');
     dom.abilityButton = document.getElementById('abilityButton');
+    dom.comboHud = document.getElementById('comboHud');
+    dom.comboTimerBar = document.getElementById('comboTimerBar');
+    dom.comboMultDisplay = document.getElementById('comboMultDisplay');
+    // Wire up Q-ability HUD button (tap to fire special ability on mobile)
+    const _abilityQBtn = document.getElementById('abilityQBtn');
+    if (_abilityQBtn) {
+      _abilityQBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        if (gameRunning && !paused && !countdownActive && !readyUpPhase) {
+          fireSpecialAbility();
+        }
+      }, { passive: false });
+      _abilityQBtn.addEventListener('click', () => {
+        if (gameRunning && !paused && !countdownActive && !readyUpPhase) {
+          fireSpecialAbility();
+        }
+      });
+    }
     dom.controlSettingsButton = document.getElementById('controlSettingsButton');
     dom.controlSettingsModal = document.getElementById('controlSettingsModal');
     dom.closeControlSettings = document.getElementById('closeControlSettings');
@@ -825,6 +849,13 @@
   let enemiesToKill = 15;  // Increased from 10 for better pacing
   let enemiesKilled = 0;
   let lastTime = 0;
+
+  // ── Special Ability State ──────────────────────────────────────────────────
+  let specialCooldown = 0;       // ms remaining on cooldown
+  let specialCooldownMax = 6000; // ms total cooldown (varies per ship)
+  let specialAbilityQueued = false;
+  let shieldWall = null;         // { hp: 3, framesLeft: 180 } for Bulwark-7
+  let specialQKeyLatch = false;  // prevent key-repeat triggering ability twice
   let gameRunning = false;
   let paused = false;
   let lastAmmoRegen = 0;
@@ -835,6 +866,10 @@
   let pilotXP = 0;
   let tookDamageThisLevel = false;
   let gameOverHandled = false;
+  let continueUsed = false;
+  let runShotsFired = 0;
+  let runShotsHit = 0;
+  let runStartTime = 0;
   let countdownActive = false;
   let countdownEnd = 0;
   let countdownCompletedLevel = 0;
@@ -883,11 +918,343 @@
   const MAX_LOG_ENTRIES = 5;
   const LOG_ENTRY_LIFETIME = 4000; // ms
 
+  // ── ROGUELITE PERK SYSTEM ─────────────────────────────────────────────────
+  // Perks selected during a run; reset on game over / new game
+  let waveUpgradeActive = false; // true while card picker is showing
+  let activePerks = [];   // array of perk ids chosen this run
+  let perkMultipliers = {
+    bulletSpeed:         1,
+    maxHp:               0,   // flat bonus added to max HP
+    ammoRegenMult:       1,   // multiplier on regen interval (< 1 = faster)
+    invulnBonus:         0,   // added ms to invuln window
+    chainDamage:         0,   // area damage on kill (0 = disabled)
+    damage:              1,
+    speed:               1,
+    hp:                  0,   // immediate HP given once on pickup
+    fireRate:            1,   // multiplier on fire cooldown (< 1 = faster)
+    twinShot:            0,   // probability 0-1 of firing second bullet
+    dashCooldown:        1,   // multiplier on dash/boost cooldown
+    coinBonus:           1,   // multiplier on coin/credit drops
+    lifestealPerKill:    0,   // HP healed per enemy kill
+    damageTakenMult:     1,   // < 1 = less damage received (Reinforced Hull)
+    scoreMultBonus:      0,   // flat bonus added to base score multiplier (Overclock)
+    specialCooldownMult: 1,   // < 1 = shorter special ability cooldown (Overdrive)
+    piercePlus:          0,   // extra bullet pierce count (Chain Reaction)
+    fragmentOnImpact:    false // bullets explode on impact (Fragmentation)
+  };
+
+  // ── RARITY TIER DEFINITIONS ─────────────────────────────────────────────────
+  // common: 60% base weight, rare: 30%, epic: 10% (scales with wave number)
+  const PERK_RARITY = {
+    common: { label: 'COMMON', weight: 6 },
+    rare:   { label: 'RARE',   weight: 3 },
+    epic:   { label: 'EPIC',   weight: 1 }
+  };
+
+  const PERK_CATALOG = [
+    // ── COMMON ───────────────────────────────────────────────────────────────
+    {
+      id: 'void_armor',
+      name: 'Void Armor',
+      rarity: 'common',
+      icon: '🛡️',
+      flavor: 'Crystallised void matter bolts extra armour to your hull.',
+      stat: '+25 Max HP',
+      apply(m) { m.maxHp += 25; }
+    },
+    {
+      id: 'rapid_core',
+      name: 'Rapid Core',
+      rarity: 'common',
+      icon: '🔫',
+      flavor: 'Upgraded feed mechanism cycles shells at blistering speed.',
+      stat: '+20% Fire Rate',
+      apply(m) { m.fireRate = Math.max(0.3, m.fireRate * 0.8); }
+    },
+    {
+      id: 'afterburner',
+      name: 'Afterburner',
+      rarity: 'common',
+      icon: '🚀',
+      flavor: 'Secondary thruster array fires up, pushing velocity limits.',
+      stat: '+15% Move Speed',
+      apply(m) { m.speed *= 1.15; }
+    },
+    {
+      id: 'reinforced_hull',
+      name: 'Reinforced Hull',
+      rarity: 'common',
+      icon: '🔩',
+      flavor: 'Layered composite panels spread impact forces across the frame.',
+      stat: 'Damage Taken -15%',
+      apply(m) { m.damageTakenMult = Math.max(0.3, m.damageTakenMult * 0.85); }
+    },
+    {
+      id: 'scavenger',
+      name: 'Scavenger',
+      rarity: 'common',
+      icon: '💰',
+      flavor: 'Strip every wreck for tech, fuel, and every last credit.',
+      stat: '+30% Credits from Kills',
+      apply(m) { m.coinBonus *= 1.3; }
+    },
+    {
+      id: 'rapid_loader',
+      name: 'Rapid Loader',
+      rarity: 'common',
+      icon: '🔋',
+      flavor: 'Ammo cells charge at breakneck speed.',
+      stat: 'Ammo Regen +30%',
+      apply(m) { m.ammoRegenMult = Math.max(0.3, m.ammoRegenMult * 0.7); }
+    },
+    {
+      id: 'ghost_protocol',
+      name: 'Ghost Protocol',
+      rarity: 'common',
+      icon: '👻',
+      flavor: 'Phase shifts buy precious milliseconds.',
+      stat: 'Invuln +100ms',
+      apply(m) { m.invulnBonus += 100; }
+    },
+    {
+      id: 'fortify',
+      name: 'Fortify',
+      rarity: 'common',
+      icon: '❤️',
+      flavor: 'Emergency nanobots patch up the hull.',
+      stat: 'Restore 20 HP',
+      apply(m) { m.hp += 20; }
+    },
+    // ── RARE ─────────────────────────────────────────────────────────────────
+    {
+      id: 'chain_reaction',
+      name: 'Chain Reaction',
+      rarity: 'rare',
+      icon: '💥',
+      flavor: 'Bullets pierce through one extra enemy before stopping.',
+      stat: 'Pierce +1 enemy',
+      apply(m) { m.chainDamage = Math.max(m.chainDamage, 20); m.piercePlus += 1; }
+    },
+    {
+      id: 'overdrive',
+      name: 'Overdrive',
+      rarity: 'rare',
+      icon: '⚡',
+      flavor: 'Overclock your reactor — special ability recharges faster.',
+      stat: 'Ability Cooldown -30%',
+      apply(m) { m.specialCooldownMult = Math.max(0.3, m.specialCooldownMult * 0.7); }
+    },
+    {
+      id: 'lifesteal',
+      name: 'Lifesteal',
+      rarity: 'rare',
+      icon: '🩸',
+      flavor: 'Nano-collectors harvest biomass from every defeated enemy.',
+      stat: 'Heal 2 HP per kill',
+      apply(m) { m.lifestealPerKill += 2; }
+    },
+    {
+      id: 'overcharge',
+      name: 'Overcharge',
+      rarity: 'rare',
+      icon: '🔥',
+      flavor: 'Your weapons burn hotter with every shot.',
+      stat: '+20% Damage',
+      apply(m) { m.damage *= 1.20; }
+    },
+    {
+      id: 'twin_shot',
+      name: 'Twin Shot',
+      rarity: 'rare',
+      icon: '🎯',
+      flavor: 'Dual barrels double your threat potential.',
+      stat: '25% chance: 2 bullets',
+      apply(m) { m.twinShot = Math.min(1, m.twinShot + 0.25); }
+    },
+    {
+      id: 'overclock',
+      name: 'Overclock',
+      rarity: 'rare',
+      icon: '🌀',
+      flavor: 'Quantum score-weighting circuits amplify every point earned.',
+      stat: '+0.5× Score Multiplier',
+      apply(m) { m.scoreMultBonus += 0.5; }
+    },
+    // ── EPIC ─────────────────────────────────────────────────────────────────
+    {
+      id: 'fragmentation',
+      name: 'Fragmentation',
+      rarity: 'epic',
+      icon: '💢',
+      flavor: 'Impact-fused rounds detonate in a shower of shrapnel.',
+      stat: 'Bullets explode on impact',
+      apply(m) { m.fragmentOnImpact = true; m.chainDamage = Math.max(m.chainDamage, 15); }
+    },
+    {
+      id: 'void_reaper',
+      name: 'Void Reaper',
+      rarity: 'epic',
+      icon: '☠️',
+      flavor: 'A spectral blade trails your hull, shredding anything in your wake.',
+      stat: '+50% Damage, +25% Speed',
+      apply(m) { m.damage *= 1.5; m.speed *= 1.25; }
+    },
+    {
+      id: 'singularity',
+      name: 'Singularity',
+      rarity: 'epic',
+      icon: '🌑',
+      flavor: 'Collapse local space — bullets pierce ALL enemies and arc back.',
+      stat: 'Pierce ALL + Twin Shot 50%',
+      apply(m) { m.piercePlus += 99; m.twinShot = Math.min(1, m.twinShot + 0.5); }
+    }
+  ];
+
+  /**
+   * Compute rarity weights adjusted for wave number.
+   * Later waves increase the chance of Rare/Epic cards.
+   * wave 1-3: common 60 / rare 30 / epic 10
+   * wave 4-6: common 45 / rare 35 / epic 20
+   * wave 7+ : common 30 / rare 35 / epic 35
+   */
+  const _rarityWeightsForWave = (wave) => {
+    if (wave >= 7) return { common: 30, rare: 35, epic: 35 };
+    if (wave >= 4) return { common: 45, rare: 35, epic: 20 };
+    return { common: 60, rare: 30, epic: 10 };
+  };
+
+  /**
+   * Weighted random draw of one rarity tier.
+   */
+  const _drawRarity = (weights) => {
+    const total = weights.common + weights.rare + weights.epic;
+    const roll = Math.random() * total;
+    if (roll < weights.common) return 'common';
+    if (roll < weights.common + weights.rare) return 'rare';
+    return 'epic';
+  };
+
+  /**
+   * Pick n unique perks not yet chosen this run using rarity-weighted draws.
+   * Falls back gracefully if a rarity tier is exhausted.
+   */
+  const _pickRandomPerks = (n = 3) => {
+    const weights = _rarityWeightsForWave(readyUpLevel);
+    const available = PERK_CATALOG.filter(p => !activePerks.includes(p.id));
+    const pool = available.length ? available : PERK_CATALOG;
+
+    const picks = [];
+    const usedIds = new Set();
+
+    for (let i = 0; i < n; i++) {
+      // Try to pick a card of a drawn rarity; if none available fall through tiers
+      const rarityOrder = ['epic', 'rare', 'common'];
+      let drawnRarity = _drawRarity(weights);
+      // Rotate the priority list so drawn rarity is first
+      const priority = [drawnRarity, ...rarityOrder.filter(r => r !== drawnRarity)];
+
+      let picked = null;
+      for (const rarity of priority) {
+        const candidates = pool.filter(p => p.rarity === rarity && !usedIds.has(p.id));
+        if (candidates.length) {
+          picked = candidates[Math.floor(Math.random() * candidates.length)];
+          break;
+        }
+      }
+      if (!picked) {
+        // Absolute fallback: any unused card
+        const remaining = pool.filter(p => !usedIds.has(p.id));
+        if (remaining.length) picked = remaining[Math.floor(Math.random() * remaining.length)];
+      }
+      if (picked) {
+        usedIds.add(picked.id);
+        picks.push(picked);
+      }
+    }
+    return picks;
+  };
+
+  /**
+   * Apply a chosen perk to the live multiplier object and
+   * immediately apply one-time effects (HP heal).
+   */
+  const _applyPerk = (perkId) => {
+    const perk = PERK_CATALOG.find(p => p.id === perkId);
+    if (!perk) return;
+    activePerks.push(perkId);
+    perk.apply(perkMultipliers);
+
+    // One-time HP heal (Fortify perk)
+    if (perkMultipliers.hp > 0 && player) {
+      const heal = perkMultipliers.hp;
+      const maxHp = (player.hpMax || player.health) + perkMultipliers.maxHp;
+      player.health = Math.min(maxHp, player.health + heal);
+      perkMultipliers.hp = 0; // consumed
+    }
+
+    addLogEntry(`PERK: ${perk.name}`, '#a5b4fc');
+  };
+
+  /**
+   * Show the wave-upgrade card picker overlay.
+   * Called just before startCountdownFromReadyUp().
+   * @param {Function} onChosen  callback invoked after a card is picked
+   */
+  const showWaveUpgradeScreen = (onChosen) => {
+    const modal = document.getElementById('waveUpgradeModal');
+    const container = document.getElementById('waveUpgradeCards');
+    const titleEl = document.getElementById('waveUpgradeTitle');
+    if (!modal || !container) { onChosen && onChosen(); return; }
+
+    waveUpgradeActive = true;
+    titleEl && (titleEl.textContent = `CHOOSE AN UPGRADE — WAVE ${readyUpLevel}`);
+
+    const picks = _pickRandomPerks(3);
+    container.innerHTML = '';
+
+    picks.forEach(perk => {
+      const card = document.createElement('div');
+      card.className = `wave-card wave-card--${perk.rarity || 'common'}`;
+      card.innerHTML = `
+        <div class="wave-card-rarity wave-card-rarity--${perk.rarity || 'common'}">${(perk.rarity || 'common').toUpperCase()}</div>
+        <div class="wave-card-icon">${perk.icon}</div>
+        <div class="wave-card-name">${perk.name}</div>
+        <div class="wave-card-flavor">${perk.flavor}</div>
+        <div class="wave-card-stat">${perk.stat}</div>
+      `;
+      const _pick = () => {
+        if (!waveUpgradeActive) return;
+        waveUpgradeActive = false;
+        _applyPerk(perk.id);
+        modal.classList.remove('active');
+        onChosen && onChosen();
+      };
+      card.addEventListener('click', _pick);
+      card.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        _pick();
+      }, { passive: false });
+      container.appendChild(card);
+    });
+
+    modal.classList.add('active');
+  };
+  // ── END PERK SYSTEM ───────────────────────────────────────────────────────
+
   // Phase 1: Combo & Kill Streak System
   let comboCount = 0;
   let comboTimer = 0;
   const COMBO_TIMEOUT = 2500; // ms - time between kills to maintain combo
   let totalKillsThisRun = 0;
+
+  // Kill Combo Multiplier System
+  let killComboMultiplier = 1;       // Current score multiplier (1–5)
+  let killComboTimerEnd = 0;         // Timestamp when combo window closes
+  const KILL_COMBO_WINDOW = 2000;    // ms - consecutive kill window
+  const KILL_COMBO_MAX = 5;          // Max multiplier
+  let killComboSplashStart = 0;      // When the splash was last shown
+  let killComboEscalated = false;    // True the frame multiplier just increased
+  let killComboEscalatedStart = 0;   // Timestamp for COMBO ESCALATED flash
   let lastKillStreakNotification = 0;
   const KILL_STREAK_MILESTONES = [5, 10, 25, 50, 100, 200];
 
@@ -954,6 +1321,34 @@
 
   let currentShip = null;
 
+  // Wave intro banner — shown for 2 seconds between waves
+  const WAVE_ENEMY_HINTS = {
+    1: 'SWARMERS INCOMING',
+    2: 'SWARMERS INCOMING',
+    3: 'HEAVY UNITS DETECTED',
+    4: 'HEAVY UNITS DETECTED',
+    5: 'SNIPER THREAT CONFIRMED',
+    6: 'SNIPER THREAT CONFIRMED',
+    7: 'PHANTOM SQUADRON',
+    8: 'CARRIER DETECTED',
+    9: 'BERSERKER ALERT',
+    10: 'LEVIATHAN BOSS — MAXIMUM THREAT',
+  };
+
+  const showWaveBanner = (waveNum, hint) => {
+    const banner = document.getElementById('waveBanner');
+    const num    = document.getElementById('waveBannerNumber');
+    const sub    = document.getElementById('waveBannerSub');
+    if (!banner || !num || !sub) return;
+    num.textContent = `WAVE ${waveNum}`;
+    sub.textContent = hint || WAVE_ENEMY_HINTS[waveNum] || (waveNum >= 10 ? 'CRITICAL THREAT LEVEL' : 'INCOMING');
+    banner.style.display = 'flex';
+    banner.style.animation = 'none';
+    void banner.offsetWidth; // force reflow so animation restarts
+    banner.style.animation = 'waveBannerShow 2s ease forwards';
+    setTimeout(() => { banner.style.display = 'none'; }, 2000);
+  };
+
   // Helper function to get current difficulty settings
   const getDifficulty = () => DIFFICULTY_PRESETS[currentDifficulty] || DIFFICULTY_PRESETS.normal;
 
@@ -988,7 +1383,9 @@
     f: false,
     F: false,
     r: false,
-    R: false
+    R: false,
+    q: false,
+    Q: false
   };
 
   const defaultArmory = () => ({
@@ -1174,6 +1571,7 @@
     { id: 'centurion', name: 'Centurion', desc: 'Kill 100 enemies in total', icon: 'assets/icons/achievement-sword.svg', category: 'combat', requirement: { totalKills: 100 } },
     { id: 'slayer', name: 'Slayer', desc: 'Kill 1000 enemies in total', icon: 'assets/icons/achievement-skull.svg', category: 'combat', requirement: { totalKills: 1000 } },
     { id: 'boss_hunter', name: 'Boss Hunter', desc: 'Defeat your first boss', icon: 'assets/icons/achievement-boss.svg', category: 'combat', requirement: { bossKills: 1 } },
+    { id: 'leviathan_slayer', name: 'LEVIATHAN SLAYER', desc: 'Defeat the Leviathan boss', icon: 'assets/icons/achievement-skull.svg', category: 'combat', requirement: { leviathanKills: 1 } },
     { id: 'elite_destroyer', name: 'Elite Destroyer', desc: 'Kill 50 elite enemies', icon: 'assets/icons/achievement-diamond.svg', category: 'combat', requirement: { eliteKills: 50 } },
     
     // Survival achievements
@@ -1230,6 +1628,7 @@
       unlockedAchievements: [],
       totalKills: 0,
       bossKills: 0,
+      leviathanKills: 0,
       eliteKills: 0,
       gamesPlayed: 0,
       totalPlayTime: 0,
@@ -1410,6 +1809,7 @@
         if (req.kills && profile.totalKills >= req.kills) unlocked = true;
         if (req.totalKills && profile.totalKills >= req.totalKills) unlocked = true;
         if (req.bossKills && profile.bossKills >= req.bossKills) unlocked = true;
+        if (req.leviathanKills && (profile.leviathanKills || 0) >= req.leviathanKills) unlocked = true;
         if (req.eliteKills && profile.eliteKills >= req.eliteKills) unlocked = true;
         if (req.level && profile.highestLevel >= req.level) unlocked = true;
         if (req.score && profile.bestScore >= req.score) unlocked = true;
@@ -1448,28 +1848,41 @@
     },
     
     showAchievementNotification(achievement) {
+      // Stack offset: count existing toasts so they don't overlap
+      const existing = document.querySelectorAll('.achievement-toast');
+      const stackOffset = existing.length * 90;
+
       // Create achievement toast notification
       const toast = document.createElement('div');
       toast.className = 'achievement-toast';
+      toast.style.top = `${20 + stackOffset}px`;
       toast.innerHTML = `
-        <div class="achievement-toast-icon">${achievement.icon}</div>
+        <div class="achievement-toast-icon">
+          <img src="${achievement.icon}" alt="${achievement.name}" width="36" height="36"
+               onerror="this.style.display='none';this.parentElement.textContent='🏆'" />
+        </div>
         <div class="achievement-toast-content">
           <div class="achievement-toast-title">Achievement Unlocked!</div>
           <div class="achievement-toast-name">${achievement.name}</div>
+          <div class="achievement-toast-desc">${achievement.desc}</div>
         </div>
       `;
       document.body.appendChild(toast);
-      
+
       // Animate in
-      setTimeout(() => toast.classList.add('show'), 100);
-      
-      // Remove after 4 seconds
+      setTimeout(() => toast.classList.add('show'), 50);
+
+      // Remove after 4.5 seconds
       setTimeout(() => {
         toast.classList.remove('show');
         setTimeout(() => {
           if (toast.parentNode) toast.remove();
-        }, 300);
-      }, 4000);
+          // Re-stack remaining toasts after this one is removed
+          document.querySelectorAll('.achievement-toast').forEach((el, idx) => {
+            el.style.top = `${20 + idx * 90}px`;
+          });
+        }, 350);
+      }, 4500);
     },
     
     // Update stats after a game
@@ -1477,6 +1890,7 @@
       this.playerProfile.gamesPlayed++;
       this.playerProfile.totalKills += stats.kills || 0;
       this.playerProfile.bossKills += stats.bossKills || 0;
+      this.playerProfile.leviathanKills = (this.playerProfile.leviathanKills || 0) + (stats.leviathanKills || 0);
       this.playerProfile.eliteKills += stats.eliteKills || 0;
       this.playerProfile.totalPlayTime += stats.playTime || 0;
       
@@ -1486,6 +1900,40 @@
       
       this.saveProfile();
       this.checkAchievements();
+    }
+  };
+
+  /* ====== LOCAL LEADERBOARD (localStorage top-5) ====== */
+  const LOCAL_SCORES_KEY = 'voidrift_local_scores';
+
+  const LocalLeaderboard = {
+    get() {
+      try {
+        return JSON.parse(localStorage.getItem(LOCAL_SCORES_KEY) || '[]');
+      } catch (e) {
+        return [];
+      }
+    },
+
+    isPersonalBest(newScore) {
+      const entries = this.get();
+      return entries.length === 0 || newScore > entries[0].score;
+    },
+
+    save(newScore) {
+      const entries = this.get();
+      entries.push({
+        score: newScore,
+        date: new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+      });
+      entries.sort((a, b) => b.score - a.score);
+      const top5 = entries.slice(0, 5);
+      try {
+        localStorage.setItem(LOCAL_SCORES_KEY, JSON.stringify(top5));
+      } catch (e) {
+        console.warn('LocalLeaderboard: failed to save', e);
+      }
+      return top5;
     }
   };
 
@@ -1582,6 +2030,13 @@
       Save.data.selectedShip = currentShip.id;
       Save.save();
     }
+    // Apply equipped skin colors so drawShip previews use the right palette
+    const _initSkin = typeof window.getEquippedSkin === 'function'
+      ? window.getEquippedSkin(currentShip.id)
+      : null;
+    if (_initSkin && _initSkin.id !== currentShip.id + '_default') {
+      currentShip = { ...currentShip, colors: { ...currentShip.colors, ..._initSkin.colors } };
+    }
   };
 
   const getShipTemplate = (id) => SHIP_TEMPLATES.find((ship) => ship.id === id) || null;
@@ -1625,21 +2080,79 @@
     pilotXP = Save.data.pilotXp;
     tookDamageThisLevel = false;
     gameOverHandled = false;
-    
+    continueUsed = false;
+
+    // Special ability reset
+    specialCooldown = 0;
+    shieldWall = null;
+    specialAbilityQueued = false;
+    specialQKeyLatch = false;
+    // Set cooldown max per selected ship
+    const _sid = Save.data.selectedShip;
+    specialCooldownMax = _sid === 'bulwark' ? 10000 : _sid === 'titan' ? 8000 : 6000;
+    // Show/hide ability HUD
+    const _abilityHud = document.getElementById('abilityHud');
+    if (_abilityHud) {
+      const _isSpecial = (_sid === 'spectre' || _sid === 'bulwark' || _sid === 'titan');
+      _abilityHud.style.display = _isSpecial ? 'flex' : 'none';
+      const _abilityNameEl = document.getElementById('abilityName');
+      if (_abilityNameEl) {
+        _abilityNameEl.textContent = _sid === 'bulwark' ? 'Shield Wall' : _sid === 'titan' ? 'Orbital Strike' : 'Phase Dash';
+      }
+    }
+
     // Wave system reset
     currentWaveType = 'standard';
     waveTimer = 0;
     waveStartTime = 0;
     bossActive = false;
     bossEntity = null;
-    
+    leviathanWavePending = false;
+    leviathanKilledThisRun = 0;
+    bossWaveAnnouncementStart = 0;
+    if (dom.bossBar) dom.bossBar.style.display = 'none';
+
     // Phase 1: Reset combo and kill streak
     comboCount = 0;
     comboTimer = 0;
     totalKillsThisRun = 0;
     lastKillStreakNotification = 0;
+    runShotsFired = 0;
+    runShotsHit = 0;
+    runStartTime = 0;
     damageNumbers.length = 0;
     levelUpAnimationActive = false;
+
+    // Kill combo multiplier reset
+    killComboMultiplier = 1;
+    killComboTimerEnd = 0;
+    killComboSplashStart = 0;
+    killComboEscalated = false;
+    killComboEscalatedStart = 0;
+
+    // Roguelite perk reset (new run)
+    waveUpgradeActive = false;
+    activePerks = [];
+    perkMultipliers = {
+      bulletSpeed:         1,
+      maxHp:               0,
+      ammoRegenMult:       1,
+      invulnBonus:         0,
+      chainDamage:         0,
+      damage:              1,
+      speed:               1,
+      hp:                  0,
+      fireRate:            1,
+      twinShot:            0,
+      dashCooldown:        1,
+      coinBonus:           1,
+      lifestealPerKill:    0,
+      damageTakenMult:     1,
+      scoreMultBonus:      0,
+      specialCooldownMult: 1,
+      piercePlus:          0,
+      fragmentOnImpact:    false
+    };
     
     Object.keys(input).forEach((k) => {
       if (typeof input[k] === 'boolean') input[k] = false;
@@ -1706,6 +2219,87 @@
     shakePower = power;
   };
 
+  // ── Special Ability: fire the Q-key ability for the current ship ───────────
+  const fireSpecialAbility = () => {
+    if (!player || !gameRunning || paused) return;
+    if (specialCooldown > 0) return;
+    const sid = Save.data.selectedShip;
+
+    if (sid === 'spectre') {
+      // Phase Dash — blink 150px in movement direction, invincible for 0.4s
+      const oldX = player.x;
+      const oldY = player.y;
+      const vx = player.vel.x || Math.cos(player.lookAngle);
+      const vy = player.vel.y || Math.sin(player.lookAngle);
+      const len = Math.hypot(vx, vy) || 1;
+      const cx = window.innerWidth;
+      const cy = window.innerHeight;
+      player.x = Math.max(player.size, Math.min(cx - player.size, player.x + (vx / len) * 150));
+      player.y = Math.max(player.size, Math.min(cy - player.size, player.y + (vy / len) * 150));
+      player.invEnd = performance.now() + 400; // 0.4s invincibility
+      // Cyan ghost trail particles at old position
+      for (let i = 0; i < 5; i++) {
+        particles.push({
+          x: oldX + (Math.random() - 0.5) * 12,
+          y: oldY + (Math.random() - 0.5) * 12,
+          vx: (Math.random() - 0.5) * 1.5,
+          vy: (Math.random() - 0.5) * 1.5,
+          life: 350,
+          c: '#22d3ee',
+          s: 4 + Math.random() * 3,
+          type: 'fade'
+        });
+      }
+      addLogEntry('Phase Dash!', '#22d3ee');
+      specialCooldown = specialCooldownMax * perkMultipliers.specialCooldownMult;
+
+    } else if (sid === 'bulwark') {
+      // Shield Wall — arc absorbs up to 3 bullets for 3s
+      shieldWall = { hp: 3, framesLeft: 180 };
+      addLogEntry('Shield Wall!', '#2dd4bf');
+      specialCooldown = specialCooldownMax * perkMultipliers.specialCooldownMult;
+
+    } else if (sid === 'titan') {
+      // Orbital Strike — 8 bullets in 360° spread
+      const dmg = player.health ? Math.round(20 * (currentShip?.stats?.damage || 1)) : 20;
+      for (let i = 0; i < 8; i++) {
+        const ang = (i / 8) * Math.PI * 2;
+        const vel = { x: Math.cos(ang), y: Math.sin(ang) };
+        bullets.push(new Bullet(
+          player.x + Math.cos(ang) * player.size,
+          player.y + Math.sin(ang) * player.size,
+          vel, dmg, '#fbbf24', BASE.BULLET_SPEED, BASE.BULLET_SIZE * 1.2, 0
+        ));
+      }
+      // Golden flash particles
+      for (let i = 0; i < 16; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const sp = 2 + Math.random() * 3;
+        particles.push({ x: player.x, y: player.y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, life: 350, c: '#fbbf24', s: 5, type: 'fade' });
+      }
+      shakeScreen(4, 8 * 16); // ~8 frames at 60fps
+      addLogEntry('Orbital Strike!', '#fbbf24');
+      specialCooldown = specialCooldownMax * perkMultipliers.specialCooldownMult;
+    }
+  };
+
+  // ── Draw shield wall arc in front of Bulwark-7 ────────────────────────────
+  const drawShieldWall = (ctx) => {
+    if (!shieldWall || shieldWall.hp <= 0 || !player) return;
+    const ang = player.lookAngle;
+    const arc = (140 / 180) * Math.PI; // 140°
+    const r = player.size * 2.2;
+    ctx.save();
+    ctx.strokeStyle = `rgba(45,212,191,${0.4 + 0.4 * (shieldWall.framesLeft / 180)})`;
+    ctx.lineWidth = 5;
+    ctx.shadowColor = '#2dd4bf';
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, r, ang - arc / 2, ang + arc / 2);
+    ctx.stroke();
+    ctx.restore();
+  };
+
   // Phase 1: Spawn floating damage number
   const spawnDamageNumber = (x, y, damage, isCrit = false) => {
     const text = isCrit ? `${Math.round(damage)}!` : Math.round(damage);
@@ -1759,11 +2353,18 @@
 
   // Phase 1: Reset combo on timeout
   const updateComboSystem = () => {
-    if (comboCount > 0 && performance.now() > comboTimer) {
+    const now = performance.now();
+    if (comboCount > 0 && now > comboTimer) {
       if (comboCount >= 5) {
         addLogEntry(`Combo ended: ${comboCount}x`, '#94a3b8');
       }
       comboCount = 0;
+    }
+
+    // Kill combo multiplier: reset when window expires
+    if (killComboMultiplier > 1 && now > killComboTimerEnd) {
+      killComboMultiplier = 1;
+      killComboTimerEnd = 0;
     }
   };
 
@@ -4073,14 +4674,14 @@
       const adaptive = getAdaptiveScaling();
       
       // Base size scaling
-      const sizeMap = { heavy: 1.45, swarmer: 0.9, drone: 0.75 };
+      const sizeMap = { heavy: 1.45, swarmer: 0.9, drone: 0.75, sniper: 0.85, phantom: 0.95, splitter: 1.15, shard: 0.55, carrier: 1.7, berserker: 1.25, leviathan: 2.75 };
       let baseSize = BASE.ENEMY_SIZE * (sizeMap[kind] || 1);
       if (isElite) baseSize *= ADAPTIVE_CONSTANTS.ELITE_SIZE_MULT;
       if (isBoss) baseSize *= ADAPTIVE_CONSTANTS.BOSS_SIZE_MULT;
       this.size = baseSize;
       
       // Speed scaling with adaptive difficulty and progression
-      const speedMap = { heavy: 0.85, swarmer: 1.45, drone: 1.2 };
+      const speedMap = { heavy: 0.85, swarmer: 1.45, drone: 1.2, sniper: 0.7, phantom: 1.1, splitter: 1.0, shard: 1.6, carrier: 0.6, berserker: 0.7, leviathan: 0.4 };
       let baseSpeed = BASE.ENEMY_SPEED * (speedMap[kind] || 1.05) * diff.enemySpeed;
       baseSpeed *= adaptive.enemySpeedBoost;
       if (isElite) baseSpeed *= ADAPTIVE_CONSTANTS.ELITE_SPEED_MULT;
@@ -4088,7 +4689,7 @@
       this.speed = baseSpeed;
       
       // Health scaling with progressive difficulty
-      const baseHealth = kind === 'heavy' ? 3 : 1;
+      const baseHealth = kind === 'heavy' ? 3 : kind === 'sniper' ? 1.5 : kind === 'splitter' ? 2 : kind === 'shard' ? 0.6 : kind === 'carrier' ? 3.5 : kind === 'berserker' ? 2.5 : kind === 'leviathan' ? 1 : 1;
       let health = Math.ceil(baseHealth * diff.enemyHealth * adaptive.progressiveHealthBonus);
       if (isElite) health *= ADAPTIVE_CONSTANTS.ELITE_HEALTH_MULT;
       if (isBoss) health *= ADAPTIVE_CONSTANTS.BOSS_BASE_HEALTH_MULT + level * ADAPTIVE_CONSTANTS.BOSS_HEALTH_PER_LEVEL;
@@ -4097,6 +4698,7 @@
       
       // Damage scaling with adaptive difficulty
       this.baseDamage = BASE.ENEMY_DAMAGE * diff.enemyDamage * adaptive.enemyDamageMultiplier;
+      if (kind === 'sniper') this.baseDamage *= 2.2; // Snipers hit hard
       if (isElite) this.baseDamage *= ADAPTIVE_CONSTANTS.ELITE_DAMAGE_MULT;
       if (isBoss) this.baseDamage *= ADAPTIVE_CONSTANTS.BOSS_DAMAGE_MULT;
       
@@ -4117,10 +4719,74 @@
       
       // Shooting capability for ranged enemies - more aggressive at higher levels
       const shootChance = level > ADAPTIVE_CONSTANTS.EASY_LEVELS ? 0.6 : 0.4;
-      this.canShoot = isBoss || (isElite && Math.random() < shootChance);
+      this.canShoot = isBoss || kind === 'sniper' || (isElite && Math.random() < shootChance);
       this.lastShot = 0;
       this.shotCooldown = isBoss ? Math.max(1000, 1500 - level * 30) : Math.max(1500, 2500 - level * 50);
       
+      // Sniper-specific state: telegraph charge-up before firing
+      if (kind === 'sniper') {
+        this.sniperPhase = 'idle';   // 'idle' | 'aiming' | 'cooldown'
+        this.sniperTimer = 0;
+        this.sniperAimDuration = Math.max(700, 1100 - level * 15); // aim window (ms)
+        this.sniperCooldown = Math.max(1800, 3200 - level * 30);   // time between shots (ms)
+        this.sniperAimAngle = 0;     // locked aim angle during telegraph
+        this.sniperLaserAlpha = 0;   // for fade-in telegraph line
+        this.canShoot = false;       // sniper manages its own firing
+      }
+
+      // Phantom-specific state — phases in/out of invulnerability on a cycle
+      if (kind === 'phantom') {
+        this.phantomPhase = 'solid';      // 'solid' | 'phasing_out' | 'phased' | 'phasing_in'
+        this.phantomTimer = rand(800, 1600); // stagger initial phase so phantoms don't sync
+        this.phantomSolidDuration  = Math.max(1400, 2600 - level * 30);  // shrinks at higher levels
+        this.phantomPhasedDuration = Math.max(800,  1800 - level * 20);
+        this.phantomTransition     = 500; // ms for fade in/out
+        this.phantomAlpha = 1;
+        this.phantomInvulnerable = false;
+      }
+
+      // Splitter-specific state — splits into shards on death
+      if (kind === 'splitter') {
+        this.splitOnDeath = true;
+        this.isShard = false;
+      } else if (kind === 'shard') {
+        this.splitOnDeath = false;
+        this.isShard = true;
+        this.shardAngleOffset = (Math.random() - 0.5) * 0.8;
+      } else {
+        this.splitOnDeath = false;
+        this.isShard = false;
+      }
+
+      // Carrier-specific state — periodically spawns drone escorts
+      if (kind === 'carrier') {
+        this.droneSpawnInterval = 3500; // ms between drone launches
+        this.lastDroneSpawn = performance.now() + 1500; // initial delay
+        this.maxEscorts = 3; // max concurrent drones spawned by this carrier
+      }
+
+      if (kind === 'berserker') {
+        this.enraged = false;
+        this.enrageFlash = 0; // for visual flash pulse
+        this.vx = 0;
+        this.vy = 0;
+      }
+
+      // Leviathan-specific state — multi-phase boss with escalating attacks
+      if (kind === 'leviathan') {
+        this.leviathanPhase = 1;         // 1=normal, 2=enraged, 3=critical
+        this.leviathanShotTimer = 0;     // time of last leviathan shot
+        this.leviathanBaseSpeed = this.speed; // preserve original speed for phase scaling
+        this.canShoot = false;           // leviathan manages its own shooting
+        // Override health: 500 + scaling based on wave tier (every 10 waves)
+        const waveTier = Math.max(1, Math.floor(level / 10));
+        const levHealth = Math.ceil((500 + (waveTier - 1) * 200) * diff.enemyHealth);
+        this.health = levHealth;
+        this.maxHealth = levHealth;
+        this.hpMax = levHealth; // for boss bar compatibility
+        this.baseDamage = BASE.ENEMY_DAMAGE * diff.enemyDamage * 1.8;
+      }
+
       this.animPhase = Math.random() * Math.PI * 2;
       this.hitFlash = 0;
     }
@@ -4689,7 +5355,575 @@
           ctx.fill();
           ctx.globalAlpha = 1;
         }
+      }  // end swarmer draw
+      if (this.kind === 'sniper') {
+        // SPRITE-STYLE TEAL SNIPER - Long-range railgun platform
+        // Narrow, elongated design with a prominent barrel
+        const outlineColor = '#000000';
+        const isAiming = this.sniperPhase === 'aiming';
+        const aimGlow = isAiming ? (Math.sin(performance.now() / 80) * 0.3 + 0.7) : 0;
+
+        // Draw laser telegraph BEFORE rotating with the ship (world space)
+        if (isAiming && player) {
+          ctx.save();
+          ctx.rotate(-this.rot); // undo ship rotation — draw in world-aligned space
+          const aimDx = Math.cos(this.sniperAimAngle);
+          const aimDy = Math.sin(this.sniperAimAngle);
+          const laserLen = 900;
+          const alpha = this.sniperLaserAlpha * (0.5 + aimGlow * 0.5);
+          // Outer glow
+          ctx.save();
+          ctx.globalAlpha = alpha * 0.35;
+          ctx.strokeStyle = '#00ffcc';
+          ctx.lineWidth = 8;
+          ctx.shadowColor = '#00ffcc';
+          ctx.shadowBlur = 18;
+          ctx.beginPath();
+          ctx.moveTo(this.size * 0.9 * Math.cos(this.sniperAimAngle - this.rot + 0),
+                     this.size * 0.9 * Math.sin(this.sniperAimAngle - this.rot + 0));
+          ctx.lineTo(aimDx * laserLen, aimDy * laserLen);
+          ctx.stroke();
+          ctx.restore();
+          // Core beam
+          ctx.save();
+          ctx.globalAlpha = alpha * 0.9;
+          ctx.strokeStyle = '#ccfff6';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(this.size * 0.9 * Math.cos(this.sniperAimAngle - this.rot),
+                     this.size * 0.9 * Math.sin(this.sniperAimAngle - this.rot));
+          ctx.lineTo(aimDx * laserLen, aimDy * laserLen);
+          ctx.stroke();
+          ctx.restore();
+          ctx.restore();
+        }
+
+        // Main elongated body
+        ctx.fillStyle = damaged ? '#0e7490' : '#0891b2';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(this.size * 1.8, 0);           // nose tip
+        ctx.lineTo(this.size * 1.3, -this.size * 0.3);
+        ctx.lineTo(this.size * 0.6, -this.size * 0.55);
+        ctx.lineTo(-this.size * 0.5, -this.size * 0.55);
+        ctx.lineTo(-this.size * 0.9, -this.size * 0.3);
+        ctx.lineTo(-this.size * 1.0, 0);
+        ctx.lineTo(-this.size * 0.9, this.size * 0.3);
+        ctx.lineTo(-this.size * 0.5, this.size * 0.55);
+        ctx.lineTo(this.size * 0.6, this.size * 0.55);
+        ctx.lineTo(this.size * 1.3, this.size * 0.3);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Railgun barrel — the defining visual feature
+        ctx.fillStyle = '#1e293b';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(this.size * 1.8, -this.size * 0.1);
+        ctx.lineTo(this.size * 2.6, -this.size * 0.07);
+        ctx.lineTo(this.size * 2.6, this.size * 0.07);
+        ctx.lineTo(this.size * 1.8, this.size * 0.1);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        // Barrel tip flash when aiming
+        if (isAiming) {
+          ctx.save();
+          ctx.globalAlpha = aimGlow * 0.9;
+          ctx.fillStyle = '#00ffcc';
+          ctx.shadowColor = '#00ffcc';
+          ctx.shadowBlur = 14;
+          ctx.beginPath();
+          ctx.arc(this.size * 2.6, 0, this.size * 0.15, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        // Inner hull panel — darker teal
+        ctx.fillStyle = damaged ? '#155e75' : '#0e7490';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(this.size * 1.4, 0);
+        ctx.lineTo(this.size * 1.0, -this.size * 0.35);
+        ctx.lineTo(-this.size * 0.3, -this.size * 0.4);
+        ctx.lineTo(-this.size * 0.7, 0);
+        ctx.lineTo(-this.size * 0.3, this.size * 0.4);
+        ctx.lineTo(this.size * 1.0, this.size * 0.35);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Cockpit canopy — forward-facing visor
+        ctx.fillStyle = isAiming ? '#00ffcc' : '#38bdf8';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(this.size * 0.9, 0, this.size * 0.28, this.size * 0.18, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#7dd3fc';
+        ctx.beginPath();
+        ctx.ellipse(this.size * 0.95, -this.size * 0.07, this.size * 0.1, this.size * 0.07, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Side sensor wings (small stabilizers)
+        ctx.fillStyle = '#164e63';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
+        // Top fin
+        ctx.beginPath();
+        ctx.moveTo(this.size * 0.3, -this.size * 0.55);
+        ctx.lineTo(this.size * 0.5, -this.size * 0.85);
+        ctx.lineTo(-this.size * 0.1, -this.size * 0.85);
+        ctx.lineTo(-this.size * 0.2, -this.size * 0.55);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        // Bottom fin
+        ctx.beginPath();
+        ctx.moveTo(this.size * 0.3, this.size * 0.55);
+        ctx.lineTo(this.size * 0.5, this.size * 0.85);
+        ctx.lineTo(-this.size * 0.1, this.size * 0.85);
+        ctx.lineTo(-this.size * 0.2, this.size * 0.55);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Panel lines
+        ctx.strokeStyle = '#083344';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(this.size * 1.2, 0);
+        ctx.lineTo(-this.size * 0.5, 0);
+        ctx.moveTo(this.size * 0.6, -this.size * 0.4);
+        ctx.lineTo(this.size * 0.6, this.size * 0.4);
+        ctx.stroke();
+
+        // Engine thrusters
+        const thrusterPulse = Math.sin(performance.now() / 110) * 0.2 + 0.8;
+        ctx.save();
+        ctx.globalAlpha = thrusterPulse;
+        ctx.fillStyle = '#22d3ee';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 0.95, -this.size * 0.22, this.size * 0.13, this.size * 0.09, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 0.95, this.size * 0.22, this.size * 0.13, this.size * 0.09, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
       }
+
+      // ── PHANTOM DRAW ──────────────────────────────────────────────────────
+      if (this.kind === 'phantom') {
+        const phAlpha = this.phantomAlpha ?? 1;
+        const phased  = this.phantomInvulnerable;
+        const t = performance.now();
+        const ripple = Math.sin(t / 160 + this.animPhase) * 0.08 + 1;
+
+        // When fully phased show a faint distortion ring instead of the ship
+        if (phased && phAlpha < 0.12) {
+          ctx.save();
+          ctx.globalAlpha = 0.22 + Math.sin(t / 220) * 0.1;
+          ctx.strokeStyle = '#c084fc';
+          ctx.lineWidth = 2;
+          ctx.shadowColor = '#a855f7';
+          ctx.shadowBlur = 14;
+          ctx.beginPath();
+          ctx.arc(0, 0, this.size * 1.3 * ripple, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        } else {
+          ctx.globalAlpha = phAlpha;
+
+          // Outer phase shimmer ring
+          if (phAlpha < 0.85) {
+            ctx.save();
+            ctx.globalAlpha = (1 - phAlpha) * 0.55;
+            ctx.strokeStyle = '#c084fc';
+            ctx.lineWidth = 3;
+            ctx.shadowColor = '#a855f7';
+            ctx.shadowBlur = 20;
+            ctx.beginPath();
+            ctx.arc(0, 0, this.size * (1.6 + (1 - phAlpha) * 0.8) * ripple, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+          }
+
+          // Main body — angular diamond silhouette
+          const baseColor  = damaged ? '#6b21a8' : '#9333ea';
+          const innerColor = damaged ? '#581c87' : '#7e22ce';
+          ctx.fillStyle = baseColor;
+          ctx.strokeStyle = '#000';
+          ctx.lineWidth = 3;
+          ctx.shadowColor = '#c084fc';
+          ctx.shadowBlur   = phased ? 0 : 16;
+          ctx.beginPath();
+          ctx.moveTo( this.size * 1.4,  0);
+          ctx.lineTo( this.size * 0.4, -this.size * 0.9);
+          ctx.lineTo(-this.size * 0.6, -this.size * 0.6);
+          ctx.lineTo(-this.size * 1.1,  0);
+          ctx.lineTo(-this.size * 0.6,  this.size * 0.6);
+          ctx.lineTo( this.size * 0.4,  this.size * 0.9);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+
+          // Inner hull
+          ctx.fillStyle = innerColor;
+          ctx.strokeStyle = '#000';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo( this.size * 1.0,  0);
+          ctx.lineTo( this.size * 0.3, -this.size * 0.5);
+          ctx.lineTo(-this.size * 0.5,  0);
+          ctx.lineTo( this.size * 0.3,  this.size * 0.5);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+
+          // Core gem
+          const gemGlow = Math.sin(t / 140 + this.animPhase) * 0.4 + 0.6;
+          ctx.save();
+          ctx.globalAlpha *= gemGlow;
+          ctx.fillStyle = '#e879f9';
+          ctx.shadowColor = '#f0abfc';
+          ctx.shadowBlur = 12;
+          ctx.beginPath();
+          ctx.ellipse(this.size * 0.1, 0, this.size * 0.22, this.size * 0.22, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+
+          // Wing-tip accents
+          ctx.strokeStyle = '#d946ef';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(this.size * 0.4, -this.size * 0.9);
+          ctx.lineTo(this.size * 0.6, -this.size * 0.55);
+          ctx.moveTo(this.size * 0.4,  this.size * 0.9);
+          ctx.lineTo(this.size * 0.6,  this.size * 0.55);
+          ctx.stroke();
+
+          ctx.globalAlpha = 1;
+        }
+      }
+      // ── END PHANTOM DRAW ──────────────────────────────────────────────────
+
+      // ── SPLITTER DRAW ─────────────────────────────────────────────────────
+      if (this.kind === 'splitter') {
+        const t = performance.now();
+        const baseColor  = this.isElite ? '#fbbf24' : (damaged ? '#ea6a0a' : '#f97316');
+        const innerColor = this.isElite ? '#f59e0b' : '#c2410c';
+        const glowColor  = this.isElite ? '#fde68a' : '#fed7aa';
+
+        ctx.shadowColor = glowColor;
+        ctx.shadowBlur  = 18;
+        ctx.fillStyle   = baseColor;
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth   = 3;
+
+        // Hexagon body (6 vertices)
+        const hexR = this.size;
+        ctx.beginPath();
+        for (let v = 0; v < 6; v++) {
+          const a = (Math.PI / 3) * v;
+          if (v === 0) ctx.moveTo(Math.cos(a) * hexR, Math.sin(a) * hexR);
+          else         ctx.lineTo(Math.cos(a) * hexR, Math.sin(a) * hexR);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Inner hex
+        ctx.fillStyle   = innerColor;
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth   = 1.5;
+        const hexR2 = this.size * 0.55;
+        ctx.beginPath();
+        for (let v = 0; v < 6; v++) {
+          const a = (Math.PI / 3) * v;
+          if (v === 0) ctx.moveTo(Math.cos(a) * hexR2, Math.sin(a) * hexR2);
+          else         ctx.lineTo(Math.cos(a) * hexR2, Math.sin(a) * hexR2);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // 3 crack lines radiating from center (hinting at split)
+        ctx.strokeStyle = '#fff7ed';
+        ctx.lineWidth   = 1.5;
+        ctx.globalAlpha = 0.7;
+        const crackAngles = [0, Math.PI * 2 / 3, Math.PI * 4 / 3];
+        for (const ca of crackAngles) {
+          const pulseFrac = Math.sin(t / 220 + ca + this.animPhase) * 0.15 + 0.85;
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(Math.cos(ca) * hexR * pulseFrac, Math.sin(ca) * hexR * pulseFrac);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+      }
+      // ── END SPLITTER DRAW ─────────────────────────────────────────────────
+
+      // ── SHARD DRAW ────────────────────────────────────────────────────────
+      if (this.kind === 'shard') {
+        const t = performance.now();
+        const spin = t * 0.004 + this.animPhase;
+
+        ctx.shadowColor = '#fdba74';
+        ctx.shadowBlur  = 10;
+        ctx.fillStyle   = '#fb923c';
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth   = 2;
+
+        // Small spinning diamond
+        ctx.save();
+        ctx.rotate(spin);
+        const sr = this.size;
+        ctx.beginPath();
+        ctx.moveTo(0,   -sr);
+        ctx.lineTo(sr,   0);
+        ctx.lineTo(0,    sr);
+        ctx.lineTo(-sr,  0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
+      // ── END SHARD DRAW ────────────────────────────────────────────────────
+
+      // ── CARRIER DRAW ──────────────────────────────────────────────────────
+      if (this.kind === 'carrier') {
+        const t = performance.now();
+        const baseColor  = this.isElite ? '#818cf8' : (damaged ? '#4338ca' : '#4f46e5');
+        const accentColor = this.isElite ? '#c7d2fe' : '#a5b4fc';
+        const glowColor  = this.isElite ? '#c7d2fe' : '#6366f1';
+
+        ctx.shadowColor = glowColor;
+        ctx.shadowBlur  = 22;
+
+        // Main hull — wide flat diamond / carrier shape
+        ctx.fillStyle   = baseColor;
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth   = 3;
+        ctx.beginPath();
+        ctx.moveTo( this.size * 1.1,  0);               // front nose
+        ctx.lineTo( this.size * 0.3, -this.size * 0.85); // top-front
+        ctx.lineTo(-this.size * 0.85, -this.size * 0.55); // top-rear wing
+        ctx.lineTo(-this.size * 1.0,   0);               // rear center
+        ctx.lineTo(-this.size * 0.85,  this.size * 0.55); // bottom-rear wing
+        ctx.lineTo( this.size * 0.3,   this.size * 0.85); // bottom-front
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Armored center ridge
+        ctx.fillStyle   = accentColor;
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth   = 2;
+        ctx.beginPath();
+        ctx.moveTo( this.size * 0.9,  0);
+        ctx.lineTo( this.size * 0.2, -this.size * 0.35);
+        ctx.lineTo(-this.size * 0.6, -this.size * 0.2);
+        ctx.lineTo(-this.size * 0.6,  this.size * 0.2);
+        ctx.lineTo( this.size * 0.2,  this.size * 0.35);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Drone bay ports — 3 small squares along the rear flank
+        const bayPulse = Math.sin(t / 400) * 0.4 + 0.6;
+        ctx.fillStyle   = `rgba(99,102,241,${bayPulse})`;
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth   = 1.5;
+        const bayOffsets = [-this.size * 0.42, 0, this.size * 0.42];
+        for (const bOff of bayOffsets) {
+          const bx = -this.size * 0.65;
+          const by = bOff;
+          ctx.fillRect(bx - this.size * 0.1, by - this.size * 0.1, this.size * 0.2, this.size * 0.2);
+          ctx.strokeRect(bx - this.size * 0.1, by - this.size * 0.1, this.size * 0.2, this.size * 0.2);
+        }
+
+        // Engine glow — rear thrusters
+        const thrPulse = Math.sin(t / 130) * 0.25 + 0.75;
+        ctx.globalAlpha = thrPulse;
+        ctx.fillStyle   = '#818cf8';
+        ctx.shadowColor = '#6366f1';
+        ctx.shadowBlur  = 14;
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 0.95, -this.size * 0.38, this.size * 0.18, this.size * 0.1, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 0.95,  this.size * 0.38, this.size * 0.18, this.size * 0.1, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      // ── END CARRIER DRAW ──────────────────────────────────────────────────
+
+      // ── BERSERKER DRAW ────────────────────────────────────────────────────
+      if (this.kind === 'berserker') {
+        const enraged = this.enraged;
+        const flash = enraged ? 0.7 + Math.sin(performance.now() / 80) * 0.3 : 1;
+        const baseColor = enraged ? `rgba(220,38,38,${flash})` : '#f97316';
+        const coreColor = enraged ? `rgba(255,100,100,${flash})` : '#fbbf24';
+        
+        // Outer angular hull — aggressive hexagonal shape
+        ctx.strokeStyle = baseColor;
+        ctx.fillStyle = enraged ? `rgba(220,38,38,0.15)` : 'rgba(249,115,22,0.1)';
+        ctx.lineWidth = enraged ? 2.5 : 2;
+        ctx.beginPath();
+        const pts = 6;
+        for (let i = 0; i < pts; i++) {
+          const angle = (i / pts) * Math.PI * 2 - Math.PI / 2;
+          const r = this.size * (i % 2 === 0 ? 1.0 : 0.7);
+          i === 0 ? ctx.moveTo(Math.cos(angle) * r, Math.sin(angle) * r) 
+                  : ctx.lineTo(Math.cos(angle) * r, Math.sin(angle) * r);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        
+        // Inner core
+        const coreGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size * 0.45);
+        coreGrad.addColorStop(0, coreColor);
+        coreGrad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = coreGrad;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size * 0.45, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Enrage sparks
+        if (enraged) {
+          const sparkCount = 4;
+          for (let i = 0; i < sparkCount; i++) {
+            const sa = (performance.now() / 120 + i * Math.PI * 2 / sparkCount);
+            const sr = this.size * 0.8 + Math.sin(performance.now() / 100 + i) * this.size * 0.15;
+            ctx.beginPath();
+            ctx.arc(Math.cos(sa) * sr, Math.sin(sa) * sr, 3, 0, Math.PI * 2);
+            ctx.fillStyle = '#fca5a5';
+            ctx.fill();
+          }
+        }
+      }
+      // ── END BERSERKER DRAW ────────────────────────────────────────────────
+
+      // ── LEVIATHAN DRAW ────────────────────────────────────────────────────
+      if (this.kind === 'leviathan') {
+        const hp = this.health / this.maxHealth;
+        const phase = this.leviathanPhase || 1;
+        const nowMs = performance.now();
+
+        // Color shifts by phase
+        const hullColor   = phase >= 3 ? '#FF2020' : phase >= 2 ? '#cc4400' : '#8B0000';
+        const accentColor = phase >= 3 ? '#FF6060' : phase >= 2 ? '#FF4010' : '#FF2020';
+        const coreAlpha   = phase >= 3
+          ? 0.5 + Math.abs(Math.sin(nowMs / 60)) * 0.5
+          : phase >= 2
+            ? 0.6 + Math.sin(nowMs / 150) * 0.4
+            : 0.5 + Math.sin(nowMs / 300) * 0.25;
+
+        // Outer crimson aura
+        const auraGlow = Math.sin(nowMs / 200) * 0.3 + 0.7;
+        ctx.save();
+        ctx.globalAlpha = 0.35 * auraGlow;
+        ctx.shadowColor = accentColor;
+        ctx.shadowBlur = 50;
+        ctx.fillStyle = hullColor;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size * 1.6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // Large hexagonal hull
+        ctx.strokeStyle = accentColor;
+        ctx.fillStyle = 'rgba(139,0,0,0.18)';
+        ctx.lineWidth = 3;
+        ctx.shadowColor = accentColor;
+        ctx.shadowBlur = 18;
+        ctx.beginPath();
+        const hexPts = 6;
+        for (let i = 0; i < hexPts; i++) {
+          const ang = (i / hexPts) * Math.PI * 2 - Math.PI / 6;
+          const r = this.size * (i % 2 === 0 ? 1.0 : 0.85);
+          i === 0 ? ctx.moveTo(Math.cos(ang) * r, Math.sin(ang) * r)
+                  : ctx.lineTo(Math.cos(ang) * r, Math.sin(ang) * r);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Inner angular detail ring
+        ctx.strokeStyle = hullColor;
+        ctx.lineWidth = 1.5;
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        for (let i = 0; i < hexPts; i++) {
+          const ang = (i / hexPts) * Math.PI * 2 - Math.PI / 6;
+          const r = this.size * 0.6;
+          i === 0 ? ctx.moveTo(Math.cos(ang) * r, Math.sin(ang) * r)
+                  : ctx.lineTo(Math.cos(ang) * r, Math.sin(ang) * r);
+        }
+        ctx.closePath();
+        ctx.stroke();
+
+        // Rotating outer ring of 6 weapon ports
+        const ringAngle = nowMs / 1800;
+        for (let i = 0; i < 6; i++) {
+          const portAng = ringAngle + (i / 6) * Math.PI * 2;
+          const portR = this.size * 1.15;
+          const px = Math.cos(portAng) * portR;
+          const py = Math.sin(portAng) * portR;
+          ctx.beginPath();
+          ctx.arc(px, py, 5, 0, Math.PI * 2);
+          ctx.fillStyle = accentColor;
+          ctx.shadowColor = accentColor;
+          ctx.shadowBlur = 12;
+          ctx.fill();
+          // Port connector line
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(px * 0.85, py * 0.85);
+          ctx.strokeStyle = 'rgba(255,32,32,0.25)';
+          ctx.lineWidth = 1;
+          ctx.shadowBlur = 0;
+          ctx.stroke();
+        }
+
+        // Pulsing core
+        const coreGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size * 0.38);
+        coreGrad.addColorStop(0, `rgba(255,220,220,${coreAlpha})`);
+        coreGrad.addColorStop(0.4, `rgba(255,32,32,${coreAlpha * 0.8})`);
+        coreGrad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = coreGrad;
+        ctx.shadowColor = '#FF2020';
+        ctx.shadowBlur = 25;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size * 0.38, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Phase 3 rapid flash overlay
+        if (phase >= 3) {
+          const flashAlpha = Math.abs(Math.sin(nowMs / 120)) * 0.3;
+          ctx.save();
+          ctx.globalAlpha = flashAlpha;
+          ctx.fillStyle = '#FF2020';
+          ctx.beginPath();
+          ctx.arc(0, 0, this.size, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        ctx.shadowBlur = 0;
+      }
+      // ── END LEVIATHAN DRAW ────────────────────────────────────────────────────
+
       ctx.shadowBlur = 0;
       ctx.restore();
     }
@@ -4824,14 +6058,263 @@
             this.swoopTimer = 0;
           }
         }
+      } else if (this.kind === 'sniper') {
+        // Sniper: keep preferred distance, strafe sideways, and telegraph shots
+        const preferredMin = 220;
+        const preferredMax = 380;
+        const now = performance.now();
+
+        if (this.sniperPhase === 'idle') {
+          // Strafe to maintain preferred distance
+          if (dist < preferredMin) {
+            // Too close — back away
+            movementX = -(dx / dist);
+            movementY = -(dy / dist);
+          } else if (dist > preferredMax) {
+            // Too far — close in slowly
+            movementX = (dx / dist) * 0.5;
+            movementY = (dy / dist) * 0.5;
+          } else {
+            // At preferred range — strafe perpendicular
+            if (!this.strafeDir) this.strafeDir = Math.random() < 0.5 ? 1 : -1;
+            movementX = (-dy / dist) * this.strafeDir * 0.8;
+            movementY = (dx / dist) * this.strafeDir * 0.8;
+            // Occasionally flip strafe direction
+            if (!this.strafeFlipTimer) this.strafeFlipTimer = 0;
+            this.strafeFlipTimer += dt;
+            if (this.strafeFlipTimer > 1800) {
+              this.strafeDir *= -1;
+              this.strafeFlipTimer = 0;
+            }
+          }
+          // Transition to aiming when in range and cooldown expired
+          this.sniperTimer += dt;
+          if (this.sniperTimer >= this.sniperCooldown && dist < preferredMax + 60 && player) {
+            this.sniperPhase = 'aiming';
+            this.sniperTimer = 0;
+            this.sniperLaserAlpha = 0;
+            // Lock aim angle at the player's current position
+            this.sniperAimAngle = Math.atan2(player.y - this.y, player.x - this.x);
+          }
+        } else if (this.sniperPhase === 'aiming') {
+          // Hold position — minimal movement during aim
+          movementX *= 0.08;
+          movementY *= 0.08;
+          this.sniperTimer += dt;
+          // Fade in the laser telegraph
+          this.sniperLaserAlpha = Math.min(1, this.sniperTimer / (this.sniperAimDuration * 0.5));
+          if (this.sniperTimer >= this.sniperAimDuration && player) {
+            // FIRE the sniper shot
+            const shotAngle = this.sniperAimAngle;
+            const vel = { x: Math.cos(shotAngle), y: Math.sin(shotAngle) };
+            const sniperDamage = this.baseDamage * 1.5;
+            const sniperSpeed = BASE.BULLET_SPEED * 2.2;
+            bullets.push(new Bullet(this.x, this.y, vel, sniperDamage, '#00ffcc', sniperSpeed, BASE.BULLET_SIZE * 1.8, 0, true));
+            addParticles('muzzle', this.x, this.y, shotAngle, 6);
+            addParticles('sparks', this.x, this.y, shotAngle, 4);
+            // Subtle recoil shake
+            shakeScreen(3, 80);
+            this.sniperPhase = 'cooldown';
+            this.sniperTimer = 0;
+            this.sniperLaserAlpha = 0;
+          }
+        } else if (this.sniperPhase === 'cooldown') {
+          // Move during cooldown — reposition
+          if (dist < preferredMin) {
+            movementX = -(dx / dist);
+            movementY = -(dy / dist);
+          } else if (dist > preferredMax) {
+            movementX = (dx / dist) * 0.4;
+            movementY = (dy / dist) * 0.4;
+          } else {
+            movementX *= 0.2;
+            movementY *= 0.2;
+          }
+          this.sniperTimer += dt;
+          if (this.sniperTimer >= this.sniperCooldown * 0.35) {
+            // Short cooldown before ready to aim again
+            this.sniperPhase = 'idle';
+            this.sniperTimer = 0;
+          }
+        }
+      } else if (this.kind === 'phantom') {
+        // Phantom: phase cycle — solid → phasing_out → phased → phasing_in → solid
+        this.phantomTimer += dt;
+        switch (this.phantomPhase) {
+          case 'solid':
+            // Approach player aggressively while solid
+            movementX = (dx / dist) * 1.15;
+            movementY = (dy / dist) * 1.15;
+            this.phantomAlpha = 1;
+            this.phantomInvulnerable = false;
+            if (this.phantomTimer >= this.phantomSolidDuration) {
+              this.phantomPhase = 'phasing_out';
+              this.phantomTimer = 0;
+              addLogEntry('👻 Phantom phasing!', '#c084fc');
+            }
+            break;
+          case 'phasing_out':
+            // Fade out + speed burst — dashes to flank position
+            {
+              const t = Math.min(1, this.phantomTimer / this.phantomTransition);
+              this.phantomAlpha = 1 - t;
+              // Faster during transition — dash sideways
+              movementX = (-dy / dist) * 1.8 + (dx / dist) * 0.4;
+              movementY = (dx / dist)  * 1.8 + (dy / dist) * 0.4;
+              if (t >= 1) {
+                this.phantomPhase = 'phased';
+                this.phantomTimer = 0;
+                this.phantomInvulnerable = true;
+                this.phantomAlpha = 0;
+              }
+            }
+            break;
+          case 'phased':
+            // Invisible — circle rapidly around player
+            {
+              if (!this.phantomCircleDir) this.phantomCircleDir = Math.random() < 0.5 ? 1 : -1;
+              movementX = (-dy / dist) * this.phantomCircleDir * 1.6 + (dx / dist) * 0.3;
+              movementY = (dx  / dist) * this.phantomCircleDir * 1.6 + (dy / dist) * 0.3;
+              this.phantomAlpha = 0;
+              if (this.phantomTimer >= this.phantomPhasedDuration) {
+                this.phantomPhase = 'phasing_in';
+                this.phantomTimer = 0;
+              }
+            }
+            break;
+          case 'phasing_in':
+            // Rematerialise — snap toward player
+            {
+              const t = Math.min(1, this.phantomTimer / this.phantomTransition);
+              this.phantomAlpha = t;
+              movementX = (dx / dist) * 1.3;
+              movementY = (dy / dist) * 1.3;
+              if (t >= 1) {
+                this.phantomPhase = 'solid';
+                this.phantomTimer = 0;
+                this.phantomInvulnerable = false;
+                this.phantomAlpha = 1;
+                addParticles('ring', this.x, this.y, 0, 1, '#c084fc');
+              }
+            }
+            break;
+        }
+      } else if (this.kind === 'berserker') {
+        // Trigger enrage below 50% HP
+        if (!this.enraged && this.health <= this.maxHealth * 0.5) {
+          this.enraged = true;
+          this.speed *= 2.2; // surge of speed on enrage
+        }
+        if (player) {
+          if (this.enraged) {
+            // Sprint directly at player
+            const dx = player.x - this.x;
+            const dy = player.y - this.y;
+            const d = Math.hypot(dx, dy) || 1;
+            this.vx = (dx / d) * this.speed * 1.1;
+            this.vy = (dy / d) * this.speed * 1.1;
+          } else {
+            // Slow erratic approach — circle then lunge
+            const dx = player.x - this.x;
+            const dy = player.y - this.y;
+            const d = Math.hypot(dx, dy) || 1;
+            const circleAngle = Math.atan2(dy, dx) + 0.4;
+            this.vx += (Math.cos(circleAngle) * this.speed * 0.08);
+            this.vy += (Math.sin(circleAngle) * this.speed * 0.08);
+            const maxV = this.speed * 1.2;
+            const cv = Math.hypot(this.vx, this.vy);
+            if (cv > maxV) { this.vx = (this.vx / cv) * maxV; this.vy = (this.vy / cv) * maxV; }
+          }
+          movementX = (this.vx / (this.speed || 1));
+          movementY = (this.vy / (this.speed || 1));
+        }
+      } else if (this.kind === 'leviathan') {
+        // Update phase based on HP
+        const hpPct = this.health / this.maxHealth;
+        const prevPhase = this.leviathanPhase;
+        if (hpPct <= 0.33) {
+          this.leviathanPhase = 3;
+        } else if (hpPct <= 0.66) {
+          this.leviathanPhase = 2;
+        } else {
+          this.leviathanPhase = 1;
+        }
+        // Speed escalation on phase change
+        if (this.leviathanPhase !== prevPhase) {
+          const base = this.leviathanBaseSpeed || this.speed;
+          if (this.leviathanPhase === 2) {
+            this.speed = base * (0.7 / 0.4); // phase 2 speed = 0.7
+            addLogEntry('⚠️ LEVIATHAN ENRAGES!', '#ef4444');
+            shakeScreen(6, 300);
+          } else if (this.leviathanPhase === 3) {
+            this.speed = base * (1.0 / 0.4); // phase 3 speed = 1.0
+            addLogEntry('☠️ LEVIATHAN CRITICAL — FULL ASSAULT!', '#FF2020');
+            shakeScreen(10, 400);
+          }
+        }
+        // Slow steady approach toward player
+        movementX = dx / dist;
+        movementY = dy / dist;
+
+        // Leviathan shooting — managed here instead of via canShoot
+        const lNow = performance.now();
+        const shotCd = this.leviathanPhase >= 3 ? 1500 : 2500;
+        if (player && lNow - (this.leviathanShotTimer || 0) > shotCd) {
+          this.leviathanShotTimer = lNow;
+          this.leviathanFirePhase(this.leviathanPhase);
+        }
       }
-      
+
+      // Splitter: straight tracking toward player (no special movement)
+      // (movementX/movementY already set to dx/dist, dy/dist — nothing to override)
+
+      // Shard: fast erratic wobble charge at player
+      if (this.kind === 'shard') {
+        if (!this.shardAngleOffset) this.shardAngleOffset = (Math.random() - 0.5) * 0.8;
+        movementX = (dx / dist) + Math.sin(Date.now() * 0.005 + this.shardAngleOffset) * 0.3;
+        movementY = (dy / dist) + Math.cos(Date.now() * 0.005 + this.shardAngleOffset) * 0.3;
+      }
+
+      // Carrier: slow steady approach, periodically launches drone escorts
+      if (this.kind === 'carrier') {
+        // Gentle drift — slightly slower than default, maintains deliberate presence
+        movementX = dx / dist * 0.75;
+        movementY = dy / dist * 0.75;
+
+        // Drone launch logic
+        const now = performance.now();
+        if (now - this.lastDroneSpawn > this.droneSpawnInterval) {
+          this.lastDroneSpawn = now;
+          // Count drones nearby — don't exceed escort cap
+          const nearbyDrones = enemies.filter(e =>
+            e !== this && e.kind === 'drone' && Math.hypot(e.x - this.x, e.y - this.y) < 350
+          ).length;
+          if (nearbyDrones < this.maxEscorts) {
+            const launchAngle = Math.random() * Math.PI * 2;
+            const launchDist  = this.size + 20;
+            enemies.push(new Enemy(
+              this.x + Math.cos(launchAngle) * launchDist,
+              this.y + Math.sin(launchAngle) * launchDist,
+              'drone', false, false
+            ));
+            addLogEntry('📡 Carrier launched a drone!', '#6366f1');
+          }
+        }
+      }
+
       const nx = movementX + ax;
       const ny = movementY + ay;
       const nm = Math.hypot(nx, ny) || 1;
       this.x += (nx / nm) * this.speed * (dt / 16.67);
       this.y += (ny / nm) * this.speed * (dt / 16.67);
-      this.rot = Math.atan2(ny, nx);
+      // Snipers lock rotation to aim angle during telegraph; otherwise face player
+      if (this.kind === 'sniper' && (this.sniperPhase === 'aiming' || this.sniperPhase === 'cooldown')) {
+        this.rot = this.sniperAimAngle;
+      } else if (this.kind === 'sniper' && player) {
+        this.rot = Math.atan2(player.y - this.y, player.x - this.x);
+      } else {
+        this.rot = Math.atan2(ny, nx);
+      }
       
       // Ranged attacks for elite and boss enemies
       const now = performance.now();
@@ -4908,6 +6391,48 @@
       }
     }
     
+    leviathanFirePhase(phase) {
+      if (!player) return;
+      const dx = player.x - this.x;
+      const dy = player.y - this.y;
+      const baseAngle = Math.atan2(dy, dx);
+      const damage = this.baseDamage * ADAPTIVE_CONSTANTS.RANGED_DAMAGE_MULT * 1.2;
+      const speed = BASE.BULLET_SPEED * 0.75;
+      const size = BASE.BULLET_SIZE * 1.8;
+      const color = '#FF2020';
+
+      if (phase >= 3) {
+        // Phase 3: 8 bullets in full circle
+        for (let i = 0; i < 8; i++) {
+          const ang = (i / 8) * Math.PI * 2;
+          const vel = { x: Math.cos(ang), y: Math.sin(ang) };
+          bullets.push(new Bullet(this.x, this.y, vel, damage, color, speed, size, 0, true));
+        }
+        addParticles('nova', this.x, this.y, 0, 16);
+        shakeScreen(6, 200);
+        addLogEntry('☠️ Leviathan full barrage!', '#FF2020');
+      } else if (phase >= 2) {
+        // Phase 2: 6 bullets in wide spread
+        const spread = Math.PI * 0.6;
+        for (let i = 0; i < 6; i++) {
+          const ang = baseAngle - spread / 2 + (i / 5) * spread;
+          const vel = { x: Math.cos(ang), y: Math.sin(ang) };
+          bullets.push(new Bullet(this.x, this.y, vel, damage, color, speed, size, 0, true));
+        }
+        addParticles('muzzle', this.x, this.y, baseAngle, 8);
+        addLogEntry('⚠️ Leviathan wide volley!', '#FF4010');
+      } else {
+        // Phase 1: 3 bullets in spread cone
+        const spread = Math.PI * 0.3;
+        for (let i = 0; i < 3; i++) {
+          const ang = baseAngle - spread / 2 + (i / 2) * spread;
+          const vel = { x: Math.cos(ang), y: Math.sin(ang) };
+          bullets.push(new Bullet(this.x, this.y, vel, damage, color, speed, size, 0, true));
+        }
+        addParticles('muzzle', this.x, this.y, baseAngle, 5);
+      }
+    }
+
     // Get the actual damage this enemy deals (with penetration calculations)
     getDamage() {
       return this.baseDamage || BASE.ENEMY_DAMAGE;
@@ -5036,7 +6561,31 @@
       
       // Determine enemy type
       const roll = Math.random();
-      const kind = roll < 0.15 ? 'heavy' : roll < 0.35 ? 'swarmer' : roll < 0.55 ? 'chaser' : 'drone';
+      // Snipers unlock at level 3, chance scales up to 15% by level 10
+      const sniperChance  = level >= 3 ? Math.min(0.15, (level - 2) * 0.018) : 0;
+      // Phantoms unlock at level 5, chance scales up to 12% by level 12
+      const phantomChance = level >= 5 ? Math.min(0.12, (level - 4) * 0.017) : 0;
+      // Splitters unlock at level 7, chance scales up to 10% by level 13
+      const splitterChance = level >= 7 ? Math.min(0.10, (level - 6) * 0.015) : 0;
+      // Carriers unlock at level 8 — slow armored hulk that launches drone escorts
+      const carrierChance = level >= 8 ? Math.min(0.08, (level - 7) * 0.012) : 0;
+      // Berserkers unlock at level 9 — slow until enraged, then sprint directly at player
+      const berserkerChance = level >= 9 ? Math.min(0.09, (level - 8) * 0.014) : 0;
+      let kind;
+      if (roll < sniperChance) {
+        kind = 'sniper';
+      } else if (roll < sniperChance + phantomChance) {
+        kind = 'phantom';
+      } else if (roll < sniperChance + phantomChance + splitterChance) {
+        kind = 'splitter';
+      } else if (roll < sniperChance + phantomChance + splitterChance + carrierChance) {
+        kind = 'carrier';
+      } else if (roll < sniperChance + phantomChance + splitterChance + carrierChance + berserkerChance) {
+        kind = 'berserker';
+      } else {
+        const r2 = Math.random();
+        kind = r2 < 0.15 ? 'heavy' : r2 < 0.35 ? 'swarmer' : r2 < 0.55 ? 'chaser' : 'drone';
+      }
       
       // Determine if enemy is elite based on adaptive difficulty
       let eliteChance = adaptive.eliteChance;
@@ -5140,7 +6689,16 @@
       this.ultimate = currentUltimateSystem();
       currentShip = getShipTemplate(Save.data.selectedShip);
       const template = currentShip || SHIP_TEMPLATES[0];
-      this.shipColors = template.colors || {};
+      // Apply equipped skin colors if available (overrides template defaults)
+      const _equippedSkin = typeof window.getEquippedSkin === 'function'
+        ? window.getEquippedSkin(template.id)
+        : null;
+      if (_equippedSkin && _equippedSkin.id !== template.id + '_default') {
+        this.shipColors = { ...template.colors, ..._equippedSkin.colors };
+        currentShip = { ...currentShip, colors: this.shipColors };
+      } else {
+        this.shipColors = template.colors || {};
+      }
       const prevHealthRatio = preserveVitals && this.hpMax ? this.health / this.hpMax : 1;
       const prevAmmoRatio = preserveVitals && this.ammoMax ? this.ammo / this.ammoMax : 1;
       const prevSecondaryRatio = preserveVitals && this.secondaryCapacity ? this.secondaryAmmo / this.secondaryCapacity : 1;
@@ -5185,16 +6743,16 @@
       // Fire rate: diminishing returns on very fast fire rates
       const fireBase = clamp(140 - L('firerate') * 18 * effectiveness, 55, 999) * shipStat('fireRate', 1);
       
-      // HP: full benefit (survivability shouldn't be nerfed too hard)
-      const hpBase = (BASE.PLAYER_HEALTH + L('shield') * 22) * shipStat('hp', 1);
+      // HP: full benefit (survivability shouldn't be nerfed too hard) + perk bonus
+      const hpBase = (BASE.PLAYER_HEALTH + L('shield') * 22) * shipStat('hp', 1) + perkMultipliers.maxHp;
       
       // Pickup and ammo regen: slight effectiveness reduction
       const pickupBase = (26 + L('magnet') * 14 * effectiveness) * shipStat('pickup', 1);
-      const ammoRegenBase = clamp((BASE.AMMO_REGEN_MS - L('ammo') * 120 * effectiveness) * shipStat('ammoRegen', 1), 280, 2200);
+      const ammoRegenBase = clamp((BASE.AMMO_REGEN_MS - L('ammo') * 120 * effectiveness) * shipStat('ammoRegen', 1) * perkMultipliers.ammoRegenMult, 180, 2200);
       
-      // Speed bonuses: keep full benefit for mobility
-      const baseSpeed = BASE.PLAYER_SPEED * shipStat('speed', 1);
-      const boostSpeed = (BASE.PLAYER_BOOST_SPEED + L('boost') * 0.9) * shipStat('boost', shipStat('speed', 1));
+      // Speed bonuses: keep full benefit for mobility (+ perk multiplier)
+      const baseSpeed = BASE.PLAYER_SPEED * shipStat('speed', 1) * perkMultipliers.speed;
+      const boostSpeed = (BASE.PLAYER_BOOST_SPEED + L('boost') * 0.9) * shipStat('boost', shipStat('speed', 1)) * perkMultipliers.speed;
       
       // Damage and regen: apply effectiveness modifier
       const damageMultiplier = (1 + L('damage') * 0.6 * effectiveness);
@@ -5205,8 +6763,8 @@
       const repulseEffective = repulseBase * adaptive.repulseEffectiveness;
       
       return {
-        fireCD: clamp(fireBase * (weaponStats.cd || 1), 35, 999),
-        dmg: damageMultiplier * shipStat('damage', 1) * (weaponStats.damage || 1),
+        fireCD: clamp(fireBase * (weaponStats.cd || 1) * perkMultipliers.fireRate, 35, 999),
+        dmg: damageMultiplier * shipStat('damage', 1) * (weaponStats.damage || 1) * perkMultipliers.damage,
         multishot: 1 + L('multi') + (weaponStats.shots || 0),
         hpMax: hpBase,
         hpRegen5: regenAmount,
@@ -5437,7 +6995,8 @@
       const hasAim = input.isAiming && (Math.abs(input.aimX) > 0.01 || Math.abs(input.aimY) > 0.01);
       if (hasAim) {
         this.lookAngle = Math.atan2(input.aimY, input.aimX);
-        if (input.fireHeld && this.ammo >= this.ammoPerShot && performance.now() - lastShotTime > stats.fireCD) {
+        const effectiveFireCD = PowerUps.isRapidActive(Date.now()) ? stats.fireCD * 0.5 : stats.fireCD;
+        if (input.fireHeld && this.ammo >= this.ammoPerShot && performance.now() - lastShotTime > effectiveFireCD) {
           this.shoot(stats);
           lastShotTime = performance.now();
         }
@@ -5523,10 +7082,18 @@
         const vel = { x: Math.cos(angle), y: Math.sin(angle) };
         const sx = this.x + Math.cos(angle) * this.size * 0.9;
         const sy = this.y + Math.sin(angle) * this.size * 0.9;
-        const speed = BASE.BULLET_SPEED * (weaponStats.bulletSpeed || 1);
+        const speed = BASE.BULLET_SPEED * (weaponStats.bulletSpeed || 1) * perkMultipliers.bulletSpeed;
         const size = BASE.BULLET_SIZE * (weaponStats.bulletSize || 1);
-        const pierce = weaponStats.pierce || 0;
-        bullets.push(new Bullet(sx, sy, vel, stats.dmg, color, speed, size, pierce));
+        const pierce = (weaponStats.pierce || 0) + perkMultipliers.piercePlus;
+        const dmg = stats.dmg * perkMultipliers.damage;
+        bullets.push(new Bullet(sx, sy, vel, dmg, color, speed, size, pierce));
+        runShotsFired++;
+        // Twin Shot perk: fire a second bullet with slight angle offset
+        if (perkMultipliers.twinShot > 0 && Math.random() < perkMultipliers.twinShot) {
+          const twinAngle = angle + (Math.random() < 0.5 ? 0.08 : -0.08);
+          const twinVel = { x: Math.cos(twinAngle), y: Math.sin(twinAngle) };
+          bullets.push(new Bullet(sx, sy, twinVel, dmg, color, speed, size, pierce));
+        }
       }
       addParticles('muzzle', this.x, this.y, this.lookAngle, 6);
       
@@ -5722,10 +7289,13 @@
         }
       }
       if (amount <= 0) return;
+      // Reinforced Hull perk: reduce damage taken
+      amount *= perkMultipliers.damageTakenMult;
+      if (amount <= 0) return;
       tookDamageThisLevel = true;
       this.health -= amount;
       this.flash = true;
-      this.invEnd = now + BASE.INVULN_MS;
+      this.invEnd = now + BASE.INVULN_MS + perkMultipliers.invulnBonus;
       shakeScreen(4, 120);
       
       // Play player damage sound
@@ -7120,13 +8690,31 @@
     // Check if this was the boss
     const wasBoss = enemy.isBoss;
     const wasElite = enemy.isElite;
-    
+    const wasLeviathan = enemy.kind === 'leviathan';
+
     // Phase 1: Add to combo system
     addComboKill();
-    
-    // Drop more coins for elite/boss
+
+    // Drop more coins for elite/boss (+ Salvage perk bonus drops)
     dropCoin(enemy.x, enemy.y);
-    if (wasElite) {
+    if (perkMultipliers.coinBonus > 1 && Math.random() < (perkMultipliers.coinBonus - 1)) {
+      dropCoin(enemy.x + rand(-15, 15), enemy.y + rand(-15, 15));
+    }
+    if (wasLeviathan) {
+      // Leviathan drops 3-5 credit pickups + big explosion
+      const dropCount = 3 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < dropCount; i++) {
+        dropCoin(enemy.x + rand(-50, 50), enemy.y + rand(-50, 50));
+      }
+      dropSupply(enemy.x, enemy.y);
+      dropSupply(enemy.x + rand(-40, 40), enemy.y + rand(-40, 40));
+      Save.addCredits(250);
+      leviathanKilledThisRun++;
+      // Unlock LEVIATHAN SLAYER achievement
+      Auth.playerProfile.leviathanKills = (Auth.playerProfile.leviathanKills || 0) + 1;
+      Auth.saveProfile();
+      Auth.checkAchievements();
+    } else if (wasElite) {
       dropCoin(enemy.x + rand(-20, 20), enemy.y + rand(-20, 20));
       dropCoin(enemy.x + rand(-20, 20), enemy.y + rand(-20, 20));
     }
@@ -7137,16 +8725,22 @@
       dropSupply(enemy.x, enemy.y);
       dropSupply(enemy.x + 30, enemy.y);
       dropSupply(enemy.x - 30, enemy.y);
-    } else if (chance(wasElite ? 0.5 : 0.22)) {
+    } else if (!wasLeviathan && chance(wasElite ? 0.5 : 0.22)) {
       dropSupply(enemy.x, enemy.y);
     }
     
     // Phase A.4: Enhanced death effects based on enemy type
-    const deathColor = wasBoss ? '#7c3aed' :
+    const deathColor = wasLeviathan ? '#FF2020' :
+                       wasBoss ? '#7c3aed' :
                        wasElite ? '#f59e0b' :
-                       enemy.kind === 'drone' ? '#ef4444' : 
+                       enemy.kind === 'drone' ? '#ef4444' :
                        enemy.kind === 'chaser' ? '#e879f9' :
-                       enemy.kind === 'heavy' ? '#4ade80' : '#fb923c';
+                       enemy.kind === 'heavy' ? '#4ade80' :
+                       enemy.kind === 'sniper'  ? '#00ffcc' :
+                       enemy.kind === 'phantom' ? '#c084fc' :
+                       enemy.kind === 'splitter' ? '#f97316' :
+                       enemy.kind === 'shard' ? '#fb923c' :
+                       enemy.kind === 'carrier' ? '#6366f1' : enemy.kind === 'berserker' ? '#dc2626' : '#fb923c';
     
     // Phase A.4: Shockwave ring
     addParticles('ring', enemy.x, enemy.y, 0, wasBoss ? 3 : 1, deathColor);
@@ -7163,7 +8757,19 @@
     }
     
     // Enhanced effects for boss/elite
-    if (wasBoss) {
+    if (wasLeviathan) {
+      // Massive Leviathan death explosion
+      addParticles('debris', enemy.x, enemy.y, 0, 40);
+      addParticles('smoke', enemy.x, enemy.y, 0, 30);
+      addParticles('sparks', enemy.x, enemy.y, 0, 50);
+      addParticles('nova', enemy.x, enemy.y, 0, 30);
+      addParticles('ring', enemy.x, enemy.y, 0, 5, '#FF2020');
+      addParticles('levelup', enemy.x, enemy.y, 0, 40);
+      shakeScreen(20, 800);
+      addLogEntry('☠️ LEVIATHAN DESTROYED!', '#FF2020');
+      // Nullify bossEntity so checkWaveCompletion fires
+      if (bossEntity === enemy) bossEntity = null;
+    } else if (wasBoss) {
       addParticles('debris', enemy.x, enemy.y, 0, 24);
       addParticles('smoke', enemy.x, enemy.y, 0, 20);
       addParticles('sparks', enemy.x, enemy.y, 0, 30);
@@ -7183,26 +8789,113 @@
     } else if (enemy.kind === 'swarmer') {
       addParticles('sparks', enemy.x, enemy.y, 0, 15);
       addParticles('pop', enemy.x, enemy.y, 0, 10);
+    } else if (enemy.kind === 'sniper') {
+      addParticles('ring', enemy.x, enemy.y, 0, 2, '#00ffcc');
+      addParticles('sparks', enemy.x, enemy.y, 0, 14);
+      addParticles('debris', enemy.x, enemy.y, 0, 10);
+      shakeScreen(4, 100);
+      addLogEntry('Sniper eliminated!', '#00ffcc');
+    } else if (enemy.kind === 'splitter') {
+      addParticles('ring', enemy.x, enemy.y, 0, 2, '#f97316');
+      addParticles('sparks', enemy.x, enemy.y, 0, 16);
+      addParticles('debris', enemy.x, enemy.y, 0, 10);
+      shakeScreen(3, 100);
+      addLogEntry('Splitter fractured!', '#f97316');
+    } else if (enemy.kind === 'shard') {
+      addParticles('sparks', enemy.x, enemy.y, 0, 8);
+      addParticles('pop', enemy.x, enemy.y, 0, 5);
+    } else if (enemy.kind === 'carrier') {
+      addParticles('debris', enemy.x, enemy.y, 0, 28);
+      addParticles('sparks', enemy.x, enemy.y, 0, 20);
+      addParticles('ring', enemy.x, enemy.y, 0, 3, '#6366f1');
+      addParticles('smoke', enemy.x, enemy.y, 0, 10);
+      shakeScreen(9, 300);
+      addLogEntry('📡 Carrier hull breach!', '#6366f1');
     } else {
       addParticles('sparks', enemy.x, enemy.y, 0, 12);
       addParticles('debris', enemy.x, enemy.y, 0, 8);
     }
     
+    // Chain Reaction perk: on-kill area explosion
+    if (perkMultipliers.chainDamage > 0) {
+      const chainR = 60;
+      addParticles('ring', enemy.x, enemy.y, 0, 1, '#a5b4fc');
+      enemies.forEach(nearby => {
+        if (nearby !== enemy) {
+          const dx = nearby.x - enemy.x;
+          const dy = nearby.y - enemy.y;
+          if (Math.hypot(dx, dy) <= chainR) {
+            nearby.hp -= perkMultipliers.chainDamage;
+          }
+        }
+      });
+    }
+
+    // Lifesteal perk: heal on each kill
+    if (perkMultipliers.lifestealPerKill > 0 && player) {
+      const maxHp = (player.hpMax || player.health) + perkMultipliers.maxHp;
+      player.health = Math.min(maxHp, player.health + perkMultipliers.lifestealPerKill);
+    }
+
+    // Splitter death: spawn 2 shard mini-enemies
+    if (enemy.splitOnDeath && !enemy.isBoss) {
+      const splitCount = 2;
+      for (let s = 0; s < splitCount; s++) {
+        const angle = (Math.PI * 2 / splitCount) * s + Math.random() * 0.5;
+        const offset = enemy.size * 0.6;
+        const sx = enemy.x + Math.cos(angle) * offset;
+        const sy = enemy.y + Math.sin(angle) * offset;
+        const shard = new Enemy(sx, sy, 'shard', false, false);
+        enemies.push(shard);
+      }
+      addParticles('sparks', enemy.x, enemy.y, 0, 8);
+    }
+
     enemies.splice(index, 1);
-    
-    // Mark boss as dead
-    if (wasBoss && enemy === bossEntity) {
+
+    // Mark boss as dead (including Leviathan which sets bossEntity to null inline in death effects)
+    if ((wasBoss || wasLeviathan) && enemy === bossEntity) {
       bossEntity = null;
     }
-    
+
     enemiesKilled++;
-    
+
+    // Kill Combo Multiplier: advance/extend on each kill
+    const _kcNow = performance.now();
+    const _prevMultiplier = killComboMultiplier;
+    if (_kcNow < killComboTimerEnd || killComboMultiplier > 1) {
+      // Already in a combo — escalate up to max
+      if (killComboMultiplier < KILL_COMBO_MAX) {
+        killComboMultiplier++;
+        killComboEscalated = true;
+        killComboEscalatedStart = _kcNow;
+      }
+    } else {
+      // First kill starting a new combo
+      killComboMultiplier = 2;
+      killComboEscalated = true;
+      killComboEscalatedStart = _kcNow;
+    }
+    killComboTimerEnd = _kcNow + KILL_COMBO_WINDOW;
+    killComboSplashStart = _kcNow;
+    if (_prevMultiplier === killComboMultiplier) {
+      // At max — escalated flag not needed
+      killComboEscalated = false;
+    }
+
     // Score calculation with elite/boss bonuses
     let scoreGain = 15 + (comboCount > 1 ? comboCount * 2 : 0);
+    if (enemy.kind === 'carrier') scoreGain = Math.round(scoreGain * 2.5); // Carriers are high-value targets
     if (wasElite) scoreGain *= 3;
     if (wasBoss) scoreGain *= 20;
+    // Apply kill combo multiplier + Overclock perk score bonus
+    const effectiveMultiplier = killComboMultiplier + perkMultipliers.scoreMultBonus;
+    scoreGain = Math.round(scoreGain * effectiveMultiplier);
     score += scoreGain;
-    
+
+    // Power-up drop chance on enemy death
+    PowerUps.maybeSpawn(enemy.x, enemy.y);
+
     // Phase 1: Show score as damage number
     spawnDamageNumber(enemy.x, enemy.y - enemy.size, `+${scoreGain}`, wasBoss || wasElite);
     
@@ -7312,6 +9005,15 @@
     dom.levelValue.textContent = levelText;
     
     dom.healthBar.style.width = `${(player.health / player.hpMax) * 100}%`;
+    if (bossActive && bossEntity) {
+      dom.bossBar.style.display = 'block';
+      const bossMaxHp = bossEntity.hpMax || bossEntity.maxHealth || 1;
+      const bossPct = Math.max(0, (bossEntity.health / bossMaxHp) * 100);
+      dom.bossBarFill.style.width = bossPct + '%';
+      dom.bossBarName.textContent = bossEntity.kind === 'leviathan' ? 'LEVIATHAN' : (bossEntity.kind || 'BOSS').toUpperCase();
+    } else {
+      dom.bossBar.style.display = 'none';
+    }
     dom.ammoBar.style.width = `${(player.ammo / player.ammoMax) * 100}%`;
     if (dom.ultBar && dom.ultText) {
       const pct = Math.min(100, Math.round((player.ultimateCharge / player.ultimateChargeMax) * 100));
@@ -7357,6 +9059,14 @@
     
     // Update equipment indicator
     updateEquipmentIndicator();
+
+    // ── Update ability HUD cooldown bar ──────────────────────────────────
+    const _fillEl = document.getElementById('abilityCooldownFill');
+    if (_fillEl) {
+      const _pct = specialCooldownMax > 0 ? (1 - specialCooldown / specialCooldownMax) * 100 : 100;
+      _fillEl.style.width = `${Math.max(0, Math.min(100, _pct))}%`;
+      _fillEl.style.background = specialCooldown > 0 ? '#94a3b8' : '#4ade80';
+    }
   };
 
   const renderActionLog = () => {
@@ -7804,18 +9514,127 @@
     return card;
   };
 
+  // Featured ships shown in the start-screen hangar modal
+  const HANGAR_FEATURED_SHIPS = [
+    {
+      id: 'spectre',
+      name: 'SPECTRE-9',
+      shipClass: 'Interceptor',
+      desc: 'Stealth recon craft — fastest in the fleet, built for hit-and-run strikes.',
+      pips: { SPEED: 5, HULL: 2, FIREPOWER: 3 }
+    },
+    {
+      id: 'bulwark',
+      name: 'BULWARK-7',
+      shipClass: 'Heavy Tank',
+      desc: 'Siege-rated assault pod with reinforced plating and extended magazine.',
+      pips: { SPEED: 2, HULL: 5, FIREPOWER: 3 }
+    },
+    {
+      id: 'titan',
+      name: 'TITAN HEAVY',
+      shipClass: 'Capital Ship',
+      desc: 'Capital-class gunship with devastating firepower and armored hull.',
+      pips: { SPEED: 1, HULL: 4, FIREPOWER: 5 }
+    }
+  ];
+
+  const createFeaturedShipCard = (shipDef) => {
+    const card = document.createElement('div');
+    card.className = 'ship-card';
+    const isActive = selectedShip === shipDef.id || Save.data.selectedShip === shipDef.id;
+    if (isActive) card.classList.add('active');
+
+    // Ship canvas preview
+    const canvas = document.createElement('canvas');
+    canvas.className = 'ship-card-canvas';
+    canvas.width = 280;
+    canvas.height = 130;
+    card.appendChild(canvas);
+
+    // Name + class badge row
+    const nameRow = document.createElement('div');
+    nameRow.style.cssText = 'display:flex;flex-direction:column;gap:6px;';
+    const nameEl = document.createElement('div');
+    nameEl.className = 'ship-card-name';
+    nameEl.textContent = shipDef.name;
+    const classEl = document.createElement('div');
+    classEl.className = 'ship-card-class';
+    classEl.textContent = shipDef.shipClass;
+    nameRow.appendChild(nameEl);
+    nameRow.appendChild(classEl);
+    card.appendChild(nameRow);
+
+    // Description
+    const descEl = document.createElement('div');
+    descEl.className = 'ship-card-desc';
+    descEl.textContent = shipDef.desc;
+    card.appendChild(descEl);
+
+    // Stat pip bars
+    const statsWrap = document.createElement('div');
+    statsWrap.className = 'ship-card-stats';
+    for (const [statName, pipCount] of Object.entries(shipDef.pips)) {
+      const row = document.createElement('div');
+      row.className = 'stat-row-pip';
+      const label = document.createElement('div');
+      label.className = 'stat-label-pip';
+      label.textContent = statName;
+      const pips = document.createElement('div');
+      pips.className = 'stat-pips';
+      for (let i = 1; i <= 5; i++) {
+        const pip = document.createElement('div');
+        pip.className = 'stat-pip' + (i <= pipCount ? ' filled' : '');
+        pips.appendChild(pip);
+      }
+      row.appendChild(label);
+      row.appendChild(pips);
+      statsWrap.appendChild(row);
+    }
+    card.appendChild(statsWrap);
+
+    // SELECT button
+    const btn = document.createElement('button');
+    btn.className = 'ship-select-btn' + (isActive ? ' selected-btn' : '');
+    btn.textContent = isActive ? 'SELECTED' : 'SELECT';
+    btn.addEventListener('click', () => {
+      selectedShip = shipDef.id;
+      Save.data.selectedShip = shipDef.id;
+      Save.save();
+      if (player) player.reconfigureLoadout(true);
+      renderHangar();
+    });
+    card.appendChild(btn);
+
+    // Draw ship preview
+    requestAnimationFrame(() => {
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#fff';
+      for (let i = 0; i < 35; i++) {
+        const x = Math.random() * canvas.width;
+        const y = Math.random() * canvas.height;
+        ctx.globalAlpha = Math.random() * 0.5 + 0.4;
+        ctx.fillRect(x, y, Math.random() * 1.5 + 0.5, Math.random() * 1.5 + 0.5);
+      }
+      ctx.globalAlpha = 1;
+      const tmpl = getShipTemplate(shipDef.id);
+      ctx.save();
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      drawShip(ctx, shipDef.id, 22 * ((tmpl && tmpl.scale) || 1));
+      ctx.restore();
+    });
+
+    return card;
+  };
+
   const renderHangar = () => {
+    if (!dom.hangarGrid) return;
     dom.hangarGrid.innerHTML = '';
-    dom.hangarGrid.appendChild(createSectionHeader('Starfighters'));
-    SHIP_TEMPLATES.forEach((ship) => dom.hangarGrid.appendChild(createShipCard(ship)));
-    dom.hangarGrid.appendChild(createSectionHeader('Primary Weapons'));
-    ARMORY.primary.forEach((item) => dom.hangarGrid.appendChild(createArmoryCard('primary', item)));
-    dom.hangarGrid.appendChild(createSectionHeader('Secondary Systems'));
-    ARMORY.secondary.forEach((item) => dom.hangarGrid.appendChild(createArmoryCard('secondary', item)));
-    dom.hangarGrid.appendChild(createSectionHeader('Defense Matrix'));
-    ARMORY.defense.forEach((item) => dom.hangarGrid.appendChild(createArmoryCard('defense', item)));
-    dom.hangarGrid.appendChild(createSectionHeader('Ultimate Arsenal'));
-    ARMORY.ultimate.forEach((item) => dom.hangarGrid.appendChild(createArmoryCard('ultimate', item)));
+    HANGAR_FEATURED_SHIPS.forEach((shipDef) => {
+      dom.hangarGrid.appendChild(createFeaturedShipCard(shipDef));
+    });
   };
 
   const openHangar = () => {
@@ -7826,12 +9645,145 @@
   const closeHangar = () => {
     dom.hangarModal.style.display = 'none';
   };
+  // ─── POWER-UP DROPS ─────────────────────────────────────────────────────────
+  const PowerUps = (() => {
+    const TYPES = {
+      SHIELD: { color: '#22c55e', label: 'SHIELD +30', duration: 0, radius: 10 },
+      RAPID:  { color: '#06b6d4', label: 'RAPID FIRE', duration: 8000, radius: 10 },
+      NUKE:   { color: '#f97316', label: 'NUKE',       duration: 0, radius: 10 },
+    };
+    const TYPE_KEYS = Object.keys(TYPES);
+    let active = [];       // live pickups on the ground
+    let effects = [];      // active timed effects {type, endsAt}
+    const DROP_CHANCE = 0.12;
+
+    function maybeSpawn(x, y) {
+      if (Math.random() > DROP_CHANCE) return;
+      const type = TYPE_KEYS[Math.floor(Math.random() * TYPE_KEYS.length)];
+      active.push({ x, y, type, spawnedAt: Date.now(), angle: 0 });
+    }
+
+    function update(playerX, playerY, now) {
+      // Remove pickups older than 8s
+      active = active.filter(p => now - p.spawnedAt < 8000);
+      // Rotate glyph
+      active.forEach(p => { p.angle = (p.angle + 0.04) % (Math.PI * 2); });
+      // Collect
+      active = active.filter(p => {
+        const dx = p.x - playerX, dy = p.y - playerY;
+        if (Math.sqrt(dx*dx + dy*dy) > 28) return true;
+        apply(p.type, now);
+        showPickupBanner(p.type);
+        return false;
+      });
+      // Expire timed effects
+      effects = effects.filter(e => e.endsAt > now);
+    }
+
+    function apply(type, now) {
+      if (type === 'SHIELD') {
+        if (player && player.health !== undefined) player.health = Math.min(player.health + 30, player.hpMax || 100);
+      } else if (type === 'RAPID') {
+        effects = effects.filter(e => e.type !== 'RAPID');
+        effects.push({ type: 'RAPID', endsAt: now + 8000 });
+      } else if (type === 'NUKE') {
+        nukeAllEnemies();
+      }
+    }
+
+    function nukeAllEnemies() {
+      // Flash the screen
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(249,115,22,0.45);pointer-events:none;z-index:999;transition:opacity 0.6s';
+      document.body.appendChild(overlay);
+      setTimeout(() => { overlay.style.opacity = '0'; setTimeout(() => overlay.remove(), 700); }, 60);
+      // Kill all enemies via handleEnemyDeath for proper scoring
+      if (typeof enemies !== 'undefined' && Array.isArray(enemies)) {
+        for (let i = enemies.length - 1; i >= 0; i--) {
+          handleEnemyDeath(i);
+        }
+      }
+    }
+
+    function isRapidActive(now) {
+      return effects.some(e => e.type === 'RAPID' && e.endsAt > now);
+    }
+
+    function showPickupBanner(type) {
+      const cfg = TYPES[type];
+      const el = document.createElement('div');
+      el.textContent = '⚡ ' + cfg.label;
+      el.style.cssText = `position:fixed;top:22%;left:50%;transform:translateX(-50%);background:${cfg.color};color:#000;font-weight:700;font-size:15px;letter-spacing:.08em;padding:7px 20px;border-radius:6px;pointer-events:none;z-index:998;opacity:1;transition:opacity 0.5s`;
+      document.body.appendChild(el);
+      setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 600); }, 1400);
+    }
+
+    function draw(ctx) {
+      const now = Date.now();
+      active.forEach(p => {
+        const cfg = TYPES[p.type];
+        const age = now - p.spawnedAt;
+        const fadeAlpha = age > 6000 ? 1 - (age - 6000) / 2000 : 1;
+        ctx.save();
+        ctx.globalAlpha = fadeAlpha * (0.7 + 0.3 * Math.sin(p.angle * 3));
+        // Glow
+        const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 18);
+        grad.addColorStop(0, cfg.color);
+        grad.addColorStop(1, 'transparent');
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(p.x, p.y, 18, 0, Math.PI * 2); ctx.fill();
+        // Core orb
+        ctx.fillStyle = cfg.color;
+        ctx.beginPath(); ctx.arc(p.x, p.y, 8, 0, Math.PI * 2); ctx.fill();
+        // Orbit ring
+        ctx.strokeStyle = cfg.color; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(p.x, p.y, 13, p.angle, p.angle + Math.PI * 1.2); ctx.stroke();
+        // Label
+        ctx.globalAlpha = fadeAlpha * 0.9;
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
+        ctx.fillText(p.type, p.x, p.y + 24);
+        ctx.restore();
+      });
+      // Rapid fire HUD indicator
+      const rapidEffect = effects.find(e => e.type === 'RAPID');
+      if (rapidEffect) {
+        const remaining = ((rapidEffect.endsAt - now) / 1000).toFixed(1);
+        ctx.save();
+        ctx.fillStyle = '#06b6d4'; ctx.font = 'bold 12px monospace';
+        ctx.textAlign = 'left'; ctx.globalAlpha = 0.9;
+        ctx.fillText('⚡ RAPID ' + remaining + 's', 12, 110);
+        ctx.restore();
+      }
+    }
+
+    return { maybeSpawn, update, draw, isRapidActive };
+  })();
+  // ─── END POWER-UP DROPS ─────────────────────────────────────────────────────
+
   /* ====== GAME UPDATE ====== */
   const updateGame = (dt, now) => {
     if (!player) return;
     player.update(dt);
+
+    // ── Special ability cooldown tick ──────────────────────────────────────
+    if (specialCooldown > 0) {
+      specialCooldown = Math.max(0, specialCooldown - dt);
+    }
+    // Tick shield wall
+    if (shieldWall) {
+      shieldWall.framesLeft--;
+      if (shieldWall.framesLeft <= 0 || shieldWall.hp <= 0) shieldWall = null;
+    }
+    // Handle queued ability (from Q keypress)
+    if (specialAbilityQueued) {
+      specialAbilityQueued = false;
+      fireSpecialAbility();
+    }
+
     consumeTimedEffects(now);
     updateComboSystem(); // Phase 1: Update combo timer
+    // Power-up pickup collection
+    PowerUps.update(player.x, player.y, Date.now());
     const targetX = player.x - window.innerWidth / 2;
     const targetY = player.y - window.innerHeight / 2;
     camera.x += (targetX - camera.x) * 0.12;
@@ -7863,11 +9815,14 @@
       }
       for (let j = enemies.length - 1; j >= 0; j--) {
         const enemy = enemies[j];
+        // Phantom passes through bullets while phased — invulnerable window
+        if (enemy.phantomInvulnerable) continue;
         const dx = bullet.x - enemy.x;
         const dy = bullet.y - enemy.y;
         if (Math.hypot(dx, dy) < bullet.size + enemy.size) {
           enemy.health -= bullet.damage;
-          
+          runShotsHit++;
+
           // Phase 1: Show damage number
           spawnDamageNumber(enemy.x, enemy.y, bullet.damage, false);
           
@@ -7883,6 +9838,22 @@
           }
           
           if (enemy.health <= 0) handleEnemyDeath(j);
+          // Fragmentation perk: bullet explodes on impact with small splash
+          if (perkMultipliers.fragmentOnImpact) {
+            const fragR = 40;
+            addParticles('ring', bullet.x, bullet.y, 0, 1, '#f97316');
+            addParticles('sparks', bullet.x, bullet.y, 0, 8);
+            enemies.forEach((nearby, ni) => {
+              if (ni !== j) {
+                const fdx = nearby.x - bullet.x;
+                const fdy = nearby.y - bullet.y;
+                if (Math.hypot(fdx, fdy) <= fragR) {
+                  nearby.health -= bullet.damage * 0.4;
+                  if (nearby.health <= 0) handleEnemyDeath(ni);
+                }
+              }
+            });
+          }
           if (bullet.pierce > 0) {
             bullet.pierce--;
             continue;
@@ -8001,13 +9972,31 @@
       }
     }
     
-    // Handle enemy bullets hitting player
+    // Handle enemy bullets hitting player (or shield wall)
     for (let i = bullets.length - 1; i >= 0; i--) {
       const bullet = bullets[i];
       if (!bullet.isEnemy) continue;
       const dx = player.x - bullet.x;
       const dy = player.y - bullet.y;
-      if (Math.hypot(dx, dy) < player.size + bullet.size) {
+      const dist = Math.hypot(dx, dy);
+      if (dist < player.size + bullet.size) {
+        // Check if shield wall intercepts this bullet
+        if (shieldWall && shieldWall.hp > 0) {
+          // Shield covers front 140° arc
+          const bulletAngle = Math.atan2(bullet.y - player.y, bullet.x - player.x);
+          const angleDiff = Math.abs(((bulletAngle - player.lookAngle) + Math.PI * 3) % (Math.PI * 2) - Math.PI);
+          if (angleDiff < (70 / 180) * Math.PI) { // within 70° each side = 140° arc
+            bullets.splice(i, 1);
+            shieldWall.hp--;
+            addParticles('shield', bullet.x, bullet.y, 0, 6);
+            addLogEntry(`Shield Wall: ${shieldWall.hp} HP left`, '#2dd4bf');
+            if (shieldWall.hp <= 0) {
+              shieldWall = null;
+              addLogEntry('Shield Wall broken!', '#f97316');
+            }
+            continue;
+          }
+        }
         bullets.splice(i, 1);
         // Enemy bullets inherit shield penetration from adaptive scaling
         const adaptive = getAdaptiveScaling();
@@ -8028,8 +10017,14 @@
   const advanceLevel = () => {
     Save.addCredits(Math.floor(20 + level * 5 + enemiesKilled * 1.5));
     addXP(90 + level * 12);
-    if (!tookDamageThisLevel) addXP(110 + level * 18);
-    
+    if (!tookDamageThisLevel) {
+      addXP(110 + level * 18);
+      // Perfect Wave bonus — extra credits + announcement
+      const perfectBonus = Math.floor(40 + level * 10);
+      Save.addCredits(perfectBonus);
+      addLogEntry(`🌟 PERFECT WAVE! +${perfectBonus} bonus credits`, '#4ade80');
+    }
+
     // Play level advance sound
     if (typeof AudioManager !== 'undefined') {
       AudioManager.playLevelAdvance();
@@ -8042,20 +10037,34 @@
     // Determine wave type based on level and player power
     const adaptive = getAdaptiveScaling();
     const bossLevel = level % adaptive.bossInterval === 0;
-    
-    if (bossLevel) {
+    const leviathanLevel = level % 10 === 0; // Leviathan spawns at wave 10, 20, 30, ...
+
+    if (leviathanLevel) {
+      // Leviathan boss wave — takes priority over generic boss
       currentWaveType = 'boss';
+      leviathanWavePending = true;
+      addLogEntry(`☠️ LEVIATHAN APPROACHES — FLEE OR FIGHT!`, '#FF2020');
+    } else if (bossLevel) {
+      currentWaveType = 'boss';
+      leviathanWavePending = false;
       addLogEntry(`⚠️ BOSS WAVE INCOMING!`, '#dc2626');
     } else if (level % 5 === 0 && getPowerRatio() > 0.3) {
       // Every 5th level (non-boss), special wave type
       const waveTypes = ['swarm', 'elite', 'survival', 'hazard'];
       currentWaveType = waveTypes[Math.floor(Math.random() * waveTypes.length)];
+      leviathanWavePending = false;
       const waveInfo = WAVE_TYPES[currentWaveType];
       addLogEntry(`🎯 ${waveInfo.name}: ${waveInfo.desc}`, '#f59e0b');
     } else {
       currentWaveType = 'standard';
+      leviathanWavePending = false;
     }
-    
+
+    // Show wave intro banner
+    const _bossHint = leviathanWavePending ? 'LEVIATHAN BOSS — MAXIMUM THREAT'
+      : currentWaveType === 'boss' ? 'BOSS WAVE — MAXIMUM THREAT' : undefined;
+    showWaveBanner(level, _bossHint);
+
     const waveType = WAVE_TYPES[currentWaveType];
     const diff = getDifficulty();
     
@@ -8105,8 +10114,61 @@
     }
     
     tookDamageThisLevel = false;
+
+    // Show rewarded ad prompt every 3 waves
+    tryShowWaveCreditAd(completedLevel);
   };
-  
+
+  // ── Wave-completion rewarded ad prompt ────────────────────────────────────
+  const tryShowWaveCreditAd = (completedLevel) => {
+    // Only fire on every 3rd wave (wave 3, 6, 9, …)
+    if (completedLevel % 3 !== 0) return;
+    // Only show if AdMobManager is available
+    if (typeof AdMobManager === 'undefined') return;
+    // On native, require ad to be loaded; on web the manager always simulates
+    if (!AdMobManager.canShow) return;
+
+    // Remove any existing prompt first
+    const existing = document.getElementById('wave-ad-prompt');
+    if (existing) existing.remove();
+
+    const prompt = document.createElement('div');
+    prompt.id = 'wave-ad-prompt';
+    prompt.className = 'wave-ad-prompt';
+    prompt.innerHTML = `
+      <div class="wave-ad-prompt__text">
+        🎬 Watch a short video for <strong style="color:#4ade80">+100 credits</strong>
+      </div>
+      <button class="wave-ad-prompt__watch" id="wave-ad-watch-btn">Watch</button>
+      <button class="wave-ad-prompt__dismiss" id="wave-ad-dismiss-btn" aria-label="Dismiss">×</button>
+    `;
+    document.body.appendChild(prompt);
+
+    // Auto-dismiss after 8 seconds
+    const autoDismiss = setTimeout(() => prompt.remove(), 8000);
+
+    document.getElementById('wave-ad-dismiss-btn').addEventListener('click', () => {
+      clearTimeout(autoDismiss);
+      prompt.remove();
+    });
+
+    document.getElementById('wave-ad-watch-btn').addEventListener('click', () => {
+      clearTimeout(autoDismiss);
+      prompt.remove();
+      AdMobManager.showRewarded(
+        () => {
+          // onRewarded: add 100 credits
+          Save.addCredits(100);
+          updateHUD();
+          addLogEntry('🎬 +100 CR bonus from ad reward!', '#4ade80');
+        },
+        () => {
+          // onCancel: nothing to do, prompt already removed
+        }
+      );
+    });
+  };
+
   // NEW: Function to start countdown from ready-up phase
   const startCountdownFromReadyUp = () => {
     if (!readyUpPhase) return;
@@ -8143,16 +10205,32 @@
   const spawnBoss = () => {
     if (!player) return;
     const pos = randomAround(player.x, player.y, viewRadius(0.6), viewRadius(0.9));
-    const bossKind = Math.random() < 0.5 ? 'heavy' : 'chaser';
-    bossEntity = new Enemy(pos.x, pos.y, bossKind, false, true);
-    enemies.push(bossEntity);
-    bossActive = true;
-    addLogEntry('💀 BOSS HAS ARRIVED!', '#dc2626');
-    shakeScreen(10, 400);
-    
-    // Play boss spawn sound
-    if (typeof AudioManager !== 'undefined') {
-      AudioManager.playBossSpawn();
+
+    if (leviathanWavePending) {
+      // Spawn the LEVIATHAN boss
+      leviathanWavePending = false;
+      bossEntity = new Enemy(pos.x, pos.y, 'leviathan', false, false);
+      // Give it the isBoss flag for boss bar, but leviathan manages its own stats
+      bossEntity.isBoss = false; // leviathan is its own thing, not the generic isBoss
+      bossEntity.hpMax = bossEntity.maxHealth; // ensure boss bar compat
+      enemies.push(bossEntity);
+      bossActive = true;
+      bossWaveAnnouncementStart = performance.now();
+      addLogEntry('☠️ LEVIATHAN HAS ARRIVED!', '#FF2020');
+      shakeScreen(15, 600);
+      if (typeof AudioManager !== 'undefined') {
+        AudioManager.playBossSpawn();
+      }
+    } else {
+      const bossKind = Math.random() < 0.5 ? 'heavy' : 'chaser';
+      bossEntity = new Enemy(pos.x, pos.y, bossKind, false, true);
+      enemies.push(bossEntity);
+      bossActive = true;
+      addLogEntry('💀 BOSS HAS ARRIVED!', '#dc2626');
+      shakeScreen(10, 400);
+      if (typeof AudioManager !== 'undefined') {
+        AudioManager.playBossSpawn();
+      }
     }
   };
 
@@ -8298,7 +10376,11 @@
     }
     
     drawParticles(ctx, 16.67);
+    // Draw power-up orbs (in world space, before ctx.restore)
+    PowerUps.draw(ctx);
     player.draw(ctx);
+    // Draw Bulwark-7 shield wall arc
+    drawShieldWall(ctx);
     ctx.restore();
     
     // Draw FPS counter if enabled
@@ -8314,8 +10396,89 @@
       ctx.restore();
     }
     
-    // SUBTLE: Draw combo counter - SMALLER, positioned in TOP RIGHT corner, out of gameplay area
+    // ── Kill Combo Multiplier Splash (upper-center) ──────────────────────────
     const now = performance.now();
+    if (killComboMultiplier >= 2) {
+      const SPLASH_LINGER = 500; // ms to keep showing after last kill before fade
+      const timeSinceKill = now - killComboSplashStart;
+      const alpha = timeSinceKill < KILL_COMBO_WINDOW - SPLASH_LINGER
+        ? 1
+        : Math.max(0, 1 - (timeSinceKill - (KILL_COMBO_WINDOW - SPLASH_LINGER)) / SPLASH_LINGER);
+
+      if (alpha > 0) {
+        ctx.save();
+        const cx = canvas.width / 2;
+        const cy = 54;
+
+        // Scale-up appear animation (first 200ms after each new kill)
+        const scaleT = Math.min(1, timeSinceKill / 200);
+        const scale = 0.5 + 0.5 * scaleT;
+
+        ctx.globalAlpha = alpha;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        // Glow
+        ctx.shadowColor = '#FFD700';
+        ctx.shadowBlur = 18;
+
+        ctx.font = `bold ${Math.round(32 * scale)}px Arial, sans-serif`;
+        ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+        ctx.lineWidth = 4;
+        ctx.strokeText(`COMBO x${killComboMultiplier}`, cx, cy);
+        ctx.fillStyle = '#FFD700';
+        ctx.fillText(`COMBO x${killComboMultiplier}`, cx, cy);
+
+        ctx.shadowBlur = 0;
+        ctx.restore();
+      }
+
+      // COMBO ESCALATED flash (brief, larger, center-screen)
+      if (killComboEscalated) {
+        const elapsed = now - killComboEscalatedStart;
+        const ESCALATE_DURATION = 700;
+        if (elapsed < ESCALATE_DURATION) {
+          const t = elapsed / ESCALATE_DURATION;
+          const flashAlpha = t < 0.25 ? t / 0.25 : 1 - ((t - 0.25) / 0.75);
+          const flashScale = 0.6 + 0.4 * Math.min(1, elapsed / 150);
+          ctx.save();
+          ctx.globalAlpha = flashAlpha * 0.95;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.shadowColor = '#FFD700';
+          ctx.shadowBlur = 30;
+          ctx.font = `bold ${Math.round(48 * flashScale)}px Arial, sans-serif`;
+          ctx.strokeStyle = 'rgba(0,0,0,0.9)';
+          ctx.lineWidth = 5;
+          ctx.strokeText('COMBO ESCALATED!', canvas.width / 2, canvas.height / 2 - 80);
+          ctx.fillStyle = '#FFD700';
+          ctx.fillText('COMBO ESCALATED!', canvas.width / 2, canvas.height / 2 - 80);
+          ctx.shadowBlur = 0;
+          ctx.restore();
+        } else {
+          killComboEscalated = false;
+        }
+      }
+    }
+
+    // ── Combo Timer DOM HUD (live depleting progress bar) ───────────────────
+    if (dom.comboHud && dom.comboTimerBar && dom.comboMultDisplay) {
+      if (killComboMultiplier > 1 && killComboTimerEnd > now) {
+        const pct = Math.max(0, (killComboTimerEnd - now) / KILL_COMBO_WINDOW) * 100;
+        const comboColors = { 2: '#eab308', 3: '#f97316', 4: '#ef4444', 5: '#a855f7' };
+        const barColor = comboColors[killComboMultiplier] || '#6366f1';
+        dom.comboHud.style.display = 'block';
+        dom.comboMultDisplay.textContent = `×${killComboMultiplier}`;
+        dom.comboMultDisplay.style.color = barColor;
+        dom.comboTimerBar.style.width = pct + '%';
+        dom.comboTimerBar.style.background = barColor;
+        dom.comboTimerBar.style.boxShadow = `0 0 6px ${barColor}`;
+      } else {
+        dom.comboHud.style.display = 'none';
+      }
+    }
+
+    // SUBTLE: Draw combo counter - SMALLER, positioned in TOP RIGHT corner, out of gameplay area
     if (comboCount > 1 && now < comboTimer) {
       ctx.save();
       const comboAge = now - (comboTimer - COMBO_TIMEOUT);
@@ -8454,9 +10617,104 @@
         ctx.restore();
       }
     }
-    
+
+    // ── BOSS INCOMING countdown HUD (waves 7-9 of each 10-wave cycle) ─────────
+    {
+      const waveInCycle = level % 10;
+      if (waveInCycle >= 7 && waveInCycle <= 9 && currentWaveType !== 'boss') {
+        const wavesLeft = 10 - waveInCycle; // 3, 2, or 1
+        const pulse = 0.65 + 0.35 * Math.sin(performance.now() / 600);
+        const label = `⚠ BOSS IN ${wavesLeft} WAVE${wavesLeft > 1 ? 'S' : ''}`;
+
+        ctx.save();
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'top';
+
+        const bwX = canvas.width - 12;
+        const bwY = 122; // below combo (y=70) and kill-streak (y=95)
+
+        // Measure text for backing rect
+        ctx.font = 'bold 13px Arial, sans-serif';
+        const textW = ctx.measureText(label).width;
+        const padH = 5;
+        const padV = 3;
+        const rectX = bwX - textW - padH;
+        const rectY = bwY - padV;
+        const rectW = textW + padH * 2;
+        const rectH = 13 + padV * 2;
+
+        // Semi-transparent backing rect
+        ctx.fillStyle = `rgba(80, 0, 0, ${0.55 * pulse})`;
+        ctx.fillRect(rectX, rectY, rectW, rectH);
+
+        // Thin red border
+        ctx.strokeStyle = `rgba(255, 60, 60, ${0.7 * pulse})`;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(rectX, rectY, rectW, rectH);
+
+        // Warning text
+        ctx.fillStyle = `rgba(255, 120, 60, ${pulse})`;
+        ctx.shadowColor = '#ff3020';
+        ctx.shadowBlur = 6;
+        ctx.strokeStyle = `rgba(0, 0, 0, ${0.85 * pulse})`;
+        ctx.lineWidth = 2;
+        ctx.strokeText(label, bwX, bwY);
+        ctx.fillText(label, bwX, bwY);
+
+        ctx.shadowBlur = 0;
+        ctx.restore();
+      }
+    }
+
+    // ── BOSS WAVE! canvas announcement (Leviathan spawn) ─────────────────────
+    if (bossWaveAnnouncementStart > 0) {
+      const announceDur = 2000; // 2 seconds
+      const announceElapsed = performance.now() - bossWaveAnnouncementStart;
+      if (announceElapsed < announceDur) {
+        ctx.save();
+        const progress = announceElapsed / announceDur;
+        let announceAlpha;
+        if (progress < 0.2) {
+          announceAlpha = progress / 0.2;
+        } else if (progress < 0.7) {
+          announceAlpha = 1;
+        } else {
+          announceAlpha = 1 - ((progress - 0.7) / 0.3);
+        }
+        const cx = window.innerWidth / 2;
+        const cy = window.innerHeight / 2;
+        // Red screen tint
+        ctx.fillStyle = `rgba(139,0,0,${announceAlpha * 0.25})`;
+        ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+        // Title
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = `bold 72px Arial, sans-serif`;
+        ctx.shadowColor = '#FF2020';
+        ctx.shadowBlur = 40;
+        ctx.fillStyle = `rgba(255,32,32,${announceAlpha})`;
+        ctx.strokeStyle = `rgba(0,0,0,${announceAlpha * 0.9})`;
+        ctx.lineWidth = 4;
+        ctx.strokeText('BOSS WAVE!', cx, cy - 30);
+        ctx.fillText('BOSS WAVE!', cx, cy - 30);
+        // Subtitle
+        ctx.font = `bold 32px Arial, sans-serif`;
+        ctx.shadowBlur = 20;
+        ctx.fillStyle = `rgba(255,160,160,${announceAlpha})`;
+        ctx.strokeStyle = `rgba(0,0,0,${announceAlpha * 0.9})`;
+        ctx.lineWidth = 3;
+        ctx.strokeText('LEVIATHAN APPROACHES', cx, cy + 30);
+        ctx.fillText('LEVIATHAN APPROACHES', cx, cy + 30);
+        ctx.shadowBlur = 0;
+        ctx.restore();
+      } else {
+        bossWaveAnnouncementStart = 0;
+      }
+    }
+    // ── END BOSS WAVE! announcement ───────────────────────────────────────────
+
     // Ready-up overlay is drawn separately after HUD (see drawReadyUpOverlay function)
-    
+
     // Draw countdown - Command Center style to match mission briefing
     if (countdownActive) {
       // Dim UI elements to make countdown overlay more prominent
@@ -8598,6 +10856,108 @@
       // Restore UI elements when countdown is not active
       restoreUIElements();
     }
+
+    // Off-screen enemy direction indicators (always in screen space, drawn last)
+    if (!countdownActive) drawOffScreenIndicators(ctx);
+  };
+
+  /* ====== OFF-SCREEN ENEMY INDICATORS ====== */
+  // Draw HUD arrows at screen edges pointing toward enemies outside the viewport.
+  // Standard twin-stick shooter pattern (Hades, Enter the Gungeon, etc.).
+  const drawOffScreenIndicators = (ctx) => {
+    if (!gameRunning || paused || !player || enemies.length === 0) return;
+
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const MARGIN = 28;       // distance from screen edge to arrow tip
+    const ARROW_SIZE = 11;   // half-width of the arrow triangle
+    const MIN_DIST_SQ = 60 * 60; // only show if enemy is at least 60px outside viewport
+
+    ctx.save();
+
+    for (const enemy of enemies) {
+      // Skip if enemy is already on screen (with a small inset buffer)
+      const onScreen =
+        enemy.x >= -20 && enemy.x <= W + 20 &&
+        enemy.y >= -20 && enemy.y <= H + 20;
+      if (onScreen) continue;
+
+      // Direction from screen center to enemy
+      const cx = W / 2;
+      const cy = H / 2;
+      const dx = enemy.x - cx;
+      const dy = enemy.y - cy;
+      const distSq = dx * dx + dy * dy;
+      if (distSq < MIN_DIST_SQ) continue;
+
+      const angle = Math.atan2(dy, dx);
+
+      // Find intersection of the direction ray with the screen rectangle
+      const cosA = Math.cos(angle);
+      const sinA = Math.sin(angle);
+
+      // Clamp to screen edges
+      let tx, ty;
+      if (Math.abs(cosA) * H > Math.abs(sinA) * W) {
+        // Hits left or right edge
+        const sign = cosA > 0 ? 1 : -1;
+        tx = cx + sign * (W / 2 - MARGIN);
+        ty = cy + sinA * ((W / 2 - MARGIN) / Math.abs(cosA));
+      } else {
+        // Hits top or bottom edge
+        const sign = sinA > 0 ? 1 : -1;
+        ty = cy + sign * (H / 2 - MARGIN);
+        tx = cx + cosA * ((H / 2 - MARGIN) / Math.abs(sinA));
+      }
+
+      // Color by threat level
+      let color;
+      if (enemy.isBoss) {
+        color = '#ff4444';          // red — boss
+      } else if (enemy.isElite || enemy.kind === 'sniper') {
+        color = '#f97316';          // orange — elite / sniper
+      } else if (enemy.kind === 'heavy') {
+        color = '#fbbf24';          // amber — heavy
+      } else if (enemy.kind === 'carrier') {
+        color = '#818cf8';          // indigo — carrier
+      } else {
+        color = 'rgba(255,255,255,0.75)'; // white — standard
+      }
+
+      // Pulse opacity: enemies further away pulse more urgently
+      const dist = Math.sqrt(distSq);
+      const pulseSpeed = enemy.isBoss ? 3 : 1.5;
+      const pulse = 0.55 + 0.45 * Math.sin(performance.now() * 0.001 * pulseSpeed);
+      const alpha = enemy.isBoss ? 0.9 : (0.45 + 0.45 * pulse);
+
+      ctx.save();
+      ctx.translate(tx, ty);
+      ctx.rotate(angle);
+      ctx.globalAlpha = alpha;
+
+      // Drop shadow for visibility on bright backgrounds
+      ctx.shadowColor = 'rgba(0,0,0,0.7)';
+      ctx.shadowBlur = 6;
+
+      // Draw filled triangle arrow
+      ctx.beginPath();
+      ctx.moveTo(ARROW_SIZE + 2, 0);               // tip
+      ctx.lineTo(-ARROW_SIZE, -ARROW_SIZE * 0.65); // left wing
+      ctx.lineTo(-ARROW_SIZE, ARROW_SIZE * 0.65);  // right wing
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.fill();
+
+      // Thin outline for contrast
+      ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.shadowBlur = 0;
+      ctx.restore();
+    }
+
+    ctx.restore();
   };
 
   /* ====== MAIN LOOP ====== */
@@ -8722,6 +11082,7 @@
     
     lastTime = performance.now();
     lastAmmoRegen = lastTime;
+    runStartTime = lastTime;
     gameRunning = true;
     paused = false;
     loop(lastTime);
@@ -8918,12 +11279,20 @@
 
   const startGame = () => {
     resetRuntimeState();
+    runStartTime = performance.now();
     currentDifficulty = Save.data.difficulty || 'normal';  // Load saved difficulty
     
     // Always use space mode (planetary mode removed)
     currentGameMode = 'space';
     currentPlanet = null;
-    
+
+    // Persist selectedShip from hangar into Save before init
+    if (selectedShip && selectedShip !== Save.data.selectedShip) {
+      Save.data.selectedShip = selectedShip;
+      Save.save();
+    }
+    console.log('[Hangar] Starting game with ship:', selectedShip || Save.data.selectedShip);
+
     initShipSelection();
     
     // Add smooth transition effect
@@ -9041,6 +11410,7 @@
       
       // Restart from level 1
       resetRuntimeState();
+      runStartTime = performance.now();
       initShipSelection();
       startLevel(1, true);
       
@@ -9232,9 +11602,10 @@
         
         lastTime = performance.now();
         lastAmmoRegen = lastTime;
+        runStartTime = lastTime;
         gameRunning = true;
         paused = false;
-        
+
         // Update HUD
         updateHUD();
         
@@ -9308,12 +11679,17 @@
     gameOverHandled = true;
     Save.setBest(score, level);
     Save.addCredits(Math.floor(score / 25));
+
+    // Local leaderboard — check before saving so isPersonalBest is accurate
+    const isNewBest = LocalLeaderboard.isPersonalBest(score);
+    LocalLeaderboard.save(score);
     
     // Update game stats for achievements
     // Note: Elite enemy tracking to be implemented in future update
     Auth.updateGameStats({
       kills: totalKillsThisRun,
       bossKills: bossActive ? 0 : (bossEntity ? 1 : 0),
+      leviathanKills: leviathanKilledThisRun,
       eliteKills: 0,
       playTime: performance.now() - (waveStartTime || performance.now()),
       flawlessLevel: !tookDamageThisLevel
@@ -9343,7 +11719,20 @@
     // Submit to leaderboard and update stats if logged in
     const finalScore = score;
     const finalLevel = level;
-    
+
+    // Save daily challenge best and restore Math.random
+    if (window.DAILY_CHALLENGE_ACTIVE) {
+      import('./daily-challenge.js').then(({ saveDailyBest, deactivateDailyChallenge }) => {
+        saveDailyBest(finalScore);
+        deactivateDailyChallenge();
+        const bestEl = document.getElementById('dailyBestDisplay');
+        if (bestEl) bestEl.textContent = `Best: ${finalScore.toLocaleString()}`;
+      }).catch(err => console.warn('[DailyChallenge] Save failed:', err));
+    }
+    const runKillCount = totalKillsThisRun;
+    const runTimeSec = runStartTime > 0 ? Math.floor((performance.now() - runStartTime) / 1000) : 0;
+    const runAccuracyPct = runShotsFired > 0 ? Math.round((runShotsHit / runShotsFired) * 100) : 0;
+
     if (Auth.isLoggedIn()) {
       const username = Auth.getCurrentUsername();
       
@@ -9361,18 +11750,18 @@
       // Submit to leaderboard
       Leaderboard.addEntry(username, finalScore, finalLevel, currentDifficulty)
         .then(rank => {
-          showGameOverScreen(finalScore, finalLevel, rank);
+          showGameOverScreen(finalScore, finalLevel, rank, isNewBest, runKillCount, runTimeSec, runAccuracyPct);
         })
         .catch(err => {
           console.warn('Failed to submit leaderboard entry:', err);
-          showGameOverScreen(finalScore, finalLevel, null);
+          showGameOverScreen(finalScore, finalLevel, null, isNewBest, runKillCount, runTimeSec, runAccuracyPct);
         });
     } else {
-      showGameOverScreen(finalScore, finalLevel, null);
+      showGameOverScreen(finalScore, finalLevel, null, isNewBest, runKillCount, runTimeSec, runAccuracyPct);
     }
   };
 
-  const showGameOverScreen = (finalScore, finalLevel, rank) => {
+  const showGameOverScreen = (finalScore, finalLevel, rank, isNewBest, runKillCount = 0, runTimeSec = 0, runAccuracyPct = 0) => {
     // Note: Don't hide gameContainer - the gameOverModal is a child element
     // inside gameContainer, so hiding the container would also hide the modal.
     // The modal overlays on top of the game canvas with its own styling.
@@ -9389,7 +11778,35 @@
       
       if (scoreEl) scoreEl.textContent = finalScore.toLocaleString();
       if (levelEl) levelEl.textContent = finalLevel;
-      
+
+      // Run stats
+      const killsEl = document.getElementById('gameOverKills');
+      const timeEl = document.getElementById('gameOverTime');
+      const accuracyEl = document.getElementById('gameOverAccuracy');
+      if (killsEl) killsEl.textContent = runKillCount;
+      if (timeEl) {
+        const mm = Math.floor(runTimeSec / 60);
+        const ss = String(runTimeSec % 60).padStart(2, '0');
+        timeEl.textContent = mm > 0 ? `${mm}m ${ss}s` : `${runTimeSec}s`;
+      }
+      if (accuracyEl) accuracyEl.textContent = `${runAccuracyPct}%`;
+
+      // Perk loadout
+      const perksSection = document.getElementById('gameOverPerks');
+      const perksList = document.getElementById('gameOverPerksList');
+      if (perksSection && perksList) {
+        if (activePerks && activePerks.length > 0) {
+          perksList.innerHTML = activePerks.map(perkId => {
+            const perk = PERK_CATALOG.find(p => p.id === perkId);
+            if (!perk) return '';
+            return `<span class="game-over-perk-chip">${perk.icon} ${perk.name}</span>`;
+          }).join('');
+          perksSection.style.display = 'block';
+        } else {
+          perksSection.style.display = 'none';
+        }
+      }
+
       if (rank !== null) {
         if (rankContainer) rankContainer.style.display = 'flex';
         if (rankEl) rankEl.textContent = `#${rank}`;
@@ -9400,18 +11817,157 @@
         if (loginPromptEl) loginPromptEl.style.display = 'block';
         if (loginBtn) loginBtn.style.display = 'block';
       }
-      
+
+      // --- Local leaderboard ---
+      const bestBanner = document.getElementById('personalBestBanner');
+      if (bestBanner) {
+        bestBanner.style.display = isNewBest ? 'flex' : 'none';
+      }
+
+      const localScores = LocalLeaderboard.get();
+      const tbody = document.getElementById('localLeaderboardBody');
+      if (tbody) {
+        tbody.innerHTML = '';
+        if (localScores.length === 0) {
+          const row = document.createElement('tr');
+          row.innerHTML = '<td colspan="3" class="local-lb-empty">No runs recorded yet</td>';
+          tbody.appendChild(row);
+        } else {
+          localScores.forEach((entry, idx) => {
+            const row = document.createElement('tr');
+            if (entry.score === finalScore && idx === 0 && isNewBest) {
+              row.classList.add('local-lb-highlight');
+            }
+            row.innerHTML = `<td class="local-lb-rank">#${idx + 1}</td><td class="local-lb-score">${entry.score.toLocaleString()}</td><td class="local-lb-date">${entry.date}</td>`;
+            tbody.appendChild(row);
+          });
+        }
+      }
+
+      // Watch Ad to Continue button
+      const watchAdBtn = document.getElementById('gameOverWatchAdBtn');
+      if (watchAdBtn) {
+        // Show only if AdMob is available and player hasn't already used a continue this run
+        const canContinue = typeof AdMobManager !== 'undefined' && !continueUsed;
+        watchAdBtn.style.display = canContinue ? 'flex' : 'none';
+
+        watchAdBtn.onclick = () => {
+          if (typeof AdMobManager === 'undefined') return;
+          watchAdBtn.disabled = true;
+          watchAdBtn.textContent = 'Loading ad…';
+
+          AdMobManager.showRewarded(
+            // Rewarded: grant 1 continue
+            () => {
+              gameOverModal.style.display = 'none';
+              _continueRun(finalScore, finalLevel);
+            },
+            // Cancelled/not ready
+            (reason) => {
+              watchAdBtn.disabled = false;
+              watchAdBtn.innerHTML = '<span>📺</span> Watch Ad to Continue';
+              if (reason === 'not_ready') {
+                watchAdBtn.title = 'Ad is loading, try again in a moment';
+              }
+            }
+          );
+        };
+      }
+
+      // Share Score button
+      const shareBtn = document.getElementById('gameOverShareBtn');
+      if (shareBtn) {
+        // Build share text with current run stats
+        const _buildShareText = () => {
+          const mm = Math.floor(runTimeSec / 60);
+          const ss = String(runTimeSec % 60).padStart(2, '0');
+          const timeStr = mm > 0 ? `${mm}m ${ss}s` : `${runTimeSec}s`;
+          const lines = [
+            `🚀 VOID RIFT`,
+            ``,
+            `Score: ${finalScore.toLocaleString()}`,
+            `Wave: ${finalLevel}`,
+            `Kills: ${runKillCount}`,
+            `Accuracy: ${runAccuracyPct}%`,
+            `Time: ${timeStr}`,
+          ];
+          if (isNewBest) lines.splice(2, 0, `🏆 New Personal Best!`);
+          lines.push(``, `Can you beat it? https://shooter-app-one.vercel.app`);
+          return lines.join('\n');
+        };
+
+        shareBtn.onclick = async () => {
+          const shareText = _buildShareText();
+          const originalHTML = shareBtn.innerHTML;
+
+          // Try Web Share API first (native sheet on iOS/Android)
+          if (navigator.share) {
+            try {
+              await navigator.share({
+                title: 'VOID RIFT',
+                text: shareText,
+              });
+              return;
+            } catch (err) {
+              // User cancelled or share failed — fall through to clipboard
+              if (err.name === 'AbortError') return;
+            }
+          }
+
+          // Clipboard fallback for desktop
+          try {
+            await navigator.clipboard.writeText(shareText);
+          } catch (_) {
+            // Final fallback: execCommand
+            const ta = document.createElement('textarea');
+            ta.value = shareText;
+            ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+          }
+
+          // "Copied!" feedback
+          shareBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Copied!`;
+          shareBtn.classList.add('copied');
+          shareBtn.disabled = true;
+          setTimeout(() => {
+            shareBtn.innerHTML = originalHTML;
+            shareBtn.classList.remove('copied');
+            shareBtn.disabled = false;
+          }, 2200);
+        };
+      }
+
       gameOverModal.style.display = 'flex';
     }
   };
-  
+
   const closeGameOverScreen = () => {
     const gameOverModal = document.getElementById('gameOverModal');
     if (gameOverModal) {
       gameOverModal.style.display = 'none';
     }
   };
-  
+
+  const _continueRun = (lastScore, lastLevel) => {
+    // Revive player with 30% HP, reset game over state
+    continueUsed = true; // prevent double-continue
+
+    if (player) {
+      player.health = Math.ceil(player.hpMax * 0.3);
+      // Grant 3 seconds of invulnerability using the timestamp-based system
+      player.invEnd = performance.now() + 3000;
+    }
+
+    gameOverHandled = false; // re-enable game over detection
+    gameRunning = true;
+
+    // Show a brief "REVIVED" flash
+    addLogEntry('⚡ REVIVED! Fight on!', '#4ade80');
+  };
+
   const returnToMainMenu = () => {
     // Close any open modals
     closeGameOverScreen();
@@ -9611,8 +12167,16 @@
     Save.load();
     Auth.load();
     Leaderboard.load();
+    if (typeof AdMobManager !== 'undefined') AdMobManager.initialize();
     pilotLevel = Save.data.pilotLevel;
     pilotXP = Save.data.pilotXp;
+    // Sync selectedShip from saved data (default to 'spectre-9' if not one of the 3 featured)
+    const FEATURED_IDS = ['spectre', 'bulwark', 'titan'];
+    if (FEATURED_IDS.includes(Save.data.selectedShip)) {
+      selectedShip = Save.data.selectedShip;
+    } else {
+      selectedShip = 'spectre';
+    }
     initShipSelection();
     syncCredits();
     loadControlSettings(); // Load and apply control settings
@@ -10803,6 +13367,7 @@
       closeUnifiedMenu();
       // Restart game from level 1
       resetRuntimeState();
+      runStartTime = performance.now();
       initShipSelection();
       startLevel(1, true);
     });
@@ -10850,9 +13415,12 @@
     let tapTimeout = null;
     
     const handleGameTap = (clientX, clientY) => {
-      // NEW: Handle ready-up phase taps - tap anywhere to start
+      // Roguelite: if upgrade picker is open, ignore taps on the game canvas
+      if (waveUpgradeActive) return;
+
+      // Show upgrade card picker on wave clear, then continue to countdown
       if (readyUpPhase) {
-        startCountdownFromReadyUp();
+        showWaveUpgradeScreen(() => startCountdownFromReadyUp());
         return;
       }
       
@@ -10949,7 +13517,9 @@
       if (readyUpPhase) {
         if (e.key === ' ' || e.key === 'Enter') {
           e.preventDefault();
-          startCountdownFromReadyUp();
+          if (!waveUpgradeActive) {
+            showWaveUpgradeScreen(() => startCountdownFromReadyUp());
+          }
           return;
         }
         if (e.key === 's' || e.key === 'S') {
@@ -10991,6 +13561,15 @@
         }
       }
       
+      // Q key: fire special ship ability
+      if ((e.key === 'q' || e.key === 'Q') && gameRunning && !paused && !countdownActive && !readyUpPhase) {
+        e.preventDefault();
+        if (!specialQKeyLatch) {
+          specialQKeyLatch = true;
+          specialAbilityQueued = true;
+        }
+      }
+
       // Equipment slot keyboard shortcuts (number keys 1-4)
       if (gameRunning && !paused && !countdownActive && !readyUpPhase) {
         if (handleEquipmentKeyboard(e)) {
@@ -11002,16 +13581,19 @@
       updateFromKeyboard();
     });
     document.addEventListener('keyup', (e) => {
+      if (e.key === 'q' || e.key === 'Q') specialQKeyLatch = false;
       if (Object.prototype.hasOwnProperty.call(keyboard, e.key)) keyboard[e.key] = false;
       updateFromKeyboard();
     });
 
     if (dom.canvas) {
       dom.canvas.addEventListener('mousedown', (e) => {
-        // NEW: Handle ready-up phase click - anywhere on screen
+        // Handle ready-up phase click - show upgrade picker first
         if (readyUpPhase) {
           e.preventDefault();
-          startCountdownFromReadyUp();
+          if (!waveUpgradeActive) {
+            showWaveUpgradeScreen(() => startCountdownFromReadyUp());
+          }
           return;
         }
         

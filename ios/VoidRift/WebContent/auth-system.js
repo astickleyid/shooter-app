@@ -8,24 +8,9 @@
 const AUTH_CONFIG = {
   // Auto-detect API URL based on environment
   API_BASE: (function() {
-    // Non-browser / test environments: keep relative API path
-    if (typeof window === 'undefined') {
-      return '/api';
-    }
-
-    const { protocol, hostname } = window.location;
-
-    // Treat localhost and file-based environments (e.g., iOS WKWebView) the same
-    if (
-      hostname === 'localhost' ||
-      hostname === '127.0.0.1' ||
-      protocol === 'file:' ||
-      !hostname
-    ) {
+    if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
       return 'https://shooter-app-one.vercel.app/api';
     }
-
-    // For hosted web deployments, use relative path so frontend/backend share host
     return '/api';
   })(),
   STORAGE_KEY: 'voidrift_session',
