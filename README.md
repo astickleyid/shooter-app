@@ -180,6 +180,14 @@ The game is available as a native iOS app with automated builds:
 
 See [IOS_BUILD_GUIDE.md](IOS_BUILD_GUIDE.md) and [ios/README.md](ios/README.md) for details.
 
+## Privacy Policy
+
+VOID RIFT's Privacy Policy covers data collected (username, optional email, avatar, scores, gameplay stats), storage in Vercel KV, session handling, and user rights including account deletion.
+
+**[Read the full Privacy Policy →](PRIVACY_POLICY.md)**
+
+This URL is also linked in App Store Connect. See [docs/APP_STORE_METADATA.md](docs/APP_STORE_METADATA.md) for complete App Store metadata, privacy nutrition label answers, and the screenshots checklist.
+
 ## Contributing / Next Steps
 
 Open an issue or reach out with features you'd like to see. Some ideas:
