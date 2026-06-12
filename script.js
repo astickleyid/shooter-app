@@ -848,6 +848,8 @@
   let level = 1;
   let enemiesToKill = 15;  // Increased from 10 for better pacing
   let enemiesKilled = 0;
+  let waveKillCount = 0;      // kills this wave (reset each wave, displayed in post-wave overlay)
+  let waveCreditsEarned = 0;  // credits earned this wave (reset each wave)
   let lastTime = 0;
 
   // ── Special Ability State ──────────────────────────────────────────────────
@@ -1238,6 +1240,26 @@
     });
 
     modal.classList.add('active');
+  };
+
+  // Post-wave stats overlay: shows for 2 s, then hands off to upgrade picker
+  const showWaveClearedThenUpgrade = (onChosen) => {
+    const overlay = document.getElementById('waveClearedOverlay');
+    const numEl = document.getElementById('waveClearedNumber');
+    const killsEl = document.getElementById('waveClearedKills');
+    const creditsEl = document.getElementById('waveClearedCredits');
+    if (overlay && numEl && killsEl && creditsEl) {
+      numEl.textContent = readyUpLevel;
+      killsEl.textContent = waveKillCount;
+      creditsEl.textContent = waveCreditsEarned;
+      overlay.style.display = 'flex';
+      setTimeout(() => {
+        overlay.style.display = 'none';
+        showWaveUpgradeScreen(onChosen);
+      }, 2000);
+    } else {
+      showWaveUpgradeScreen(onChosen);
+    }
   };
   // ── END PERK SYSTEM ───────────────────────────────────────────────────────
 
@@ -2069,6 +2091,8 @@
     level = 1;
     enemiesToKill = 15;  // Increased from 10 for better pacing
     enemiesKilled = 0;
+    waveKillCount = 0;
+    waveCreditsEarned = 0;
     lastTime = 0;
     gameRunning = false;
     paused = false;
@@ -8859,6 +8883,7 @@
     }
 
     enemiesKilled++;
+    waveKillCount++;
 
     // Kill Combo Multiplier: advance/extend on each kill
     const _kcNow = performance.now();
@@ -10015,13 +10040,18 @@
   };
 
   const advanceLevel = () => {
-    Save.addCredits(Math.floor(20 + level * 5 + enemiesKilled * 1.5));
+    // Reset per-wave stats before accumulating this wave's rewards
+    waveCreditsEarned = 0;
+    const _creditsBase = Math.floor(20 + level * 5 + enemiesKilled * 1.5);
+    Save.addCredits(_creditsBase);
+    waveCreditsEarned += _creditsBase;
     addXP(90 + level * 12);
     if (!tookDamageThisLevel) {
       addXP(110 + level * 18);
       // Perfect Wave bonus — extra credits + announcement
       const perfectBonus = Math.floor(40 + level * 10);
       Save.addCredits(perfectBonus);
+      waveCreditsEarned += perfectBonus;
       addLogEntry(`🌟 PERFECT WAVE! +${perfectBonus} bonus credits`, '#4ade80');
     }
 
@@ -10033,7 +10063,8 @@
     const completedLevel = level; // Store current level before incrementing
     level += 1;
     enemiesKilled = 0;
-    
+    waveKillCount = 0;
+
     // Determine wave type based on level and player power
     const adaptive = getAdaptiveScaling();
     const bossLevel = level % adaptive.bossInterval === 0;
@@ -10253,10 +10284,12 @@
       if (bossActive && !bossEntity) {
         addLogEntry('🎉 BOSS DEFEATED!', '#4ade80');
         bossActive = false;
-        // Give bonus rewards
-        Save.addCredits(level * 50);
+        // Give bonus rewards — tracked for post-wave overlay
+        const _bossBonus = level * 50;
+        Save.addCredits(_bossBonus);
         addXP(level * 100);
         advanceLevel();
+        waveCreditsEarned += _bossBonus; // add boss bonus after advanceLevel resets counter
         return true;
       }
       // Don't advance from normal kills in boss wave
@@ -11030,6 +11063,8 @@
     level = lvl;
     if (resetScore) score = 0;
     enemiesKilled = 0;
+    waveKillCount = 0;
+    waveCreditsEarned = 0;
     // Use the improved scaling with difficulty
     const diff = getDifficulty();
     // Progressive enemy count calculation
@@ -13420,7 +13455,7 @@
 
       // Show upgrade card picker on wave clear, then continue to countdown
       if (readyUpPhase) {
-        showWaveUpgradeScreen(() => startCountdownFromReadyUp());
+        showWaveClearedThenUpgrade(() => startCountdownFromReadyUp());
         return;
       }
       
@@ -13518,7 +13553,7 @@
         if (e.key === ' ' || e.key === 'Enter') {
           e.preventDefault();
           if (!waveUpgradeActive) {
-            showWaveUpgradeScreen(() => startCountdownFromReadyUp());
+            showWaveClearedThenUpgrade(() => startCountdownFromReadyUp());
           }
           return;
         }
@@ -13592,7 +13627,7 @@
         if (readyUpPhase) {
           e.preventDefault();
           if (!waveUpgradeActive) {
-            showWaveUpgradeScreen(() => startCountdownFromReadyUp());
+            showWaveClearedThenUpgrade(() => startCountdownFromReadyUp());
           }
           return;
         }
