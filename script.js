@@ -2105,6 +2105,7 @@
     tookDamageThisLevel = false;
     gameOverHandled = false;
     continueUsed = false;
+    if (window.missionSystem) { window.missionSystem.startRun(); updateMissionHUD(); }
 
     // Special ability reset
     specialCooldown = 0;
@@ -8884,6 +8885,12 @@
 
     enemiesKilled++;
     waveKillCount++;
+    if (window.missionSystem) {
+      const isBoss = !!enemy.isBoss;
+      const isElite = !!(enemy.isElite || enemy.type === 'elite');
+      window.missionSystem.trackKill(isBoss, isElite);
+      updateMissionHUD();
+    }
 
     // Kill Combo Multiplier: advance/extend on each kill
     const _kcNow = performance.now();
@@ -8917,6 +8924,9 @@
     const effectiveMultiplier = killComboMultiplier + perkMultipliers.scoreMultBonus;
     scoreGain = Math.round(scoreGain * effectiveMultiplier);
     score += scoreGain;
+    if (window.missionSystem) {
+      window.missionSystem.trackScore(score);
+    }
 
     // Power-up drop chance on enemy death
     PowerUps.maybeSpawn(enemy.x, enemy.y);
@@ -11796,11 +11806,46 @@
     }
   };
 
+  // ── Mission HUD ─────────────────────────────────────────────────────────
+  function updateMissionHUD() {
+    if (!window.missionSystem) return;
+    const hud = document.getElementById('missionHud');
+    const slots = document.getElementById('missionHudSlots');
+    if (!hud || !slots) return;
+
+    const missions = window.missionSystem.dailyMissions;
+    if (!missions || missions.length === 0) { hud.style.display = 'none'; return; }
+
+    hud.style.display = 'block';
+    slots.innerHTML = missions.map((m, idx) => {
+      const progress = m.progress || 0;
+      const pct = Math.min(100, Math.round((progress / m.target) * 100));
+      const done = m.completed || m.claimed;
+      const desc = m.desc.replace('{target}', m.target);
+      const barColor = done ? '#4ade80' : pct > 50 ? '#facc15' : '#6366f1';
+      return `<div style="margin-bottom:${idx < missions.length - 1 ? '8px' : '0'}">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px;">
+          <span style="font-family:monospace; font-size:10px; color:${done ? '#4ade80' : 'rgba(255,255,255,0.7)'}; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${done ? '✓ ' : ''}${desc}</span>
+          <span style="font-family:monospace; font-size:9px; color:rgba(255,255,255,0.35); margin-left:4px; flex-shrink:0;">${Math.min(progress, m.target)}/${m.target}</span>
+        </div>
+        <div style="height:3px; background:rgba(255,255,255,0.08); border-radius:2px; overflow:hidden;">
+          <div style="height:100%; width:${pct}%; background:${barColor}; border-radius:2px; transition:width 0.3s ease;"></div>
+        </div>
+      </div>`;
+    }).join('');
+
+    // Persist mission state
+    try {
+      localStorage.setItem('voidrift_missions', JSON.stringify(window.missionSystem.getSaveData()));
+    } catch(e) {}
+  }
+
   const showGameOverScreen = (finalScore, finalLevel, rank, isNewBest, runKillCount = 0, runTimeSec = 0, runAccuracyPct = 0) => {
+    if (window.missionSystem) updateMissionHUD();
     // Note: Don't hide gameContainer - the gameOverModal is a child element
     // inside gameContainer, so hiding the container would also hide the modal.
     // The modal overlays on top of the game canvas with its own styling.
-    
+
     // Show custom game over modal
     const gameOverModal = document.getElementById('gameOverModal');
     if (gameOverModal) {
@@ -12203,6 +12248,19 @@
     Auth.load();
     Leaderboard.load();
     if (typeof AdMobManager !== 'undefined') AdMobManager.initialize();
+    // Initialize MissionSystem
+    if (typeof MissionSystem !== 'undefined') {
+      window.missionSystem = new MissionSystem();
+      // Load saved mission state if available
+      try {
+        const savedMissions = JSON.parse(localStorage.getItem('voidrift_missions') || 'null');
+        if (savedMissions) window.missionSystem.load(savedMissions);
+        else window.missionSystem.checkDailyRefresh();
+      } catch(e) {
+        window.missionSystem.checkDailyRefresh();
+      }
+      updateMissionHUD();
+    }
     pilotLevel = Save.data.pilotLevel;
     pilotXP = Save.data.pilotXp;
     // Sync selectedShip from saved data (default to 'spectre-9' if not one of the 3 featured)
