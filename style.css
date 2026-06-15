@@ -4450,6 +4450,78 @@ html, body {
   filter: drop-shadow(0 0 6px rgba(74, 222, 128, 0.5));
 }
 
+/* Tech Fragment Toast — gold/amber shimmer style */
+.tech-fragment-toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: linear-gradient(135deg, #92400e 0%, #b45309 50%, #d97706 100%);
+  border: 1px solid #f59e0b;
+  border-radius: 12px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 100000;
+  transform: translateX(120%);
+  transition: transform 0.3s ease, opacity 0.35s ease;
+  box-shadow: 0 4px 24px rgba(245, 158, 11, 0.35), 0 8px 32px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.tech-fragment-toast::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -75%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.25) 50%,
+    transparent 100%
+  );
+  animation: tech-fragment-shimmer 2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes tech-fragment-shimmer {
+  0%   { left: -75%; }
+  60%  { left: 130%; }
+  100% { left: 130%; }
+}
+
+.tech-fragment-toast.show {
+  transform: translateX(0);
+}
+
+.tech-fragment-toast-icon {
+  font-size: 28px;
+  filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.8));
+}
+
+.tech-fragment-toast-content {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.tech-fragment-toast-title {
+  font-size: 14px;
+  color: #fef3c7;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  line-height: 1.2;
+}
+
+.tech-fragment-toast-sub {
+  font-size: 11px;
+  color: #fde68a;
+  opacity: 0.85;
+  font-style: italic;
+}
+
 /* Enhanced Profile Card */
 .enhanced-profile {
   max-width: 750px;

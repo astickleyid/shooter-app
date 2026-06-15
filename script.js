@@ -1906,7 +1906,42 @@
         }, 350);
       }, 4500);
     },
-    
+
+    showTechFragmentNotification(count) {
+      // Stack offset: account for both achievement toasts and existing fragment toasts
+      const existingAchievement = document.querySelectorAll('.achievement-toast');
+      const existingFragment = document.querySelectorAll('.tech-fragment-toast');
+      const stackOffset = (existingAchievement.length + existingFragment.length) * 90;
+
+      const toast = document.createElement('div');
+      toast.className = 'tech-fragment-toast';
+      toast.style.top = `${20 + stackOffset}px`;
+      toast.innerHTML = `
+        <div class="tech-fragment-toast-icon">💠</div>
+        <div class="tech-fragment-toast-content">
+          <div class="tech-fragment-toast-title">Tech Fragment ×${count}</div>
+          <div class="tech-fragment-toast-sub">Rare material collected</div>
+        </div>
+      `;
+      document.body.appendChild(toast);
+
+      // Animate in
+      setTimeout(() => toast.classList.add('show'), 50);
+
+      // Remove after 3 seconds
+      setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => {
+          if (toast.parentNode) toast.remove();
+          // Re-stack remaining toasts
+          const allToasts = document.querySelectorAll('.achievement-toast, .tech-fragment-toast');
+          allToasts.forEach((el, idx) => {
+            el.style.top = `${20 + idx * 90}px`;
+          });
+        }, 350);
+      }, 3000);
+    },
+
     // Update stats after a game
     updateGameStats(stats) {
       this.playerProfile.gamesPlayed++;
@@ -8931,6 +8966,23 @@
     // Power-up drop chance on enemy death
     PowerUps.maybeSpawn(enemy.x, enemy.y);
 
+    // Tech fragment drop chance on elite/boss death
+    if (window.techFragmentSystem && (wasElite || wasBoss)) {
+      const isBoss = !!wasBoss;
+      const isElite = !!wasElite;
+      const fragment = window.techFragmentSystem.rollDrop(isBoss, isElite);
+      if (fragment) {
+        const pickup = window.techFragmentSystem.spawnPickup(fragment, enemy.x, enemy.y);
+        // Immediately collect the pickup and show notification (auto-collect on drop)
+        pickup.collected = true;
+        window.techFragmentSystem.collect(fragment.id);
+        const count = window.techFragmentSystem.getFragmentCount(fragment.id);
+        if (typeof Auth !== 'undefined' && Auth.showTechFragmentNotification) {
+          Auth.showTechFragmentNotification(count);
+        }
+      }
+    }
+
     // Phase 1: Show score as damage number
     spawnDamageNumber(enemy.x, enemy.y - enemy.size, `+${scoreGain}`, wasBoss || wasElite);
     
@@ -12260,6 +12312,14 @@
         window.missionSystem.checkDailyRefresh();
       }
       updateMissionHUD();
+    }
+    // Initialize TechFragmentSystem
+    if (typeof TechFragmentSystem !== 'undefined') {
+      window.techFragmentSystem = new TechFragmentSystem();
+      try {
+        const savedFragments = JSON.parse(localStorage.getItem('voidrift_techfragments') || 'null');
+        if (savedFragments) window.techFragmentSystem.load({ techFragments: savedFragments });
+      } catch(e) {}
     }
     pilotLevel = Save.data.pilotLevel;
     pilotXP = Save.data.pilotXp;
