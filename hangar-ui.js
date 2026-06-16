@@ -1089,6 +1089,18 @@ const HANGAR_UI_CSS = `
       padding: 12px 16px 10px;
     }
   }
+
+  /* ── Settings tab ──────────────────────────────────────────── */
+  .hangar-settings { padding: 20px; }
+  .hangar-settings-section { margin-bottom: 24px; }
+  .hangar-settings-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.5); margin-bottom: 12px; }
+  .hangar-settings-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .hangar-settings-row span { font-size: 13px; color: rgba(255,255,255,0.8); width: 110px; flex-shrink: 0; }
+  .hangar-settings-slider { flex: 1; accent-color: #4ade80; height: 4px; }
+  .hangar-settings-vol { font-size: 12px; color: rgba(255,255,255,0.4); width: 30px; text-align: right; }
+  .hangar-mute-btn { padding: 8px 18px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.7); font-size: 13px; cursor: pointer; transition: background 0.2s; }
+  .hangar-mute-btn:hover { background: rgba(255,255,255,0.12); }
+  .hangar-mute-btn.muted { border-color: #ef4444; color: #ef4444; }
 `;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1208,7 +1220,7 @@ let _overlay = null;
 let _hangarState = null;
 let _options = {};
 let _keyHandler = null;
-let _activeTab = 'upgrades'; // 'upgrades' | 'achievements' | 'skins'
+let _activeTab = 'upgrades'; // 'upgrades' | 'achievements' | 'skins' | 'settings'
 let _skinsShipFilter = null; // which ship's skins are shown
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1576,8 +1588,87 @@ function renderSkinsView() {
 }
 
 /**
- * Switch the active tab ('upgrades', 'achievements', or 'skins'), update tab
- * buttons, and re-render the content area.
+ * Render the settings tab inside #hangarContent.
+ * Wires volume sliders and mute toggle to AudioManager if it is available
+ * on window. Degrades gracefully if AudioManager is not present.
+ */
+function renderSettingsView() {
+  const content = document.getElementById('hangarContent');
+  if (!content) return;
+
+  // Read current values from AudioManager (or fall back to defaults)
+  const AM = (typeof window !== 'undefined' && window.AudioManager) || null;
+  const masterVal = AM ? Math.round(AM.getVolume('master') * 100) : 70;
+  const sfxVal    = AM ? Math.round(AM.getVolume('sfx')    * 100) : 80;
+  const musicVal  = AM ? Math.round(AM.getVolume('music')  * 100) : 50;
+  const isMuted   = AM ? AM.getMuted() : false;
+
+  content.innerHTML = `
+    <div class="hangar-settings">
+      <div class="hangar-settings-section">
+        <div class="hangar-settings-label">🔊 Audio</div>
+
+        <div class="hangar-settings-row">
+          <span>Master</span>
+          <input type="range" class="hangar-settings-slider" id="settings-master-vol"
+                 min="0" max="100" value="${masterVal}">
+          <span class="hangar-settings-vol" id="settings-master-vol-label">${masterVal}</span>
+        </div>
+
+        <div class="hangar-settings-row">
+          <span>Sound Effects</span>
+          <input type="range" class="hangar-settings-slider" id="settings-sfx-vol"
+                 min="0" max="100" value="${sfxVal}">
+          <span class="hangar-settings-vol" id="settings-sfx-vol-label">${sfxVal}</span>
+        </div>
+
+        <div class="hangar-settings-row">
+          <span>Music</span>
+          <input type="range" class="hangar-settings-slider" id="settings-music-vol"
+                 min="0" max="100" value="${musicVal}">
+          <span class="hangar-settings-vol" id="settings-music-vol-label">${musicVal}</span>
+        </div>
+
+        <div class="hangar-settings-row">
+          <span>Mute All</span>
+          <button class="hangar-mute-btn${isMuted ? ' muted' : ''}" id="settings-mute-btn">
+            ${isMuted ? '🔇 Muted' : '🔊 Sound On'}
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Wire up sliders
+  function wireSlider(sliderId, labelId, channel) {
+    const slider = document.getElementById(sliderId);
+    const label  = document.getElementById(labelId);
+    if (!slider) return;
+    slider.addEventListener('input', () => {
+      const val = parseInt(slider.value, 10);
+      if (label) label.textContent = val;
+      if (AM) AM.setVolume(channel, val / 100);
+    });
+  }
+
+  wireSlider('settings-master-vol', 'settings-master-vol-label', 'master');
+  wireSlider('settings-sfx-vol',    'settings-sfx-vol-label',    'sfx');
+  wireSlider('settings-music-vol',  'settings-music-vol-label',  'music');
+
+  // Wire up mute toggle
+  const muteBtn = document.getElementById('settings-mute-btn');
+  if (muteBtn) {
+    muteBtn.addEventListener('click', () => {
+      const newMuted = AM ? AM.toggleMute() : !muteBtn.classList.contains('muted');
+      muteBtn.classList.toggle('muted', newMuted);
+      muteBtn.textContent = newMuted ? '🔇 Muted' : '🔊 Sound On';
+    });
+  }
+}
+
+/**
+ * Switch the active tab ('upgrades', 'achievements', 'skins', or 'settings'),
+ * update tab buttons, and re-render the content area.
  */
 function switchTab(tab) {
   _activeTab = tab;
@@ -1591,6 +1682,8 @@ function switchTab(tab) {
     renderAchievementsView();
   } else if (tab === 'skins') {
     renderSkinsView();
+  } else if (tab === 'settings') {
+    renderSettingsView();
   } else {
     renderUpgradesView();
   }
@@ -1687,6 +1780,7 @@ export function openHangar(opts = {}) {
         <button class="hangar-tab-btn active" data-tab="upgrades">Upgrades</button>
         <button class="hangar-tab-btn" data-tab="skins">Skins</button>
         <button class="hangar-tab-btn" data-tab="achievements">Achievements</button>
+        <button class="hangar-tab-btn" data-tab="settings">Settings</button>
       </div>
 
       <div id="hangarContent">
