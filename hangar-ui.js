@@ -1101,6 +1101,18 @@ const HANGAR_UI_CSS = `
   .hangar-mute-btn { padding: 8px 18px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.7); font-size: 13px; cursor: pointer; transition: background 0.2s; }
   .hangar-mute-btn:hover { background: rgba(255,255,255,0.12); }
   .hangar-mute-btn.muted { border-color: #ef4444; color: #ef4444; }
+
+  /* ── Remove Ads IAP section ──────────────────────────────────── */
+  .hangar-iap-section { margin-top: 8px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.08); }
+  .hangar-iap-buy-btn { padding: 10px 20px; border-radius: 8px; border: 1px solid #4ade80; background: rgba(74,222,128,0.1); color: #4ade80; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.2s, color 0.2s; }
+  .hangar-iap-buy-btn:hover { background: rgba(74,222,128,0.2); }
+  .hangar-iap-buy-btn:disabled { opacity: 0.5; cursor: default; }
+  .hangar-iap-purchased { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; background: rgba(74,222,128,0.12); border: 1px solid rgba(74,222,128,0.35); color: #4ade80; font-size: 13px; font-weight: 600; }
+  .hangar-iap-unavailable { font-size: 12px; color: rgba(255,255,255,0.35); font-style: italic; margin-top: 4px; }
+  .hangar-iap-hint { font-size: 11px; color: rgba(255,255,255,0.35); margin-top: 6px; }
+  .hangar-iap-restore-btn { background: none; border: none; font-size: 11px; color: rgba(255,255,255,0.3); text-decoration: underline; cursor: pointer; margin-top: 8px; padding: 0; display: block; }
+  .hangar-iap-restore-btn:hover { color: rgba(255,255,255,0.55); }
+  .hangar-iap-restore-btn:disabled { opacity: 0.4; cursor: default; }
 `;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1587,6 +1599,123 @@ function renderSkinsView() {
   });
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// IAPManager — In-App Purchase for "Remove Ads"
+// ─────────────────────────────────────────────────────────────────────────────
+const IAPManager = {
+  PRODUCT_ID: 'com.voidrift.game.removeads',
+  STORAGE_KEY: 'vr_ads_removed',
+
+  get platform() {
+    if (typeof window.webkit?.messageHandlers?.iapPurchase !== 'undefined') return 'ios';
+    if (typeof window.AndroidBridge?.iapPurchase !== 'undefined') return 'android';
+    return 'web';
+  },
+
+  get isPurchased() {
+    try { return localStorage.getItem(this.STORAGE_KEY) === 'true'; } catch (_) { return false; }
+  },
+
+  initialize() {
+    window.addEventListener('iapPurchased', (e) => {
+      const productId = e.detail?.productId || e.detail;
+      if (productId === this.PRODUCT_ID || !productId) {
+        try { localStorage.setItem(this.STORAGE_KEY, 'true'); } catch (_) {}
+        console.log('[IAP] Remove Ads purchased successfully');
+        // Refresh the settings view if it is currently visible
+        const content = document.getElementById('hangarContent');
+        if (content && content.querySelector('.hangar-iap-section')) {
+          renderSettingsView();
+        }
+      }
+    });
+    window.addEventListener('iapFailed', (e) => {
+      const productId = e.detail?.productId || e.detail;
+      if (productId === this.PRODUCT_ID || !productId) {
+        console.warn('[IAP] Purchase failed:', e.detail?.reason || 'unknown');
+        const btn = document.getElementById('hangar-iap-buy-btn');
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = 'Remove Ads — $2.99';
+        }
+        const hint = document.getElementById('hangar-iap-hint');
+        if (hint) { hint.textContent = 'Purchase failed. Please try again.'; hint.style.color = '#ef4444'; }
+      }
+    });
+    // Restore purchases result handler (required by App Store guidelines)
+    window.addEventListener('iapRestored', (e) => {
+      const productIds = e.detail?.productIds || (e.detail ? [e.detail] : []);
+      const restored = productIds.includes(this.PRODUCT_ID);
+      if (restored) {
+        try { localStorage.setItem(this.STORAGE_KEY, 'true'); } catch (_) {}
+        console.log('[IAP] Remove Ads restored');
+      } else {
+        console.log('[IAP] Restore complete — no matching purchases found');
+      }
+      const content = document.getElementById('hangarContent');
+      if (content && content.querySelector('.hangar-iap-section')) {
+        renderSettingsView();
+        const hint = document.getElementById('hangar-iap-hint');
+        if (hint && !restored) {
+          hint.textContent = restored ? '' : 'No previous purchases found.';
+          hint.style.color = '#94a3b8';
+        }
+      }
+    });
+    window.addEventListener('iapRestoreFailed', () => {
+      console.warn('[IAP] Restore failed');
+      const hint = document.getElementById('hangar-iap-hint');
+      if (hint) { hint.textContent = 'Restore failed. Please try again.'; hint.style.color = '#ef4444'; }
+      const restoreBtn = document.getElementById('hangar-iap-restore-btn');
+      if (restoreBtn) { restoreBtn.disabled = false; restoreBtn.textContent = 'Restore purchases'; }
+    });
+    console.log(`[IAP] Initialized on platform: ${this.platform}`);
+  },
+
+  restore() {
+    if (this.platform === 'web') return; // no-op on web; button is hidden
+    const restoreBtn = document.getElementById('hangar-iap-restore-btn');
+    if (restoreBtn) { restoreBtn.disabled = true; restoreBtn.textContent = 'Restoring…'; }
+    if (this.platform === 'ios') {
+      window.webkit.messageHandlers.iapRestore.postMessage({});
+    } else if (this.platform === 'android') {
+      window.AndroidBridge.iapRestore();
+    }
+  },
+
+  purchase() {
+    if (this.platform === 'web') {
+      // Show a brief overlay message instead of a blocking alert
+      const overlay = document.createElement('div');
+      overlay.style.cssText = `
+        position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+        display: flex; align-items: center; justify-content: center;
+        z-index: 99999; font-family: 'Orbitron', monospace;
+      `;
+      overlay.innerHTML = `
+        <div style="text-align:center; max-width:300px; padding:28px; background:rgba(15,23,42,0.95);
+                    border:1px solid rgba(255,255,255,0.12); border-radius:16px;">
+          <div style="font-size:36px; margin-bottom:12px;">📱</div>
+          <div style="font-size:15px; font-weight:700; color:#fff; margin-bottom:8px;">Mobile Only</div>
+          <div style="font-size:13px; color:#94a3b8; margin-bottom:20px;">
+            In-app purchases are available on iOS &amp; Android.
+          </div>
+          <button style="padding:8px 20px; border-radius:8px; border:1px solid rgba(255,255,255,0.2);
+                         background:rgba(255,255,255,0.08); color:#fff; font-size:13px; cursor:pointer;"
+                  onclick="this.closest('[style]').remove()">Got it</button>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+      return;
+    }
+    if (this.platform === 'ios') {
+      window.webkit.messageHandlers.iapPurchase.postMessage({ productId: this.PRODUCT_ID });
+    } else if (this.platform === 'android') {
+      window.AndroidBridge.iapPurchase(this.PRODUCT_ID);
+    }
+  },
+};
+
 /**
  * Render the settings tab inside #hangarContent.
  * Wires volume sliders and mute toggle to AudioManager if it is available
@@ -1636,6 +1765,19 @@ function renderSettingsView() {
           </button>
         </div>
       </div>
+
+      <div class="hangar-settings-section hangar-iap-section">
+        <div class="hangar-settings-label">🚫 Ads</div>
+        ${IAPManager.isPurchased
+          ? `<div class="hangar-iap-purchased">✓ Ads Removed</div>`
+          : IAPManager.platform === 'web'
+            ? `<button class="hangar-iap-buy-btn" id="hangar-iap-buy-btn" disabled>Remove Ads — $2.99</button>
+               <div class="hangar-iap-unavailable">Available on iOS &amp; Android</div>`
+            : `<button class="hangar-iap-buy-btn" id="hangar-iap-buy-btn">Remove Ads — $2.99</button>
+               <div class="hangar-iap-hint" id="hangar-iap-hint">One-time purchase. Removes ad prompts forever.</div>
+               <button class="hangar-iap-restore-btn" id="hangar-iap-restore-btn">Restore purchases</button>`
+        }
+      </div>
     </div>
   `;
 
@@ -1663,6 +1805,29 @@ function renderSettingsView() {
       muteBtn.classList.toggle('muted', newMuted);
       muteBtn.textContent = newMuted ? '🔇 Muted' : '🔊 Sound On';
     });
+  }
+
+  // Wire up Remove Ads purchase button
+  const iapBtn = document.getElementById('hangar-iap-buy-btn');
+  if (iapBtn && !iapBtn.disabled) {
+    iapBtn.addEventListener('click', () => {
+      iapBtn.disabled = true;
+      iapBtn.textContent = 'Processing…';
+      IAPManager.purchase();
+      // Re-enable after 8 seconds in case the native callback never fires
+      setTimeout(() => {
+        if (iapBtn && iapBtn.disabled && !IAPManager.isPurchased) {
+          iapBtn.disabled = false;
+          iapBtn.textContent = 'Remove Ads — $2.99';
+        }
+      }, 8000);
+    });
+  }
+
+  // Wire up Restore Purchases button (required by App Store Review guidelines)
+  const restoreBtn = document.getElementById('hangar-iap-restore-btn');
+  if (restoreBtn) {
+    restoreBtn.addEventListener('click', () => IAPManager.restore());
   }
 }
 
@@ -1746,6 +1911,10 @@ export function openHangar(opts = {}) {
   if (_overlay) return; // already open
 
   injectStyles();
+  if (!IAPManager._initialized) {
+    IAPManager.initialize();
+    IAPManager._initialized = true;
+  }
   _options = opts;
   _hangarState = loadHangar();
   _activeTab = 'upgrades';
