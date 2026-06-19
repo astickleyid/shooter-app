@@ -6,7 +6,10 @@
   const chance = (p) => Math.random() < p;
 
   /* ====== CONFIG ====== */
-  const SAVE_KEY = 'void_rift_v11';
+  const SAVE_KEY = 'voidrift_save';            // permanent, never version-stamped again
+  const SAVE_SCHEMA_VERSION = 12;
+  const LEGACY_SAVE_KEYS = (() => { const a = []; for (let v = 20; v >= 1; v--) a.push('void_rift_v' + v); return a; })();
+  const IS_NATIVE_APP = !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.nativeSave);
   const AUTH_KEY = 'void_rift_auth';
   const LEADERBOARD_KEY = 'void_rift_leaderboard';
 
@@ -1279,77 +1282,52 @@
     }
   });
 
+  const ALL_SHIP_IDS = () => (typeof SHIP_TEMPLATES !== 'undefined' ? SHIP_TEMPLATES.map(s => s.id) : ['vanguard']);
+  const defaultShipState = () => ({
+    loadout: { primary: 'pulse', secondary: 'nova', defense: 'aegis', ultimate: 'voidstorm' },
+    equipmentClass: defaultArmory().equipmentClass,
+    upgrades: {}
+  });
+  const defaultSaveData = () => ({
+    schemaVersion: SAVE_SCHEMA_VERSION,
+    credits: 0, bestScore: 0, highestLevel: 1, pilotLevel: 1, pilotXp: 0, prestige: 0,
+    difficulty: 'normal', selectedShip: 'vanguard',
+    unlocked: { primary: ['pulse'], secondary: ['nova'], defense: ['aegis'], ultimate: ['voidstorm'] },
+    unlockedShips: ['vanguard'],
+    achievements: [],
+    stats: { totalKills: 0, bossKills: 0, eliteKills: 0, totalUpgrades: 0 },
+    ships: { vanguard: defaultShipState() }
+  });
+
   const Save = {
-    data: {
-      credits: 0,
-      bestScore: 0,
-      highestLevel: 1,
-      upgrades: {},
-      pilotLevel: 1,
-      pilotXp: 0,
-      selectedShip: 'vanguard',
-      armory: defaultArmory(),
-      difficulty: 'normal'  // Add difficulty preference
+    data: defaultSaveData(),
+
+    // --- per-ship accessors (hybrid model) ---
+    ship(id) {
+      id = id || this.data.selectedShip || 'vanguard';
+      if (!this.data.ships) this.data.ships = {};
+      if (!this.data.ships[id]) this.data.ships[id] = defaultShipState();
+      return this.data.ships[id];
     },
+    loadout(id) { return this.ship(id).loadout; },
+
     load() {
-      try {
-        const raw = localStorage.getItem(SAVE_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed && typeof parsed === 'object') {
-            this.data = {
-              ...this.data,
-              ...parsed,
-              armory: parsed.armory || defaultArmory()
-            };
-          }
-        }
-      } catch (err) {
-        console.warn('Failed to load save', err);
-        // Reset to defaults on corruption
-        this.data = {
-          credits: 0,
-          bestScore: 0,
-          highestLevel: 1,
-          upgrades: {},
-          pilotLevel: 1,
-          pilotXp: 0,
-          selectedShip: 'vanguard',
-          armory: defaultArmory(),
-          difficulty: 'normal'
-        };
+      let raw = null;
+      try { raw = localStorage.getItem(SAVE_KEY); } catch (e) { /* ignore */ }
+      if (raw) {
+        try { this.data = this._sanitize(JSON.parse(raw)); }
+        catch (e) { console.warn('Save corrupt, resetting', e); this.data = defaultSaveData(); }
+      } else {
+        const legacy = this._findLegacy();
+        this.data = legacy ? this._migrateLegacy(legacy) : defaultSaveData();
+        this.save();
       }
-      // Validate and sanitize loaded data
-      this.data.credits = Math.max(0, Math.floor(this.data.credits || 0));
-      this.data.bestScore = Math.max(0, Math.floor(this.data.bestScore || 0));
-      this.data.highestLevel = Math.max(1, Math.floor(this.data.highestLevel || 1));
-      this.data.pilotLevel = Math.max(1, Math.floor(this.data.pilotLevel || 1));
-      this.data.pilotXp = Math.max(0, Math.floor(this.data.pilotXp || 0));
-      if (!this.data.selectedShip || !SHIP_TEMPLATES.find(s => s.id === this.data.selectedShip)) {
-        this.data.selectedShip = 'vanguard';
-      }
-      if (!this.data.difficulty || !DIFFICULTY_PRESETS[this.data.difficulty]) {
-        this.data.difficulty = 'normal';
-      }
-      if (!this.data.armory || typeof this.data.armory !== 'object') this.data.armory = defaultArmory();
-      // Ensure equipment class exists
-      if (!this.data.armory.equipmentClass) {
-        this.data.armory.equipmentClass = defaultArmory().equipmentClass;
-      }
-      for (const key of ['primary', 'secondary', 'defense', 'ultimate']) {
-        if (!Array.isArray(this.data.armory.unlocked[key])) this.data.armory.unlocked[key] = [];
-        if (!this.data.armory.loadout[key]) this.data.armory.loadout[key] = defaultArmory().loadout[key];
-        if (!this.data.armory.unlocked[key].includes(this.data.armory.loadout[key])) {
-          this.data.armory.unlocked[key].push(this.data.armory.loadout[key]);
-        }
-      }
+      if (IS_NATIVE_APP) { try { window.webkit.messageHandlers.nativeLoad.postMessage({}); } catch (e) { /* ignore */ } }
     },
     save() {
-      try {
-        localStorage.setItem(SAVE_KEY, JSON.stringify(this.data));
-      } catch (err) {
-        console.warn('Failed to save game', err);
-      }
+      const json = JSON.stringify(this.data);
+      try { localStorage.setItem(SAVE_KEY, json); } catch (e) { console.warn('save failed', e); }
+      if (IS_NATIVE_APP) { try { window.webkit.messageHandlers.nativeSave.postMessage(json); } catch (e) { /* ignore */ } }
     },
     addCredits(amount) {
       this.data.credits = Math.max(0, Math.floor(this.data.credits + amount));
@@ -1358,10 +1336,7 @@
     },
     spendCredits(amount) {
       if (this.data.credits >= amount) {
-        this.data.credits -= amount;
-        syncCredits();
-        this.save();
-        return true;
+        this.data.credits -= amount; syncCredits(); this.save(); return true;
       }
       return false;
     },
@@ -1370,30 +1345,91 @@
       if (lvl > this.data.highestLevel) this.data.highestLevel = lvl;
       this.save();
     },
-    getUpgradeLevel(id) {
-      return this.data.upgrades[id] || 0;
-    },
+    getUpgradeLevel(id) { return this.ship().upgrades[id] || 0; },          // per-ship
     levelUp(id) {
-      this.data.upgrades[id] = (this.data.upgrades[id] || 0) + 1;
+      const sh = this.ship();
+      sh.upgrades[id] = (sh.upgrades[id] || 0) + 1;
       this.save();
-      invalidatePowerCache(); // Invalidate cached power calculations
+      invalidatePowerCache();
     },
-    isUnlocked(type, id) {
-      const bucket = this.data.armory.unlocked[type] || [];
-      return bucket.includes(id);
-    },
+    isUnlocked(type, id) { return (this.data.unlocked[type] || []).includes(id); },   // account-wide
     unlockArmory(type, id) {
-      const bucket = this.data.armory.unlocked[type];
-      if (!bucket.includes(id)) bucket.push(id);
+      if (!this.data.unlocked[type]) this.data.unlocked[type] = [];
+      if (!this.data.unlocked[type].includes(id)) this.data.unlocked[type].push(id);
       this.save();
     },
-    setLoadout(type, id) {
-      this.data.armory.loadout[type] = id;
+    setLoadout(type, id) {                                                  // per-ship
+      this.ship().loadout[type] = id;
       if (!this.isUnlocked(type, id)) this.unlockArmory(type, id);
       this.save();
+    },
+    unlockShip(id) {
+      if (!this.data.unlockedShips.includes(id)) { this.data.unlockedShips.push(id); this.ship(id); this.save(); }
+    },
+
+    // --- migration / sanitize ---
+    _findLegacy() {
+      for (const k of LEGACY_SAVE_KEYS) {
+        try { const r = localStorage.getItem(k); if (r) { const p = JSON.parse(r); if (p && typeof p === 'object') return p; } } catch (e) { /* ignore */ }
+      }
+      return null;
+    },
+    _migrateLegacy(old) {
+      const d = defaultSaveData();
+      d.credits = Math.max(0, Math.floor(old.credits || 0));
+      d.bestScore = Math.max(0, Math.floor(old.bestScore || 0));
+      d.highestLevel = Math.max(1, Math.floor(old.highestLevel || 1));
+      d.pilotLevel = Math.max(1, Math.floor(old.pilotLevel || 1));
+      d.pilotXp = Math.max(0, Math.floor(old.pilotXp || 0));
+      d.prestige = Math.max(0, Math.floor(old.prestige || 0));
+      d.difficulty = old.difficulty || 'normal';
+      d.selectedShip = old.selectedShip || 'vanguard';
+      if (old.armory && old.armory.unlocked) {
+        for (const cat of ['primary', 'secondary', 'defense', 'ultimate']) {
+          if (Array.isArray(old.armory.unlocked[cat])) d.unlocked[cat] = old.armory.unlocked[cat].slice();
+        }
+      }
+      if (!d.unlockedShips.includes(d.selectedShip)) d.unlockedShips.push(d.selectedShip);
+      const oldUpgrades = (old.upgrades && typeof old.upgrades === 'object') ? old.upgrades : {};
+      for (const sid of ALL_SHIP_IDS()) {
+        const st = defaultShipState();
+        st.upgrades = Object.assign({}, oldUpgrades);   // old global upgrades -> every ship (no power loss)
+        if (sid === d.selectedShip && old.armory) {
+          if (old.armory.loadout) st.loadout = Object.assign({}, st.loadout, old.armory.loadout);
+          if (old.armory.equipmentClass) st.equipmentClass = Object.assign({}, old.armory.equipmentClass);
+        }
+        d.ships[sid] = st;
+      }
+      console.log('[VoidRift] migrated legacy save -> v12 (progress preserved)');
+      return d;
+    },
+    _sanitize(p) {
+      const d = defaultSaveData();
+      const out = Object.assign({}, d, p);
+      out.schemaVersion = SAVE_SCHEMA_VERSION;
+      out.unlocked = Object.assign({}, d.unlocked, p.unlocked || {});
+      out.stats = Object.assign({}, d.stats, p.stats || {});
+      out.achievements = Array.isArray(p.achievements) ? p.achievements : [];
+      out.unlockedShips = (Array.isArray(p.unlockedShips) && p.unlockedShips.length) ? p.unlockedShips : ['vanguard'];
+      out.ships = (p.ships && typeof p.ships === 'object') ? p.ships : { vanguard: defaultShipState() };
+      out.credits = Math.max(0, Math.floor(out.credits || 0));
+      out.bestScore = Math.max(0, Math.floor(out.bestScore || 0));
+      out.highestLevel = Math.max(1, Math.floor(out.highestLevel || 1));
+      out.pilotLevel = Math.max(1, Math.floor(out.pilotLevel || 1));
+      out.pilotXp = Math.max(0, Math.floor(out.pilotXp || 0));
+      if (typeof SHIP_TEMPLATES !== 'undefined' && !SHIP_TEMPLATES.find(s => s.id === out.selectedShip)) out.selectedShip = 'vanguard';
+      if (typeof DIFFICULTY_PRESETS !== 'undefined' && !DIFFICULTY_PRESETS[out.difficulty]) out.difficulty = 'normal';
+      for (const sid of out.unlockedShips) {
+        if (!out.ships[sid]) out.ships[sid] = defaultShipState();
+        const dflt = defaultShipState();
+        out.ships[sid].loadout = Object.assign({}, dflt.loadout, out.ships[sid].loadout || {});
+        out.ships[sid].equipmentClass = out.ships[sid].equipmentClass || dflt.equipmentClass;
+        out.ships[sid].upgrades = out.ships[sid].upgrades || {};
+      }
+      if (!out.ships[out.selectedShip]) out.selectedShip = out.unlockedShips[0] || 'vanguard';
+      return out;
     }
   };
-
   const costOf = (upgrade) => {
     const lvl = Save.getUpgradeLevel(upgrade.id);
     return Math.floor(upgrade.base + upgrade.step * (lvl * 1.5 + lvl * lvl * 0.35));
@@ -1685,14 +1721,14 @@
         if (req.credits && profile.credits >= req.credits) unlocked = true;
         
         if (req.unlockedWeapons) {
-          const totalUnlocked = Object.values(Save.data.armory.unlocked).flat().length;
+          const totalUnlocked = Object.values(Save.data.unlocked).flat().length;
           if (totalUnlocked >= req.unlockedWeapons) unlocked = true;
         }
         
         if (req.unlockedShips && profile.unlockedShips.length >= req.unlockedShips) unlocked = true;
         
         if (req.totalUpgrades) {
-          const totalUpgrades = Object.values(Save.data.upgrades).reduce((a, b) => a + b, 0);
+          const totalUpgrades = Object.values(Save.ship().upgrades).reduce((a, b) => a + b, 0);
           if (totalUpgrades >= req.totalUpgrades) unlocked = true;
         }
         
@@ -1892,10 +1928,10 @@
     return value === undefined ? fallback : value;
   };
 
-  const currentPrimaryWeapon = () => ARMORY_MAP.primary[Save.data.armory.loadout.primary] || ARMORY.primary[0];
-  const currentSecondarySystem = () => ARMORY_MAP.secondary[Save.data.armory.loadout.secondary] || ARMORY.secondary[0];
-  const currentDefenseSystem = () => ARMORY_MAP.defense[Save.data.armory.loadout.defense] || ARMORY.defense[0];
-  const currentUltimateSystem = () => ARMORY_MAP.ultimate[Save.data.armory.loadout.ultimate] || ARMORY.ultimate[0];
+  const currentPrimaryWeapon = () => ARMORY_MAP.primary[Save.loadout().primary] || ARMORY.primary[0];
+  const currentSecondarySystem = () => ARMORY_MAP.secondary[Save.loadout().secondary] || ARMORY.secondary[0];
+  const currentDefenseSystem = () => ARMORY_MAP.defense[Save.loadout().defense] || ARMORY.defense[0];
+  const currentUltimateSystem = () => ARMORY_MAP.ultimate[Save.loadout().ultimate] || ARMORY.ultimate[0];
 
   const resetRuntimeState = () => {
     enemies = [];
@@ -8191,7 +8227,7 @@
     });
     
     // Update slot labels and icons based on equipment class
-    const equipClass = Save.data.armory.equipmentClass || defaultArmory().equipmentClass;
+    const equipClass = Save.ship().equipmentClass || defaultArmory().equipmentClass;
     Object.keys(equipClass).forEach((slotKey, index) => {
       const slotData = equipClass[slotKey];
       const slotElement = document.querySelector(`.equip-slot[data-slot="${index}"]`);
@@ -8225,7 +8261,7 @@
     const radialMenu = document.getElementById('radialMenu');
     if (!radialMenu) return;
     
-    const equipClass = Save.data.armory.equipmentClass || defaultArmory().equipmentClass;
+    const equipClass = Save.ship().equipmentClass || defaultArmory().equipmentClass;
     const radialItems = radialMenu.querySelectorAll('.radial-item');
     
     radialItems.forEach((item, index) => {
@@ -8536,7 +8572,7 @@
 
   const createArmoryCard = (type, item) => {
     const unlocked = Save.isUnlocked(type, item.id);
-    const equipped = Save.data.armory.loadout[type] === item.id;
+    const equipped = Save.loadout()[type] === item.id;
     const card = document.createElement('div');
     card.className = 'hangarShip armoryCard';
     if (equipped) card.classList.add('selected');
@@ -11011,6 +11047,17 @@
   });
 
   // expose for debugging if needed
+  // Native (iOS) pushes the durable UserDefaults copy here on launch.
+  window.loadGameData = function (obj) {
+    try {
+      if (!obj || typeof obj !== 'object') return;
+      Save.data = Save._sanitize(obj);
+      try { localStorage.setItem(SAVE_KEY, JSON.stringify(Save.data)); } catch (e) { /* ignore */ }
+      if (typeof syncCredits === 'function') syncCredits();
+      if (typeof invalidatePowerCache === 'function') invalidatePowerCache();
+    } catch (e) { console.warn('loadGameData failed', e); }
+  };
+
   window.__VOID_RIFT__ = {
     startGame,
     togglePause,
@@ -11250,7 +11297,7 @@
   };
 
   const loadEquipmentClassSettings = () => {
-    const equipClass = Save.data.armory.equipmentClass || defaultArmory().equipmentClass;
+    const equipClass = Save.ship().equipmentClass || defaultArmory().equipmentClass;
     
     ['equipSlot1', 'equipSlot2', 'equipSlot3', 'equipSlot4'].forEach((id, index) => {
       const select = document.getElementById(id);
@@ -11275,7 +11322,7 @@
       }
     });
     
-    Save.data.armory.equipmentClass = equipClass;
+    Save.ship().equipmentClass = equipClass; Save.save();
     Save.save();
     
     // Update equipment indicator
@@ -11288,7 +11335,7 @@
     currentEquipmentSlot = slotIndex;
     updateEquipmentIndicator();
     
-    const equipClass = Save.data.armory.equipmentClass || defaultArmory().equipmentClass;
+    const equipClass = Save.ship().equipmentClass || defaultArmory().equipmentClass;
     const slotData = equipClass[`slot${slotIndex + 1}`];
     
     if (slotData) {
@@ -11382,7 +11429,7 @@
     const preview = document.getElementById('weaponPreview');
     if (!preview) return;
     
-    const equipClass = Save.data.armory.equipmentClass || defaultArmory().equipmentClass;
+    const equipClass = Save.ship().equipmentClass || defaultArmory().equipmentClass;
     const slotData = equipClass[`slot${slotIndex + 1}`];
     if (!slotData) return;
     
