@@ -1113,6 +1113,36 @@ const HANGAR_UI_CSS = `
   .hangar-iap-restore-btn { background: none; border: none; font-size: 11px; color: rgba(255,255,255,0.3); text-decoration: underline; cursor: pointer; margin-top: 8px; padding: 0; display: block; }
   .hangar-iap-restore-btn:hover { color: rgba(255,255,255,0.55); }
   .hangar-iap-restore-btn:disabled { opacity: 0.4; cursor: default; }
+
+  /* ── Leaderboard tab ─────────────────────────────────────────── */
+  .hangar-lb-header { display: flex; align-items: baseline; justify-content: space-between; padding: 16px 20px 8px; }
+  .hangar-lb-title { font-family: 'Orbitron', monospace; font-size: 13px; font-weight: 700; letter-spacing: 0.12em; color: rgba(255,255,255,0.55); text-transform: uppercase; }
+  .hangar-lb-count { font-size: 11px; color: rgba(255,255,255,0.3); }
+  .hangar-lb-table { width: 100%; border-collapse: collapse; }
+  .hangar-lb-table th { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.3); padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.07); text-align: left; }
+  .hangar-lb-table th:last-child, .hangar-lb-table td:last-child { text-align: right; }
+  .hangar-lb-row { border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.15s; }
+  .hangar-lb-row:hover { background: rgba(255,255,255,0.03); }
+  .hangar-lb-row.lb-top1 { background: rgba(253,224,71,0.06); }
+  .hangar-lb-row.lb-top2 { background: rgba(203,213,225,0.04); }
+  .hangar-lb-row.lb-top3 { background: rgba(251,146,60,0.04); }
+  .hangar-lb-row td { padding: 10px 12px; font-size: 13px; vertical-align: middle; }
+  .lb-rank { font-family: 'Orbitron', monospace; font-size: 11px; font-weight: 700; width: 28px; }
+  .lb-rank-gold   { color: #fde047; }
+  .lb-rank-silver { color: #cbd5e1; }
+  .lb-rank-bronze { color: #fb923c; }
+  .lb-rank-plain  { color: rgba(255,255,255,0.3); }
+  .lb-pilot { font-weight: 600; color: rgba(255,255,255,0.85); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lb-score { font-family: 'Orbitron', monospace; font-size: 13px; font-weight: 700; color: #e2e8f0; letter-spacing: 0.04em; }
+  .lb-meta { font-size: 11px; color: rgba(255,255,255,0.35); }
+  .lb-diff-easy   { color: #4ade80; }
+  .lb-diff-normal { color: #60a5fa; }
+  .lb-diff-hard   { color: #f87171; }
+  .lb-date { font-size: 11px; color: rgba(255,255,255,0.25); text-align: right; }
+  .hangar-lb-empty { text-align: center; padding: 48px 20px; }
+  .hangar-lb-empty-icon { font-size: 36px; margin-bottom: 12px; opacity: 0.4; }
+  .hangar-lb-empty-msg { font-size: 13px; color: rgba(255,255,255,0.35); }
+  .hangar-lb-empty-hint { font-size: 11px; color: rgba(255,255,255,0.2); margin-top: 6px; }
 `;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1832,7 +1862,98 @@ function renderSettingsView() {
 }
 
 /**
- * Switch the active tab ('upgrades', 'achievements', 'skins', or 'settings'),
+ * Render the leaderboard tab — reads local high scores from localStorage
+ * (same key used by LeaderboardSystem.js: 'void_rift_leaderboard').
+ */
+function renderLeaderboardView() {
+  const content = document.getElementById('hangarContent');
+  if (!content) return;
+  content.innerHTML = '';
+
+  // Read entries directly from localStorage (same key as LeaderboardSystem)
+  let entries = [];
+  try {
+    const raw = localStorage.getItem('void_rift_leaderboard');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        entries = parsed
+          .filter(e => e && typeof e.score === 'number' && typeof e.username === 'string')
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 20); // show top 20
+      }
+    }
+  } catch { /* ignore parse errors */ }
+
+  const header = document.createElement('div');
+  header.className = 'hangar-lb-header';
+  header.innerHTML = `
+    <span class="hangar-lb-title">⭐ Best Runs</span>
+    <span class="hangar-lb-count">${entries.length} entr${entries.length === 1 ? 'y' : 'ies'}</span>
+  `;
+  content.appendChild(header);
+
+  if (entries.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'hangar-lb-empty';
+    empty.innerHTML = `
+      <div class="hangar-lb-empty-icon">🚀</div>
+      <p class="hangar-lb-empty-msg">No runs recorded yet</p>
+      <p class="hangar-lb-empty-hint">Finish a game to appear on the board</p>
+    `;
+    content.appendChild(empty);
+    return;
+  }
+
+  const table = document.createElement('table');
+  table.className = 'hangar-lb-table';
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Pilot</th>
+        <th>Score</th>
+        <th>Wave</th>
+        <th>Diff</th>
+        <th>Date</th>
+      </tr>
+    </thead>
+  `;
+
+  const tbody = document.createElement('tbody');
+
+  entries.forEach((entry, i) => {
+    const rank = i + 1;
+    const rankClass = rank === 1 ? 'lb-rank-gold' : rank === 2 ? 'lb-rank-silver' : rank === 3 ? 'lb-rank-bronze' : 'lb-rank-plain';
+    const rankSymbol = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
+    const rowClass = rank === 1 ? 'lb-top1' : rank === 2 ? 'lb-top2' : rank === 3 ? 'lb-top3' : '';
+    const diffClass = entry.difficulty === 'easy' ? 'lb-diff-easy' : entry.difficulty === 'hard' ? 'lb-diff-hard' : 'lb-diff-normal';
+    const score = typeof entry.score === 'number' ? entry.score.toLocaleString() : '—';
+    const wave = entry.level != null ? entry.level : '—';
+    const diff = entry.difficulty ? entry.difficulty.charAt(0).toUpperCase() + entry.difficulty.slice(1) : '—';
+    const date = entry.timestamp
+      ? new Date(entry.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      : '—';
+
+    const tr = document.createElement('tr');
+    tr.className = `hangar-lb-row ${rowClass}`;
+    tr.innerHTML = `
+      <td><span class="lb-rank ${rankClass}">${rankSymbol}</span></td>
+      <td><span class="lb-pilot" title="${entry.username}">${entry.username}</span></td>
+      <td><span class="lb-score">${score}</span></td>
+      <td><span class="lb-meta">${wave}</span></td>
+      <td><span class="lb-meta ${diffClass}">${diff}</span></td>
+      <td><span class="lb-date">${date}</span></td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  table.appendChild(tbody);
+  content.appendChild(table);
+}
+
+/**
+ * Switch the active tab ('upgrades', 'achievements', 'skins', 'settings', or 'leaderboard'),
  * update tab buttons, and re-render the content area.
  */
 function switchTab(tab) {
@@ -1849,6 +1970,8 @@ function switchTab(tab) {
     renderSkinsView();
   } else if (tab === 'settings') {
     renderSettingsView();
+  } else if (tab === 'leaderboard') {
+    renderLeaderboardView();
   } else {
     renderUpgradesView();
   }
@@ -1949,6 +2072,7 @@ export function openHangar(opts = {}) {
         <button class="hangar-tab-btn active" data-tab="upgrades">Upgrades</button>
         <button class="hangar-tab-btn" data-tab="skins">Skins</button>
         <button class="hangar-tab-btn" data-tab="achievements">Achievements</button>
+        <button class="hangar-tab-btn" data-tab="leaderboard">Leaderboard</button>
         <button class="hangar-tab-btn" data-tab="settings">Settings</button>
       </div>
 
