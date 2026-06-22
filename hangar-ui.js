@@ -1114,6 +1114,17 @@ const HANGAR_UI_CSS = `
   .hangar-iap-restore-btn:hover { color: rgba(255,255,255,0.55); }
   .hangar-iap-restore-btn:disabled { opacity: 0.4; cursor: default; }
 
+  /* ── Daily Challenge section ─────────────────────────────────── */
+  .hangar-daily-section { margin-top: 8px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.08); }
+  .hangar-daily-desc { font-size: 12px; color: rgba(255,255,255,0.45); line-height: 1.55; margin-bottom: 14px; }
+  .hangar-daily-meta { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; min-height: 20px; }
+  .hangar-daily-date { font-family: 'Orbitron', monospace; font-size: 11px; letter-spacing: 0.08em; color: rgba(255,255,255,0.35); }
+  .hangar-daily-best { font-size: 12px; color: rgba(74,222,128,0.8); }
+  .hangar-daily-best strong { color: #4ade80; font-weight: 700; }
+  .hangar-daily-btn { display: block; width: 100%; padding: 11px 16px; background: linear-gradient(135deg, rgba(99,102,241,0.18) 0%, rgba(74,222,128,0.12) 100%); border: 1px solid rgba(99,102,241,0.45); border-radius: 8px; color: #a5b4fc; font-family: 'Orbitron', monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; transition: background 0.2s, border-color 0.2s, color 0.2s; }
+  .hangar-daily-btn:hover:not(:disabled) { background: linear-gradient(135deg, rgba(99,102,241,0.32) 0%, rgba(74,222,128,0.22) 100%); border-color: rgba(99,102,241,0.75); color: #c7d2fe; }
+  .hangar-daily-btn:disabled { opacity: 0.5; cursor: default; }
+
   /* ── Leaderboard tab ─────────────────────────────────────────── */
   .hangar-lb-header { display: flex; align-items: baseline; justify-content: space-between; padding: 16px 20px 8px; }
   .hangar-lb-title { font-family: 'Orbitron', monospace; font-size: 13px; font-weight: 700; letter-spacing: 0.12em; color: rgba(255,255,255,0.55); text-transform: uppercase; }
@@ -1808,6 +1819,16 @@ function renderSettingsView() {
                <button class="hangar-iap-restore-btn" id="hangar-iap-restore-btn">Restore purchases</button>`
         }
       </div>
+
+      <div class="hangar-settings-section hangar-daily-section">
+        <div class="hangar-settings-label">🎯 Daily Challenge</div>
+        <div class="hangar-daily-desc">
+          Every pilot faces the same run today — seeded so the map, enemies,
+          and drops are identical for everyone. One score counts per day.
+        </div>
+        <div class="hangar-daily-meta" id="hangar-daily-meta"></div>
+        <button class="hangar-daily-btn" id="hangar-daily-start-btn">Start Today's Challenge</button>
+      </div>
     </div>
   `;
 
@@ -1858,6 +1879,45 @@ function renderSettingsView() {
   const restoreBtn = document.getElementById('hangar-iap-restore-btn');
   if (restoreBtn) {
     restoreBtn.addEventListener('click', () => IAPManager.restore());
+  }
+
+  // ── Daily Challenge wiring ─────────────────────────────────────────────────
+  const dailyMeta = document.getElementById('hangar-daily-meta');
+  const dailyBtn  = document.getElementById('hangar-daily-start-btn');
+
+  import('./daily-challenge.js').then(({ getTodayBest, todayStr }) => {
+    const today = todayStr();
+    const best  = getTodayBest();
+    if (dailyMeta) {
+      dailyMeta.innerHTML = best > 0
+        ? `<span class="hangar-daily-date">${today}</span>
+           <span class="hangar-daily-best">Best today: <strong>${best.toLocaleString()}</strong></span>`
+        : `<span class="hangar-daily-date">${today}</span>
+           <span class="hangar-daily-best">No run yet today</span>`;
+    }
+  }).catch(() => {
+    if (dailyMeta) dailyMeta.textContent = 'Challenge unavailable';
+  });
+
+  if (dailyBtn) {
+    dailyBtn.addEventListener('click', () => {
+      dailyBtn.disabled = true;
+      dailyBtn.textContent = 'Launching…';
+      import('./daily-challenge.js').then(({ activateDailyChallenge }) => {
+        activateDailyChallenge();
+        // Close the Hangar overlay, then trigger game start
+        closeHangar();
+        setTimeout(() => {
+          if (window.__VOID_RIFT__ && typeof window.__VOID_RIFT__.startGame === 'function') {
+            window.__VOID_RIFT__.startGame();
+          }
+        }, 250); // wait for hangar fade-out
+      }).catch(err => {
+        console.warn('[DailyChallenge] Failed to activate:', err);
+        dailyBtn.disabled = false;
+        dailyBtn.textContent = "Start Today's Challenge";
+      });
+    });
   }
 }
 
