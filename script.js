@@ -10265,7 +10265,15 @@
   // NEW: Function to start countdown from ready-up phase
   const startCountdownFromReadyUp = () => {
     if (!readyUpPhase) return;
-    
+
+    // Show LEVIATHAN INCOMING overlay for 3s before starting the wave countdown
+    if (leviathanWavePending) {
+      showBossIncomingOverlay(() => {
+        startCountdownFromReadyUp();
+      });
+      return;
+    }
+
     readyUpPhase = false;
     countdownActive = true;
     countdownEnd = performance.now() + 3000;
@@ -11819,11 +11827,25 @@
 
     // Save daily challenge best and restore Math.random
     if (window.DAILY_CHALLENGE_ACTIVE) {
-      import('./daily-challenge.js').then(({ saveDailyBest, deactivateDailyChallenge }) => {
+      import('./daily-challenge.js').then(({ saveDailyBest, deactivateDailyChallenge, getDailyStreak, getTotalDailyChallengesCompleted }) => {
         saveDailyBest(finalScore);
         deactivateDailyChallenge();
         const bestEl = document.getElementById('dailyBestDisplay');
         if (bestEl) bestEl.textContent = `Best: ${finalScore.toLocaleString()}`;
+
+        // Update achievement stats for daily challenge completion
+        try {
+          const completedCount = getTotalDailyChallengesCompleted();
+          const streak = getDailyStreak();
+          import('./src/systems/AchievementSystem.js').then(({ updateStats }) => {
+            const newlyUnlocked = updateStats({ dailyChallengesCompleted: completedCount, dailyStreak: streak });
+            if (newlyUnlocked && newlyUnlocked.length > 0 && typeof showAchievementToast === 'function') {
+              newlyUnlocked.forEach(ach => showAchievementToast(ach));
+            }
+          }).catch(err => console.warn('[DailyChallenge] Achievement update failed:', err));
+        } catch (e) {
+          console.warn('[DailyChallenge] Achievement stats error:', e);
+        }
       }).catch(err => console.warn('[DailyChallenge] Save failed:', err));
     }
     const runKillCount = totalKillsThisRun;
@@ -11891,6 +11913,30 @@
       localStorage.setItem('voidrift_missions', JSON.stringify(window.missionSystem.getSaveData()));
     } catch(e) {}
   }
+
+  // ── LEVIATHAN Boss Incoming Overlay ─────────────────────────────────────────
+  const showBossIncomingOverlay = (onComplete) => {
+    const overlay = document.getElementById('bossIncomingOverlay');
+    if (!overlay) { onComplete(); return; }
+    overlay.style.display = 'flex';
+    // Animate the countdown bar from 100% to 0%
+    const bar = document.getElementById('bossIncomingBar');
+    if (bar) {
+      bar.style.width = '100%';
+      bar.style.transition = 'none';
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          bar.style.transition = 'width 3s linear';
+          bar.style.width = '0%';
+        });
+      });
+    }
+    // Hide overlay and call onComplete after 3s
+    setTimeout(() => {
+      overlay.style.display = 'none';
+      onComplete();
+    }, 3000);
+  };
 
   const showGameOverScreen = (finalScore, finalLevel, rank, isNewBest, runKillCount = 0, runTimeSec = 0, runAccuracyPct = 0) => {
     if (window.missionSystem) updateMissionHUD();
@@ -11979,31 +12025,43 @@
       // Watch Ad to Continue button
       const watchAdBtn = document.getElementById('gameOverWatchAdBtn');
       if (watchAdBtn) {
-        // Show only if AdMob is available and player hasn't already used a continue this run
-        const canContinue = typeof AdMobManager !== 'undefined' && !continueUsed;
-        watchAdBtn.style.display = canContinue ? 'flex' : 'none';
+        const adsRemoved = (() => { try { return localStorage.getItem('vr_ads_removed') === 'true'; } catch (_) { return false; } })();
 
-        watchAdBtn.onclick = () => {
-          if (typeof AdMobManager === 'undefined') return;
-          watchAdBtn.disabled = true;
-          watchAdBtn.textContent = 'Loading ad…';
+        if (adsRemoved && !continueUsed) {
+          // Player paid to remove ads — offer a free continue instead
+          watchAdBtn.innerHTML = '<span>▶</span> Continue';
+          watchAdBtn.style.display = 'flex';
+          watchAdBtn.onclick = () => {
+            gameOverModal.style.display = 'none';
+            _continueRun(finalScore, finalLevel);
+          };
+        } else {
+          // Show only if AdMob is available and player hasn't already used a continue this run
+          const canContinue = typeof AdMobManager !== 'undefined' && !continueUsed && !adsRemoved;
+          watchAdBtn.style.display = canContinue ? 'flex' : 'none';
 
-          AdMobManager.showRewarded(
-            // Rewarded: grant 1 continue
-            () => {
-              gameOverModal.style.display = 'none';
-              _continueRun(finalScore, finalLevel);
-            },
-            // Cancelled/not ready
-            (reason) => {
-              watchAdBtn.disabled = false;
-              watchAdBtn.innerHTML = '<span>📺</span> Watch Ad to Continue';
-              if (reason === 'not_ready') {
-                watchAdBtn.title = 'Ad is loading, try again in a moment';
+          watchAdBtn.onclick = () => {
+            if (typeof AdMobManager === 'undefined') return;
+            watchAdBtn.disabled = true;
+            watchAdBtn.textContent = 'Loading ad…';
+
+            AdMobManager.showRewarded(
+              // Rewarded: grant 1 continue
+              () => {
+                gameOverModal.style.display = 'none';
+                _continueRun(finalScore, finalLevel);
+              },
+              // Cancelled/not ready
+              (reason) => {
+                watchAdBtn.disabled = false;
+                watchAdBtn.innerHTML = '<span>📺</span> Watch Ad to Continue';
+                if (reason === 'not_ready') {
+                  watchAdBtn.title = 'Ad is loading, try again in a moment';
+                }
               }
-            }
-          );
-        };
+            );
+          };
+        }
       }
 
       // Share Score button

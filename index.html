@@ -305,6 +305,22 @@
       </div>
     </div>
     
+    <!-- LEVIATHAN Boss Incoming Warning -->
+    <div id="bossIncomingOverlay" style="display:none; position:fixed; inset:0; z-index:8500; background:rgba(0,0,0,0.92); align-items:center; justify-content:center; flex-direction:column; font-family:Arial,sans-serif;">
+      <div style="text-align:center; animation: bossAlertPulse 0.6s ease-in-out infinite alternate;">
+        <div style="font-size:11px; letter-spacing:0.3em; color:rgba(255,80,80,0.7); text-transform:uppercase; margin-bottom:16px; font-weight:700;">WARNING — WAVE 10</div>
+        <div id="bossIncomingTitle" style="font-size:clamp(36px,8vw,72px); font-weight:900; color:#ef4444; letter-spacing:0.12em; text-transform:uppercase; text-shadow:0 0 40px rgba(239,68,68,0.9), 0 0 80px rgba(239,68,68,0.5); line-height:1; margin-bottom:12px;">LEVIATHAN</div>
+        <div style="font-size:clamp(14px,3vw,22px); font-weight:700; color:rgba(255,255,255,0.7); letter-spacing:0.2em; text-transform:uppercase; margin-bottom:32px;">INCOMING</div>
+        <div style="width:180px; height:2px; background:rgba(239,68,68,0.4); margin:0 auto 28px; position:relative; overflow:hidden;">
+          <div id="bossIncomingBar" style="position:absolute; top:0; left:0; height:100%; background:#ef4444; width:100%; transition:width 3s linear;"></div>
+        </div>
+        <div style="font-size:11px; letter-spacing:0.15em; color:rgba(255,255,255,0.35); text-transform:uppercase;">BRACE FOR IMPACT</div>
+      </div>
+      <style>
+        @keyframes bossAlertPulse { from { opacity:0.7; transform:scale(0.98); } to { opacity:1; transform:scale(1.02); } }
+      </style>
+    </div>
+
     <!-- Game Over Modal -->
     <div id="gameOverModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="gameOverTitle">
       <div class="modal-content game-over-screen">

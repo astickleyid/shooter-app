@@ -73,3 +73,29 @@ export function deactivateDailyChallenge() {
   }
   window.DAILY_CHALLENGE_ACTIVE = false;
 }
+
+/**
+ * Returns the current daily streak — consecutive days including today that
+ * have a completed challenge. Requires that today's challenge was already saved.
+ */
+export function getDailyStreak() {
+  const stored = loadDailyChallenge();
+  let streak = 0;
+  const d = new Date();
+  while (true) {
+    const dateStr = d.toISOString().split('T')[0];
+    if (!stored[dateStr]) break;
+    streak++;
+    d.setDate(d.getDate() - 1);
+    if (streak > 365) break; // safety cap
+  }
+  return streak;
+}
+
+/**
+ * Returns total number of unique days with a completed challenge.
+ */
+export function getTotalDailyChallengesCompleted() {
+  const stored = loadDailyChallenge();
+  return Object.keys(stored).length;
+}
