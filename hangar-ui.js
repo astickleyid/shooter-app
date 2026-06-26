@@ -1126,6 +1126,12 @@ const HANGAR_UI_CSS = `
   .hangar-daily-btn:disabled { opacity: 0.5; cursor: default; }
 
   /* ── Leaderboard tab ─────────────────────────────────────────── */
+  .hangar-lb-tabs { display: flex; gap: 4px; padding: 12px 16px 0; }
+  .hangar-lb-tab { flex: 1; padding: 7px 12px; font-family: 'Orbitron', monospace; font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; background: transparent; color: rgba(255,255,255,0.35); cursor: pointer; transition: all 0.15s; }
+  .hangar-lb-tab:hover { border-color: rgba(255,255,255,0.25); color: rgba(255,255,255,0.6); }
+  .hangar-lb-tab.active { background: rgba(99,102,241,0.2); border-color: rgba(99,102,241,0.6); color: #a5b4fc; }
+  .hangar-lb-loading { text-align: center; padding: 40px 20px; font-size: 12px; color: rgba(255,255,255,0.3); font-family: 'Orbitron', monospace; letter-spacing: 0.1em; }
+  .hangar-lb-error { text-align: center; padding: 24px 20px; font-size: 12px; color: rgba(248,113,113,0.7); }
   .hangar-lb-header { display: flex; align-items: baseline; justify-content: space-between; padding: 16px 20px 8px; }
   .hangar-lb-title { font-family: 'Orbitron', monospace; font-size: 13px; font-weight: 700; letter-spacing: 0.12em; color: rgba(255,255,255,0.55); text-transform: uppercase; }
   .hangar-lb-count { font-size: 11px; color: rgba(255,255,255,0.3); }
@@ -1921,47 +1927,31 @@ function renderSettingsView() {
   }
 }
 
+/** Persists the selected leaderboard mode across tab re-renders */
+let _lbMode = 'local'; // 'local' | 'global'
+
 /**
- * Render the leaderboard tab — reads local high scores from localStorage
- * (same key used by LeaderboardSystem.js: 'void_rift_leaderboard').
+ * Build a leaderboard table from an array of entries and append to container.
+ * Used by both local and global views.
  */
-function renderLeaderboardView() {
-  const content = document.getElementById('hangarContent');
-  if (!content) return;
-  content.innerHTML = '';
-
-  // Read entries directly from localStorage (same key as LeaderboardSystem)
-  let entries = [];
-  try {
-    const raw = localStorage.getItem('void_rift_leaderboard');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        entries = parsed
-          .filter(e => e && typeof e.score === 'number' && typeof e.username === 'string')
-          .sort((a, b) => b.score - a.score)
-          .slice(0, 20); // show top 20
-      }
-    }
-  } catch { /* ignore parse errors */ }
-
+function _buildLeaderboardTable(container, entries, emptyMsg = 'No runs recorded yet', emptyHint = 'Finish a game to appear on the board') {
   const header = document.createElement('div');
   header.className = 'hangar-lb-header';
   header.innerHTML = `
     <span class="hangar-lb-title">⭐ Best Runs</span>
     <span class="hangar-lb-count">${entries.length} entr${entries.length === 1 ? 'y' : 'ies'}</span>
   `;
-  content.appendChild(header);
+  container.appendChild(header);
 
   if (entries.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'hangar-lb-empty';
     empty.innerHTML = `
       <div class="hangar-lb-empty-icon">🚀</div>
-      <p class="hangar-lb-empty-msg">No runs recorded yet</p>
-      <p class="hangar-lb-empty-hint">Finish a game to appear on the board</p>
+      <p class="hangar-lb-empty-msg">${emptyMsg}</p>
+      <p class="hangar-lb-empty-hint">${emptyHint}</p>
     `;
-    content.appendChild(empty);
+    container.appendChild(empty);
     return;
   }
 
@@ -1981,7 +1971,6 @@ function renderLeaderboardView() {
   `;
 
   const tbody = document.createElement('tbody');
-
   entries.forEach((entry, i) => {
     const rank = i + 1;
     const rankClass = rank === 1 ? 'lb-rank-gold' : rank === 2 ? 'lb-rank-silver' : rank === 3 ? 'lb-rank-bronze' : 'lb-rank-plain';
@@ -1994,12 +1983,12 @@ function renderLeaderboardView() {
     const date = entry.timestamp
       ? new Date(entry.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
       : '—';
-
+    const pilot = entry.username || entry.userId || 'Pilot';
     const tr = document.createElement('tr');
     tr.className = `hangar-lb-row ${rowClass}`;
     tr.innerHTML = `
       <td><span class="lb-rank ${rankClass}">${rankSymbol}</span></td>
-      <td><span class="lb-pilot" title="${entry.username}">${entry.username}</span></td>
+      <td><span class="lb-pilot" title="${pilot}">${pilot}</span></td>
       <td><span class="lb-score">${score}</span></td>
       <td><span class="lb-meta">${wave}</span></td>
       <td><span class="lb-meta ${diffClass}">${diff}</span></td>
@@ -2009,7 +1998,94 @@ function renderLeaderboardView() {
   });
 
   table.appendChild(tbody);
-  content.appendChild(table);
+  container.appendChild(table);
+}
+
+/**
+ * Render the leaderboard tab — Local tab reads localStorage; Global tab
+ * fetches from LeaderboardSystem (backend API).
+ */
+function renderLeaderboardView() {
+  const content = document.getElementById('hangarContent');
+  if (!content) return;
+  content.innerHTML = '';
+
+  // ── Tab bar ──────────────────────────────────────────────────────────────
+  const tabBar = document.createElement('div');
+  tabBar.className = 'hangar-lb-tabs';
+  tabBar.innerHTML = `
+    <button class="hangar-lb-tab ${_lbMode === 'local' ? 'active' : ''}" data-lb-tab="local">Local</button>
+    <button class="hangar-lb-tab ${_lbMode === 'global' ? 'active' : ''}" data-lb-tab="global">Global</button>
+  `;
+  content.appendChild(tabBar);
+
+  tabBar.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-lb-tab]');
+    if (!btn) return;
+    const tab = btn.dataset.lbTab;
+    if (tab === _lbMode) return;
+    _lbMode = tab;
+    renderLeaderboardView();
+  });
+
+  // ── Local view ───────────────────────────────────────────────────────────
+  if (_lbMode === 'local') {
+    let entries = [];
+    try {
+      const raw = localStorage.getItem('void_rift_leaderboard');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          entries = parsed
+            .filter(e => e && typeof e.score === 'number' && typeof e.username === 'string')
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 20);
+        }
+      }
+    } catch { /* ignore */ }
+    _buildLeaderboardTable(content, entries, 'No runs recorded yet', 'Finish a game to appear on the board');
+    return;
+  }
+
+  // ── Global view ──────────────────────────────────────────────────────────
+  if (typeof LeaderboardSystem === 'undefined') {
+    const err = document.createElement('div');
+    err.className = 'hangar-lb-error';
+    err.textContent = 'Leaderboard unavailable — backend not connected.';
+    content.appendChild(err);
+    return;
+  }
+
+  // Show loading state while fetching
+  const loading = document.createElement('div');
+  loading.className = 'hangar-lb-loading';
+  loading.textContent = 'LOADING GLOBAL SCORES…';
+  content.appendChild(loading);
+
+  LeaderboardSystem.fetchScores('all', 20)
+    .then(scores => {
+      // Guard: user may have navigated away
+      const current = document.getElementById('hangarContent');
+      if (!current || !current.contains(loading)) return;
+      loading.remove();
+
+      const entries = (scores || [])
+        .filter(e => e && typeof e.score === 'number')
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 20);
+
+      _buildLeaderboardTable(current, entries, 'No global scores yet', 'Be the first to submit a score!');
+    })
+    .catch(err => {
+      console.warn('[Hangar] Global leaderboard fetch failed:', err);
+      const current = document.getElementById('hangarContent');
+      if (!current || !current.contains(loading)) return;
+      loading.remove();
+      const errEl = document.createElement('div');
+      errEl.className = 'hangar-lb-error';
+      errEl.textContent = 'Could not load global scores. Check your connection.';
+      current.appendChild(errEl);
+    });
 }
 
 /**
@@ -2067,6 +2143,16 @@ function handlePurchase(upgradeId) {
 
   // Re-render grid to reflect new levels and costs
   refreshGrid();
+
+  // Track achievement stat when an upgrade reaches max level
+  const newLevel = _hangarState.upgrades[upgradeId];
+  if (newLevel >= item.maxLevel) {
+    const maxedCount = HANGAR_CATALOG.filter(
+      u => (_hangarState.upgrades[u.id] || 0) >= u.maxLevel
+    ).length;
+    const newlyUnlocked = updateStats({ maxedHangarUpgrades: maxedCount });
+    newlyUnlocked.forEach(a => showAchievementToast(a));
+  }
 
   // Fire optional callback
   if (typeof _options.onPurchase === 'function') {
