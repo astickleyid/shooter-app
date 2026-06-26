@@ -732,6 +732,64 @@
 
   const XP_PER_LEVEL = (lvl) => Math.floor(160 + Math.pow(lvl, 1.65) * 55);
 
+  // ---- Level-up rewards & milestone unlocks (PR #2) ----
+  // Every level pays scaling credits; milestones unlock abilities/ships/caches
+  // so all 20 abilities are earned by L30 and all ships by L35 through play.
+  const LEVEL_BASE_CREDIT = (lvl) => 50 + lvl * 10;
+  const LEVEL_MILESTONES = {
+    2:  { abilities: [['primary', 'scatter']] },
+    3:  { abilities: [['secondary', 'cluster']] },
+    4:  { credits: 500 },
+    5:  { ships: ['phantom'], abilities: [['defense', 'reflector']] },
+    6:  { abilities: [['primary', 'rail']] },
+    7:  { abilities: [['secondary', 'seeker']] },
+    8:  { abilities: [['ultimate', 'solarbeam']] },
+    9:  { credits: 800 },
+    10: { ships: ['bulwark'], abilities: [['primary', 'ionburst']] },
+    12: { abilities: [['secondary', 'gravity']] },
+    13: { abilities: [['defense', 'phaseshift']] },
+    15: { ships: ['emberwing'], abilities: [['primary', 'plasma']], credits: 1200 },
+    18: { abilities: [['secondary', 'charge']] },
+    20: { ships: ['spectre'], abilities: [['ultimate', 'timewarp']] },
+    22: { abilities: [['primary', 'photon']] },
+    25: { abilities: [['defense', 'overcharge']], credits: 2000 },
+    28: { abilities: [['secondary', 'reinforcement']] },
+    30: { abilities: [['ultimate', 'supernova']], credits: 2500 },
+    35: { ships: ['titan'] },
+    40: { credits: 4000 }
+  };
+  const abilityName = (cat, id) => {
+    try { return (ARMORY_MAP[cat] && ARMORY_MAP[cat][id] && ARMORY_MAP[cat][id].name) || id; }
+    catch (e) { return id; }
+  };
+  const shipName = (id) => {
+    try { const s = SHIP_TEMPLATES.find(t => t.id === id); return s ? s.name : id; }
+    catch (e) { return id; }
+  };
+  const grantLevelRewards = (level) => {
+    const base = LEVEL_BASE_CREDIT(level);
+    Save.addCredits(base);
+    if (typeof addLogEntry === 'function') addLogEntry(`+${base} credits`, '#fbbf24');
+    const m = LEVEL_MILESTONES[level];
+    if (!m) return;
+    if (m.credits) {
+      Save.addCredits(m.credits);
+      if (typeof addLogEntry === 'function') addLogEntry(`\uD83D\uDCB0 Bonus +${m.credits} credits!`, '#fbbf24');
+    }
+    if (Array.isArray(m.abilities)) {
+      for (const [cat, id] of m.abilities) {
+        Save.unlockArmory(cat, id);
+        if (typeof addLogEntry === 'function') addLogEntry(`\uD83D\uDD13 New ${cat}: ${abilityName(cat, id)}!`, '#4ade80');
+      }
+    }
+    if (Array.isArray(m.ships)) {
+      for (const sid of m.ships) {
+        Save.unlockShip(sid);
+        if (typeof addLogEntry === 'function') addLogEntry(`\uD83D\uDE80 Ship unlocked: ${shipName(sid)}!`, '#60a5fa');
+      }
+    }
+  };
+
   /* ====== DOM ====== */
   const dom = {};
   const assignDomRefs = () => {
@@ -2064,6 +2122,8 @@
       if (typeof AudioManager !== 'undefined') {
         AudioManager.playLevelUp();
       }
+
+      grantLevelRewards(pilotLevel);
     }
     Save.data.pilotLevel = pilotLevel;
     Save.data.pilotXp = pilotXP;
