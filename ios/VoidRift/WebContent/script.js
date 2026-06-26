@@ -6,7 +6,10 @@
   const chance = (p) => Math.random() < p;
 
   /* ====== CONFIG ====== */
-  const SAVE_KEY = 'void_rift_v11';
+  const SAVE_KEY = 'voidrift_save';            // permanent, never version-stamped again
+  const SAVE_SCHEMA_VERSION = 12;
+  const LEGACY_SAVE_KEYS = (() => { const a = []; for (let v = 20; v >= 1; v--) a.push('void_rift_v' + v); return a; })();
+  const IS_NATIVE_APP = !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.nativeSave);
   const AUTH_KEY = 'void_rift_auth';
   const LEADERBOARD_KEY = 'void_rift_leaderboard';
 
@@ -744,6 +747,9 @@
     dom.scoreValue = document.getElementById('scoreValue');
     dom.levelValue = document.getElementById('levelValue');
     dom.healthBar = document.getElementById('healthBar');
+    dom.bossBar = document.getElementById('bossBar');
+    dom.bossBarFill = document.getElementById('bossBarFill');
+    dom.bossBarName = document.getElementById('bossBarName');
     dom.ammoBar = document.getElementById('ammoBar');
     dom.creditsText = document.getElementById('creditsText');
     dom.pilotLevelValue = document.getElementById('pilotLevelValue');
@@ -764,6 +770,21 @@
     dom.leftTouchZone = document.getElementById('leftTouchZone');
     dom.rightTouchZone = document.getElementById('rightTouchZone');
     dom.abilityButton = document.getElementById('abilityButton');
+    // Wire up Q-ability HUD button (tap to fire special ability on mobile)
+    const _abilityQBtn = document.getElementById('abilityQBtn');
+    if (_abilityQBtn) {
+      _abilityQBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        if (gameRunning && !paused && !countdownActive && !readyUpPhase) {
+          fireSpecialAbility();
+        }
+      }, { passive: false });
+      _abilityQBtn.addEventListener('click', () => {
+        if (gameRunning && !paused && !countdownActive && !readyUpPhase) {
+          fireSpecialAbility();
+        }
+      });
+    }
     dom.controlSettingsButton = document.getElementById('controlSettingsButton');
     dom.controlSettingsModal = document.getElementById('controlSettingsModal');
     dom.closeControlSettings = document.getElementById('closeControlSettings');
@@ -825,6 +846,13 @@
   let enemiesToKill = 15;  // Increased from 10 for better pacing
   let enemiesKilled = 0;
   let lastTime = 0;
+
+  // ── Special Ability State ──────────────────────────────────────────────────
+  let specialCooldown = 0;       // ms remaining on cooldown
+  let specialCooldownMax = 6000; // ms total cooldown (varies per ship)
+  let specialAbilityQueued = false;
+  let shieldWall = null;         // { hp: 3, framesLeft: 180 } for Bulwark-7
+  let specialQKeyLatch = false;  // prevent key-repeat triggering ability twice
   let gameRunning = false;
   let paused = false;
   let lastAmmoRegen = 0;
@@ -855,6 +883,10 @@
   // Fullscreen state
   let isFullscreen = false;
 
+  // 3D Rendering state
+  let use3DRendering = true; // Enable 3D third-person view by default
+  let renderer3DInitialized = false;
+
   // Equipment interaction system - Enhanced secondary weapons dock
   let lastTapTime = 0;
   let tapCount = 0;
@@ -883,11 +915,246 @@
   const MAX_LOG_ENTRIES = 5;
   const LOG_ENTRY_LIFETIME = 4000; // ms
 
+  // ── ROGUELITE PERK SYSTEM ─────────────────────────────────────────────────
+  // Perks selected during a run; reset on game over / new game
+  let waveUpgradeActive = false; // true while card picker is showing
+  let activePerks = [];   // array of perk ids chosen this run
+  let perkMultipliers = {
+    bulletSpeed:         1,
+    maxHp:               0,   // flat bonus added to max HP
+    ammoRegenMult:       1,   // multiplier on regen interval (< 1 = faster)
+    invulnBonus:         0,   // added ms to invuln window
+    chainDamage:         0,   // area damage on kill (0 = disabled)
+    damage:              1,
+    speed:               1,
+    hp:                  0,   // immediate HP given once on pickup
+    fireRate:            1,   // multiplier on fire cooldown (< 1 = faster)
+    twinShot:            0,   // probability 0-1 of firing second bullet
+    dashCooldown:        1,   // multiplier on dash/boost cooldown
+    coinBonus:           1,   // multiplier on coin/credit drops
+    lifestealPerKill:    0,   // HP healed per enemy kill
+    damageTakenMult:     1,   // < 1 = less damage received (Reinforced Hull)
+    scoreMultBonus:      0,   // flat bonus added to base score multiplier (Overclock)
+    specialCooldownMult: 1,   // < 1 = shorter special ability cooldown (Overdrive)
+    piercePlus:          0,   // extra bullet pierce count (Chain Reaction)
+    fragmentOnImpact:    false // bullets explode on impact (Fragmentation)
+  };
+
+  const PERK_CATALOG = [
+    // ── Core roguelite upgrades (task spec) ──────────────────────────────────
+    {
+      id: 'chain_reaction',
+      name: 'Chain Reaction',
+      icon: '💥',
+      flavor: 'Bullets pierce through one extra enemy before stopping.',
+      stat: 'Pierce +1 enemy',
+      apply(m) { m.chainDamage = Math.max(m.chainDamage, 20); m.piercePlus += 1; }
+    },
+    {
+      id: 'void_armor',
+      name: 'Void Armor',
+      icon: '🛡️',
+      flavor: 'Crystallised void matter bolts extra armour to your hull.',
+      stat: '+25 Max HP',
+      apply(m) { m.maxHp += 25; }
+    },
+    {
+      id: 'overdrive',
+      name: 'Overdrive',
+      icon: '⚡',
+      flavor: 'Overclock your reactor — special ability recharges faster.',
+      stat: 'Ability Cooldown -30%',
+      apply(m) { m.specialCooldownMult = Math.max(0.3, m.specialCooldownMult * 0.7); }
+    },
+    {
+      id: 'rapid_core',
+      name: 'Rapid Core',
+      icon: '🔫',
+      flavor: 'Upgraded feed mechanism cycles shells at blistering speed.',
+      stat: '+20% Fire Rate',
+      apply(m) { m.fireRate = Math.max(0.3, m.fireRate * 0.8); }
+    },
+    {
+      id: 'lifesteal',
+      name: 'Lifesteal',
+      icon: '🩸',
+      flavor: 'Nano-collectors harvest biomass from every defeated enemy.',
+      stat: 'Heal 2 HP per kill',
+      apply(m) { m.lifestealPerKill += 2; }
+    },
+    {
+      id: 'fragmentation',
+      name: 'Fragmentation',
+      icon: '💢',
+      flavor: 'Impact-fused rounds detonate in a shower of shrapnel.',
+      stat: 'Bullets explode on impact',
+      apply(m) { m.fragmentOnImpact = true; m.chainDamage = Math.max(m.chainDamage, 15); }
+    },
+    {
+      id: 'afterburner',
+      name: 'Afterburner',
+      icon: '🚀',
+      flavor: 'Secondary thruster array fires up, pushing velocity limits.',
+      stat: '+15% Move Speed',
+      apply(m) { m.speed *= 1.15; }
+    },
+    {
+      id: 'reinforced_hull',
+      name: 'Reinforced Hull',
+      icon: '🔩',
+      flavor: 'Layered composite panels spread impact forces across the frame.',
+      stat: 'Damage Taken -15%',
+      apply(m) { m.damageTakenMult = Math.max(0.3, m.damageTakenMult * 0.85); }
+    },
+    {
+      id: 'scavenger',
+      name: 'Scavenger',
+      icon: '💰',
+      flavor: 'Strip every wreck for tech, fuel, and every last credit.',
+      stat: '+30% Credits from Kills',
+      apply(m) { m.coinBonus *= 1.3; }
+    },
+    {
+      id: 'overclock',
+      name: 'Overclock',
+      icon: '🌀',
+      flavor: 'Quantum score-weighting circuits amplify every point earned.',
+      stat: '+0.5× Score Multiplier',
+      apply(m) { m.scoreMultBonus += 0.5; }
+    },
+    // ── Extended pool (extra variety when catalogue is not yet exhausted) ────
+    {
+      id: 'rapid_loader',
+      name: 'Rapid Loader',
+      icon: '🔋',
+      flavor: 'Ammo cells charge at breakneck speed.',
+      stat: 'Ammo Regen +30%',
+      apply(m) { m.ammoRegenMult = Math.max(0.3, m.ammoRegenMult * 0.7); }
+    },
+    {
+      id: 'ghost_protocol',
+      name: 'Ghost Protocol',
+      icon: '👻',
+      flavor: 'Phase shifts buy precious milliseconds.',
+      stat: 'Invuln +100ms',
+      apply(m) { m.invulnBonus += 100; }
+    },
+    {
+      id: 'overcharge',
+      name: 'Overcharge',
+      icon: '🔥',
+      flavor: 'Your weapons burn hotter with every shot.',
+      stat: '+20% Damage',
+      apply(m) { m.damage *= 1.20; }
+    },
+    {
+      id: 'twin_shot',
+      name: 'Twin Shot',
+      icon: '🎯',
+      flavor: 'Dual barrels double your threat potential.',
+      stat: '25% chance: 2 bullets',
+      apply(m) { m.twinShot = Math.min(1, m.twinShot + 0.25); }
+    },
+    {
+      id: 'fortify',
+      name: 'Fortify',
+      icon: '❤️',
+      flavor: 'Emergency nanobots patch up the hull.',
+      stat: 'Restore 20 HP',
+      apply(m) { m.hp += 20; }
+    }
+  ];
+
+  /**
+   * Pick n unique perks not yet chosen this run (or all if fewer remain).
+   */
+  const _pickRandomPerks = (n = 3) => {
+    const available = PERK_CATALOG.filter(p => !activePerks.includes(p.id));
+    const pool = available.length ? available : PERK_CATALOG; // allow repeats if catalog exhausted
+    const shuffled = pool.slice().sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, Math.min(n, shuffled.length));
+  };
+
+  /**
+   * Apply a chosen perk to the live multiplier object and
+   * immediately apply one-time effects (HP heal).
+   */
+  const _applyPerk = (perkId) => {
+    const perk = PERK_CATALOG.find(p => p.id === perkId);
+    if (!perk) return;
+    activePerks.push(perkId);
+    perk.apply(perkMultipliers);
+
+    // One-time HP heal (Fortify perk)
+    if (perkMultipliers.hp > 0 && player) {
+      const heal = perkMultipliers.hp;
+      const maxHp = (player.hpMax || player.health) + perkMultipliers.maxHp;
+      player.health = Math.min(maxHp, player.health + heal);
+      perkMultipliers.hp = 0; // consumed
+    }
+
+    addLogEntry(`PERK: ${perk.name}`, '#a5b4fc');
+  };
+
+  /**
+   * Show the wave-upgrade card picker overlay.
+   * Called just before startCountdownFromReadyUp().
+   * @param {Function} onChosen  callback invoked after a card is picked
+   */
+  const showWaveUpgradeScreen = (onChosen) => {
+    const modal = document.getElementById('waveUpgradeModal');
+    const container = document.getElementById('waveUpgradeCards');
+    const titleEl = document.getElementById('waveUpgradeTitle');
+    if (!modal || !container) { onChosen && onChosen(); return; }
+
+    waveUpgradeActive = true;
+    titleEl && (titleEl.textContent = `CHOOSE AN UPGRADE — WAVE ${readyUpLevel}`);
+
+    const picks = _pickRandomPerks(3);
+    container.innerHTML = '';
+
+    picks.forEach(perk => {
+      const card = document.createElement('div');
+      card.className = 'wave-card';
+      card.innerHTML = `
+        <div class="wave-card-icon">${perk.icon}</div>
+        <div class="wave-card-name">${perk.name}</div>
+        <div class="wave-card-flavor">${perk.flavor}</div>
+        <div class="wave-card-stat">${perk.stat}</div>
+      `;
+      const _pick = () => {
+        if (!waveUpgradeActive) return;
+        waveUpgradeActive = false;
+        _applyPerk(perk.id);
+        modal.classList.remove('active');
+        onChosen && onChosen();
+      };
+      card.addEventListener('click', _pick);
+      card.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        _pick();
+      }, { passive: false });
+      container.appendChild(card);
+    });
+
+    modal.classList.add('active');
+  };
+  // ── END PERK SYSTEM ───────────────────────────────────────────────────────
+
   // Phase 1: Combo & Kill Streak System
   let comboCount = 0;
   let comboTimer = 0;
   const COMBO_TIMEOUT = 2500; // ms - time between kills to maintain combo
   let totalKillsThisRun = 0;
+
+  // Kill Combo Multiplier System
+  let killComboMultiplier = 1;       // Current score multiplier (1–5)
+  let killComboTimerEnd = 0;         // Timestamp when combo window closes
+  const KILL_COMBO_WINDOW = 2000;    // ms - consecutive kill window
+  const KILL_COMBO_MAX = 5;          // Max multiplier
+  let killComboSplashStart = 0;      // When the splash was last shown
+  let killComboEscalated = false;    // True the frame multiplier just increased
+  let killComboEscalatedStart = 0;   // Timestamp for COMBO ESCALATED flash
   let lastKillStreakNotification = 0;
   const KILL_STREAK_MILESTONES = [5, 10, 25, 50, 100, 200];
 
@@ -988,7 +1255,9 @@
     f: false,
     F: false,
     r: false,
-    R: false
+    R: false,
+    q: false,
+    Q: false
   };
 
   const defaultArmory = () => ({
@@ -1013,77 +1282,52 @@
     }
   });
 
+  const ALL_SHIP_IDS = () => (typeof SHIP_TEMPLATES !== 'undefined' ? SHIP_TEMPLATES.map(s => s.id) : ['vanguard']);
+  const defaultShipState = () => ({
+    loadout: { primary: 'pulse', secondary: 'nova', defense: 'aegis', ultimate: 'voidstorm' },
+    equipmentClass: defaultArmory().equipmentClass,
+    upgrades: {}
+  });
+  const defaultSaveData = () => ({
+    schemaVersion: SAVE_SCHEMA_VERSION,
+    credits: 0, bestScore: 0, highestLevel: 1, pilotLevel: 1, pilotXp: 0, prestige: 0,
+    difficulty: 'normal', selectedShip: 'vanguard',
+    unlocked: { primary: ['pulse'], secondary: ['nova'], defense: ['aegis'], ultimate: ['voidstorm'] },
+    unlockedShips: ['vanguard'],
+    achievements: [],
+    stats: { totalKills: 0, bossKills: 0, eliteKills: 0, totalUpgrades: 0 },
+    ships: { vanguard: defaultShipState() }
+  });
+
   const Save = {
-    data: {
-      credits: 0,
-      bestScore: 0,
-      highestLevel: 1,
-      upgrades: {},
-      pilotLevel: 1,
-      pilotXp: 0,
-      selectedShip: 'vanguard',
-      armory: defaultArmory(),
-      difficulty: 'normal'  // Add difficulty preference
+    data: defaultSaveData(),
+
+    // --- per-ship accessors (hybrid model) ---
+    ship(id) {
+      id = id || this.data.selectedShip || 'vanguard';
+      if (!this.data.ships) this.data.ships = {};
+      if (!this.data.ships[id]) this.data.ships[id] = defaultShipState();
+      return this.data.ships[id];
     },
+    loadout(id) { return this.ship(id).loadout; },
+
     load() {
-      try {
-        const raw = localStorage.getItem(SAVE_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed && typeof parsed === 'object') {
-            this.data = {
-              ...this.data,
-              ...parsed,
-              armory: parsed.armory || defaultArmory()
-            };
-          }
-        }
-      } catch (err) {
-        console.warn('Failed to load save', err);
-        // Reset to defaults on corruption
-        this.data = {
-          credits: 0,
-          bestScore: 0,
-          highestLevel: 1,
-          upgrades: {},
-          pilotLevel: 1,
-          pilotXp: 0,
-          selectedShip: 'vanguard',
-          armory: defaultArmory(),
-          difficulty: 'normal'
-        };
+      let raw = null;
+      try { raw = localStorage.getItem(SAVE_KEY); } catch (e) { /* ignore */ }
+      if (raw) {
+        try { this.data = this._sanitize(JSON.parse(raw)); }
+        catch (e) { console.warn('Save corrupt, resetting', e); this.data = defaultSaveData(); }
+      } else {
+        const legacy = this._findLegacy();
+        this.data = legacy ? this._migrateLegacy(legacy) : defaultSaveData();
+        this.save();
       }
-      // Validate and sanitize loaded data
-      this.data.credits = Math.max(0, Math.floor(this.data.credits || 0));
-      this.data.bestScore = Math.max(0, Math.floor(this.data.bestScore || 0));
-      this.data.highestLevel = Math.max(1, Math.floor(this.data.highestLevel || 1));
-      this.data.pilotLevel = Math.max(1, Math.floor(this.data.pilotLevel || 1));
-      this.data.pilotXp = Math.max(0, Math.floor(this.data.pilotXp || 0));
-      if (!this.data.selectedShip || !SHIP_TEMPLATES.find(s => s.id === this.data.selectedShip)) {
-        this.data.selectedShip = 'vanguard';
-      }
-      if (!this.data.difficulty || !DIFFICULTY_PRESETS[this.data.difficulty]) {
-        this.data.difficulty = 'normal';
-      }
-      if (!this.data.armory || typeof this.data.armory !== 'object') this.data.armory = defaultArmory();
-      // Ensure equipment class exists
-      if (!this.data.armory.equipmentClass) {
-        this.data.armory.equipmentClass = defaultArmory().equipmentClass;
-      }
-      for (const key of ['primary', 'secondary', 'defense', 'ultimate']) {
-        if (!Array.isArray(this.data.armory.unlocked[key])) this.data.armory.unlocked[key] = [];
-        if (!this.data.armory.loadout[key]) this.data.armory.loadout[key] = defaultArmory().loadout[key];
-        if (!this.data.armory.unlocked[key].includes(this.data.armory.loadout[key])) {
-          this.data.armory.unlocked[key].push(this.data.armory.loadout[key]);
-        }
-      }
+      if (IS_NATIVE_APP) { try { window.webkit.messageHandlers.nativeLoad.postMessage({}); } catch (e) { /* ignore */ } }
     },
     save() {
-      try {
-        localStorage.setItem(SAVE_KEY, JSON.stringify(this.data));
-      } catch (err) {
-        console.warn('Failed to save game', err);
-      }
+      const json = JSON.stringify(this.data);
+      try { localStorage.setItem(SAVE_KEY, json); } catch (e) { console.warn('save failed', e); }
+      if (IS_NATIVE_APP) { try { window.webkit.messageHandlers.nativeSave.postMessage(json); } catch (e) { /* ignore */ } }
     },
     addCredits(amount) {
       this.data.credits = Math.max(0, Math.floor(this.data.credits + amount));
@@ -1092,10 +1336,7 @@
     },
     spendCredits(amount) {
       if (this.data.credits >= amount) {
-        this.data.credits -= amount;
-        syncCredits();
-        this.save();
-        return true;
+        this.data.credits -= amount; syncCredits(); this.save(); return true;
       }
       return false;
     },
@@ -1104,30 +1345,91 @@
       if (lvl > this.data.highestLevel) this.data.highestLevel = lvl;
       this.save();
     },
-    getUpgradeLevel(id) {
-      return this.data.upgrades[id] || 0;
-    },
+    getUpgradeLevel(id) { return this.ship().upgrades[id] || 0; },          // per-ship
     levelUp(id) {
-      this.data.upgrades[id] = (this.data.upgrades[id] || 0) + 1;
+      const sh = this.ship();
+      sh.upgrades[id] = (sh.upgrades[id] || 0) + 1;
       this.save();
-      invalidatePowerCache(); // Invalidate cached power calculations
+      invalidatePowerCache();
     },
-    isUnlocked(type, id) {
-      const bucket = this.data.armory.unlocked[type] || [];
-      return bucket.includes(id);
-    },
+    isUnlocked(type, id) { return (this.data.unlocked[type] || []).includes(id); },   // account-wide
     unlockArmory(type, id) {
-      const bucket = this.data.armory.unlocked[type];
-      if (!bucket.includes(id)) bucket.push(id);
+      if (!this.data.unlocked[type]) this.data.unlocked[type] = [];
+      if (!this.data.unlocked[type].includes(id)) this.data.unlocked[type].push(id);
       this.save();
     },
-    setLoadout(type, id) {
-      this.data.armory.loadout[type] = id;
+    setLoadout(type, id) {                                                  // per-ship
+      this.ship().loadout[type] = id;
       if (!this.isUnlocked(type, id)) this.unlockArmory(type, id);
       this.save();
+    },
+    unlockShip(id) {
+      if (!this.data.unlockedShips.includes(id)) { this.data.unlockedShips.push(id); this.ship(id); this.save(); }
+    },
+
+    // --- migration / sanitize ---
+    _findLegacy() {
+      for (const k of LEGACY_SAVE_KEYS) {
+        try { const r = localStorage.getItem(k); if (r) { const p = JSON.parse(r); if (p && typeof p === 'object') return p; } } catch (e) { /* ignore */ }
+      }
+      return null;
+    },
+    _migrateLegacy(old) {
+      const d = defaultSaveData();
+      d.credits = Math.max(0, Math.floor(old.credits || 0));
+      d.bestScore = Math.max(0, Math.floor(old.bestScore || 0));
+      d.highestLevel = Math.max(1, Math.floor(old.highestLevel || 1));
+      d.pilotLevel = Math.max(1, Math.floor(old.pilotLevel || 1));
+      d.pilotXp = Math.max(0, Math.floor(old.pilotXp || 0));
+      d.prestige = Math.max(0, Math.floor(old.prestige || 0));
+      d.difficulty = old.difficulty || 'normal';
+      d.selectedShip = old.selectedShip || 'vanguard';
+      if (old.armory && old.armory.unlocked) {
+        for (const cat of ['primary', 'secondary', 'defense', 'ultimate']) {
+          if (Array.isArray(old.armory.unlocked[cat])) d.unlocked[cat] = old.armory.unlocked[cat].slice();
+        }
+      }
+      if (!d.unlockedShips.includes(d.selectedShip)) d.unlockedShips.push(d.selectedShip);
+      const oldUpgrades = (old.upgrades && typeof old.upgrades === 'object') ? old.upgrades : {};
+      for (const sid of ALL_SHIP_IDS()) {
+        const st = defaultShipState();
+        st.upgrades = Object.assign({}, oldUpgrades);   // old global upgrades -> every ship (no power loss)
+        if (sid === d.selectedShip && old.armory) {
+          if (old.armory.loadout) st.loadout = Object.assign({}, st.loadout, old.armory.loadout);
+          if (old.armory.equipmentClass) st.equipmentClass = Object.assign({}, old.armory.equipmentClass);
+        }
+        d.ships[sid] = st;
+      }
+      console.log('[VoidRift] migrated legacy save -> v12 (progress preserved)');
+      return d;
+    },
+    _sanitize(p) {
+      const d = defaultSaveData();
+      const out = Object.assign({}, d, p);
+      out.schemaVersion = SAVE_SCHEMA_VERSION;
+      out.unlocked = Object.assign({}, d.unlocked, p.unlocked || {});
+      out.stats = Object.assign({}, d.stats, p.stats || {});
+      out.achievements = Array.isArray(p.achievements) ? p.achievements : [];
+      out.unlockedShips = (Array.isArray(p.unlockedShips) && p.unlockedShips.length) ? p.unlockedShips : ['vanguard'];
+      out.ships = (p.ships && typeof p.ships === 'object') ? p.ships : { vanguard: defaultShipState() };
+      out.credits = Math.max(0, Math.floor(out.credits || 0));
+      out.bestScore = Math.max(0, Math.floor(out.bestScore || 0));
+      out.highestLevel = Math.max(1, Math.floor(out.highestLevel || 1));
+      out.pilotLevel = Math.max(1, Math.floor(out.pilotLevel || 1));
+      out.pilotXp = Math.max(0, Math.floor(out.pilotXp || 0));
+      if (typeof SHIP_TEMPLATES !== 'undefined' && !SHIP_TEMPLATES.find(s => s.id === out.selectedShip)) out.selectedShip = 'vanguard';
+      if (typeof DIFFICULTY_PRESETS !== 'undefined' && !DIFFICULTY_PRESETS[out.difficulty]) out.difficulty = 'normal';
+      for (const sid of out.unlockedShips) {
+        if (!out.ships[sid]) out.ships[sid] = defaultShipState();
+        const dflt = defaultShipState();
+        out.ships[sid].loadout = Object.assign({}, dflt.loadout, out.ships[sid].loadout || {});
+        out.ships[sid].equipmentClass = out.ships[sid].equipmentClass || dflt.equipmentClass;
+        out.ships[sid].upgrades = out.ships[sid].upgrades || {};
+      }
+      if (!out.ships[out.selectedShip]) out.selectedShip = out.unlockedShips[0] || 'vanguard';
+      return out;
     }
   };
-
   const costOf = (upgrade) => {
     const lvl = Save.getUpgradeLevel(upgrade.id);
     return Math.floor(upgrade.base + upgrade.step * (lvl * 1.5 + lvl * lvl * 0.35));
@@ -1419,14 +1721,14 @@
         if (req.credits && profile.credits >= req.credits) unlocked = true;
         
         if (req.unlockedWeapons) {
-          const totalUnlocked = Object.values(Save.data.armory.unlocked).flat().length;
+          const totalUnlocked = Object.values(Save.data.unlocked).flat().length;
           if (totalUnlocked >= req.unlockedWeapons) unlocked = true;
         }
         
         if (req.unlockedShips && profile.unlockedShips.length >= req.unlockedShips) unlocked = true;
         
         if (req.totalUpgrades) {
-          const totalUpgrades = Object.values(Save.data.upgrades).reduce((a, b) => a + b, 0);
+          const totalUpgrades = Object.values(Save.ship().upgrades).reduce((a, b) => a + b, 0);
           if (totalUpgrades >= req.totalUpgrades) unlocked = true;
         }
         
@@ -1486,6 +1788,40 @@
       
       this.saveProfile();
       this.checkAchievements();
+    }
+  };
+
+  /* ====== LOCAL LEADERBOARD (localStorage top-5) ====== */
+  const LOCAL_SCORES_KEY = 'voidrift_local_scores';
+
+  const LocalLeaderboard = {
+    get() {
+      try {
+        return JSON.parse(localStorage.getItem(LOCAL_SCORES_KEY) || '[]');
+      } catch (e) {
+        return [];
+      }
+    },
+
+    isPersonalBest(newScore) {
+      const entries = this.get();
+      return entries.length === 0 || newScore > entries[0].score;
+    },
+
+    save(newScore) {
+      const entries = this.get();
+      entries.push({
+        score: newScore,
+        date: new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+      });
+      entries.sort((a, b) => b.score - a.score);
+      const top5 = entries.slice(0, 5);
+      try {
+        localStorage.setItem(LOCAL_SCORES_KEY, JSON.stringify(top5));
+      } catch (e) {
+        console.warn('LocalLeaderboard: failed to save', e);
+      }
+      return top5;
     }
   };
 
@@ -1592,10 +1928,10 @@
     return value === undefined ? fallback : value;
   };
 
-  const currentPrimaryWeapon = () => ARMORY_MAP.primary[Save.data.armory.loadout.primary] || ARMORY.primary[0];
-  const currentSecondarySystem = () => ARMORY_MAP.secondary[Save.data.armory.loadout.secondary] || ARMORY.secondary[0];
-  const currentDefenseSystem = () => ARMORY_MAP.defense[Save.data.armory.loadout.defense] || ARMORY.defense[0];
-  const currentUltimateSystem = () => ARMORY_MAP.ultimate[Save.data.armory.loadout.ultimate] || ARMORY.ultimate[0];
+  const currentPrimaryWeapon = () => ARMORY_MAP.primary[Save.loadout().primary] || ARMORY.primary[0];
+  const currentSecondarySystem = () => ARMORY_MAP.secondary[Save.loadout().secondary] || ARMORY.secondary[0];
+  const currentDefenseSystem = () => ARMORY_MAP.defense[Save.loadout().defense] || ARMORY.defense[0];
+  const currentUltimateSystem = () => ARMORY_MAP.ultimate[Save.loadout().ultimate] || ARMORY.ultimate[0];
 
   const resetRuntimeState = () => {
     enemies = [];
@@ -1625,14 +1961,34 @@
     pilotXP = Save.data.pilotXp;
     tookDamageThisLevel = false;
     gameOverHandled = false;
-    
+
+    // Special ability reset
+    specialCooldown = 0;
+    shieldWall = null;
+    specialAbilityQueued = false;
+    specialQKeyLatch = false;
+    // Set cooldown max per selected ship
+    const _sid = Save.data.selectedShip;
+    specialCooldownMax = _sid === 'bulwark' ? 10000 : _sid === 'titan' ? 8000 : 6000;
+    // Show/hide ability HUD
+    const _abilityHud = document.getElementById('abilityHud');
+    if (_abilityHud) {
+      const _isSpecial = (_sid === 'spectre' || _sid === 'bulwark' || _sid === 'titan');
+      _abilityHud.style.display = _isSpecial ? 'flex' : 'none';
+      const _abilityNameEl = document.getElementById('abilityName');
+      if (_abilityNameEl) {
+        _abilityNameEl.textContent = _sid === 'bulwark' ? 'Shield Wall' : _sid === 'titan' ? 'Orbital Strike' : 'Phase Dash';
+      }
+    }
+
     // Wave system reset
     currentWaveType = 'standard';
     waveTimer = 0;
     waveStartTime = 0;
     bossActive = false;
     bossEntity = null;
-    
+    if (dom.bossBar) dom.bossBar.style.display = 'none';
+
     // Phase 1: Reset combo and kill streak
     comboCount = 0;
     comboTimer = 0;
@@ -1640,6 +1996,37 @@
     lastKillStreakNotification = 0;
     damageNumbers.length = 0;
     levelUpAnimationActive = false;
+
+    // Kill combo multiplier reset
+    killComboMultiplier = 1;
+    killComboTimerEnd = 0;
+    killComboSplashStart = 0;
+    killComboEscalated = false;
+    killComboEscalatedStart = 0;
+
+    // Roguelite perk reset (new run)
+    waveUpgradeActive = false;
+    activePerks = [];
+    perkMultipliers = {
+      bulletSpeed:         1,
+      maxHp:               0,
+      ammoRegenMult:       1,
+      invulnBonus:         0,
+      chainDamage:         0,
+      damage:              1,
+      speed:               1,
+      hp:                  0,
+      fireRate:            1,
+      twinShot:            0,
+      dashCooldown:        1,
+      coinBonus:           1,
+      lifestealPerKill:    0,
+      damageTakenMult:     1,
+      scoreMultBonus:      0,
+      specialCooldownMult: 1,
+      piercePlus:          0,
+      fragmentOnImpact:    false
+    };
     
     Object.keys(input).forEach((k) => {
       if (typeof input[k] === 'boolean') input[k] = false;
@@ -1706,6 +2093,87 @@
     shakePower = power;
   };
 
+  // ── Special Ability: fire the Q-key ability for the current ship ───────────
+  const fireSpecialAbility = () => {
+    if (!player || !gameRunning || paused) return;
+    if (specialCooldown > 0) return;
+    const sid = Save.data.selectedShip;
+
+    if (sid === 'spectre') {
+      // Phase Dash — blink 150px in movement direction, invincible for 0.4s
+      const oldX = player.x;
+      const oldY = player.y;
+      const vx = player.vel.x || Math.cos(player.lookAngle);
+      const vy = player.vel.y || Math.sin(player.lookAngle);
+      const len = Math.hypot(vx, vy) || 1;
+      const cx = window.innerWidth;
+      const cy = window.innerHeight;
+      player.x = Math.max(player.size, Math.min(cx - player.size, player.x + (vx / len) * 150));
+      player.y = Math.max(player.size, Math.min(cy - player.size, player.y + (vy / len) * 150));
+      player.invEnd = performance.now() + 400; // 0.4s invincibility
+      // Cyan ghost trail particles at old position
+      for (let i = 0; i < 5; i++) {
+        particles.push({
+          x: oldX + (Math.random() - 0.5) * 12,
+          y: oldY + (Math.random() - 0.5) * 12,
+          vx: (Math.random() - 0.5) * 1.5,
+          vy: (Math.random() - 0.5) * 1.5,
+          life: 350,
+          c: '#22d3ee',
+          s: 4 + Math.random() * 3,
+          type: 'fade'
+        });
+      }
+      addLogEntry('Phase Dash!', '#22d3ee');
+      specialCooldown = specialCooldownMax * perkMultipliers.specialCooldownMult;
+
+    } else if (sid === 'bulwark') {
+      // Shield Wall — arc absorbs up to 3 bullets for 3s
+      shieldWall = { hp: 3, framesLeft: 180 };
+      addLogEntry('Shield Wall!', '#2dd4bf');
+      specialCooldown = specialCooldownMax * perkMultipliers.specialCooldownMult;
+
+    } else if (sid === 'titan') {
+      // Orbital Strike — 8 bullets in 360° spread
+      const dmg = player.health ? Math.round(20 * (currentShip?.stats?.damage || 1)) : 20;
+      for (let i = 0; i < 8; i++) {
+        const ang = (i / 8) * Math.PI * 2;
+        const vel = { x: Math.cos(ang), y: Math.sin(ang) };
+        bullets.push(new Bullet(
+          player.x + Math.cos(ang) * player.size,
+          player.y + Math.sin(ang) * player.size,
+          vel, dmg, '#fbbf24', BASE.BULLET_SPEED, BASE.BULLET_SIZE * 1.2, 0
+        ));
+      }
+      // Golden flash particles
+      for (let i = 0; i < 16; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const sp = 2 + Math.random() * 3;
+        particles.push({ x: player.x, y: player.y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, life: 350, c: '#fbbf24', s: 5, type: 'fade' });
+      }
+      shakeScreen(4, 8 * 16); // ~8 frames at 60fps
+      addLogEntry('Orbital Strike!', '#fbbf24');
+      specialCooldown = specialCooldownMax * perkMultipliers.specialCooldownMult;
+    }
+  };
+
+  // ── Draw shield wall arc in front of Bulwark-7 ────────────────────────────
+  const drawShieldWall = (ctx) => {
+    if (!shieldWall || shieldWall.hp <= 0 || !player) return;
+    const ang = player.lookAngle;
+    const arc = (140 / 180) * Math.PI; // 140°
+    const r = player.size * 2.2;
+    ctx.save();
+    ctx.strokeStyle = `rgba(45,212,191,${0.4 + 0.4 * (shieldWall.framesLeft / 180)})`;
+    ctx.lineWidth = 5;
+    ctx.shadowColor = '#2dd4bf';
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, r, ang - arc / 2, ang + arc / 2);
+    ctx.stroke();
+    ctx.restore();
+  };
+
   // Phase 1: Spawn floating damage number
   const spawnDamageNumber = (x, y, damage, isCrit = false) => {
     const text = isCrit ? `${Math.round(damage)}!` : Math.round(damage);
@@ -1759,11 +2227,18 @@
 
   // Phase 1: Reset combo on timeout
   const updateComboSystem = () => {
-    if (comboCount > 0 && performance.now() > comboTimer) {
+    const now = performance.now();
+    if (comboCount > 0 && now > comboTimer) {
       if (comboCount >= 5) {
         addLogEntry(`Combo ended: ${comboCount}x`, '#94a3b8');
       }
       comboCount = 0;
+    }
+
+    // Kill combo multiplier: reset when window expires
+    if (killComboMultiplier > 1 && now > killComboTimerEnd) {
+      killComboMultiplier = 1;
+      killComboTimerEnd = 0;
     }
   };
 
@@ -4073,14 +4548,14 @@
       const adaptive = getAdaptiveScaling();
       
       // Base size scaling
-      const sizeMap = { heavy: 1.45, swarmer: 0.9, drone: 0.75 };
+      const sizeMap = { heavy: 1.45, swarmer: 0.9, drone: 0.75, sniper: 0.85 };
       let baseSize = BASE.ENEMY_SIZE * (sizeMap[kind] || 1);
       if (isElite) baseSize *= ADAPTIVE_CONSTANTS.ELITE_SIZE_MULT;
       if (isBoss) baseSize *= ADAPTIVE_CONSTANTS.BOSS_SIZE_MULT;
       this.size = baseSize;
       
       // Speed scaling with adaptive difficulty and progression
-      const speedMap = { heavy: 0.85, swarmer: 1.45, drone: 1.2 };
+      const speedMap = { heavy: 0.85, swarmer: 1.45, drone: 1.2, sniper: 0.7 };
       let baseSpeed = BASE.ENEMY_SPEED * (speedMap[kind] || 1.05) * diff.enemySpeed;
       baseSpeed *= adaptive.enemySpeedBoost;
       if (isElite) baseSpeed *= ADAPTIVE_CONSTANTS.ELITE_SPEED_MULT;
@@ -4088,7 +4563,7 @@
       this.speed = baseSpeed;
       
       // Health scaling with progressive difficulty
-      const baseHealth = kind === 'heavy' ? 3 : 1;
+      const baseHealth = kind === 'heavy' ? 3 : kind === 'sniper' ? 1.5 : 1;
       let health = Math.ceil(baseHealth * diff.enemyHealth * adaptive.progressiveHealthBonus);
       if (isElite) health *= ADAPTIVE_CONSTANTS.ELITE_HEALTH_MULT;
       if (isBoss) health *= ADAPTIVE_CONSTANTS.BOSS_BASE_HEALTH_MULT + level * ADAPTIVE_CONSTANTS.BOSS_HEALTH_PER_LEVEL;
@@ -4097,6 +4572,7 @@
       
       // Damage scaling with adaptive difficulty
       this.baseDamage = BASE.ENEMY_DAMAGE * diff.enemyDamage * adaptive.enemyDamageMultiplier;
+      if (kind === 'sniper') this.baseDamage *= 2.2; // Snipers hit hard
       if (isElite) this.baseDamage *= ADAPTIVE_CONSTANTS.ELITE_DAMAGE_MULT;
       if (isBoss) this.baseDamage *= ADAPTIVE_CONSTANTS.BOSS_DAMAGE_MULT;
       
@@ -4117,9 +4593,20 @@
       
       // Shooting capability for ranged enemies - more aggressive at higher levels
       const shootChance = level > ADAPTIVE_CONSTANTS.EASY_LEVELS ? 0.6 : 0.4;
-      this.canShoot = isBoss || (isElite && Math.random() < shootChance);
+      this.canShoot = isBoss || kind === 'sniper' || (isElite && Math.random() < shootChance);
       this.lastShot = 0;
       this.shotCooldown = isBoss ? Math.max(1000, 1500 - level * 30) : Math.max(1500, 2500 - level * 50);
+      
+      // Sniper-specific state: telegraph charge-up before firing
+      if (kind === 'sniper') {
+        this.sniperPhase = 'idle';   // 'idle' | 'aiming' | 'cooldown'
+        this.sniperTimer = 0;
+        this.sniperAimDuration = Math.max(700, 1100 - level * 15); // aim window (ms)
+        this.sniperCooldown = Math.max(1800, 3200 - level * 30);   // time between shots (ms)
+        this.sniperAimAngle = 0;     // locked aim angle during telegraph
+        this.sniperLaserAlpha = 0;   // for fade-in telegraph line
+        this.canShoot = false;       // sniper manages its own firing
+      }
       
       this.animPhase = Math.random() * Math.PI * 2;
       this.hitFlash = 0;
@@ -4689,6 +5176,170 @@
           ctx.fill();
           ctx.globalAlpha = 1;
         }
+      }  // end swarmer draw
+      if (this.kind === 'sniper') {
+        // SPRITE-STYLE TEAL SNIPER - Long-range railgun platform
+        // Narrow, elongated design with a prominent barrel
+        const outlineColor = '#000000';
+        const isAiming = this.sniperPhase === 'aiming';
+        const aimGlow = isAiming ? (Math.sin(performance.now() / 80) * 0.3 + 0.7) : 0;
+
+        // Draw laser telegraph BEFORE rotating with the ship (world space)
+        if (isAiming && player) {
+          ctx.save();
+          ctx.rotate(-this.rot); // undo ship rotation — draw in world-aligned space
+          const aimDx = Math.cos(this.sniperAimAngle);
+          const aimDy = Math.sin(this.sniperAimAngle);
+          const laserLen = 900;
+          const alpha = this.sniperLaserAlpha * (0.5 + aimGlow * 0.5);
+          // Outer glow
+          ctx.save();
+          ctx.globalAlpha = alpha * 0.35;
+          ctx.strokeStyle = '#00ffcc';
+          ctx.lineWidth = 8;
+          ctx.shadowColor = '#00ffcc';
+          ctx.shadowBlur = 18;
+          ctx.beginPath();
+          ctx.moveTo(this.size * 0.9 * Math.cos(this.sniperAimAngle - this.rot + 0),
+                     this.size * 0.9 * Math.sin(this.sniperAimAngle - this.rot + 0));
+          ctx.lineTo(aimDx * laserLen, aimDy * laserLen);
+          ctx.stroke();
+          ctx.restore();
+          // Core beam
+          ctx.save();
+          ctx.globalAlpha = alpha * 0.9;
+          ctx.strokeStyle = '#ccfff6';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(this.size * 0.9 * Math.cos(this.sniperAimAngle - this.rot),
+                     this.size * 0.9 * Math.sin(this.sniperAimAngle - this.rot));
+          ctx.lineTo(aimDx * laserLen, aimDy * laserLen);
+          ctx.stroke();
+          ctx.restore();
+          ctx.restore();
+        }
+
+        // Main elongated body
+        ctx.fillStyle = damaged ? '#0e7490' : '#0891b2';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(this.size * 1.8, 0);           // nose tip
+        ctx.lineTo(this.size * 1.3, -this.size * 0.3);
+        ctx.lineTo(this.size * 0.6, -this.size * 0.55);
+        ctx.lineTo(-this.size * 0.5, -this.size * 0.55);
+        ctx.lineTo(-this.size * 0.9, -this.size * 0.3);
+        ctx.lineTo(-this.size * 1.0, 0);
+        ctx.lineTo(-this.size * 0.9, this.size * 0.3);
+        ctx.lineTo(-this.size * 0.5, this.size * 0.55);
+        ctx.lineTo(this.size * 0.6, this.size * 0.55);
+        ctx.lineTo(this.size * 1.3, this.size * 0.3);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Railgun barrel — the defining visual feature
+        ctx.fillStyle = '#1e293b';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(this.size * 1.8, -this.size * 0.1);
+        ctx.lineTo(this.size * 2.6, -this.size * 0.07);
+        ctx.lineTo(this.size * 2.6, this.size * 0.07);
+        ctx.lineTo(this.size * 1.8, this.size * 0.1);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        // Barrel tip flash when aiming
+        if (isAiming) {
+          ctx.save();
+          ctx.globalAlpha = aimGlow * 0.9;
+          ctx.fillStyle = '#00ffcc';
+          ctx.shadowColor = '#00ffcc';
+          ctx.shadowBlur = 14;
+          ctx.beginPath();
+          ctx.arc(this.size * 2.6, 0, this.size * 0.15, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        // Inner hull panel — darker teal
+        ctx.fillStyle = damaged ? '#155e75' : '#0e7490';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(this.size * 1.4, 0);
+        ctx.lineTo(this.size * 1.0, -this.size * 0.35);
+        ctx.lineTo(-this.size * 0.3, -this.size * 0.4);
+        ctx.lineTo(-this.size * 0.7, 0);
+        ctx.lineTo(-this.size * 0.3, this.size * 0.4);
+        ctx.lineTo(this.size * 1.0, this.size * 0.35);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Cockpit canopy — forward-facing visor
+        ctx.fillStyle = isAiming ? '#00ffcc' : '#38bdf8';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(this.size * 0.9, 0, this.size * 0.28, this.size * 0.18, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#7dd3fc';
+        ctx.beginPath();
+        ctx.ellipse(this.size * 0.95, -this.size * 0.07, this.size * 0.1, this.size * 0.07, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Side sensor wings (small stabilizers)
+        ctx.fillStyle = '#164e63';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
+        // Top fin
+        ctx.beginPath();
+        ctx.moveTo(this.size * 0.3, -this.size * 0.55);
+        ctx.lineTo(this.size * 0.5, -this.size * 0.85);
+        ctx.lineTo(-this.size * 0.1, -this.size * 0.85);
+        ctx.lineTo(-this.size * 0.2, -this.size * 0.55);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        // Bottom fin
+        ctx.beginPath();
+        ctx.moveTo(this.size * 0.3, this.size * 0.55);
+        ctx.lineTo(this.size * 0.5, this.size * 0.85);
+        ctx.lineTo(-this.size * 0.1, this.size * 0.85);
+        ctx.lineTo(-this.size * 0.2, this.size * 0.55);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Panel lines
+        ctx.strokeStyle = '#083344';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(this.size * 1.2, 0);
+        ctx.lineTo(-this.size * 0.5, 0);
+        ctx.moveTo(this.size * 0.6, -this.size * 0.4);
+        ctx.lineTo(this.size * 0.6, this.size * 0.4);
+        ctx.stroke();
+
+        // Engine thrusters
+        const thrusterPulse = Math.sin(performance.now() / 110) * 0.2 + 0.8;
+        ctx.save();
+        ctx.globalAlpha = thrusterPulse;
+        ctx.fillStyle = '#22d3ee';
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 0.95, -this.size * 0.22, this.size * 0.13, this.size * 0.09, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 0.95, this.size * 0.22, this.size * 0.13, this.size * 0.09, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
       }
       ctx.shadowBlur = 0;
       ctx.restore();
@@ -4824,6 +5475,85 @@
             this.swoopTimer = 0;
           }
         }
+      } else if (this.kind === 'sniper') {
+        // Sniper: keep preferred distance, strafe sideways, and telegraph shots
+        const preferredMin = 220;
+        const preferredMax = 380;
+        const now = performance.now();
+
+        if (this.sniperPhase === 'idle') {
+          // Strafe to maintain preferred distance
+          if (dist < preferredMin) {
+            // Too close — back away
+            movementX = -(dx / dist);
+            movementY = -(dy / dist);
+          } else if (dist > preferredMax) {
+            // Too far — close in slowly
+            movementX = (dx / dist) * 0.5;
+            movementY = (dy / dist) * 0.5;
+          } else {
+            // At preferred range — strafe perpendicular
+            if (!this.strafeDir) this.strafeDir = Math.random() < 0.5 ? 1 : -1;
+            movementX = (-dy / dist) * this.strafeDir * 0.8;
+            movementY = (dx / dist) * this.strafeDir * 0.8;
+            // Occasionally flip strafe direction
+            if (!this.strafeFlipTimer) this.strafeFlipTimer = 0;
+            this.strafeFlipTimer += dt;
+            if (this.strafeFlipTimer > 1800) {
+              this.strafeDir *= -1;
+              this.strafeFlipTimer = 0;
+            }
+          }
+          // Transition to aiming when in range and cooldown expired
+          this.sniperTimer += dt;
+          if (this.sniperTimer >= this.sniperCooldown && dist < preferredMax + 60 && player) {
+            this.sniperPhase = 'aiming';
+            this.sniperTimer = 0;
+            this.sniperLaserAlpha = 0;
+            // Lock aim angle at the player's current position
+            this.sniperAimAngle = Math.atan2(player.y - this.y, player.x - this.x);
+          }
+        } else if (this.sniperPhase === 'aiming') {
+          // Hold position — minimal movement during aim
+          movementX *= 0.08;
+          movementY *= 0.08;
+          this.sniperTimer += dt;
+          // Fade in the laser telegraph
+          this.sniperLaserAlpha = Math.min(1, this.sniperTimer / (this.sniperAimDuration * 0.5));
+          if (this.sniperTimer >= this.sniperAimDuration && player) {
+            // FIRE the sniper shot
+            const shotAngle = this.sniperAimAngle;
+            const vel = { x: Math.cos(shotAngle), y: Math.sin(shotAngle) };
+            const sniperDamage = this.baseDamage * 1.5;
+            const sniperSpeed = BASE.BULLET_SPEED * 2.2;
+            bullets.push(new Bullet(this.x, this.y, vel, sniperDamage, '#00ffcc', sniperSpeed, BASE.BULLET_SIZE * 1.8, 0, true));
+            addParticles('muzzle', this.x, this.y, shotAngle, 6);
+            addParticles('sparks', this.x, this.y, shotAngle, 4);
+            // Subtle recoil shake
+            shakeScreen(3, 80);
+            this.sniperPhase = 'cooldown';
+            this.sniperTimer = 0;
+            this.sniperLaserAlpha = 0;
+          }
+        } else if (this.sniperPhase === 'cooldown') {
+          // Move during cooldown — reposition
+          if (dist < preferredMin) {
+            movementX = -(dx / dist);
+            movementY = -(dy / dist);
+          } else if (dist > preferredMax) {
+            movementX = (dx / dist) * 0.4;
+            movementY = (dy / dist) * 0.4;
+          } else {
+            movementX *= 0.2;
+            movementY *= 0.2;
+          }
+          this.sniperTimer += dt;
+          if (this.sniperTimer >= this.sniperCooldown * 0.35) {
+            // Short cooldown before ready to aim again
+            this.sniperPhase = 'idle';
+            this.sniperTimer = 0;
+          }
+        }
       }
       
       const nx = movementX + ax;
@@ -4831,7 +5561,14 @@
       const nm = Math.hypot(nx, ny) || 1;
       this.x += (nx / nm) * this.speed * (dt / 16.67);
       this.y += (ny / nm) * this.speed * (dt / 16.67);
-      this.rot = Math.atan2(ny, nx);
+      // Snipers lock rotation to aim angle during telegraph; otherwise face player
+      if (this.kind === 'sniper' && (this.sniperPhase === 'aiming' || this.sniperPhase === 'cooldown')) {
+        this.rot = this.sniperAimAngle;
+      } else if (this.kind === 'sniper' && player) {
+        this.rot = Math.atan2(player.y - this.y, player.x - this.x);
+      } else {
+        this.rot = Math.atan2(ny, nx);
+      }
       
       // Ranged attacks for elite and boss enemies
       const now = performance.now();
@@ -5036,7 +5773,15 @@
       
       // Determine enemy type
       const roll = Math.random();
-      const kind = roll < 0.15 ? 'heavy' : roll < 0.35 ? 'swarmer' : roll < 0.55 ? 'chaser' : 'drone';
+      // Snipers unlock at level 3, chance scales up to 15% by level 10
+      const sniperChance = level >= 3 ? Math.min(0.15, (level - 2) * 0.018) : 0;
+      let kind;
+      if (roll < sniperChance) {
+        kind = 'sniper';
+      } else {
+        const r2 = Math.random();
+        kind = r2 < 0.15 ? 'heavy' : r2 < 0.35 ? 'swarmer' : r2 < 0.55 ? 'chaser' : 'drone';
+      }
       
       // Determine if enemy is elite based on adaptive difficulty
       let eliteChance = adaptive.eliteChance;
@@ -5185,16 +5930,16 @@
       // Fire rate: diminishing returns on very fast fire rates
       const fireBase = clamp(140 - L('firerate') * 18 * effectiveness, 55, 999) * shipStat('fireRate', 1);
       
-      // HP: full benefit (survivability shouldn't be nerfed too hard)
-      const hpBase = (BASE.PLAYER_HEALTH + L('shield') * 22) * shipStat('hp', 1);
+      // HP: full benefit (survivability shouldn't be nerfed too hard) + perk bonus
+      const hpBase = (BASE.PLAYER_HEALTH + L('shield') * 22) * shipStat('hp', 1) + perkMultipliers.maxHp;
       
       // Pickup and ammo regen: slight effectiveness reduction
       const pickupBase = (26 + L('magnet') * 14 * effectiveness) * shipStat('pickup', 1);
-      const ammoRegenBase = clamp((BASE.AMMO_REGEN_MS - L('ammo') * 120 * effectiveness) * shipStat('ammoRegen', 1), 280, 2200);
+      const ammoRegenBase = clamp((BASE.AMMO_REGEN_MS - L('ammo') * 120 * effectiveness) * shipStat('ammoRegen', 1) * perkMultipliers.ammoRegenMult, 180, 2200);
       
-      // Speed bonuses: keep full benefit for mobility
-      const baseSpeed = BASE.PLAYER_SPEED * shipStat('speed', 1);
-      const boostSpeed = (BASE.PLAYER_BOOST_SPEED + L('boost') * 0.9) * shipStat('boost', shipStat('speed', 1));
+      // Speed bonuses: keep full benefit for mobility (+ perk multiplier)
+      const baseSpeed = BASE.PLAYER_SPEED * shipStat('speed', 1) * perkMultipliers.speed;
+      const boostSpeed = (BASE.PLAYER_BOOST_SPEED + L('boost') * 0.9) * shipStat('boost', shipStat('speed', 1)) * perkMultipliers.speed;
       
       // Damage and regen: apply effectiveness modifier
       const damageMultiplier = (1 + L('damage') * 0.6 * effectiveness);
@@ -5205,8 +5950,8 @@
       const repulseEffective = repulseBase * adaptive.repulseEffectiveness;
       
       return {
-        fireCD: clamp(fireBase * (weaponStats.cd || 1), 35, 999),
-        dmg: damageMultiplier * shipStat('damage', 1) * (weaponStats.damage || 1),
+        fireCD: clamp(fireBase * (weaponStats.cd || 1) * perkMultipliers.fireRate, 35, 999),
+        dmg: damageMultiplier * shipStat('damage', 1) * (weaponStats.damage || 1) * perkMultipliers.damage,
         multishot: 1 + L('multi') + (weaponStats.shots || 0),
         hpMax: hpBase,
         hpRegen5: regenAmount,
@@ -5437,7 +6182,8 @@
       const hasAim = input.isAiming && (Math.abs(input.aimX) > 0.01 || Math.abs(input.aimY) > 0.01);
       if (hasAim) {
         this.lookAngle = Math.atan2(input.aimY, input.aimX);
-        if (input.fireHeld && this.ammo >= this.ammoPerShot && performance.now() - lastShotTime > stats.fireCD) {
+        const effectiveFireCD = PowerUps.isRapidActive(Date.now()) ? stats.fireCD * 0.5 : stats.fireCD;
+        if (input.fireHeld && this.ammo >= this.ammoPerShot && performance.now() - lastShotTime > effectiveFireCD) {
           this.shoot(stats);
           lastShotTime = performance.now();
         }
@@ -5523,10 +6269,17 @@
         const vel = { x: Math.cos(angle), y: Math.sin(angle) };
         const sx = this.x + Math.cos(angle) * this.size * 0.9;
         const sy = this.y + Math.sin(angle) * this.size * 0.9;
-        const speed = BASE.BULLET_SPEED * (weaponStats.bulletSpeed || 1);
+        const speed = BASE.BULLET_SPEED * (weaponStats.bulletSpeed || 1) * perkMultipliers.bulletSpeed;
         const size = BASE.BULLET_SIZE * (weaponStats.bulletSize || 1);
-        const pierce = weaponStats.pierce || 0;
-        bullets.push(new Bullet(sx, sy, vel, stats.dmg, color, speed, size, pierce));
+        const pierce = (weaponStats.pierce || 0) + perkMultipliers.piercePlus;
+        const dmg = stats.dmg * perkMultipliers.damage;
+        bullets.push(new Bullet(sx, sy, vel, dmg, color, speed, size, pierce));
+        // Twin Shot perk: fire a second bullet with slight angle offset
+        if (perkMultipliers.twinShot > 0 && Math.random() < perkMultipliers.twinShot) {
+          const twinAngle = angle + (Math.random() < 0.5 ? 0.08 : -0.08);
+          const twinVel = { x: Math.cos(twinAngle), y: Math.sin(twinAngle) };
+          bullets.push(new Bullet(sx, sy, twinVel, dmg, color, speed, size, pierce));
+        }
       }
       addParticles('muzzle', this.x, this.y, this.lookAngle, 6);
       
@@ -5722,10 +6475,13 @@
         }
       }
       if (amount <= 0) return;
+      // Reinforced Hull perk: reduce damage taken
+      amount *= perkMultipliers.damageTakenMult;
+      if (amount <= 0) return;
       tookDamageThisLevel = true;
       this.health -= amount;
       this.flash = true;
-      this.invEnd = now + BASE.INVULN_MS;
+      this.invEnd = now + BASE.INVULN_MS + perkMultipliers.invulnBonus;
       shakeScreen(4, 120);
       
       // Play player damage sound
@@ -7124,8 +7880,11 @@
     // Phase 1: Add to combo system
     addComboKill();
     
-    // Drop more coins for elite/boss
+    // Drop more coins for elite/boss (+ Salvage perk bonus drops)
     dropCoin(enemy.x, enemy.y);
+    if (perkMultipliers.coinBonus > 1 && Math.random() < (perkMultipliers.coinBonus - 1)) {
+      dropCoin(enemy.x + rand(-15, 15), enemy.y + rand(-15, 15));
+    }
     if (wasElite) {
       dropCoin(enemy.x + rand(-20, 20), enemy.y + rand(-20, 20));
       dropCoin(enemy.x + rand(-20, 20), enemy.y + rand(-20, 20));
@@ -7146,7 +7905,8 @@
                        wasElite ? '#f59e0b' :
                        enemy.kind === 'drone' ? '#ef4444' : 
                        enemy.kind === 'chaser' ? '#e879f9' :
-                       enemy.kind === 'heavy' ? '#4ade80' : '#fb923c';
+                       enemy.kind === 'heavy' ? '#4ade80' :
+                       enemy.kind === 'sniper' ? '#00ffcc' : '#fb923c';
     
     // Phase A.4: Shockwave ring
     addParticles('ring', enemy.x, enemy.y, 0, wasBoss ? 3 : 1, deathColor);
@@ -7183,26 +7943,82 @@
     } else if (enemy.kind === 'swarmer') {
       addParticles('sparks', enemy.x, enemy.y, 0, 15);
       addParticles('pop', enemy.x, enemy.y, 0, 10);
+    } else if (enemy.kind === 'sniper') {
+      addParticles('ring', enemy.x, enemy.y, 0, 2, '#00ffcc');
+      addParticles('sparks', enemy.x, enemy.y, 0, 14);
+      addParticles('debris', enemy.x, enemy.y, 0, 10);
+      shakeScreen(4, 100);
+      addLogEntry('Sniper eliminated!', '#00ffcc');
     } else {
       addParticles('sparks', enemy.x, enemy.y, 0, 12);
       addParticles('debris', enemy.x, enemy.y, 0, 8);
     }
     
+    // Chain Reaction perk: on-kill area explosion
+    if (perkMultipliers.chainDamage > 0) {
+      const chainR = 60;
+      addParticles('ring', enemy.x, enemy.y, 0, 1, '#a5b4fc');
+      enemies.forEach(nearby => {
+        if (nearby !== enemy) {
+          const dx = nearby.x - enemy.x;
+          const dy = nearby.y - enemy.y;
+          if (Math.hypot(dx, dy) <= chainR) {
+            nearby.hp -= perkMultipliers.chainDamage;
+          }
+        }
+      });
+    }
+
+    // Lifesteal perk: heal on each kill
+    if (perkMultipliers.lifestealPerKill > 0 && player) {
+      const maxHp = (player.hpMax || player.health) + perkMultipliers.maxHp;
+      player.health = Math.min(maxHp, player.health + perkMultipliers.lifestealPerKill);
+    }
+
     enemies.splice(index, 1);
-    
+
     // Mark boss as dead
     if (wasBoss && enemy === bossEntity) {
       bossEntity = null;
     }
-    
+
     enemiesKilled++;
-    
+
+    // Kill Combo Multiplier: advance/extend on each kill
+    const _kcNow = performance.now();
+    const _prevMultiplier = killComboMultiplier;
+    if (_kcNow < killComboTimerEnd || killComboMultiplier > 1) {
+      // Already in a combo — escalate up to max
+      if (killComboMultiplier < KILL_COMBO_MAX) {
+        killComboMultiplier++;
+        killComboEscalated = true;
+        killComboEscalatedStart = _kcNow;
+      }
+    } else {
+      // First kill starting a new combo
+      killComboMultiplier = 2;
+      killComboEscalated = true;
+      killComboEscalatedStart = _kcNow;
+    }
+    killComboTimerEnd = _kcNow + KILL_COMBO_WINDOW;
+    killComboSplashStart = _kcNow;
+    if (_prevMultiplier === killComboMultiplier) {
+      // At max — escalated flag not needed
+      killComboEscalated = false;
+    }
+
     // Score calculation with elite/boss bonuses
     let scoreGain = 15 + (comboCount > 1 ? comboCount * 2 : 0);
     if (wasElite) scoreGain *= 3;
     if (wasBoss) scoreGain *= 20;
+    // Apply kill combo multiplier + Overclock perk score bonus
+    const effectiveMultiplier = killComboMultiplier + perkMultipliers.scoreMultBonus;
+    scoreGain = Math.round(scoreGain * effectiveMultiplier);
     score += scoreGain;
-    
+
+    // Power-up drop chance on enemy death
+    PowerUps.maybeSpawn(enemy.x, enemy.y);
+
     // Phase 1: Show score as damage number
     spawnDamageNumber(enemy.x, enemy.y - enemy.size, `+${scoreGain}`, wasBoss || wasElite);
     
@@ -7312,6 +8128,14 @@
     dom.levelValue.textContent = levelText;
     
     dom.healthBar.style.width = `${(player.health / player.hpMax) * 100}%`;
+    if (bossActive && bossEntity) {
+      dom.bossBar.style.display = 'block';
+      const bossPct = Math.max(0, (bossEntity.health / bossEntity.hpMax) * 100);
+      dom.bossBarFill.style.width = bossPct + '%';
+      dom.bossBarName.textContent = (bossEntity.kind || 'BOSS').toUpperCase();
+    } else {
+      dom.bossBar.style.display = 'none';
+    }
     dom.ammoBar.style.width = `${(player.ammo / player.ammoMax) * 100}%`;
     if (dom.ultBar && dom.ultText) {
       const pct = Math.min(100, Math.round((player.ultimateCharge / player.ultimateChargeMax) * 100));
@@ -7357,6 +8181,14 @@
     
     // Update equipment indicator
     updateEquipmentIndicator();
+
+    // ── Update ability HUD cooldown bar ──────────────────────────────────
+    const _fillEl = document.getElementById('abilityCooldownFill');
+    if (_fillEl) {
+      const _pct = specialCooldownMax > 0 ? (1 - specialCooldown / specialCooldownMax) * 100 : 100;
+      _fillEl.style.width = `${Math.max(0, Math.min(100, _pct))}%`;
+      _fillEl.style.background = specialCooldown > 0 ? '#94a3b8' : '#4ade80';
+    }
   };
 
   const renderActionLog = () => {
@@ -7395,7 +8227,7 @@
     });
     
     // Update slot labels and icons based on equipment class
-    const equipClass = Save.data.armory.equipmentClass || defaultArmory().equipmentClass;
+    const equipClass = Save.ship().equipmentClass || defaultArmory().equipmentClass;
     Object.keys(equipClass).forEach((slotKey, index) => {
       const slotData = equipClass[slotKey];
       const slotElement = document.querySelector(`.equip-slot[data-slot="${index}"]`);
@@ -7429,7 +8261,7 @@
     const radialMenu = document.getElementById('radialMenu');
     if (!radialMenu) return;
     
-    const equipClass = Save.data.armory.equipmentClass || defaultArmory().equipmentClass;
+    const equipClass = Save.ship().equipmentClass || defaultArmory().equipmentClass;
     const radialItems = radialMenu.querySelectorAll('.radial-item');
     
     radialItems.forEach((item, index) => {
@@ -7740,7 +8572,7 @@
 
   const createArmoryCard = (type, item) => {
     const unlocked = Save.isUnlocked(type, item.id);
-    const equipped = Save.data.armory.loadout[type] === item.id;
+    const equipped = Save.loadout()[type] === item.id;
     const card = document.createElement('div');
     card.className = 'hangarShip armoryCard';
     if (equipped) card.classList.add('selected');
@@ -7804,18 +8636,127 @@
     return card;
   };
 
+  // Featured ships shown in the start-screen hangar modal
+  const HANGAR_FEATURED_SHIPS = [
+    {
+      id: 'spectre',
+      name: 'SPECTRE-9',
+      shipClass: 'Interceptor',
+      desc: 'Stealth recon craft — fastest in the fleet, built for hit-and-run strikes.',
+      pips: { SPEED: 5, HULL: 2, FIREPOWER: 3 }
+    },
+    {
+      id: 'bulwark',
+      name: 'BULWARK-7',
+      shipClass: 'Heavy Tank',
+      desc: 'Siege-rated assault pod with reinforced plating and extended magazine.',
+      pips: { SPEED: 2, HULL: 5, FIREPOWER: 3 }
+    },
+    {
+      id: 'titan',
+      name: 'TITAN HEAVY',
+      shipClass: 'Capital Ship',
+      desc: 'Capital-class gunship with devastating firepower and armored hull.',
+      pips: { SPEED: 1, HULL: 4, FIREPOWER: 5 }
+    }
+  ];
+
+  const createFeaturedShipCard = (shipDef) => {
+    const card = document.createElement('div');
+    card.className = 'ship-card';
+    const isActive = selectedShip === shipDef.id || Save.data.selectedShip === shipDef.id;
+    if (isActive) card.classList.add('active');
+
+    // Ship canvas preview
+    const canvas = document.createElement('canvas');
+    canvas.className = 'ship-card-canvas';
+    canvas.width = 280;
+    canvas.height = 130;
+    card.appendChild(canvas);
+
+    // Name + class badge row
+    const nameRow = document.createElement('div');
+    nameRow.style.cssText = 'display:flex;flex-direction:column;gap:6px;';
+    const nameEl = document.createElement('div');
+    nameEl.className = 'ship-card-name';
+    nameEl.textContent = shipDef.name;
+    const classEl = document.createElement('div');
+    classEl.className = 'ship-card-class';
+    classEl.textContent = shipDef.shipClass;
+    nameRow.appendChild(nameEl);
+    nameRow.appendChild(classEl);
+    card.appendChild(nameRow);
+
+    // Description
+    const descEl = document.createElement('div');
+    descEl.className = 'ship-card-desc';
+    descEl.textContent = shipDef.desc;
+    card.appendChild(descEl);
+
+    // Stat pip bars
+    const statsWrap = document.createElement('div');
+    statsWrap.className = 'ship-card-stats';
+    for (const [statName, pipCount] of Object.entries(shipDef.pips)) {
+      const row = document.createElement('div');
+      row.className = 'stat-row-pip';
+      const label = document.createElement('div');
+      label.className = 'stat-label-pip';
+      label.textContent = statName;
+      const pips = document.createElement('div');
+      pips.className = 'stat-pips';
+      for (let i = 1; i <= 5; i++) {
+        const pip = document.createElement('div');
+        pip.className = 'stat-pip' + (i <= pipCount ? ' filled' : '');
+        pips.appendChild(pip);
+      }
+      row.appendChild(label);
+      row.appendChild(pips);
+      statsWrap.appendChild(row);
+    }
+    card.appendChild(statsWrap);
+
+    // SELECT button
+    const btn = document.createElement('button');
+    btn.className = 'ship-select-btn' + (isActive ? ' selected-btn' : '');
+    btn.textContent = isActive ? 'SELECTED' : 'SELECT';
+    btn.addEventListener('click', () => {
+      selectedShip = shipDef.id;
+      Save.data.selectedShip = shipDef.id;
+      Save.save();
+      if (player) player.reconfigureLoadout(true);
+      renderHangar();
+    });
+    card.appendChild(btn);
+
+    // Draw ship preview
+    requestAnimationFrame(() => {
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#fff';
+      for (let i = 0; i < 35; i++) {
+        const x = Math.random() * canvas.width;
+        const y = Math.random() * canvas.height;
+        ctx.globalAlpha = Math.random() * 0.5 + 0.4;
+        ctx.fillRect(x, y, Math.random() * 1.5 + 0.5, Math.random() * 1.5 + 0.5);
+      }
+      ctx.globalAlpha = 1;
+      const tmpl = getShipTemplate(shipDef.id);
+      ctx.save();
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      drawShip(ctx, shipDef.id, 22 * ((tmpl && tmpl.scale) || 1));
+      ctx.restore();
+    });
+
+    return card;
+  };
+
   const renderHangar = () => {
+    if (!dom.hangarGrid) return;
     dom.hangarGrid.innerHTML = '';
-    dom.hangarGrid.appendChild(createSectionHeader('Starfighters'));
-    SHIP_TEMPLATES.forEach((ship) => dom.hangarGrid.appendChild(createShipCard(ship)));
-    dom.hangarGrid.appendChild(createSectionHeader('Primary Weapons'));
-    ARMORY.primary.forEach((item) => dom.hangarGrid.appendChild(createArmoryCard('primary', item)));
-    dom.hangarGrid.appendChild(createSectionHeader('Secondary Systems'));
-    ARMORY.secondary.forEach((item) => dom.hangarGrid.appendChild(createArmoryCard('secondary', item)));
-    dom.hangarGrid.appendChild(createSectionHeader('Defense Matrix'));
-    ARMORY.defense.forEach((item) => dom.hangarGrid.appendChild(createArmoryCard('defense', item)));
-    dom.hangarGrid.appendChild(createSectionHeader('Ultimate Arsenal'));
-    ARMORY.ultimate.forEach((item) => dom.hangarGrid.appendChild(createArmoryCard('ultimate', item)));
+    HANGAR_FEATURED_SHIPS.forEach((shipDef) => {
+      dom.hangarGrid.appendChild(createFeaturedShipCard(shipDef));
+    });
   };
 
   const openHangar = () => {
@@ -7826,12 +8767,145 @@
   const closeHangar = () => {
     dom.hangarModal.style.display = 'none';
   };
+  // ─── POWER-UP DROPS ─────────────────────────────────────────────────────────
+  const PowerUps = (() => {
+    const TYPES = {
+      SHIELD: { color: '#22c55e', label: 'SHIELD +30', duration: 0, radius: 10 },
+      RAPID:  { color: '#06b6d4', label: 'RAPID FIRE', duration: 8000, radius: 10 },
+      NUKE:   { color: '#f97316', label: 'NUKE',       duration: 0, radius: 10 },
+    };
+    const TYPE_KEYS = Object.keys(TYPES);
+    let active = [];       // live pickups on the ground
+    let effects = [];      // active timed effects {type, endsAt}
+    const DROP_CHANCE = 0.12;
+
+    function maybeSpawn(x, y) {
+      if (Math.random() > DROP_CHANCE) return;
+      const type = TYPE_KEYS[Math.floor(Math.random() * TYPE_KEYS.length)];
+      active.push({ x, y, type, spawnedAt: Date.now(), angle: 0 });
+    }
+
+    function update(playerX, playerY, now) {
+      // Remove pickups older than 8s
+      active = active.filter(p => now - p.spawnedAt < 8000);
+      // Rotate glyph
+      active.forEach(p => { p.angle = (p.angle + 0.04) % (Math.PI * 2); });
+      // Collect
+      active = active.filter(p => {
+        const dx = p.x - playerX, dy = p.y - playerY;
+        if (Math.sqrt(dx*dx + dy*dy) > 28) return true;
+        apply(p.type, now);
+        showPickupBanner(p.type);
+        return false;
+      });
+      // Expire timed effects
+      effects = effects.filter(e => e.endsAt > now);
+    }
+
+    function apply(type, now) {
+      if (type === 'SHIELD') {
+        if (player && player.health !== undefined) player.health = Math.min(player.health + 30, player.hpMax || 100);
+      } else if (type === 'RAPID') {
+        effects = effects.filter(e => e.type !== 'RAPID');
+        effects.push({ type: 'RAPID', endsAt: now + 8000 });
+      } else if (type === 'NUKE') {
+        nukeAllEnemies();
+      }
+    }
+
+    function nukeAllEnemies() {
+      // Flash the screen
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(249,115,22,0.45);pointer-events:none;z-index:999;transition:opacity 0.6s';
+      document.body.appendChild(overlay);
+      setTimeout(() => { overlay.style.opacity = '0'; setTimeout(() => overlay.remove(), 700); }, 60);
+      // Kill all enemies via handleEnemyDeath for proper scoring
+      if (typeof enemies !== 'undefined' && Array.isArray(enemies)) {
+        for (let i = enemies.length - 1; i >= 0; i--) {
+          handleEnemyDeath(i);
+        }
+      }
+    }
+
+    function isRapidActive(now) {
+      return effects.some(e => e.type === 'RAPID' && e.endsAt > now);
+    }
+
+    function showPickupBanner(type) {
+      const cfg = TYPES[type];
+      const el = document.createElement('div');
+      el.textContent = '⚡ ' + cfg.label;
+      el.style.cssText = `position:fixed;top:22%;left:50%;transform:translateX(-50%);background:${cfg.color};color:#000;font-weight:700;font-size:15px;letter-spacing:.08em;padding:7px 20px;border-radius:6px;pointer-events:none;z-index:998;opacity:1;transition:opacity 0.5s`;
+      document.body.appendChild(el);
+      setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 600); }, 1400);
+    }
+
+    function draw(ctx) {
+      const now = Date.now();
+      active.forEach(p => {
+        const cfg = TYPES[p.type];
+        const age = now - p.spawnedAt;
+        const fadeAlpha = age > 6000 ? 1 - (age - 6000) / 2000 : 1;
+        ctx.save();
+        ctx.globalAlpha = fadeAlpha * (0.7 + 0.3 * Math.sin(p.angle * 3));
+        // Glow
+        const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 18);
+        grad.addColorStop(0, cfg.color);
+        grad.addColorStop(1, 'transparent');
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(p.x, p.y, 18, 0, Math.PI * 2); ctx.fill();
+        // Core orb
+        ctx.fillStyle = cfg.color;
+        ctx.beginPath(); ctx.arc(p.x, p.y, 8, 0, Math.PI * 2); ctx.fill();
+        // Orbit ring
+        ctx.strokeStyle = cfg.color; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(p.x, p.y, 13, p.angle, p.angle + Math.PI * 1.2); ctx.stroke();
+        // Label
+        ctx.globalAlpha = fadeAlpha * 0.9;
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
+        ctx.fillText(p.type, p.x, p.y + 24);
+        ctx.restore();
+      });
+      // Rapid fire HUD indicator
+      const rapidEffect = effects.find(e => e.type === 'RAPID');
+      if (rapidEffect) {
+        const remaining = ((rapidEffect.endsAt - now) / 1000).toFixed(1);
+        ctx.save();
+        ctx.fillStyle = '#06b6d4'; ctx.font = 'bold 12px monospace';
+        ctx.textAlign = 'left'; ctx.globalAlpha = 0.9;
+        ctx.fillText('⚡ RAPID ' + remaining + 's', 12, 110);
+        ctx.restore();
+      }
+    }
+
+    return { maybeSpawn, update, draw, isRapidActive };
+  })();
+  // ─── END POWER-UP DROPS ─────────────────────────────────────────────────────
+
   /* ====== GAME UPDATE ====== */
   const updateGame = (dt, now) => {
     if (!player) return;
     player.update(dt);
+
+    // ── Special ability cooldown tick ──────────────────────────────────────
+    if (specialCooldown > 0) {
+      specialCooldown = Math.max(0, specialCooldown - dt);
+    }
+    // Tick shield wall
+    if (shieldWall) {
+      shieldWall.framesLeft--;
+      if (shieldWall.framesLeft <= 0 || shieldWall.hp <= 0) shieldWall = null;
+    }
+    // Handle queued ability (from Q keypress)
+    if (specialAbilityQueued) {
+      specialAbilityQueued = false;
+      fireSpecialAbility();
+    }
+
     consumeTimedEffects(now);
     updateComboSystem(); // Phase 1: Update combo timer
+    // Power-up pickup collection
+    PowerUps.update(player.x, player.y, Date.now());
     const targetX = player.x - window.innerWidth / 2;
     const targetY = player.y - window.innerHeight / 2;
     camera.x += (targetX - camera.x) * 0.12;
@@ -7883,6 +8957,22 @@
           }
           
           if (enemy.health <= 0) handleEnemyDeath(j);
+          // Fragmentation perk: bullet explodes on impact with small splash
+          if (perkMultipliers.fragmentOnImpact) {
+            const fragR = 40;
+            addParticles('ring', bullet.x, bullet.y, 0, 1, '#f97316');
+            addParticles('sparks', bullet.x, bullet.y, 0, 8);
+            enemies.forEach((nearby, ni) => {
+              if (ni !== j) {
+                const fdx = nearby.x - bullet.x;
+                const fdy = nearby.y - bullet.y;
+                if (Math.hypot(fdx, fdy) <= fragR) {
+                  nearby.health -= bullet.damage * 0.4;
+                  if (nearby.health <= 0) handleEnemyDeath(ni);
+                }
+              }
+            });
+          }
           if (bullet.pierce > 0) {
             bullet.pierce--;
             continue;
@@ -8001,13 +9091,31 @@
       }
     }
     
-    // Handle enemy bullets hitting player
+    // Handle enemy bullets hitting player (or shield wall)
     for (let i = bullets.length - 1; i >= 0; i--) {
       const bullet = bullets[i];
       if (!bullet.isEnemy) continue;
       const dx = player.x - bullet.x;
       const dy = player.y - bullet.y;
-      if (Math.hypot(dx, dy) < player.size + bullet.size) {
+      const dist = Math.hypot(dx, dy);
+      if (dist < player.size + bullet.size) {
+        // Check if shield wall intercepts this bullet
+        if (shieldWall && shieldWall.hp > 0) {
+          // Shield covers front 140° arc
+          const bulletAngle = Math.atan2(bullet.y - player.y, bullet.x - player.x);
+          const angleDiff = Math.abs(((bulletAngle - player.lookAngle) + Math.PI * 3) % (Math.PI * 2) - Math.PI);
+          if (angleDiff < (70 / 180) * Math.PI) { // within 70° each side = 140° arc
+            bullets.splice(i, 1);
+            shieldWall.hp--;
+            addParticles('shield', bullet.x, bullet.y, 0, 6);
+            addLogEntry(`Shield Wall: ${shieldWall.hp} HP left`, '#2dd4bf');
+            if (shieldWall.hp <= 0) {
+              shieldWall = null;
+              addLogEntry('Shield Wall broken!', '#f97316');
+            }
+            continue;
+          }
+        }
         bullets.splice(i, 1);
         // Enemy bullets inherit shield penetration from adaptive scaling
         const adaptive = getAdaptiveScaling();
@@ -8190,9 +9298,80 @@
 
   /* ====== RENDERING ====== */
   const drawGame = () => {
+    // 3D Rendering mode
+    if (use3DRendering && typeof GameRenderer3D !== 'undefined') {
+      // Initialize 3D renderer if not done
+      if (!renderer3DInitialized && GameRenderer3D.isAvailable()) {
+        const container = document.getElementById('gameContainer');
+        renderer3DInitialized = GameRenderer3D.init(container, {
+          quality: 'high',
+          shadows: true,
+          bloom: true
+        });
+      }
+
+      // Render in 3D if initialized
+      if (renderer3DInitialized && player) {
+        const gameState = {
+          player: {
+            x: player.x,
+            y: player.y,
+            lookAngle: player.lookAngle,
+            vel: player.vel,
+            actualVel: player.actualVel,
+            health: player.health,
+            hpMax: player.hpMax,
+            isBoosting: input.isBoosting,
+            invEnd: player.invEnd,
+            isDefenseActive: player.isDefenseActive ? player.isDefenseActive(performance.now()) : false
+          },
+          shipTemplate: currentShip,
+          enemies: enemies.map((e, idx) => ({
+            id: e.id || idx,
+            x: e.x,
+            y: e.y,
+            size: e.size,
+            type: e.isElite ? 'elite' : (e.isBoss ? 'boss' : (e.speed > 2 ? 'fast' : 'basic')),
+            angle: e.angle || Math.atan2(player.y - e.y, player.x - e.x)
+          })),
+          bullets: bullets.map(b => ({
+            x: b.x,
+            y: b.y,
+            angle: b.angle || 0,
+            isEnemy: b.enemy || false
+          })),
+          asteroids: obstacles.filter(o => o.constructor.name === 'Asteroid' || o.type === 'asteroid').map(a => ({
+            x: a.x,
+            y: a.y,
+            size: a.size || 30
+          })),
+          coins: coins.map(c => ({
+            x: c.x,
+            y: c.y,
+            value: c.value || 1
+          })),
+          supplies: supplies.map(s => ({
+            x: s.x,
+            y: s.y,
+            type: s.type || 'health'
+          }))
+        };
+        GameRenderer3D.render(gameState);
+
+        // Still draw 2D HUD elements on top
+        const ctx = dom.ctx;
+        const canvas = dom.canvas;
+        if (ctx && canvas) {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          draw2DOverlays(ctx, canvas);
+        }
+        return;
+      }
+    }
+
     // Need context for 2D rendering
     if (!dom.ctx) return;
-    
+
     // Fallback to 2D rendering
     const ctx = dom.ctx;
     const canvas = dom.canvas;
@@ -8298,7 +9477,11 @@
     }
     
     drawParticles(ctx, 16.67);
+    // Draw power-up orbs (in world space, before ctx.restore)
+    PowerUps.draw(ctx);
     player.draw(ctx);
+    // Draw Bulwark-7 shield wall arc
+    drawShieldWall(ctx);
     ctx.restore();
     
     // Draw FPS counter if enabled
@@ -8314,8 +9497,72 @@
       ctx.restore();
     }
     
-    // SUBTLE: Draw combo counter - SMALLER, positioned in TOP RIGHT corner, out of gameplay area
+    // ── Kill Combo Multiplier Splash (upper-center) ──────────────────────────
     const now = performance.now();
+    if (killComboMultiplier >= 2) {
+      const SPLASH_LINGER = 500; // ms to keep showing after last kill before fade
+      const timeSinceKill = now - killComboSplashStart;
+      const alpha = timeSinceKill < KILL_COMBO_WINDOW - SPLASH_LINGER
+        ? 1
+        : Math.max(0, 1 - (timeSinceKill - (KILL_COMBO_WINDOW - SPLASH_LINGER)) / SPLASH_LINGER);
+
+      if (alpha > 0) {
+        ctx.save();
+        const cx = canvas.width / 2;
+        const cy = 54;
+
+        // Scale-up appear animation (first 200ms after each new kill)
+        const scaleT = Math.min(1, timeSinceKill / 200);
+        const scale = 0.5 + 0.5 * scaleT;
+
+        ctx.globalAlpha = alpha;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        // Glow
+        ctx.shadowColor = '#FFD700';
+        ctx.shadowBlur = 18;
+
+        ctx.font = `bold ${Math.round(32 * scale)}px Arial, sans-serif`;
+        ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+        ctx.lineWidth = 4;
+        ctx.strokeText(`COMBO x${killComboMultiplier}`, cx, cy);
+        ctx.fillStyle = '#FFD700';
+        ctx.fillText(`COMBO x${killComboMultiplier}`, cx, cy);
+
+        ctx.shadowBlur = 0;
+        ctx.restore();
+      }
+
+      // COMBO ESCALATED flash (brief, larger, center-screen)
+      if (killComboEscalated) {
+        const elapsed = now - killComboEscalatedStart;
+        const ESCALATE_DURATION = 700;
+        if (elapsed < ESCALATE_DURATION) {
+          const t = elapsed / ESCALATE_DURATION;
+          const flashAlpha = t < 0.25 ? t / 0.25 : 1 - ((t - 0.25) / 0.75);
+          const flashScale = 0.6 + 0.4 * Math.min(1, elapsed / 150);
+          ctx.save();
+          ctx.globalAlpha = flashAlpha * 0.95;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.shadowColor = '#FFD700';
+          ctx.shadowBlur = 30;
+          ctx.font = `bold ${Math.round(48 * flashScale)}px Arial, sans-serif`;
+          ctx.strokeStyle = 'rgba(0,0,0,0.9)';
+          ctx.lineWidth = 5;
+          ctx.strokeText('COMBO ESCALATED!', canvas.width / 2, canvas.height / 2 - 80);
+          ctx.fillStyle = '#FFD700';
+          ctx.fillText('COMBO ESCALATED!', canvas.width / 2, canvas.height / 2 - 80);
+          ctx.shadowBlur = 0;
+          ctx.restore();
+        } else {
+          killComboEscalated = false;
+        }
+      }
+    }
+
+    // SUBTLE: Draw combo counter - SMALLER, positioned in TOP RIGHT corner, out of gameplay area
     if (comboCount > 1 && now < comboTimer) {
       ctx.save();
       const comboAge = now - (comboTimer - COMBO_TIMEOUT);
@@ -8600,6 +9847,79 @@
     }
   };
 
+  // Helper function to draw 2D overlays on top of 3D scene
+  const draw2DOverlays = (ctx, canvas) => {
+    const now = performance.now();
+
+    // Draw FPS counter if enabled
+    if (showFPS && fps > 0) {
+      ctx.save();
+      ctx.font = 'bold 16px monospace';
+      ctx.fillStyle = fps >= 55 ? '#4ade80' : fps >= 30 ? '#fbbf24' : '#ef4444';
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 3;
+      ctx.textAlign = 'right';
+      ctx.strokeText(`${fps} FPS (3D)`, canvas.width - 10, 30);
+      ctx.fillText(`${fps} FPS (3D)`, canvas.width - 10, 30);
+      ctx.restore();
+    }
+
+    // Draw combo multiplier if active
+    if (killComboMultiplier >= 2) {
+      const SPLASH_LINGER = 500;
+      const timeSinceKill = now - killComboSplashStart;
+      const alpha = timeSinceKill < KILL_COMBO_WINDOW - SPLASH_LINGER
+        ? 1
+        : Math.max(0, 1 - (timeSinceKill - (KILL_COMBO_WINDOW - SPLASH_LINGER)) / SPLASH_LINGER);
+
+      if (alpha > 0) {
+        ctx.save();
+        const cx = canvas.width / 2;
+        const cy = 54;
+        const scaleT = Math.min(1, timeSinceKill / 200);
+        const scale = 0.5 + 0.5 * scaleT;
+
+        ctx.globalAlpha = alpha;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = '#FFD700';
+        ctx.shadowBlur = 18;
+
+        ctx.font = `bold ${Math.round(32 * scale)}px Arial, sans-serif`;
+        ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+        ctx.lineWidth = 4;
+        ctx.strokeText(`COMBO x${killComboMultiplier}`, cx, cy);
+        ctx.fillStyle = '#FFD700';
+        ctx.fillText(`COMBO x${killComboMultiplier}`, cx, cy);
+        ctx.shadowBlur = 0;
+        ctx.restore();
+      }
+    }
+
+    // Draw floating damage numbers
+    for (let i = damageNumbers.length - 1; i >= 0; i--) {
+      const dmg = damageNumbers[i];
+      const age = now - dmg.time;
+      if (age > dmg.lifetime) {
+        damageNumbers.splice(i, 1);
+        continue;
+      }
+
+      const alpha = 1 - (age / dmg.lifetime);
+      const screenX = dmg.x - camera.x;
+      const screenY = dmg.y - camera.y - (age * 0.08);
+      ctx.save();
+      ctx.font = `bold ${dmg.size}px Arial`;
+      ctx.fillStyle = dmg.color.replace(')', `, ${alpha})`).replace('rgb', 'rgba');
+      ctx.strokeStyle = `rgba(0, 0, 0, ${alpha * 0.8})`;
+      ctx.lineWidth = 3;
+      ctx.textAlign = 'center';
+      ctx.strokeText(dmg.text, screenX, screenY);
+      ctx.fillText(dmg.text, screenX, screenY);
+      ctx.restore();
+    }
+  };
+
   /* ====== MAIN LOOP ====== */
   let animationFrame = null;
 
@@ -8654,16 +9974,50 @@
     dom.canvas.height = Math.floor(window.innerHeight * dpr);
     dom.canvas.style.width = '100%';
     dom.canvas.style.height = '100%';
-    
+
     // Create 2D context if needed
     if (!dom.ctx && dom.canvas) {
-      dom.ctx = dom.canvas.getContext('2d');
+      dom.ctx = dom.canvas.getContext('2d', { alpha: true });
     }
-    
+
     if (dom.ctx) {
       dom.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
+
+    // Configure canvas for 3D overlay mode
+    if (use3DRendering && typeof GameRenderer3D !== 'undefined') {
+      dom.canvas.style.position = 'absolute';
+      dom.canvas.style.top = '0';
+      dom.canvas.style.left = '0';
+      dom.canvas.style.zIndex = '5';
+      dom.canvas.style.pointerEvents = 'none';
+      dom.canvas.style.background = 'transparent';
+    } else {
+      dom.canvas.style.position = '';
+      dom.canvas.style.zIndex = '';
+      dom.canvas.style.pointerEvents = '';
+      dom.canvas.style.background = '';
+    }
+
     return dpr;
+  };
+
+  // Toggle between 2D and 3D rendering modes
+  const toggle3DMode = () => {
+    use3DRendering = !use3DRendering;
+    if (use3DRendering) {
+      console.log('🎮 Switching to 3D third-person mode');
+      if (typeof GameRenderer3D !== 'undefined') {
+        GameRenderer3D.setEnabled(true);
+      }
+    } else {
+      console.log('🎮 Switching to classic 2D mode');
+      if (typeof GameRenderer3D !== 'undefined') {
+        GameRenderer3D.setEnabled(false);
+      }
+    }
+    setupCanvas();
+    return use3DRendering;
   };
 
   const startLevel = (lvl, resetScore) => {
@@ -8923,7 +10277,14 @@
     // Always use space mode (planetary mode removed)
     currentGameMode = 'space';
     currentPlanet = null;
-    
+
+    // Persist selectedShip from hangar into Save before init
+    if (selectedShip && selectedShip !== Save.data.selectedShip) {
+      Save.data.selectedShip = selectedShip;
+      Save.save();
+    }
+    console.log('[Hangar] Starting game with ship:', selectedShip || Save.data.selectedShip);
+
     initShipSelection();
     
     // Add smooth transition effect
@@ -9308,6 +10669,10 @@
     gameOverHandled = true;
     Save.setBest(score, level);
     Save.addCredits(Math.floor(score / 25));
+
+    // Local leaderboard — check before saving so isPersonalBest is accurate
+    const isNewBest = LocalLeaderboard.isPersonalBest(score);
+    LocalLeaderboard.save(score);
     
     // Update game stats for achievements
     // Note: Elite enemy tracking to be implemented in future update
@@ -9361,18 +10726,18 @@
       // Submit to leaderboard
       Leaderboard.addEntry(username, finalScore, finalLevel, currentDifficulty)
         .then(rank => {
-          showGameOverScreen(finalScore, finalLevel, rank);
+          showGameOverScreen(finalScore, finalLevel, rank, isNewBest);
         })
         .catch(err => {
           console.warn('Failed to submit leaderboard entry:', err);
-          showGameOverScreen(finalScore, finalLevel, null);
+          showGameOverScreen(finalScore, finalLevel, null, isNewBest);
         });
     } else {
-      showGameOverScreen(finalScore, finalLevel, null);
+      showGameOverScreen(finalScore, finalLevel, null, isNewBest);
     }
   };
 
-  const showGameOverScreen = (finalScore, finalLevel, rank) => {
+  const showGameOverScreen = (finalScore, finalLevel, rank, isNewBest) => {
     // Note: Don't hide gameContainer - the gameOverModal is a child element
     // inside gameContainer, so hiding the container would also hide the modal.
     // The modal overlays on top of the game canvas with its own styling.
@@ -9400,7 +10765,33 @@
         if (loginPromptEl) loginPromptEl.style.display = 'block';
         if (loginBtn) loginBtn.style.display = 'block';
       }
-      
+
+      // --- Local leaderboard ---
+      const bestBanner = document.getElementById('personalBestBanner');
+      if (bestBanner) {
+        bestBanner.style.display = isNewBest ? 'block' : 'none';
+      }
+
+      const localScores = LocalLeaderboard.get();
+      const tbody = document.getElementById('localLeaderboardBody');
+      if (tbody) {
+        tbody.innerHTML = '';
+        if (localScores.length === 0) {
+          const row = document.createElement('tr');
+          row.innerHTML = '<td colspan="3" class="local-lb-empty">No runs recorded yet</td>';
+          tbody.appendChild(row);
+        } else {
+          localScores.forEach((entry, idx) => {
+            const row = document.createElement('tr');
+            if (entry.score === finalScore && idx === 0 && isNewBest) {
+              row.classList.add('local-lb-highlight');
+            }
+            row.innerHTML = `<td class="local-lb-rank">#${idx + 1}</td><td class="local-lb-score">${entry.score.toLocaleString()}</td><td class="local-lb-date">${entry.date}</td>`;
+            tbody.appendChild(row);
+          });
+        }
+      }
+
       gameOverModal.style.display = 'flex';
     }
   };
@@ -9613,6 +11004,13 @@
     Leaderboard.load();
     pilotLevel = Save.data.pilotLevel;
     pilotXP = Save.data.pilotXp;
+    // Sync selectedShip from saved data (default to 'spectre-9' if not one of the 3 featured)
+    const FEATURED_IDS = ['spectre', 'bulwark', 'titan'];
+    if (FEATURED_IDS.includes(Save.data.selectedShip)) {
+      selectedShip = Save.data.selectedShip;
+    } else {
+      selectedShip = 'spectre';
+    }
     initShipSelection();
     syncCredits();
     loadControlSettings(); // Load and apply control settings
@@ -9649,6 +11047,17 @@
   });
 
   // expose for debugging if needed
+  // Native (iOS) pushes the durable UserDefaults copy here on launch.
+  window.loadGameData = function (obj) {
+    try {
+      if (!obj || typeof obj !== 'object') return;
+      Save.data = Save._sanitize(obj);
+      try { localStorage.setItem(SAVE_KEY, JSON.stringify(Save.data)); } catch (e) { /* ignore */ }
+      if (typeof syncCredits === 'function') syncCredits();
+      if (typeof invalidatePowerCache === 'function') invalidatePowerCache();
+    } catch (e) { console.warn('loadGameData failed', e); }
+  };
+
   window.__VOID_RIFT__ = {
     startGame,
     togglePause,
@@ -9656,6 +11065,8 @@
     openHangar,
     toggleFullscreen,
     toggleFPS,
+    toggle3DMode,
+    is3DMode: () => use3DRendering,
     getGameState: () => ({
       gameRunning,
       paused,
@@ -9665,7 +11076,8 @@
       enemiesToKill,
       fps,
       isFullscreen,
-      difficulty: currentDifficulty
+      difficulty: currentDifficulty,
+      use3DRendering
     })
   };
 
@@ -9885,7 +11297,7 @@
   };
 
   const loadEquipmentClassSettings = () => {
-    const equipClass = Save.data.armory.equipmentClass || defaultArmory().equipmentClass;
+    const equipClass = Save.ship().equipmentClass || defaultArmory().equipmentClass;
     
     ['equipSlot1', 'equipSlot2', 'equipSlot3', 'equipSlot4'].forEach((id, index) => {
       const select = document.getElementById(id);
@@ -9910,7 +11322,7 @@
       }
     });
     
-    Save.data.armory.equipmentClass = equipClass;
+    Save.ship().equipmentClass = equipClass; Save.save();
     Save.save();
     
     // Update equipment indicator
@@ -9923,7 +11335,7 @@
     currentEquipmentSlot = slotIndex;
     updateEquipmentIndicator();
     
-    const equipClass = Save.data.armory.equipmentClass || defaultArmory().equipmentClass;
+    const equipClass = Save.ship().equipmentClass || defaultArmory().equipmentClass;
     const slotData = equipClass[`slot${slotIndex + 1}`];
     
     if (slotData) {
@@ -10017,7 +11429,7 @@
     const preview = document.getElementById('weaponPreview');
     if (!preview) return;
     
-    const equipClass = Save.data.armory.equipmentClass || defaultArmory().equipmentClass;
+    const equipClass = Save.ship().equipmentClass || defaultArmory().equipmentClass;
     const slotData = equipClass[`slot${slotIndex + 1}`];
     if (!slotData) return;
     
@@ -10850,9 +12262,12 @@
     let tapTimeout = null;
     
     const handleGameTap = (clientX, clientY) => {
-      // NEW: Handle ready-up phase taps - tap anywhere to start
+      // Roguelite: if upgrade picker is open, ignore taps on the game canvas
+      if (waveUpgradeActive) return;
+
+      // Show upgrade card picker on wave clear, then continue to countdown
       if (readyUpPhase) {
-        startCountdownFromReadyUp();
+        showWaveUpgradeScreen(() => startCountdownFromReadyUp());
         return;
       }
       
@@ -10949,7 +12364,9 @@
       if (readyUpPhase) {
         if (e.key === ' ' || e.key === 'Enter') {
           e.preventDefault();
-          startCountdownFromReadyUp();
+          if (!waveUpgradeActive) {
+            showWaveUpgradeScreen(() => startCountdownFromReadyUp());
+          }
           return;
         }
         if (e.key === 's' || e.key === 'S') {
@@ -10983,6 +12400,12 @@
         e.preventDefault();
         toggleFPS();
       }
+      // V key: toggle between 2D and 3D rendering modes
+      if (e.key === 'v' || e.key === 'V') {
+        e.preventDefault();
+        const is3D = toggle3DMode();
+        console.log(`🎮 View mode: ${is3D ? '3D Third-Person' : '2D Top-Down'}`);
+      }
       if (e.key === 'f' || e.key === 'F') {
         // Only allow 'f' for fullscreen if defense isn't using it in game
         if (!gameRunning || paused || countdownActive || readyUpPhase) {
@@ -10991,6 +12414,15 @@
         }
       }
       
+      // Q key: fire special ship ability
+      if ((e.key === 'q' || e.key === 'Q') && gameRunning && !paused && !countdownActive && !readyUpPhase) {
+        e.preventDefault();
+        if (!specialQKeyLatch) {
+          specialQKeyLatch = true;
+          specialAbilityQueued = true;
+        }
+      }
+
       // Equipment slot keyboard shortcuts (number keys 1-4)
       if (gameRunning && !paused && !countdownActive && !readyUpPhase) {
         if (handleEquipmentKeyboard(e)) {
@@ -11002,16 +12434,19 @@
       updateFromKeyboard();
     });
     document.addEventListener('keyup', (e) => {
+      if (e.key === 'q' || e.key === 'Q') specialQKeyLatch = false;
       if (Object.prototype.hasOwnProperty.call(keyboard, e.key)) keyboard[e.key] = false;
       updateFromKeyboard();
     });
 
     if (dom.canvas) {
       dom.canvas.addEventListener('mousedown', (e) => {
-        // NEW: Handle ready-up phase click - anywhere on screen
+        // Handle ready-up phase click - show upgrade picker first
         if (readyUpPhase) {
           e.preventDefault();
-          startCountdownFromReadyUp();
+          if (!waveUpgradeActive) {
+            showWaveUpgradeScreen(() => startCountdownFromReadyUp());
+          }
           return;
         }
         

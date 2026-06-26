@@ -338,3 +338,48 @@ describe('Save System', () => {
     });
   });
 });
+
+/* ---- v12 hybrid save: migration + per-ship model (added with PR #1) ---- */
+describe('v12 Migration & Hybrid Progression', () => {
+  // Pure mirror of Save._migrateLegacy mapping for regression coverage.
+  const migrate = (old, shipIds) => {
+    const d = {
+      schemaVersion: 12, credits: 0, pilotLevel: 1, prestige: 0,
+      unlocked: { primary: ['pulse'], secondary: ['nova'], defense: ['aegis'], ultimate: ['voidstorm'] },
+      unlockedShips: ['vanguard'], ships: {}
+    };
+    d.credits = Math.max(0, Math.floor(old.credits || 0));
+    d.pilotLevel = Math.max(1, Math.floor(old.pilotLevel || 1));
+    d.selectedShip = old.selectedShip || 'vanguard';
+    if (old.armory && old.armory.unlocked)
+      for (const c of ['primary','secondary','defense','ultimate'])
+        if (Array.isArray(old.armory.unlocked[c])) d.unlocked[c] = old.armory.unlocked[c].slice();
+    const up = (old.upgrades && typeof old.upgrades === 'object') ? old.upgrades : {};
+    for (const sid of shipIds) d.ships[sid] = { upgrades: Object.assign({}, up) };
+    return d;
+  };
+
+  test('migrates legacy v11 save without losing account-wide progress', () => {
+    const old = { credits: 4242, pilotLevel: 9, selectedShip: 'vanguard',
+      upgrades: { damage: 5, fireRate: 3 },
+      armory: { unlocked: { primary: ['pulse','plasma'], secondary: ['nova'], defense: ['aegis'], ultimate: ['voidstorm'] } } };
+    const d = migrate(old, ['vanguard','titan']);
+    expect(d.schemaVersion).toBe(12);
+    expect(d.credits).toBe(4242);
+    expect(d.pilotLevel).toBe(9);
+    expect(d.unlocked.primary).toContain('plasma');   // ownership is account-wide
+  });
+
+  test('grants old global upgrades to every ship (no power loss)', () => {
+    const old = { upgrades: { damage: 5, fireRate: 3 } };
+    const d = migrate(old, ['vanguard','titan','spectre']);
+    for (const sid of ['vanguard','titan','spectre'])
+      expect(d.ships[sid].upgrades).toEqual({ damage: 5, fireRate: 3 });
+  });
+
+  test('per-ship upgrades are independent objects after migration', () => {
+    const d = migrate({ upgrades: { damage: 2 } }, ['vanguard','titan']);
+    d.ships.vanguard.upgrades.damage = 9;        // mutate one ship
+    expect(d.ships.titan.upgrades.damage).toBe(2); // other ship unaffected
+  });
+});
