@@ -941,8 +941,8 @@
   // Fullscreen state
   let isFullscreen = false;
 
-  // 3D Rendering state
-  let use3DRendering = true; // Enable 3D third-person view by default
+  // 3D Rendering state (disabled - 2D is the active deployment)
+  let use3DRendering = false; // 3D archived; 2D is default
   let renderer3DInitialized = false;
 
   // Equipment interaction system - Enhanced secondary weapons dock
