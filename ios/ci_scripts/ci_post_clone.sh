@@ -11,11 +11,10 @@ export PATH="/opt/homebrew/opt/node/bin:$PATH"
 # Move to repo root (this script lives inside ios/App/ci_scripts/)
 cd "$CI_WORKSPACE"
 
-# Install and build
+# Install deps (no build step — plain HTML/JS game, no bundler)
 npm ci || npm install
-npm run build
 
-# Sync built assets into the iOS Capacitor wrapper
-npx cap sync ios --no-open
+# Copy web assets into the iOS Capacitor wrapper
+npx cap copy ios
 
 echo "=== [Xcode Cloud] VoidRift: post-clone complete ==="
