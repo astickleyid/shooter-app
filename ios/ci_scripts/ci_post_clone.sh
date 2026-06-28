@@ -2,19 +2,32 @@
 # ci_post_clone.sh — Xcode Cloud post-clone for VoidRift (Capacitor)
 set -e
 
-echo "=== [Xcode Cloud] VoidRift: installing Node deps and building web assets ==="
+echo "=== [Xcode Cloud] VoidRift post-clone ==="
+echo "CI_PRIMARY_REPOSITORY_PATH: $CI_PRIMARY_REPOSITORY_PATH"
+echo "CI_WORKSPACE: $CI_WORKSPACE"
+echo "PWD: $(pwd)"
+echo "Node: $(node --version 2>/dev/null || echo 'not found')"
+echo "npm:  $(npm --version 2>/dev/null || echo 'not found')"
 
-# Homebrew is available in Xcode Cloud environments
-brew install node || true
-export PATH="/opt/homebrew/opt/node/bin:$PATH"
+# Ensure node/npm are available — install via Homebrew if missing
+if ! command -v npm >/dev/null 2>&1; then
+  echo "npm not found, installing node via Homebrew..."
+  brew install node
+  export PATH="/opt/homebrew/bin:$PATH"
+fi
 
-# Move to repo root (this script lives inside ios/App/ci_scripts/)
-cd "$CI_WORKSPACE"
+echo "Using node: $(node --version)"
+echo "Using npm:  $(npm --version)"
 
-# Install deps (no build step — plain HTML/JS game, no bundler)
-npm ci || npm install
+# Move to repo root
+REPO="${CI_PRIMARY_REPOSITORY_PATH:-$CI_WORKSPACE}"
+echo "cd to: $REPO"
+cd "$REPO"
 
-# Copy web assets into the iOS Capacitor wrapper
+echo "==> npm ci"
+npm ci
+
+echo "==> npx cap copy ios"
 npx cap copy ios
 
-echo "=== [Xcode Cloud] VoidRift: post-clone complete ==="
+echo "=== VoidRift post-clone complete ==="
