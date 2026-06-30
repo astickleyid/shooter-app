@@ -1125,6 +1125,14 @@ const HANGAR_UI_CSS = `
   .hangar-daily-btn:hover:not(:disabled) { background: linear-gradient(135deg, rgba(99,102,241,0.32) 0%, rgba(74,222,128,0.22) 100%); border-color: rgba(99,102,241,0.75); color: #c7d2fe; }
   .hangar-daily-btn:disabled { opacity: 0.5; cursor: default; }
 
+  /* ── HUD Theme picker ─────────────────────────────────── */
+  .hangar-theme-section { margin-top: 8px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.08); }
+  .hangar-theme-swatches { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+  .hangar-theme-swatch { width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; transition: transform 0.15s, border-color 0.15s; }
+  .hangar-theme-swatch:hover { transform: scale(1.15); }
+  .hangar-theme-swatch.active { border-color: #fff; box-shadow: 0 0 0 2px rgba(255,255,255,0.3); transform: scale(1.1); }
+  .hangar-theme-hint { font-size: 11px; color: rgba(255,255,255,0.35); margin-top: 8px; }
+
   /* ── Leaderboard tab ─────────────────────────────────────────── */
   .hangar-lb-tabs { display: flex; gap: 4px; padding: 12px 16px 0; }
   .hangar-lb-tab { flex: 1; padding: 7px 12px; font-family: 'Orbitron', monospace; font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; background: transparent; color: rgba(255,255,255,0.35); cursor: pointer; transition: all 0.15s; }
@@ -1835,6 +1843,26 @@ function renderSettingsView() {
         <div class="hangar-daily-meta" id="hangar-daily-meta"></div>
         <button class="hangar-daily-btn" id="hangar-daily-start-btn">Start Today's Challenge</button>
       </div>
+      <div class="hangar-settings-section hangar-theme-section">
+        <div class="hangar-settings-label">🎨 HUD Theme</div>
+        <div class="hangar-theme-swatches" id="hangar-theme-swatches">
+          ${[
+            { id: 'cyan',   color: '#38bdf8', label: 'Cyan (Default)' },
+            { id: 'green',  color: '#4ade80', label: 'Neon Green'     },
+            { id: 'red',    color: '#f87171', label: 'Blood Red'      },
+            { id: 'purple', color: '#a855f7', label: 'Royal Purple'   },
+            { id: 'gold',   color: '#fbbf24', label: 'Gold'           },
+          ].map(t => {
+            const saved = localStorage.getItem('voidrift_hud_theme') || 'cyan';
+            return `<button class="hangar-theme-swatch${saved === t.id ? ' active' : ''}"
+                      data-theme="${t.id}"
+                      style="background:${t.color}"
+                      title="${t.label}"
+                      aria-label="${t.label}"></button>`;
+          }).join('')}
+        </div>
+        <div class="hangar-theme-hint">Applies to mission HUD and status overlays.</div>
+      </div>
     </div>
   `;
 
@@ -1922,6 +1950,21 @@ function renderSettingsView() {
         console.warn('[DailyChallenge] Failed to activate:', err);
         dailyBtn.disabled = false;
         dailyBtn.textContent = "Start Today's Challenge";
+      });
+    });
+  }
+
+  // Wire up HUD theme swatches
+  const swatchContainer = document.getElementById('hangar-theme-swatches');
+  if (swatchContainer) {
+    swatchContainer.addEventListener('click', (e) => {
+      const btn = e.target.closest('.hangar-theme-swatch');
+      if (!btn) return;
+      const themeId = btn.dataset.theme;
+      localStorage.setItem('voidrift_hud_theme', themeId);
+      // Update active state
+      swatchContainer.querySelectorAll('.hangar-theme-swatch').forEach(s => {
+        s.classList.toggle('active', s.dataset.theme === themeId);
       });
     });
   }

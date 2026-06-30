@@ -11881,6 +11881,18 @@
   };
 
   // ── Mission HUD ─────────────────────────────────────────────────────────
+  function getHudAccent() {
+    const THEME_COLORS = {
+      cyan:   '#38bdf8',
+      green:  '#4ade80',
+      red:    '#f87171',
+      purple: '#a855f7',
+      gold:   '#fbbf24',
+    };
+    const saved = localStorage.getItem('voidrift_hud_theme') || 'cyan';
+    return THEME_COLORS[saved] || '#38bdf8';
+  }
+
   function updateMissionHUD() {
     if (!window.missionSystem) return;
     const hud = document.getElementById('missionHud');
@@ -11890,13 +11902,14 @@
     const missions = window.missionSystem.dailyMissions;
     if (!missions || missions.length === 0) { hud.style.display = 'none'; return; }
 
+    const hudAccent = getHudAccent();
     hud.style.display = 'block';
     slots.innerHTML = missions.map((m, idx) => {
       const progress = m.progress || 0;
       const pct = Math.min(100, Math.round((progress / m.target) * 100));
       const done = m.completed || m.claimed;
       const desc = m.desc.replace('{target}', m.target);
-      const barColor = done ? '#4ade80' : pct > 50 ? '#facc15' : '#6366f1';
+      const barColor = done ? '#4ade80' : pct > 50 ? '#facc15' : hudAccent;
       return `<div style="margin-bottom:${idx < missions.length - 1 ? '8px' : '0'}">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px;">
           <span style="font-family:monospace; font-size:10px; color:${done ? '#4ade80' : 'rgba(255,255,255,0.7)'}; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${done ? '✓ ' : ''}${desc}</span>
