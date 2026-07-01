@@ -672,6 +672,8 @@
   let bossEntity = null;
   let leviathanWavePending = false;
   let leviathanKilledThisRun = 0;
+  let voidSurgeWavePending = false;
+  let voidSurgeKilledThisRun = 0;
   let bossWaveAnnouncementStart = 0; // timestamp for BOSS WAVE! canvas overlay
 
   /* ====== PLANETARY GAME MODE SYSTEM ====== */
@@ -1355,6 +1357,7 @@
     8: 'CARRIER DETECTED',
     9: 'BERSERKER ALERT',
     10: 'LEVIATHAN BOSS — MAXIMUM THREAT',
+    15: 'VOID SURGE — ELITE FORCES',
   };
 
   const showWaveBanner = (waveNum, hint) => {
@@ -2169,6 +2172,8 @@
     bossEntity = null;
     leviathanWavePending = false;
     leviathanKilledThisRun = 0;
+    voidSurgeWavePending = false;
+    voidSurgeKilledThisRun = 0;
     bossWaveAnnouncementStart = 0;
     if (dom.bossBar) dom.bossBar.style.display = 'none';
 
@@ -10131,30 +10136,42 @@
     const adaptive = getAdaptiveScaling();
     const bossLevel = level % adaptive.bossInterval === 0;
     const leviathanLevel = level % 10 === 0; // Leviathan spawns at wave 10, 20, 30, ...
+    const voidSurgeLevel = level === 15 || (level > 15 && level % 25 === 15); // VOID SURGE at 15, 40, 65, ...
 
     if (leviathanLevel) {
       // Leviathan boss wave — takes priority over generic boss
       currentWaveType = 'boss';
       leviathanWavePending = true;
+      voidSurgeWavePending = false;
       addLogEntry(`☠️ LEVIATHAN APPROACHES — FLEE OR FIGHT!`, '#FF2020');
     } else if (bossLevel) {
       currentWaveType = 'boss';
       leviathanWavePending = false;
+      voidSurgeWavePending = false;
       addLogEntry(`⚠️ BOSS WAVE INCOMING!`, '#dc2626');
+    } else if (voidSurgeLevel) {
+      // VOID SURGE — elite wave with dramatic overlay
+      currentWaveType = 'elite';
+      voidSurgeWavePending = true;
+      leviathanWavePending = false;
+      addLogEntry(`⚡ VOID SURGE INCOMING — ELITE FORCES!`, '#8b5cf6');
     } else if (level % 5 === 0 && getPowerRatio() > 0.3) {
       // Every 5th level (non-boss), special wave type
       const waveTypes = ['swarm', 'elite', 'survival', 'hazard'];
       currentWaveType = waveTypes[Math.floor(Math.random() * waveTypes.length)];
       leviathanWavePending = false;
+      voidSurgeWavePending = false;
       const waveInfo = WAVE_TYPES[currentWaveType];
       addLogEntry(`🎯 ${waveInfo.name}: ${waveInfo.desc}`, '#f59e0b');
     } else {
       currentWaveType = 'standard';
       leviathanWavePending = false;
+      voidSurgeWavePending = false;
     }
 
     // Show wave intro banner
     const _bossHint = leviathanWavePending ? 'LEVIATHAN BOSS — MAXIMUM THREAT'
+      : voidSurgeWavePending ? 'VOID SURGE — ELITE FORCES'
       : currentWaveType === 'boss' ? 'BOSS WAVE — MAXIMUM THREAT' : undefined;
     showWaveBanner(level, _bossHint);
 
@@ -10265,6 +10282,15 @@
   // NEW: Function to start countdown from ready-up phase
   const startCountdownFromReadyUp = () => {
     if (!readyUpPhase) return;
+
+    // Show VOID SURGE overlay for 3s before starting the wave countdown
+    if (voidSurgeWavePending) {
+      showVoidSurgeOverlay(() => {
+        voidSurgeWavePending = false;
+        startCountdownFromReadyUp();
+      });
+      return;
+    }
 
     // Show LEVIATHAN INCOMING overlay for 3s before starting the wave countdown
     if (leviathanWavePending) {
@@ -11945,6 +11971,28 @@
       });
     }
     // Hide overlay and call onComplete after 3s
+    setTimeout(() => {
+      overlay.style.display = 'none';
+      onComplete();
+    }, 3000);
+  };
+
+  // ── VOID SURGE Wave 15 Overlay ─────────────────────────────────────────────
+  const showVoidSurgeOverlay = (onComplete) => {
+    const overlay = document.getElementById('voidSurgeOverlay');
+    if (!overlay) { onComplete(); return; }
+    overlay.style.display = 'flex';
+    const bar = document.getElementById('voidSurgeBar');
+    if (bar) {
+      bar.style.width = '100%';
+      bar.style.transition = 'none';
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          bar.style.transition = 'width 3s linear';
+          bar.style.width = '0%';
+        });
+      });
+    }
     setTimeout(() => {
       overlay.style.display = 'none';
       onComplete();

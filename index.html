@@ -321,6 +321,22 @@
       </style>
     </div>
 
+    <!-- VOID SURGE Wave 15 Warning -->
+    <div id="voidSurgeOverlay" style="display:none; position:fixed; inset:0; z-index:8500; background:rgba(0,0,20,0.94); align-items:center; justify-content:center; flex-direction:column; font-family:Arial,sans-serif;">
+      <div style="text-align:center; animation: surgeAlertPulse 0.7s ease-in-out infinite alternate;">
+        <div style="font-size:11px; letter-spacing:0.3em; color:rgba(139,92,246,0.7); text-transform:uppercase; margin-bottom:16px; font-weight:700;">WARNING — WAVE 15</div>
+        <div style="font-size:clamp(36px,8vw,72px); font-weight:900; color:#8b5cf6; letter-spacing:0.12em; text-transform:uppercase; text-shadow:0 0 40px rgba(139,92,246,0.9), 0 0 80px rgba(139,92,246,0.5); line-height:1; margin-bottom:12px;">VOID SURGE</div>
+        <div style="font-size:clamp(14px,3vw,22px); font-weight:700; color:rgba(255,255,255,0.7); letter-spacing:0.2em; text-transform:uppercase; margin-bottom:32px;">INCOMING</div>
+        <div style="width:180px; height:2px; background:rgba(139,92,246,0.4); margin:0 auto 28px; position:relative; overflow:hidden;">
+          <div id="voidSurgeBar" style="position:absolute; top:0; left:0; height:100%; background:#8b5cf6; width:100%; transition:width 3s linear;"></div>
+        </div>
+        <div style="font-size:11px; letter-spacing:0.15em; color:rgba(255,255,255,0.35); text-transform:uppercase;">ELITE ENEMIES CONVERGING</div>
+      </div>
+      <style>
+        @keyframes surgeAlertPulse { from { opacity:0.7; transform:scale(0.98); } to { opacity:1; transform:scale(1.02); } }
+      </style>
+    </div>
+
     <!-- Game Over Modal -->
     <div id="gameOverModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="gameOverTitle">
       <div class="modal-content game-over-screen">
