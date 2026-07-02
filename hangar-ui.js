@@ -1090,6 +1090,57 @@ const HANGAR_UI_CSS = `
     }
   }
 
+  /* ── Fragments tab ─────────────────────────────────────────── */
+  .hangar-fragments { padding: 16px; }
+  .hangar-fragments-header { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(255,255,255,0.35); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .hangar-fragments-header span { color: rgba(255,255,255,0.55); }
+  .hangar-fragments-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+  .hangar-frag-card {
+    border-radius: 10px;
+    padding: 12px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.03);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: border-color 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .hangar-frag-card.collected { background: rgba(255,255,255,0.04); }
+  .hangar-frag-card.locked { opacity: 0.45; filter: grayscale(0.7); }
+  .hangar-frag-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 10px;
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+  }
+  .hangar-frag-card.collected::before { background: var(--frag-glow, rgba(168,85,247,0.06)); opacity: 1; }
+  .hangar-frag-card-top { display: flex; align-items: center; gap: 8px; }
+  .hangar-frag-gem {
+    width: 28px; height: 28px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; flex-shrink: 0;
+    background: var(--frag-bg, rgba(168,85,247,0.15));
+    border: 1px solid var(--frag-border, rgba(168,85,247,0.3));
+  }
+  .hangar-frag-name { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.9); letter-spacing: -0.01em; }
+  .hangar-frag-rarity {
+    display: inline-block; padding: 1px 6px; border-radius: 4px;
+    font-size: 9px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
+    background: var(--frag-rarity-bg, rgba(168,85,247,0.15));
+    color: var(--frag-color, #c084fc);
+    border: 1px solid var(--frag-border, rgba(168,85,247,0.3));
+  }
+  .hangar-frag-desc { font-size: 10px; color: rgba(255,255,255,0.4); line-height: 1.5; }
+  .hangar-frag-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 2px; }
+  .hangar-frag-count { font-size: 10px; font-family: 'Orbitron', monospace; color: var(--frag-color, #c084fc); font-weight: 700; }
+  .hangar-frag-unlock { font-size: 9px; color: rgba(255,255,255,0.3); font-style: italic; }
+  .hangar-frag-lock { font-size: 18px; position: absolute; top: 10px; right: 10px; opacity: 0.3; }
+
   /* ── Settings tab ──────────────────────────────────────────── */
   .hangar-settings { padding: 20px; }
   .hangar-settings-section { margin-bottom: 24px; }
@@ -1287,7 +1338,7 @@ let _overlay = null;
 let _hangarState = null;
 let _options = {};
 let _keyHandler = null;
-let _activeTab = 'upgrades'; // 'upgrades' | 'achievements' | 'skins' | 'settings'
+let _activeTab = 'upgrades'; // 'upgrades' | 'achievements' | 'skins' | 'settings' | 'fragments'
 let _skinsShipFilter = null; // which ship's skins are shown
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2151,6 +2202,8 @@ function switchTab(tab) {
     renderSettingsView();
   } else if (tab === 'leaderboard') {
     renderLeaderboardView();
+  } else if (tab === 'fragments') {
+    renderFragmentsView();
   } else {
     renderUpgradesView();
   }
@@ -2201,6 +2254,113 @@ function handlePurchase(upgradeId) {
   if (typeof _options.onPurchase === 'function') {
     _options.onPurchase(upgradeId, _hangarState.upgrades[upgradeId], _hangarState);
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Fragments tab
+// ─────────────────────────────────────────────────────────────────────────────
+
+const RARITY_STYLES = {
+  legendary: {
+    color: '#c084fc',
+    bg: 'rgba(168,85,247,0.15)',
+    border: 'rgba(168,85,247,0.35)',
+    glow: 'rgba(168,85,247,0.08)',
+    emoji: '💎',
+  },
+  epic: {
+    color: '#fb923c',
+    bg: 'rgba(249,115,22,0.15)',
+    border: 'rgba(249,115,22,0.35)',
+    glow: 'rgba(249,115,22,0.08)',
+    emoji: '🔮',
+  },
+  rare: {
+    color: '#38bdf8',
+    bg: 'rgba(56,189,248,0.15)',
+    border: 'rgba(56,189,248,0.35)',
+    glow: 'rgba(56,189,248,0.08)',
+    emoji: '⚡',
+  },
+};
+
+/**
+ * Render the Fragments tab — shows all 6 tech fragments with collection status,
+ * rarity, description, count, and what they unlock.
+ */
+function renderFragmentsView() {
+  const content = document.getElementById('hangarContent');
+  if (!content) return;
+  content.innerHTML = '';
+
+  const sys = window.techFragmentSystem;
+  const allFragments = (window.TECH_FRAGMENTS || []);
+  const allUnlocks  = (window.TECH_UNLOCKS || {});
+
+  // Count collected per fragment id
+  const getCount = (id) => {
+    if (!sys) return 0;
+    return sys.inventory ? (sys.inventory[id] || 0) : 0;
+  };
+
+  const totalCollected = allFragments.filter(f => getCount(f.id) > 0).length;
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'hangar-fragments';
+
+  // Header
+  const hdr = document.createElement('div');
+  hdr.className = 'hangar-fragments-header';
+  hdr.innerHTML = `
+    TECH FRAGMENTS &nbsp;
+    <span>${totalCollected} / ${allFragments.length} discovered</span>
+    <span style="flex:1"></span>
+    <span style="font-size:10px;color:rgba(255,255,255,0.28);font-style:italic">Drop from Elites &amp; Bosses</span>
+  `;
+  wrapper.appendChild(hdr);
+
+  // Grid
+  const grid = document.createElement('div');
+  grid.className = 'hangar-fragments-grid';
+
+  allFragments.forEach(frag => {
+    const count   = getCount(frag.id);
+    const rs      = RARITY_STYLES[frag.rarity] || RARITY_STYLES.rare;
+    const unlock  = allUnlocks[frag.unlocks];
+    const isOwned = count > 0;
+
+    const card = document.createElement('div');
+    card.className = `hangar-frag-card ${isOwned ? 'collected' : 'locked'}`;
+    card.style.setProperty('--frag-color',      rs.color);
+    card.style.setProperty('--frag-bg',         rs.bg);
+    card.style.setProperty('--frag-border',     rs.border);
+    card.style.setProperty('--frag-rarity-bg',  rs.bg);
+    card.style.setProperty('--frag-glow',       rs.glow);
+
+    card.innerHTML = `
+      ${!isOwned ? '<span class="hangar-frag-lock">🔒</span>' : ''}
+      <div class="hangar-frag-card-top">
+        <div class="hangar-frag-gem">${rs.emoji}</div>
+        <div>
+          <div class="hangar-frag-name">${frag.name}</div>
+          <span class="hangar-frag-rarity">${frag.rarity}</span>
+        </div>
+      </div>
+      <div class="hangar-frag-desc">${isOwned ? frag.desc : '??? Collect to reveal'}</div>
+      <div class="hangar-frag-footer">
+        <span class="hangar-frag-count">${isOwned ? `×${count} collected` : 'Not found'}</span>
+        ${unlock && isOwned
+          ? `<span class="hangar-frag-unlock">Unlocks: ${unlock.name}</span>`
+          : unlock
+          ? `<span class="hangar-frag-unlock" style="color:rgba(255,255,255,0.15)">??? unlock</span>`
+          : ''}
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+
+  wrapper.appendChild(grid);
+  content.appendChild(wrapper);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2262,6 +2422,7 @@ export function openHangar(opts = {}) {
         <button class="hangar-tab-btn" data-tab="skins">Skins</button>
         <button class="hangar-tab-btn" data-tab="achievements">Achievements</button>
         <button class="hangar-tab-btn" data-tab="leaderboard">Leaderboard</button>
+        <button class="hangar-tab-btn" data-tab="fragments">Fragments</button>
         <button class="hangar-tab-btn" data-tab="settings">Settings</button>
       </div>
 
