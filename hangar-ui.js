@@ -1338,7 +1338,7 @@ let _overlay = null;
 let _hangarState = null;
 let _options = {};
 let _keyHandler = null;
-let _activeTab = 'upgrades'; // 'upgrades' | 'achievements' | 'skins' | 'settings' | 'fragments'
+let _activeTab = 'upgrades'; // 'upgrades' | 'achievements' | 'skins' | 'settings' | 'fragments' | 'stats'
 let _skinsShipFilter = null; // which ship's skins are shown
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2204,6 +2204,8 @@ function switchTab(tab) {
     renderLeaderboardView();
   } else if (tab === 'fragments') {
     renderFragmentsView();
+  } else if (tab === 'stats') {
+    renderStatsView();
   } else {
     renderUpgradesView();
   }
@@ -2364,6 +2366,88 @@ function renderFragmentsView() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Stats tab
+
+/**
+ * Render the Stats tab — lifetime game statistics pulled from localStorage.
+ */
+function renderStatsView() {
+  const content = document.getElementById('hangarContent');
+  if (!content) return;
+  content.innerHTML = '';
+
+  // Read achievement stats
+  const achStats = (() => {
+    try {
+      const raw = localStorage.getItem('voidrift_achievements');
+      if (raw) return JSON.parse(raw)?.stats || {};
+    } catch {}
+    return {};
+  })();
+
+  // Read save data
+  const saveData = (() => {
+    try {
+      const raw = localStorage.getItem('void_rift_v11');
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return {};
+  })();
+
+  const stats = [
+    { label: 'BEST SCORE',     value: (saveData.bestScore || 0).toLocaleString(),             icon: '🏆', highlight: true },
+    { label: 'HIGHEST WAVE',   value: achStats.maxWave || 0,                                  icon: '🌊', highlight: true },
+    { label: 'TOTAL KILLS',    value: (achStats.totalKills || 0).toLocaleString(),             icon: '💥' },
+    { label: 'BOSS KILLS',     value: achStats.bossKills || 0,                                icon: '👑' },
+    { label: 'PILOT LEVEL',    value: saveData.pilotLevel || 1,                               icon: '🚀' },
+    { label: 'MAX COMBO',      value: achStats.maxCombo || 0,                                 icon: '⚡' },
+    { label: 'DAILY STREAK',   value: achStats.dailyStreak || 0,                              icon: '🔥' },
+    { label: 'DAILIES DONE',   value: achStats.dailyChallengesCompleted || 0,                 icon: '📅' },
+    { label: 'UPGRADES MAXED', value: `${achStats.maxedHangarUpgrades || 0}`,                icon: '🔧' },
+    { label: 'CREDITS BANKED', value: (saveData.credits || 0).toLocaleString(),               icon: '💰' },
+  ];
+
+  const wrapper = document.createElement('div');
+  wrapper.style.cssText = 'padding:16px 16px 24px; overflow-y:auto; height:100%; box-sizing:border-box;';
+
+  const hdr = document.createElement('div');
+  hdr.style.cssText = [
+    'font-family:"Orbitron",monospace',
+    'font-size:11px',
+    'font-weight:700',
+    'letter-spacing:0.14em',
+    'color:rgba(255,255,255,0.3)',
+    'text-transform:uppercase',
+    'margin-bottom:14px',
+    'padding-bottom:10px',
+    'border-bottom:1px solid rgba(255,255,255,0.07)',
+  ].join(';');
+  hdr.textContent = 'LIFETIME STATS';
+  wrapper.appendChild(hdr);
+
+  const grid = document.createElement('div');
+  grid.style.cssText = 'display:grid; grid-template-columns:1fr 1fr; gap:10px;';
+
+  stats.forEach(({ label, value, icon, highlight }) => {
+    const card = document.createElement('div');
+    card.style.cssText = [
+      'background:rgba(255,255,255,0.03)',
+      `border:1px solid ${highlight ? 'rgba(74,222,128,0.2)' : 'rgba(255,255,255,0.07)'}`,
+      'border-radius:8px',
+      'padding:14px 16px',
+    ].join(';');
+    card.innerHTML = `
+      <div style="font-size:10px;color:rgba(255,255,255,0.28);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:7px;">${icon} ${label}</div>
+      <div style="font-family:'Orbitron',monospace;font-size:22px;font-weight:700;color:${highlight ? '#4ade80' : '#fff'};letter-spacing:-0.02em;${highlight ? 'text-shadow:0 0 10px rgba(74,222,128,0.4)' : ''}">${value}</div>
+    `;
+    grid.appendChild(card);
+  });
+
+  wrapper.appendChild(grid);
+  content.appendChild(wrapper);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Public API
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -2423,6 +2507,7 @@ export function openHangar(opts = {}) {
         <button class="hangar-tab-btn" data-tab="achievements">Achievements</button>
         <button class="hangar-tab-btn" data-tab="leaderboard">Leaderboard</button>
         <button class="hangar-tab-btn" data-tab="fragments">Fragments</button>
+        <button class="hangar-tab-btn" data-tab="stats">Stats</button>
         <button class="hangar-tab-btn" data-tab="settings">Settings</button>
       </div>
 
