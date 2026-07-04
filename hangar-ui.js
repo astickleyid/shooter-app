@@ -1090,6 +1090,59 @@ const HANGAR_UI_CSS = `
     }
   }
 
+  /* ── Missions tab ──────────────────────────────────────────── */
+  .hangar-missions { padding: 16px; }
+  .hangar-missions-header { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(255,255,255,0.35); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .hangar-missions-header span { color: rgba(255,255,255,0.55); }
+  .hangar-missions-header .hm-resets { margin-left: auto; font-style: italic; color: rgba(255,255,255,0.22); }
+  .hangar-mission-card {
+    border-radius: 10px; padding: 14px 16px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.03);
+    display: flex; flex-direction: column; gap: 8px;
+    margin-bottom: 8px; transition: border-color 0.2s;
+  }
+  .hangar-mission-card.completed { border-color: rgba(99,102,241,0.35); background: rgba(99,102,241,0.06); }
+  .hangar-mission-card.claimed   { border-color: rgba(255,255,255,0.05); opacity: 0.5; }
+  .hangar-mission-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .hangar-mission-name { font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.88); letter-spacing: -0.01em; }
+  .hangar-mission-desc { font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 2px; line-height: 1.4; }
+  .hangar-mission-reward {
+    flex-shrink: 0; display: flex; align-items: center; gap: 4px;
+    font-size: 11px; font-family: 'Orbitron', monospace; font-weight: 700;
+    color: #fbbf24; white-space: nowrap;
+  }
+  .hangar-mission-bar-wrap { display: flex; align-items: center; gap: 8px; }
+  .hangar-mission-bar-track {
+    flex: 1; height: 5px; border-radius: 3px;
+    background: rgba(255,255,255,0.08);
+    overflow: hidden;
+  }
+  .hangar-mission-bar-fill {
+    height: 100%; border-radius: 3px;
+    background: linear-gradient(90deg, #6366f1, #818cf8);
+    transition: width 0.4s ease;
+  }
+  .hangar-mission-bar.done .hangar-mission-bar-fill { background: linear-gradient(90deg, #22c55e, #4ade80); }
+  .hangar-mission-progress-txt { font-size: 10px; font-family: 'Orbitron', monospace; color: rgba(255,255,255,0.4); white-space: nowrap; }
+  .hangar-mission-badges { display: flex; gap: 5px; flex-wrap: wrap; }
+  .hangar-mission-badge {
+    font-size: 9px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase;
+    padding: 2px 7px; border-radius: 4px; border: 1px solid;
+  }
+  .hangar-mission-badge.frag { color: #c084fc; background: rgba(168,85,247,0.12); border-color: rgba(168,85,247,0.3); }
+  .hangar-mission-badge.xp   { color: #38bdf8; background: rgba(56,189,248,0.12); border-color: rgba(56,189,248,0.3); }
+  .hangar-mission-claim-btn {
+    align-self: flex-end; padding: 6px 14px; border-radius: 6px; border: none; cursor: pointer;
+    font-size: 10px; font-family: 'Orbitron', monospace; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; background: linear-gradient(135deg, #6366f1, #4f46e5);
+    color: #fff; transition: opacity 0.15s, transform 0.1s;
+  }
+  .hangar-mission-claim-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+  .hangar-mission-claim-btn:active { transform: translateY(0); }
+  .hangar-mission-claim-btn.claimed-label { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.3); cursor: default; }
+  .hangar-missions-empty { padding: 40px 16px; text-align: center; color: rgba(255,255,255,0.25); font-size: 12px; }
+
   /* ── Fragments tab ─────────────────────────────────────────── */
   .hangar-fragments { padding: 16px; }
   .hangar-fragments-header { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(255,255,255,0.35); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
@@ -1338,7 +1391,7 @@ let _overlay = null;
 let _hangarState = null;
 let _options = {};
 let _keyHandler = null;
-let _activeTab = 'upgrades'; // 'upgrades' | 'achievements' | 'skins' | 'settings' | 'fragments' | 'stats'
+let _activeTab = 'upgrades'; // 'upgrades' | 'achievements' | 'skins' | 'settings' | 'fragments' | 'stats' | 'missions' | 'leaderboard'
 let _skinsShipFilter = null; // which ship's skins are shown
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2206,6 +2259,8 @@ function switchTab(tab) {
     renderFragmentsView();
   } else if (tab === 'stats') {
     renderStatsView();
+  } else if (tab === 'missions') {
+    renderMissionsView();
   } else {
     renderUpgradesView();
   }
@@ -2256,6 +2311,133 @@ function handlePurchase(upgradeId) {
   if (typeof _options.onPurchase === 'function') {
     _options.onPurchase(upgradeId, _hangarState.upgrades[upgradeId], _hangarState);
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Missions tab
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Render the Missions tab — shows today's 3 daily missions with progress bars,
+ * reward badges, and a Claim button for completed-but-unclaimed missions.
+ */
+function renderMissionsView() {
+  const content = document.getElementById('hangarContent');
+  if (!content) return;
+  content.innerHTML = '';
+
+  const ms = window.missionSystem;
+  const missions = ms ? ms.getDailyMissions() : [];
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'hangar-missions';
+
+  // Compute reset countdown (missions refresh at midnight local time)
+  function resetCountdown() {
+    const now = new Date();
+    const midnight = new Date(now);
+    midnight.setHours(24, 0, 0, 0);
+    const diff = midnight - now;
+    const h = Math.floor(diff / 3_600_000);
+    const m = Math.floor((diff % 3_600_000) / 60_000);
+    return `Resets in ${h}h ${m}m`;
+  }
+
+  const completedCount = missions.filter(m => m.completed).length;
+
+  // Header
+  const hdr = document.createElement('div');
+  hdr.className = 'hangar-missions-header';
+  hdr.innerHTML = `
+    DAILY MISSIONS &nbsp;
+    <span>${completedCount} / ${missions.length} complete</span>
+    <span class="hm-resets">${resetCountdown()}</span>
+  `;
+  wrapper.appendChild(hdr);
+
+  if (!ms || missions.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'hangar-missions-empty';
+    empty.innerHTML = `<div style="font-size:28px;margin-bottom:8px">📋</div>No missions loaded yet.<br>Start a game to generate daily missions.`;
+    wrapper.appendChild(empty);
+    content.appendChild(wrapper);
+    return;
+  }
+
+  missions.forEach(mission => {
+    const progress = Math.min(mission.progress || 0, mission.target);
+    const pct = Math.round((progress / mission.target) * 100);
+    const isDone    = mission.completed;
+    const isClaimed = mission.claimed;
+
+    const card = document.createElement('div');
+    card.className = `hangar-mission-card${isDone ? ' completed' : ''}${isClaimed ? ' claimed' : ''}`;
+
+    // Badges row
+    const badges = [];
+    if (mission.techFragment) badges.push(`<span class="hangar-mission-badge frag">+ Fragment</span>`);
+    if (mission.xpBoost && mission.xpBoost > 1)
+      badges.push(`<span class="hangar-mission-badge xp">×${mission.xpBoost.toFixed(1)} XP</span>`);
+    const badgesHtml = badges.length ? `<div class="hangar-mission-badges">${badges.join('')}</div>` : '';
+
+    // Claim button
+    let claimHtml = '';
+    if (isDone && !isClaimed) {
+      claimHtml = `<button class="hangar-mission-claim-btn" data-mission-id="${mission.id}">Claim ⚡ ${mission.reward}</button>`;
+    } else if (isClaimed) {
+      claimHtml = `<button class="hangar-mission-claim-btn claimed-label" disabled>✓ Claimed</button>`;
+    }
+
+    card.innerHTML = `
+      <div class="hangar-mission-top">
+        <div>
+          <div class="hangar-mission-name">${mission.name}</div>
+          <div class="hangar-mission-desc">${mission.desc.replace('{target}', mission.target)}</div>
+        </div>
+        <div class="hangar-mission-reward">⚡ ${mission.reward} CR</div>
+      </div>
+      <div class="hangar-mission-bar-wrap hangar-mission-bar${isDone ? ' done' : ''}">
+        <div class="hangar-mission-bar-track">
+          <div class="hangar-mission-bar-fill" style="width:${pct}%"></div>
+        </div>
+        <span class="hangar-mission-progress-txt">${progress.toLocaleString()} / ${mission.target.toLocaleString()}</span>
+      </div>
+      ${badgesHtml}
+      ${claimHtml}
+    `;
+
+    wrapper.appendChild(card);
+  });
+
+  content.appendChild(wrapper);
+
+  // Wire claim buttons
+  wrapper.querySelectorAll('.hangar-mission-claim-btn[data-mission-id]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const missionId = btn.dataset.missionId;
+      const reward = ms.claimMissionReward(missionId);
+      if (!reward) return;
+
+      // Grant credits to the main save if the callback is available
+      if (typeof _options.getCredits === 'function' && typeof _options.spendCredits !== 'function') {
+        // Read-only accessor provided — can't grant; store for next session via HangarSystem pool
+      }
+      // Attempt to add credits via the external handler or internal pool
+      if (typeof _options.addCredits === 'function') {
+        _options.addCredits(reward.credits);
+      } else {
+        // Fallback: credit the internal hangar pool
+        _hangarState.credits = (_hangarState.credits || 0) + reward.credits;
+        saveHangar(_hangarState);
+        // Update credit badge
+        const badge = document.getElementById('hangar-credits-amount');
+        if (badge) badge.textContent = getLiveCredits().toLocaleString();
+      }
+
+      // Re-render to show claimed state
+      renderMissionsView();
+    });
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2504,6 +2686,7 @@ export function openHangar(opts = {}) {
       <div id="hangarTabBar">
         <button class="hangar-tab-btn active" data-tab="upgrades">Upgrades</button>
         <button class="hangar-tab-btn" data-tab="skins">Skins</button>
+        <button class="hangar-tab-btn" data-tab="missions">Missions</button>
         <button class="hangar-tab-btn" data-tab="achievements">Achievements</button>
         <button class="hangar-tab-btn" data-tab="leaderboard">Leaderboard</button>
         <button class="hangar-tab-btn" data-tab="fragments">Fragments</button>
