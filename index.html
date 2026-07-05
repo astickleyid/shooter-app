@@ -818,20 +818,37 @@
   </script>
 
   <!-- Wave Cleared Overlay -->
-  <div id="waveClearedOverlay" style="display:none; position:fixed; inset:0; z-index:9500; align-items:center; justify-content:center; background:rgba(0,0,0,0.75); pointer-events:none;">
-    <div id="waveClearedCard" style="text-align:center; padding:40px 56px; background:rgba(10,10,20,0.95); border:1px solid rgba(74,222,128,0.3); border-radius:16px; box-shadow:0 0 48px rgba(74,222,128,0.15);">
-      <div id="waveClearedTitle" style="font-size:1.1rem; letter-spacing:0.2em; color:#4ade80; text-transform:uppercase; font-family:monospace; margin-bottom:8px;">WAVE CLEARED</div>
-      <div id="waveClearedNumber" style="font-size:3.5rem; font-weight:900; color:#fff; line-height:1; margin-bottom:24px;">1</div>
-      <div style="display:flex; gap:40px; justify-content:center;">
+  <style>
+    @keyframes waveClearedIn {
+      from { opacity: 0; transform: scale(0.88) translateY(12px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    #waveClearedCard { animation: waveClearedIn 0.32s cubic-bezier(0.16,1,0.3,1) both; }
+    #waveClearedOverlay.wc-visible { display: flex !important; pointer-events: all; cursor: pointer; }
+  </style>
+  <div id="waveClearedOverlay" style="display:none; position:fixed; inset:0; z-index:9500; align-items:center; justify-content:center; background:rgba(0,0,0,0.78);">
+    <div id="waveClearedCard" style="text-align:center; padding:40px 56px; background:rgba(10,10,20,0.96); border:1px solid rgba(74,222,128,0.35); border-radius:18px; box-shadow:0 0 60px rgba(74,222,128,0.18); min-width:300px;">
+      <div id="waveClearedTitle" style="font-size:1rem; letter-spacing:0.22em; color:#4ade80; text-transform:uppercase; font-family:monospace; margin-bottom:6px;">WAVE CLEARED</div>
+      <div id="waveClearedNumber" style="font-size:3.5rem; font-weight:900; color:#fff; line-height:1; margin-bottom:28px; text-shadow:0 0 24px rgba(74,222,128,0.4);">1</div>
+      <div style="display:flex; gap:32px; justify-content:center; margin-bottom:20px;">
         <div>
           <div id="waveClearedKills" style="font-size:2rem; font-weight:700; color:#facc15;">0</div>
-          <div style="font-size:0.7rem; letter-spacing:0.15em; color:#6b7280; text-transform:uppercase; margin-top:4px;">Kills</div>
+          <div style="font-size:0.65rem; letter-spacing:0.15em; color:#6b7280; text-transform:uppercase; margin-top:4px;">Kills</div>
         </div>
         <div>
           <div id="waveClearedCredits" style="font-size:2rem; font-weight:700; color:#4ade80;">0</div>
-          <div style="font-size:0.7rem; letter-spacing:0.15em; color:#6b7280; text-transform:uppercase; margin-top:4px;">Credits</div>
+          <div style="font-size:0.65rem; letter-spacing:0.15em; color:#6b7280; text-transform:uppercase; margin-top:4px;">Credits</div>
+        </div>
+        <div>
+          <div id="waveClearedAccuracy" style="font-size:2rem; font-weight:700; color:#38bdf8;">—</div>
+          <div style="font-size:0.65rem; letter-spacing:0.15em; color:#6b7280; text-transform:uppercase; margin-top:4px;">Accuracy</div>
+        </div>
+        <div>
+          <div id="waveClearedTime" style="font-size:2rem; font-weight:700; color:#a78bfa;">—</div>
+          <div style="font-size:0.65rem; letter-spacing:0.15em; color:#6b7280; text-transform:uppercase; margin-top:4px;">Time</div>
         </div>
       </div>
+      <div id="waveClearedHint" style="font-size:0.65rem; letter-spacing:0.12em; color:rgba(107,114,128,0.6); text-transform:uppercase; font-family:monospace;">tap to continue</div>
     </div>
   </div>
 </body>

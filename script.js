@@ -852,6 +852,8 @@
   let enemiesKilled = 0;
   let waveKillCount = 0;      // kills this wave (reset each wave, displayed in post-wave overlay)
   let waveCreditsEarned = 0;  // credits earned this wave (reset each wave)
+  let waveShotsFired = 0;     // shots fired this wave (for per-wave accuracy)
+  let waveShotsHit = 0;       // shots that connected this wave
   let lastTime = 0;
 
   // ── Special Ability State ──────────────────────────────────────────────────
@@ -1250,15 +1252,35 @@
     const numEl = document.getElementById('waveClearedNumber');
     const killsEl = document.getElementById('waveClearedKills');
     const creditsEl = document.getElementById('waveClearedCredits');
+    const accuracyEl = document.getElementById('waveClearedAccuracy');
+    const timeEl = document.getElementById('waveClearedTime');
     if (overlay && numEl && killsEl && creditsEl) {
+      // Use snapshotted stats (captured before wave counters were reset)
+      const stats = window._lastWaveStats || { kills: 0, credits: waveCreditsEarned, accuracy: null, timeSec: 0 };
       numEl.textContent = readyUpLevel;
-      killsEl.textContent = waveKillCount;
-      creditsEl.textContent = waveCreditsEarned;
-      overlay.style.display = 'flex';
-      setTimeout(() => {
-        overlay.style.display = 'none';
+      killsEl.textContent = stats.kills;
+      creditsEl.textContent = stats.credits;
+      if (accuracyEl) accuracyEl.textContent = stats.accuracy !== null ? `${stats.accuracy}%` : '—';
+      if (timeEl) {
+        const m = Math.floor(stats.timeSec / 60);
+        const s = stats.timeSec % 60;
+        timeEl.textContent = m > 0 ? `${m}m ${s}s` : `${s}s`;
+      }
+
+      // Show with animation class
+      overlay.classList.add('wc-visible');
+
+      // Auto-dismiss after 3.5s; click/tap dismisses immediately
+      let dismissed = false;
+      const dismiss = () => {
+        if (dismissed) return;
+        dismissed = true;
+        overlay.classList.remove('wc-visible');
+        overlay.removeEventListener('click', dismiss);
         showWaveUpgradeScreen(onChosen);
-      }, 2000);
+      };
+      overlay.addEventListener('click', dismiss);
+      setTimeout(dismiss, 3500);
     } else {
       showWaveUpgradeScreen(onChosen);
     }
@@ -2131,6 +2153,8 @@
     enemiesKilled = 0;
     waveKillCount = 0;
     waveCreditsEarned = 0;
+    waveShotsFired = 0;
+    waveShotsHit = 0;
     lastTime = 0;
     gameRunning = false;
     paused = false;
@@ -7153,6 +7177,7 @@
         const dmg = stats.dmg * perkMultipliers.damage;
         bullets.push(new Bullet(sx, sy, vel, dmg, color, speed, size, pierce));
         runShotsFired++;
+        waveShotsFired++;
         // Twin Shot perk: fire a second bullet with slight angle offset
         if (perkMultipliers.twinShot > 0 && Math.random() < perkMultipliers.twinShot) {
           const twinAngle = angle + (Math.random() < 0.5 ? 0.08 : -0.08);
@@ -9914,6 +9939,7 @@
         if (Math.hypot(dx, dy) < bullet.size + enemy.size) {
           enemy.health -= bullet.damage;
           runShotsHit++;
+          waveShotsHit++;
 
           // Phase 1: Show damage number
           spawnDamageNumber(enemy.x, enemy.y, bullet.damage, false);
@@ -10128,9 +10154,22 @@
     }
     
     const completedLevel = level; // Store current level before incrementing
+
+    // Snapshot wave stats before resets — read by showWaveClearedThenUpgrade
+    const _waveElapsed = waveStartTime > 0 ? Math.round((performance.now() - waveStartTime) / 1000) : 0;
+    const _waveAccuracy = waveShotsFired > 0 ? Math.round((waveShotsHit / waveShotsFired) * 100) : null;
+    window._lastWaveStats = {
+      kills: waveKillCount,
+      credits: waveCreditsEarned,
+      accuracy: _waveAccuracy,
+      timeSec: _waveElapsed,
+    };
+
     level += 1;
     enemiesKilled = 0;
     waveKillCount = 0;
+    waveShotsFired = 0;
+    waveShotsHit = 0;
 
     // Determine wave type based on level and player power
     const adaptive = getAdaptiveScaling();
