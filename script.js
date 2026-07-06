@@ -1270,6 +1270,11 @@
       // Show with animation class
       overlay.classList.add('wc-visible');
 
+      // Perfect Wave banner — shown briefly over the wave-cleared overlay
+      if (stats.perfect && readyUpLevel > 1) {
+        showPerfectWaveBanner();
+      }
+
       // Auto-dismiss after 3.5s; click/tap dismisses immediately
       let dismissed = false;
       const dismiss = () => {
@@ -1284,6 +1289,54 @@
     } else {
       showWaveUpgradeScreen(onChosen);
     }
+  };
+
+  // Perfect Wave banner — displayed briefly over the wave-cleared overlay
+  const showPerfectWaveBanner = () => {
+    const existing = document.getElementById('perfectWaveBanner');
+    if (existing) existing.remove();
+
+    const el = document.createElement('div');
+    el.id = 'perfectWaveBanner';
+    el.style.cssText = [
+      'position:fixed',
+      'top:30%',
+      'left:50%',
+      'transform:translate(-50%,-50%)',
+      'background:linear-gradient(135deg,#f59e0b,#fbbf24)',
+      'color:#1c1917',
+      'font-size:22px',
+      'font-weight:700',
+      'letter-spacing:.08em',
+      'text-transform:uppercase',
+      'padding:14px 32px',
+      'border-radius:12px',
+      'box-shadow:0 8px 32px rgba(251,191,36,.5)',
+      'z-index:9999',
+      'pointer-events:none',
+      'animation:perfectWaveIn 0.3s cubic-bezier(.22,1,.36,1) forwards',
+    ].join(';');
+    el.textContent = '⭐ PERFECT WAVE! +50';
+
+    if (!document.getElementById('perfectWaveBannerStyle')) {
+      const style = document.createElement('style');
+      style.id = 'perfectWaveBannerStyle';
+      style.textContent = [
+        '@keyframes perfectWaveIn {',
+        '  from { opacity:0; transform:translate(-50%,-60%) scale(.8); }',
+        '  to   { opacity:1; transform:translate(-50%,-50%) scale(1); }',
+        '}',
+      ].join('\n');
+      document.head.appendChild(style);
+    }
+
+    document.body.appendChild(el);
+
+    setTimeout(() => {
+      el.style.transition = 'opacity 0.4s';
+      el.style.opacity = '0';
+      setTimeout(() => el.remove(), 400);
+    }, 2200);
   };
   // ── END PERK SYSTEM ───────────────────────────────────────────────────────
 
@@ -10145,7 +10198,10 @@
       const perfectBonus = Math.floor(40 + level * 10);
       Save.addCredits(perfectBonus);
       waveCreditsEarned += perfectBonus;
-      addLogEntry(`🌟 PERFECT WAVE! +${perfectBonus} bonus credits`, '#4ade80');
+      // Fixed +50 perfect wave overlay bonus
+      Save.addCredits(50);
+      waveCreditsEarned += 50;
+      addLogEntry(`🌟 PERFECT WAVE! +${perfectBonus + 50} bonus credits`, '#4ade80');
     }
 
     // Play level advance sound
@@ -10163,6 +10219,7 @@
       credits: waveCreditsEarned,
       accuracy: _waveAccuracy,
       timeSec: _waveElapsed,
+      perfect: !tookDamageThisLevel,
     };
 
     level += 1;
