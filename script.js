@@ -674,6 +674,8 @@
   let leviathanKilledThisRun = 0;
   let voidSurgeWavePending = false;
   let voidSurgeKilledThisRun = 0;
+  let bountySpawnedThisWave = false;
+  let bountyKilledTotal = 0;
   let bossWaveAnnouncementStart = 0; // timestamp for BOSS WAVE! canvas overlay
 
   /* ====== PLANETARY GAME MODE SYSTEM ====== */
@@ -2251,6 +2253,8 @@
     leviathanKilledThisRun = 0;
     voidSurgeWavePending = false;
     voidSurgeKilledThisRun = 0;
+    bountySpawnedThisWave = false;
+    bountyKilledTotal = 0;
     bossWaveAnnouncementStart = 0;
     if (dom.bossBar) dom.bossBar.style.display = 'none';
 
@@ -4804,13 +4808,14 @@
   }
 
   class Enemy {
-    constructor(x, y, kind = 'chaser', isElite = false, isBoss = false) {
+    constructor(x, y, kind = 'chaser', isElite = false, isBoss = false, isBounty = false) {
       this.id = `enemy_${entityIdCounter++}`;
       this.x = x;
       this.y = y;
       this.kind = kind;
       this.isElite = isElite;
       this.isBoss = isBoss;
+      this.isBounty = false;
       this.rot = 0;
       const diff = getDifficulty();
       const adaptive = getAdaptiveScaling();
@@ -4837,7 +4842,8 @@
       if (isBoss) health *= ADAPTIVE_CONSTANTS.BOSS_BASE_HEALTH_MULT + level * ADAPTIVE_CONSTANTS.BOSS_HEALTH_PER_LEVEL;
       this.health = health;
       this.maxHealth = this.health;
-      
+      if (isBounty) { this.isBounty = true; this.health = Math.ceil(this.health * 2.5); this.maxHealth = this.health; this.size *= 1.3; }
+
       // Damage scaling with adaptive difficulty
       this.baseDamage = BASE.ENEMY_DAMAGE * diff.enemyDamage * adaptive.enemyDamageMultiplier;
       if (kind === 'sniper') this.baseDamage *= 2.2; // Snipers hit hard
@@ -4985,7 +4991,31 @@
         ctx.stroke();
         ctx.restore();
       }
-      
+      // Bounty target: gold crown above enemy
+      if (this.isBounty) {
+        ctx.save();
+        const t = performance.now();
+        const pulse = Math.sin(t / 300) * 0.15 + 0.85;
+        ctx.globalAlpha = pulse;
+        ctx.fillStyle = '#fbbf24';
+        ctx.shadowColor = '#f59e0b';
+        ctx.shadowBlur = 16;
+        // Crown base
+        ctx.fillRect(-this.size * 0.6, -this.size * 1.9, this.size * 1.2, this.size * 0.3);
+        // Crown points (3 points)
+        ctx.beginPath();
+        ctx.moveTo(-this.size * 0.6, -this.size * 1.9);
+        ctx.lineTo(-this.size * 0.7, -this.size * 2.4);
+        ctx.lineTo(-this.size * 0.3, -this.size * 2.0);
+        ctx.lineTo(0, -this.size * 2.5);
+        ctx.lineTo(this.size * 0.3, -this.size * 2.0);
+        ctx.lineTo(this.size * 0.7, -this.size * 2.4);
+        ctx.lineTo(this.size * 0.6, -this.size * 1.9);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+
       // Phase A.2: Hit flash effect overlay
       if (this.hitFlash > 0) {
         ctx.globalAlpha = this.hitFlash / 150;
@@ -6740,6 +6770,11 @@
       const x = this.x + Math.cos(dir) * dist + Math.cos(dir + Math.PI / 2) * jitter;
       const y = this.y + Math.sin(dir) * dist + Math.sin(dir + Math.PI / 2) * jitter;
       enemies.push(new Enemy(x, y, kind, isElite, false));
+      // Bounty target: one per wave from wave 3+, 15% chance on any standard spawn
+      if (!bountySpawnedThisWave && level >= 3 && !isElite && kind !== 'shard' && Math.random() < 0.15) {
+        const last = enemies[enemies.length - 1];
+        if (last) { last.isBounty = true; last.health = Math.ceil(last.health * 2.5); last.maxHealth = last.health; last.size *= 1.3; bountySpawnedThisWave = true; }
+      }
       if (Math.random() < 0.4) this.resetPosition();
     }
     resetPosition() {
@@ -8833,6 +8868,7 @@
     // Check if this was the boss
     const wasBoss = enemy.isBoss;
     const wasElite = enemy.isElite;
+    const wasBounty = enemy.isBounty;
     const wasLeviathan = enemy.kind === 'leviathan';
 
     // Phase 1: Add to combo system
@@ -8860,6 +8896,19 @@
     } else if (wasElite) {
       dropCoin(enemy.x + rand(-20, 20), enemy.y + rand(-20, 20));
       dropCoin(enemy.x + rand(-20, 20), enemy.y + rand(-20, 20));
+    }
+    if (wasBounty) {
+      // Bounty kill: extra coin drops + big credit reward
+      for (let i = 0; i < 5; i++) {
+        dropCoin(enemy.x + rand(-30, 30), enemy.y + rand(-30, 30));
+      }
+      const bountyReward = Math.floor(30 + level * 8);
+      Save.addCredits(bountyReward);
+      bountyKilledTotal++;
+      addLogEntry(`\u{1F4B0} BOUNTY CLAIMED! +${bountyReward} credits`, '#fbbf24');
+      if (typeof AudioManager !== 'undefined' && AudioManager.playCoin) {
+        AudioManager.playCoin();
+      }
     }
     if (wasBoss) {
       for (let i = 0; i < 10; i++) {
@@ -8924,6 +8973,12 @@
       addParticles('sparks', enemy.x, enemy.y, 0, 20);
       shakeScreen(8, 250);
       addLogEntry('⭐ Elite enemy destroyed!', '#f59e0b');
+    }
+    if (wasBounty) {
+      addParticles('nova', enemy.x, enemy.y, 0, 18);
+      addParticles('sparks', enemy.x, enemy.y, 0, 25);
+      addParticles('ring', enemy.x, enemy.y, 0, 2, '#fbbf24');
+      shakeScreen(10, 300);
     } else if (enemy.kind === 'heavy') {
       addParticles('debris', enemy.x, enemy.y, 0, 20);
       addParticles('smoke', enemy.x, enemy.y, 0, 8);
@@ -10298,6 +10353,7 @@
     particles = [];
     bossActive = false;
     bossEntity = null;
+    bountySpawnedThisWave = false;
     waveStartTime = performance.now();
     
     // Survival waves use timer instead of kill count
@@ -10839,6 +10895,25 @@
         
         ctx.globalAlpha = 1;
         ctx.shadowBlur = 0;
+        ctx.restore();
+      }
+    }
+
+    // ── BOUNTY TARGET HUD indicator ──────────────────────────────────────────
+    {
+      const aliveBounty = enemies.find(e => e.isBounty && !e.dead);
+      if (aliveBounty) {
+        const t = performance.now();
+        const pulse = Math.sin(t / 250) * 0.3 + 0.7;
+        ctx.save();
+        ctx.globalAlpha = pulse;
+        ctx.font = 'bold 13px Arial, sans-serif';
+        ctx.fillStyle = '#fbbf24';
+        ctx.shadowColor = '#f59e0b';
+        ctx.shadowBlur = 12;
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'top';
+        ctx.fillText('⚠ WANTED TARGET', canvas.width - 16, 56);
         ctx.restore();
       }
     }
