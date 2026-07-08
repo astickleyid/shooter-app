@@ -231,6 +231,14 @@ module.exports = async (req, res) => {
         return res.status(401).json({ success: false, error: 'Authentication required for global leaderboard submissions' });
       }
 
+      // Verify the account still exists (guards against deleted-account sessions).
+      if (kv) {
+        const userStillExists = await kv.get(`user:${session.userId}`).catch(() => null);
+        if (!userStillExists) {
+          return res.status(401).json({ success: false, error: 'Account no longer exists' });
+        }
+      }
+
       if (userId && userId !== session.userId) {
         return res.status(403).json({ success: false, error: 'User mismatch for session' });
       }
@@ -284,6 +292,12 @@ module.exports = async (req, res) => {
           const entryJson = JSON.stringify(entry);
           
           await kv.zadd(ALL_ENTRIES_KEY, { score: entry.score, member: entryJson });
+
+          // Maintain a per-user index so account deletion can efficiently remove
+          // all entries without scanning the entire sorted set.
+          if (entry.userId && !entry.userId.startsWith('anon-')) {
+            await kv.sadd(`leaderboard:user:${entry.userId}`, entryJson);
+          }
           
           const higherScores = await kv.zcount(ALL_ENTRIES_KEY, entry.score + 1, '+inf');
           rank = higherScores + 1;
