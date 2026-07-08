@@ -55,8 +55,16 @@ function verifyPasswordHash(password, storedHash, storedSalt) {
     }
   }
   // Legacy SHA-256 fallback for accounts created before the scrypt migration.
+  // This path is reached only when storedSalt is absent (pre-migration accounts).
+  // On successful login the handler automatically re-hashes with scrypt and persists
+  // the updated record, so accounts are migrated one-by-one as users log in.
+  // codeql[js/insufficient-password-hash] Intentional legacy migration path; accounts auto-migrate to scrypt on login
   const legacyHash = crypto.createHash('sha256').update(password).digest('hex');
-  return legacyHash === storedHash;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(legacyHash, 'hex'), Buffer.from(storedHash, 'hex'));
+  } catch (_e) {
+    return false;
+  }
 }
 
 async function createSession(userId, username) {
@@ -107,8 +115,6 @@ module.exports = async (req, res) => {
   }
 
   try {
-    console.log('Action:', action, 'Method:', req.method);
-
     // Health check / ping endpoint
     if (action === 'ping' && req.method === 'GET') {
       return res.status(200).json({ 
@@ -119,17 +125,13 @@ module.exports = async (req, res) => {
     }
 
     if (action === 'register' && req.method === 'POST') {
-      console.log('Register request body:', req.body);
-      
       const { username, password, email } = req.body;
 
       if (!username || !password || username.length < 3) {
         return res.status(400).json({ error: 'Invalid username or password' });
       }
 
-      console.log('Checking existing user...');
       const existingUser = await kv.get(`user:username:${username.toLowerCase()}`);
-      console.log('Existing user:', existingUser);
       
       if (existingUser) {
         return res.status(409).json({ error: 'Username already taken' });
@@ -138,7 +140,6 @@ module.exports = async (req, res) => {
       const userId = 'u_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
       const { hash: passwordHash, salt: passwordSalt } = hashPasswordWithSalt(password);
 
-      console.log('Creating user object...');
       const user = {
         id: userId,
         username,
@@ -178,14 +179,10 @@ module.exports = async (req, res) => {
         lastActive: Date.now()
       };
 
-      console.log('Saving user to Redis...');
       await kv.set(`user:${userId}`, user);
-      console.log('Saving username mapping...');
       await kv.set(`user:username:${username.toLowerCase()}`, userId);
-      console.log('Adding to users set...');
       await kv.sadd('users:all', userId);
 
-      console.log('Registration complete!');
       const session = await createSession(user.id, user.username);
       return res.status(201).json({
         success: true,
@@ -255,7 +252,7 @@ module.exports = async (req, res) => {
         return res.status(404).json({ error: 'User not found' });
       }
 
-      const { passwordHash, passwordSalt, email, ...publicProfile } = user;
+      const { passwordHash: _passwordHash, passwordSalt: _passwordSalt, email: _email, ...publicProfile } = user;
 
       return res.status(200).json({
         success: true,
@@ -287,7 +284,7 @@ module.exports = async (req, res) => {
 
     // Update stats
     if (action === 'stats' && req.method === 'POST') {
-      const { userId, score, level, kills, deaths, accuracy, duration } = req.body;
+      const { userId, score, level: _level, kills, deaths, accuracy, duration } = req.body;
 
       const user = await kv.get(`user:${userId}`);
       if (!user) {
