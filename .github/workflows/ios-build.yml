@@ -129,6 +129,21 @@ jobs:
             echo "No Podfile found, skipping pod install"
           fi
 
+      - name: Cache Swift Package dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Developer/Xcode/DerivedData/**/SourcePackages
+          key: ${{ runner.os }}-spm-${{ hashFiles('ios/VoidRift.xcodeproj/project.pbxproj') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
+      - name: Resolve Swift Package dependencies
+        working-directory: ios
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project VoidRift.xcodeproj \
+            -scheme VoidRift
+
       - name: Build iOS app (Debug)
         working-directory: ios
         run: |
@@ -240,6 +255,21 @@ jobs:
             echo "ASC_KEY_PATH=$KEY_PATH"
             echo "ASC_AUTH_ARGS=-authenticationKeyPath $KEY_PATH -authenticationKeyID ${ASC_API_KEY_ID} -authenticationKeyIssuerID ${ASC_API_ISSUER_ID}"
           } >> "$GITHUB_ENV"
+
+      - name: Cache Swift Package dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Developer/Xcode/DerivedData/**/SourcePackages
+          key: ${{ runner.os }}-spm-${{ hashFiles('ios/VoidRift.xcodeproj/project.pbxproj') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
+      - name: Resolve Swift Package dependencies
+        working-directory: ios
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project VoidRift.xcodeproj \
+            -scheme VoidRift
 
       - name: Build iOS Archive
         working-directory: ios

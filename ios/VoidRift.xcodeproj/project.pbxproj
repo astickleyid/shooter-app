@@ -18,6 +18,7 @@
 		AA0009 /* WebContent in Resources */ = {isa = PBXBuildFile; fileRef = BB0009 /* WebContent */; };
 		AA0010 /* GameCenterManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0011 /* GameCenterManager.swift */; };
 		AA0011 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = BB0012 /* PrivacyInfo.xcprivacy */; };
+		CC0002 /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; productRef = CC0003 /* GoogleMobileAds */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -41,6 +42,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CC0002 /* GoogleMobileAds in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -122,6 +124,9 @@
 			dependencies = (
 			);
 			name = VoidRift;
+			packageProductDependencies = (
+				CC0003 /* GoogleMobileAds */,
+			);
 			productName = VoidRift;
 			productReference = AAAAAA /* VoidRift.app */;
 			productType = "com.apple.product-type.application";
@@ -150,6 +155,9 @@
 				Base,
 			);
 			mainGroup = DD0001;
+			packageReferences = (
+				CC0004 /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */,
+			);
 			productRefGroup = DD0003 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -392,6 +400,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		CC0004 /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/googleads/swift-package-manager-google-mobile-ads";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 11.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		CC0003 /* GoogleMobileAds */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = CC0004 /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */;
+			productName = GoogleMobileAds;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = GG0001 /* Project object */;
 }
