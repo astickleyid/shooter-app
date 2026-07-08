@@ -2362,9 +2362,16 @@
     }
   };
 
+  const getShakeIntensity = () => {
+    const stored = parseInt(localStorage.getItem('voidrift_screen_shake'), 10);
+    return (Number.isFinite(stored) ? stored : 100) / 100;
+  };
+
   const shakeScreen = (power = 4, duration = 120) => {
+    const scaledPower = power * getShakeIntensity();
+    if (scaledPower <= 0) return;
     shakeUntil = Math.max(shakeUntil, performance.now() + duration);
-    shakePower = power;
+    shakePower = scaledPower;
   };
 
   // ── Special Ability: fire the Q-key ability for the current ship ───────────

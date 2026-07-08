@@ -1890,6 +1890,8 @@ function renderSettingsView() {
   const sfxVal    = AM ? Math.round(AM.getVolume('sfx')    * 100) : 80;
   const musicVal  = AM ? Math.round(AM.getVolume('music')  * 100) : 50;
   const isMuted   = AM ? AM.getMuted() : false;
+  const shakeStored = parseInt(localStorage.getItem('voidrift_screen_shake'), 10);
+  const shakeVal  = Number.isFinite(shakeStored) ? shakeStored : 100;
 
   content.innerHTML = `
     <div class="hangar-settings">
@@ -1947,6 +1949,17 @@ function renderSettingsView() {
         <div class="hangar-daily-meta" id="hangar-daily-meta"></div>
         <button class="hangar-daily-btn" id="hangar-daily-start-btn">Start Today's Challenge</button>
       </div>
+      <div class="hangar-settings-section">
+        <div class="hangar-settings-label">🎬 Gameplay</div>
+
+        <div class="hangar-settings-row">
+          <span>Screen Shake</span>
+          <input type="range" class="hangar-settings-slider" id="settings-shake-intensity"
+                 min="0" max="150" value="${shakeVal}">
+          <span class="hangar-settings-vol" id="settings-shake-intensity-label">${shakeVal}%</span>
+        </div>
+      </div>
+
       <div class="hangar-settings-section hangar-theme-section">
         <div class="hangar-settings-label">🎨 HUD Theme</div>
         <div class="hangar-theme-swatches" id="hangar-theme-swatches">
@@ -1985,6 +1998,17 @@ function renderSettingsView() {
   wireSlider('settings-master-vol', 'settings-master-vol-label', 'master');
   wireSlider('settings-sfx-vol',    'settings-sfx-vol-label',    'sfx');
   wireSlider('settings-music-vol',  'settings-music-vol-label',  'music');
+
+  // Wire up screen shake intensity slider
+  const shakeSlider = document.getElementById('settings-shake-intensity');
+  const shakeLabel  = document.getElementById('settings-shake-intensity-label');
+  if (shakeSlider) {
+    shakeSlider.addEventListener('input', () => {
+      const val = parseInt(shakeSlider.value, 10);
+      if (shakeLabel) shakeLabel.textContent = `${val}%`;
+      localStorage.setItem('voidrift_screen_shake', String(val));
+    });
+  }
 
   // Wire up mute toggle
   const muteBtn = document.getElementById('settings-mute-btn');
