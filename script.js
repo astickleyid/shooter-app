@@ -873,6 +873,7 @@
   let pilotLevel = 1;
   let pilotXP = 0;
   let tookDamageThisLevel = false;
+  let lastCloseCallAt = 0;
   let gameOverHandled = false;
   let continueUsed = false;
   let runShotsFired = 0;
@@ -1339,6 +1340,45 @@
       el.style.opacity = '0';
       setTimeout(() => el.remove(), 400);
     }, 2200);
+  };
+  // Close Call bonus — brief flash when an enemy bullet grazes the player without hitting
+  const CLOSE_CALL_MARGIN = 16;    // px beyond the hit radius that counts as a graze
+  const CLOSE_CALL_COOLDOWN = 600; // ms between rewards, so a bullet stream can't spam it
+  const CLOSE_CALL_CREDITS = 2;
+  const CLOSE_CALL_SCORE = 15;
+
+  const showCloseCallFlash = () => {
+    const existing = document.getElementById('closeCallBanner');
+    if (existing) existing.remove();
+
+    const el = document.createElement('div');
+    el.id = 'closeCallBanner';
+    el.style.cssText = [
+      'position:fixed',
+      'top:16%',
+      'left:50%',
+      'transform:translate(-50%,-50%)',
+      'color:#38bdf8',
+      'font-size:15px',
+      'font-weight:700',
+      'letter-spacing:.08em',
+      'text-transform:uppercase',
+      'text-shadow:0 0 10px rgba(56,189,248,.8)',
+      'pointer-events:none',
+      'z-index:998',
+      'opacity:1',
+      'transition:opacity 0.5s, transform 0.5s',
+    ].join(';');
+    el.textContent = `⚡ CLOSE CALL! +${CLOSE_CALL_SCORE}`;
+    document.body.appendChild(el);
+
+    requestAnimationFrame(() => {
+      el.style.transform = 'translate(-50%,-70%)';
+    });
+    setTimeout(() => {
+      el.style.opacity = '0';
+      setTimeout(() => el.remove(), 500);
+    }, 500);
   };
   // ── END PERK SYSTEM ───────────────────────────────────────────────────────
 
@@ -2221,6 +2261,7 @@
     pilotLevel = Save.data.pilotLevel;
     pilotXP = Save.data.pilotXp;
     tookDamageThisLevel = false;
+    lastCloseCallAt = 0;
     gameOverHandled = false;
     continueUsed = false;
     if (window.missionSystem) { window.missionSystem.startRun(); updateMissionHUD(); }
@@ -10265,6 +10306,16 @@
         const adaptive = getAdaptiveScaling();
         const source = { shieldPenetration: adaptive.shieldPenetration * ADAPTIVE_CONSTANTS.BULLET_PENETRATION_FACTOR };
         player.takeDamage(bullet.damage, source);
+      } else if (
+        !bullet.nearMissCounted &&
+        dist < player.size + bullet.size + CLOSE_CALL_MARGIN &&
+        now - lastCloseCallAt > CLOSE_CALL_COOLDOWN
+      ) {
+        bullet.nearMissCounted = true;
+        lastCloseCallAt = now;
+        score += CLOSE_CALL_SCORE;
+        Save.addCredits(CLOSE_CALL_CREDITS);
+        showCloseCallFlash();
       }
     }
 
