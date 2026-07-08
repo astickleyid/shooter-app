@@ -6480,8 +6480,9 @@
       const nx = movementX + ax;
       const ny = movementY + ay;
       const nm = Math.hypot(nx, ny) || 1;
-      this.x += (nx / nm) * this.speed * (dt / 16.67);
-      this.y += (ny / nm) * this.speed * (dt / 16.67);
+      const slowMoMult = PowerUps.enemySpeedMultiplier(Date.now());
+      this.x += (nx / nm) * this.speed * slowMoMult * (dt / 16.67);
+      this.y += (ny / nm) * this.speed * slowMoMult * (dt / 16.67);
       // Snipers lock rotation to aim angle during telegraph; otherwise face player
       if (this.kind === 'sniper' && (this.sniperPhase === 'aiming' || this.sniperPhase === 'cooldown')) {
         this.rot = this.sniperAimAngle;
@@ -9879,7 +9880,10 @@
       SHIELD: { color: '#22c55e', label: 'SHIELD +30', duration: 0, radius: 10 },
       RAPID:  { color: '#06b6d4', label: 'RAPID FIRE', duration: 8000, radius: 10 },
       NUKE:   { color: '#f97316', label: 'NUKE',       duration: 0, radius: 10 },
+      MAGNET: { color: '#eab308', label: 'MAGNET',     duration: 10000, radius: 10 },
+      SLOWMO: { color: '#a855f7', label: 'SLOW-MO',    duration: 6000, radius: 10 },
     };
+    const SLOWMO_SPEED_MULT = 0.45;
     const TYPE_KEYS = Object.keys(TYPES);
     let active = [];       // live pickups on the ground
     let effects = [];      // active timed effects {type, endsAt}
@@ -9916,6 +9920,12 @@
         effects.push({ type: 'RAPID', endsAt: now + 8000 });
       } else if (type === 'NUKE') {
         nukeAllEnemies();
+      } else if (type === 'MAGNET') {
+        effects = effects.filter(e => e.type !== 'MAGNET');
+        effects.push({ type: 'MAGNET', endsAt: now + TYPES.MAGNET.duration });
+      } else if (type === 'SLOWMO') {
+        effects = effects.filter(e => e.type !== 'SLOWMO');
+        effects.push({ type: 'SLOWMO', endsAt: now + TYPES.SLOWMO.duration });
       }
     }
 
@@ -9935,6 +9945,14 @@
 
     function isRapidActive(now) {
       return effects.some(e => e.type === 'RAPID' && e.endsAt > now);
+    }
+
+    function isMagnetActive(now) {
+      return effects.some(e => e.type === 'MAGNET' && e.endsAt > now);
+    }
+
+    function enemySpeedMultiplier(now) {
+      return effects.some(e => e.type === 'SLOWMO' && e.endsAt > now) ? SLOWMO_SPEED_MULT : 1;
     }
 
     function showPickupBanner(type) {
@@ -9972,19 +9990,27 @@
         ctx.fillText(p.type, p.x, p.y + 24);
         ctx.restore();
       });
-      // Rapid fire HUD indicator
-      const rapidEffect = effects.find(e => e.type === 'RAPID');
-      if (rapidEffect) {
-        const remaining = ((rapidEffect.endsAt - now) / 1000).toFixed(1);
+      // Timed-effect HUD indicators
+      const hudEffects = [
+        { type: 'RAPID',  icon: '⚡', color: '#06b6d4' },
+        { type: 'MAGNET', icon: '🧲', color: '#eab308' },
+        { type: 'SLOWMO', icon: '🐢', color: '#a855f7' },
+      ];
+      let hudY = 110;
+      hudEffects.forEach(({ type, icon, color }) => {
+        const effect = effects.find(e => e.type === type);
+        if (!effect) return;
+        const remaining = ((effect.endsAt - now) / 1000).toFixed(1);
         ctx.save();
-        ctx.fillStyle = '#06b6d4'; ctx.font = 'bold 12px monospace';
+        ctx.fillStyle = color; ctx.font = 'bold 12px monospace';
         ctx.textAlign = 'left'; ctx.globalAlpha = 0.9;
-        ctx.fillText('⚡ RAPID ' + remaining + 's', 12, 110);
+        ctx.fillText(`${icon} ${TYPES[type].label} ${remaining}s`, 12, hudY);
         ctx.restore();
-      }
+        hudY += 18;
+      });
     }
 
-    return { maybeSpawn, update, draw, isRapidActive };
+    return { maybeSpawn, update, draw, isRapidActive, isMagnetActive, enemySpeedMultiplier };
   })();
   // ─── END POWER-UP DROPS ─────────────────────────────────────────────────────
 
@@ -10102,7 +10128,8 @@
         coins.splice(i, 1);
         continue;
       }
-      const pickupRadius = player ? player.size + 80 : 120;
+      const magnetActive = PowerUps.isMagnetActive(now);
+      const pickupRadius = (player ? player.size + 80 : 120) * (magnetActive ? 6 : 1);
       const dx = player.x - coin.x;
       const dy = player.y - coin.y;
       const dist = Math.hypot(dx, dy);
