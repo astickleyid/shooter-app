@@ -1347,6 +1347,7 @@
   let comboTimer = 0;
   const COMBO_TIMEOUT = 2500; // ms - time between kills to maintain combo
   let totalKillsThisRun = 0;
+  let peakComboThisRun = 0;
 
   // Kill Combo Multiplier System
   let killComboMultiplier = 1;       // Current score multiplier (1–5)
@@ -2262,6 +2263,7 @@
     comboCount = 0;
     comboTimer = 0;
     totalKillsThisRun = 0;
+    peakComboThisRun = 0;
     lastKillStreakNotification = 0;
     runShotsFired = 0;
     runShotsHit = 0;
@@ -2468,6 +2470,7 @@
     comboCount++;
     comboTimer = now + COMBO_TIMEOUT;
     totalKillsThisRun++;
+    peakComboThisRun = Math.max(peakComboThisRun, comboCount);
     
     // Check for kill streak milestones
     for (const milestone of KILL_STREAK_MILESTONES) {
@@ -11996,7 +11999,18 @@
       playTime: performance.now() - (waveStartTime || performance.now()),
       flawlessLevel: !tookDamageThisLevel
     });
-    
+
+    // Feed the AchievementSystem lifetime totals so the Hangar's Achievements
+    // and Stats tabs (which read voidrift_achievements) actually update.
+    if (typeof window.updateAchievementStats === 'function') {
+      window.updateAchievementStats({
+        totalKills: Auth.playerProfile.totalKills,
+        maxWave: level,
+        bossKills: Auth.playerProfile.bossKills,
+        maxCombo: peakComboThisRun
+      });
+    }
+
     // Stop game and show game over screen
     gameRunning = false;
     paused = false;
@@ -12034,12 +12048,9 @@
         try {
           const completedCount = getTotalDailyChallengesCompleted();
           const streak = getDailyStreak();
-          import('./src/systems/AchievementSystem.js').then(({ updateStats }) => {
-            const newlyUnlocked = updateStats({ dailyChallengesCompleted: completedCount, dailyStreak: streak });
-            if (newlyUnlocked && newlyUnlocked.length > 0 && typeof showAchievementToast === 'function') {
-              newlyUnlocked.forEach(ach => showAchievementToast(ach));
-            }
-          }).catch(err => console.warn('[DailyChallenge] Achievement update failed:', err));
+          if (typeof window.updateAchievementStats === 'function') {
+            window.updateAchievementStats({ dailyChallengesCompleted: completedCount, dailyStreak: streak });
+          }
         } catch (e) {
           console.warn('[DailyChallenge] Achievement stats error:', e);
         }
