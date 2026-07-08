@@ -2285,6 +2285,8 @@ function switchTab(tab) {
     renderStatsView();
   } else if (tab === 'missions') {
     renderMissionsView();
+  } else if (tab === 'loadout') {
+    renderLoadoutView();
   } else {
     renderUpgradesView();
   }
@@ -2491,6 +2493,151 @@ const RARITY_STYLES = {
     emoji: '⚡',
   },
 };
+
+/**
+ * Render the Loadout tab — configure the 4 equipment slots without needing
+ * to pause a run first. Reads/writes via _options.getLoadout/setLoadout so
+ * the change lands on the same save the in-game pause menu uses; falls back
+ * to a read-only notice if the caller didn't wire those callbacks.
+ */
+const LOADOUT_SLOT_OPTIONS = [
+  {
+    key: 'slot1', label: 'Slot 1 — Primary Weapon (always active)',
+    options: [
+      ['primary:pulse', 'Pulse Blaster'],
+      ['primary:scatter', 'Scatter Coil'],
+      ['primary:rail', 'Rail Lance'],
+      ['primary:ionburst', 'Ion Burst'],
+    ],
+  },
+  {
+    key: 'slot2', label: 'Slot 2 — Secondary Equipment',
+    options: [
+      ['defense:aegis', 'Aegis Shield'],
+      ['defense:reflector', 'Reflector Veil'],
+      ['secondary:nova', 'Nova Bomb'],
+      ['secondary:cluster', 'Cluster Barrage'],
+      ['secondary:seeker', 'Seeker Swarm'],
+      ['secondary:gravity', 'Gravity Well'],
+      ['boost:boost', 'Boost'],
+    ],
+  },
+  {
+    key: 'slot3', label: 'Slot 3 — Secondary Equipment',
+    options: [
+      ['secondary:nova', 'Nova Bomb'],
+      ['secondary:cluster', 'Cluster Barrage'],
+      ['secondary:seeker', 'Seeker Swarm'],
+      ['secondary:gravity', 'Gravity Well'],
+      ['defense:aegis', 'Aegis Shield'],
+      ['defense:reflector', 'Reflector Veil'],
+      ['boost:boost', 'Boost'],
+    ],
+  },
+  {
+    key: 'slot4', label: 'Slot 4 — Ultimate / Boost',
+    options: [
+      ['boost:boost', 'Boost'],
+      ['ultimate:voidstorm', 'Voidstorm'],
+      ['ultimate:solarbeam', 'Solar Beam'],
+      ['defense:aegis', 'Aegis Shield'],
+      ['secondary:nova', 'Nova Bomb'],
+      ['secondary:cluster', 'Cluster Barrage'],
+      ['secondary:seeker', 'Seeker Swarm'],
+      ['secondary:gravity', 'Gravity Well'],
+    ],
+  },
+];
+
+function renderLoadoutView() {
+  const content = document.getElementById('hangarContent');
+  if (!content) return;
+  content.innerHTML = '';
+
+  const equipClass = typeof _options.getLoadout === 'function' ? _options.getLoadout() : null;
+  const canEdit = !!equipClass && typeof _options.setLoadout === 'function';
+
+  const wrapper = document.createElement('div');
+  wrapper.style.cssText = 'padding:16px 16px 24px; overflow-y:auto; height:100%; box-sizing:border-box;';
+
+  const hdr = document.createElement('div');
+  hdr.style.cssText = [
+    'font-family:"Orbitron",monospace',
+    'font-size:11px',
+    'font-weight:700',
+    'letter-spacing:0.14em',
+    'color:rgba(255,255,255,0.3)',
+    'text-transform:uppercase',
+    'margin-bottom:14px',
+    'padding-bottom:10px',
+    'border-bottom:1px solid rgba(255,255,255,0.07)',
+  ].join(';');
+  hdr.textContent = 'EQUIPMENT LOADOUT';
+  wrapper.appendChild(hdr);
+
+  if (!canEdit) {
+    const notice = document.createElement('div');
+    notice.style.cssText = 'color:rgba(255,255,255,0.4); font-size:13px; padding:20px 0;';
+    notice.textContent = 'Loadout editing is unavailable right now — configure equipment from the in-game pause menu instead.';
+    wrapper.appendChild(notice);
+    content.appendChild(wrapper);
+    return;
+  }
+
+  const desc = document.createElement('p');
+  desc.style.cssText = 'color:rgba(255,255,255,0.45); font-size:12px; line-height:1.5; margin:0 0 18px;';
+  desc.textContent = 'Configure your 4 equipment slots before launch. Changes apply to your next run.';
+  wrapper.appendChild(desc);
+
+  const form = document.createElement('div');
+  form.style.cssText = 'display:flex; flex-direction:column; gap:14px;';
+
+  LOADOUT_SLOT_OPTIONS.forEach(({ key, label, options }) => {
+    const slotData = equipClass[key] || {};
+    const currentValue = `${slotData.type}:${slotData.id}`;
+
+    const row = document.createElement('label');
+    row.style.cssText = 'display:flex; flex-direction:column; gap:6px;';
+
+    const rowLabel = document.createElement('span');
+    rowLabel.style.cssText = 'font-size:12px; color:rgba(255,255,255,0.6); letter-spacing:0.02em;';
+    rowLabel.textContent = label;
+    row.appendChild(rowLabel);
+
+    const select = document.createElement('select');
+    select.className = 'hangar-loadout-select';
+    select.dataset.slot = key;
+    select.style.cssText = [
+      'background:rgba(255,255,255,0.05)',
+      'border:1px solid rgba(255,255,255,0.12)',
+      'border-radius:8px',
+      'color:#fff',
+      'padding:9px 12px',
+      'font-size:13px',
+      'font-family:inherit',
+    ].join(';');
+    options.forEach(([value, optLabel]) => {
+      const opt = document.createElement('option');
+      opt.value = value;
+      opt.textContent = optLabel;
+      if (value === currentValue) opt.selected = true;
+      select.appendChild(opt);
+    });
+    row.appendChild(select);
+    form.appendChild(row);
+  });
+
+  wrapper.appendChild(form);
+  content.appendChild(wrapper);
+
+  form.addEventListener('change', (e) => {
+    const select = e.target.closest('.hangar-loadout-select');
+    if (!select) return;
+    const [type, id] = select.value.split(':');
+    const updated = { ...equipClass, [select.dataset.slot]: { type, id } };
+    _options.setLoadout(updated);
+  });
+}
 
 /**
  * Render the Fragments tab — shows all 6 tech fragments with collection status,
@@ -2711,6 +2858,7 @@ export function openHangar(opts = {}) {
         <button class="hangar-tab-btn active" data-tab="upgrades">Upgrades</button>
         <button class="hangar-tab-btn" data-tab="skins">Skins</button>
         <button class="hangar-tab-btn" data-tab="missions">Missions</button>
+        <button class="hangar-tab-btn" data-tab="loadout">Loadout</button>
         <button class="hangar-tab-btn" data-tab="achievements">Achievements</button>
         <button class="hangar-tab-btn" data-tab="leaderboard">Leaderboard</button>
         <button class="hangar-tab-btn" data-tab="fragments">Fragments</button>

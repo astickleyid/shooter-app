@@ -1667,6 +1667,9 @@
       this.save();
     }
   };
+  // Expose on window: the start-screen Hangar entry point (index.html) bridges
+  // credits/ship-selection/loadout callbacks through window.Save.
+  window.Save = Save;
 
   const costOf = (upgrade) => {
     const lvl = Save.getUpgradeLevel(upgrade.id);
@@ -9410,7 +9413,20 @@
     // Also update radial menu icons if it exists
     updateRadialMenuIcons();
   };
-  
+
+  // Open the Hangar overlay wired to the live save, so its Loadout tab can
+  // read/write the same equipment class the in-game pause menu configures.
+  const openHangarOverlay = () => {
+    openHangar({
+      getLoadout: () => Save.data.armory.equipmentClass || defaultArmory().equipmentClass,
+      setLoadout: (equipClass) => {
+        Save.data.armory.equipmentClass = equipClass;
+        Save.save();
+        updateEquipmentIndicator();
+      }
+    });
+  };
+
   // Update radial menu icons to match equipment loadout
   const updateRadialMenuIcons = () => {
     const radialMenu = document.getElementById('radialMenu');
@@ -13674,7 +13690,7 @@
     });
     document.getElementById('pauseHangarBtn')?.addEventListener('click', () => {
       hidePauseMenu();
-      openHangar();
+      openHangarOverlay();
     });
     document.getElementById('pauseLeaderboardBtn')?.addEventListener('click', () => {
       hidePauseMenu();
@@ -13697,7 +13713,7 @@
       closeGameOverScreen();
       dom.gameContainer.style.display = 'none';
       dom.startScreen.style.display = 'flex';
-      openHangar();
+      openHangarOverlay();
     });
     document.getElementById('gameOverLeaderboardBtn')?.addEventListener('click', () => {
       closeGameOverScreen();
@@ -13773,7 +13789,7 @@
     });
     dom.openHangarFromShop?.addEventListener('click', () => {
       closeShop();
-      openHangar();
+      openHangarOverlay();
     });
     dom.hangarClose?.addEventListener('click', closeHangar);
     dom.hangarModal?.addEventListener('click', (e) => {
@@ -13931,7 +13947,7 @@
     
     document.getElementById('menuHangarBtn')?.addEventListener('click', () => {
       closeUnifiedMenu();
-      openHangar();
+      openHangarOverlay();
     });
     
     document.getElementById('menuLeaderboardBtn')?.addEventListener('click', () => {
@@ -14041,7 +14057,7 @@
     });
     dom.openHangarFromShop?.addEventListener('click', () => {
       closeShop();
-      openHangar();
+      openHangarOverlay();
     });
     dom.hangarClose?.addEventListener('click', closeHangar);
     dom.hangarModal?.addEventListener('click', (e) => {
