@@ -58,7 +58,7 @@ function verifyPasswordHash(password, storedHash, storedSalt) {
   // This path is reached only when storedSalt is absent (pre-migration accounts).
   // On successful login the handler automatically re-hashes with scrypt and persists
   // the updated record, so accounts are migrated one-by-one as users log in.
-  const legacyHash = crypto.createHash('sha256').update(password).digest('hex'); // lgtm[js/insufficient-password-hash]
+  const legacyHash = crypto.createHash('sha256').update(password).digest('hex'); // codeql[js/insufficient-password-hash] - intentional legacy migration path: auto-migrated to scrypt on login
   try {
     return crypto.timingSafeEqual(Buffer.from(legacyHash, 'hex'), Buffer.from(storedHash, 'hex'));
   } catch (_e) {
