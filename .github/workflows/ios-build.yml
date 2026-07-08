@@ -57,9 +57,6 @@ jobs:
           cp -v social-ui.js ios/VoidRift/WebContent/social-ui.js
           cp -v social-ui.css ios/VoidRift/WebContent/social-ui.css
 
-          # Copy 3D integration module
-          cp -v game-3d-integration.js ios/VoidRift/WebContent/game-3d-integration.js
-
           # Copy API and supporting files
           cp -v backend-api.js ios/VoidRift/WebContent/backend-api.js
           cp -v audio-manager.js ios/VoidRift/WebContent/audio-manager.js
