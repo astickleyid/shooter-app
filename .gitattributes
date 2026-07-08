@@ -1,0 +1,2 @@
+fastlane/Fastfile linguist-language=Text
+fastlane/Appfile linguist-language=Text
