@@ -1272,6 +1272,132 @@ const HANGAR_UI_CSS = `
   .hangar-lb-empty-icon { font-size: 36px; margin-bottom: 12px; opacity: 0.4; }
   .hangar-lb-empty-msg { font-size: 13px; color: rgba(255,255,255,0.35); }
   .hangar-lb-empty-hint { font-size: 11px; color: rgba(255,255,255,0.2); margin-top: 6px; }
+
+  /* ── Armory tab ─────────────────────────────────────────────── */
+  .armory-container {
+    padding: 16px 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    overflow-y: auto;
+    max-height: 100%;
+    box-sizing: border-box;
+  }
+  .armory-section-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.5);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .armory-section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(255,255,255,0.1);
+  }
+  .armory-row {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.2) transparent;
+  }
+  .armory-row::-webkit-scrollbar { height: 4px; }
+  .armory-row::-webkit-scrollbar-track { background: transparent; }
+  .armory-row::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
+  .armory-card {
+    flex: 0 0 190px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-left: 3px solid var(--weapon-color, #888);
+    border-radius: 8px;
+    padding: 14px 14px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    transition: background 0.15s, border-color 0.15s;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+  .armory-card.is-equipped {
+    background: rgba(255,255,255,0.08);
+    border-color: var(--weapon-color, #888);
+    box-shadow: 0 0 12px rgba(0,0,0,0.4), inset 0 0 24px rgba(255,255,255,0.02);
+  }
+  .armory-card-icon { font-size: 20px; line-height: 1; }
+  .armory-card-name {
+    font-family: 'Orbitron', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.2;
+  }
+  .armory-card-desc {
+    font-size: 11px;
+    color: rgba(255,255,255,0.45);
+    line-height: 1.4;
+    flex: 1;
+  }
+  .armory-card-stats {
+    font-size: 10px;
+    color: rgba(255,255,255,0.32);
+    font-family: 'Courier New', monospace;
+    margin-top: 2px;
+    line-height: 1.5;
+  }
+  .armory-card-btn {
+    margin-top: 6px;
+    padding: 7px 8px;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 5px;
+    background: rgba(255,255,255,0.07);
+    color: #fff;
+    font-family: 'Orbitron', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    width: 100%;
+    text-align: center;
+    line-height: 1.3;
+  }
+  .armory-card-btn:hover:not(:disabled) {
+    background: rgba(255,255,255,0.14);
+    border-color: rgba(255,255,255,0.4);
+  }
+  .armory-card-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .armory-card-btn.equipped-btn {
+    background: rgba(255,255,255,0.05);
+    border-color: var(--weapon-color, #888);
+    color: var(--weapon-color, #888);
+    cursor: default;
+  }
+  .armory-card-btn.equip-btn:hover:not(:disabled) {
+    border-color: var(--weapon-color, #888);
+    color: var(--weapon-color, #888);
+  }
+  .armory-card-btn.unlock-btn {
+    border-color: rgba(253,224,71,0.4);
+    color: #fde047;
+  }
+  .armory-card-btn.unlock-btn:hover:not(:disabled) {
+    background: rgba(253,224,71,0.12);
+    border-color: #fde047;
+  }
+  .armory-card-btn.cant-afford {
+    border-color: rgba(255,255,255,0.1) !important;
+    color: rgba(255,255,255,0.3) !important;
+    background: transparent !important;
+  }
 `;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1391,7 +1517,7 @@ let _overlay = null;
 let _hangarState = null;
 let _options = {};
 let _keyHandler = null;
-let _activeTab = 'upgrades'; // 'upgrades' | 'achievements' | 'skins' | 'settings' | 'fragments' | 'stats' | 'missions' | 'leaderboard'
+let _activeTab = 'upgrades'; // 'upgrades' | 'achievements' | 'skins' | 'armory' | 'settings' | 'fragments' | 'stats' | 'missions' | 'leaderboard'
 let _skinsShipFilter = null; // which ship's skins are shown
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2251,6 +2377,8 @@ function switchTab(tab) {
     renderAchievementsView();
   } else if (tab === 'skins') {
     renderSkinsView();
+  } else if (tab === 'armory') {
+    renderArmoryView();
   } else if (tab === 'settings') {
     renderSettingsView();
   } else if (tab === 'leaderboard') {
@@ -2548,6 +2676,138 @@ function renderFragmentsView() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Armory tab
+
+/**
+ * Render the Armory tab — browse, unlock, and equip weapons for each slot
+ * (primary, secondary, defense, ultimate) using the game's credit system.
+ */
+function renderArmoryView() {
+  const content = document.getElementById('hangarContent');
+  if (!content) return;
+  content.innerHTML = '';
+
+  const armory = window.ARMORY;
+  const GameSave = window.Save;
+
+  if (!armory || !GameSave) {
+    content.innerHTML = `<div style="padding:48px;text-align:center;color:rgba(255,255,255,0.35);font-size:13px;font-family:'Orbitron',monospace;">ARMORY DATA UNAVAILABLE</div>`;
+    return;
+  }
+
+  const armoryData = GameSave.data.armory;
+  const credits = getLiveCredits();
+
+  const SLOT_META = [
+    { key: 'primary',   label: 'Primary Weapon',   icon: '⚡' },
+    { key: 'secondary', label: 'Secondary System',  icon: '💥' },
+    { key: 'defense',   label: 'Defense System',    icon: '🛡' },
+    { key: 'ultimate',  label: 'Ultimate System',   icon: '☄' }
+  ];
+
+  function buildStats(weapon, type) {
+    const s = weapon.stats;
+    if (!s) return '';
+    const parts = [];
+    if (type === 'primary') {
+      if (s.damage !== undefined) parts.push(`DMG ×${s.damage}`);
+      if (s.cd    !== undefined) parts.push(`CD ×${s.cd}`);
+      if (s.pierce)              parts.push(`Pierce ${s.pierce}`);
+      if (s.shots)               parts.push(`Shots ${s.shots}`);
+    } else if (type === 'secondary') {
+      if (s.ammo   !== undefined) parts.push(`Ammo ${s.ammo}`);
+      if (s.damage !== undefined) parts.push(`DMG ${s.damage}`);
+      if (s.radius !== undefined) parts.push(`Radius ${s.radius}`);
+    } else if (type === 'defense') {
+      if (s.duration !== undefined) parts.push(`Dur ${(s.duration / 1000).toFixed(1)}s`);
+      if (s.absorb   !== undefined) parts.push(`Absorb ${Math.round(s.absorb * 100)}%`);
+      if (s.reflect  !== undefined) parts.push(`Reflect ${Math.round(s.reflect * 100)}%`);
+    } else if (type === 'ultimate') {
+      if (s.charge  !== undefined) parts.push(`Charge ${s.charge}`);
+      if (s.damage)                parts.push(`DMG ${s.damage}`);
+      if (s.radius)                parts.push(`Radius ${s.radius}`);
+    }
+    return parts.join(' · ');
+  }
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'armory-container';
+
+  SLOT_META.forEach(({ key, label, icon }) => {
+    const weapons  = armory[key] || [];
+    const unlocked = (armoryData.unlocked[key] || []);
+    const equipped = armoryData.loadout[key];
+
+    const sectionEl = document.createElement('div');
+
+    const titleEl = document.createElement('div');
+    titleEl.className = 'armory-section-title';
+    titleEl.innerHTML = `<span>${icon}</span> ${label}`;
+    sectionEl.appendChild(titleEl);
+
+    const rowEl = document.createElement('div');
+    rowEl.className = 'armory-row';
+
+    weapons.forEach(weapon => {
+      const isUnlocked = unlocked.includes(weapon.id);
+      const isEquipped = weapon.id === equipped;
+      const isFree     = weapon.unlock === 0;
+      const canAfford  = credits >= weapon.unlock;
+      const stats      = buildStats(weapon, key);
+
+      const card = document.createElement('div');
+      card.className = `armory-card${isEquipped ? ' is-equipped' : ''}`;
+      card.style.setProperty('--weapon-color', weapon.color || '#888');
+
+      let btnHtml;
+      if (isEquipped) {
+        btnHtml = `<button class="armory-card-btn equipped-btn" disabled>✦ EQUIPPED</button>`;
+      } else if (isUnlocked || isFree) {
+        btnHtml = `<button class="armory-card-btn equip-btn" data-action="equip" data-type="${key}" data-id="${weapon.id}">EQUIP${isFree && !isUnlocked ? ' FREE' : ''}</button>`;
+      } else {
+        const affordClass = canAfford ? '' : ' cant-afford';
+        btnHtml = `<button class="armory-card-btn unlock-btn${affordClass}" ${canAfford ? '' : 'disabled'} data-action="unlock" data-type="${key}" data-id="${weapon.id}" data-cost="${weapon.unlock}">⚡ ${weapon.unlock.toLocaleString()} CR — UNLOCK</button>`;
+      }
+
+      card.innerHTML = `
+        <div class="armory-card-icon">${icon}</div>
+        <div class="armory-card-name">${weapon.name}</div>
+        <div class="armory-card-desc">${weapon.desc}</div>
+        ${stats ? `<div class="armory-card-stats">${stats}</div>` : ''}
+        ${btnHtml}
+      `;
+
+      rowEl.appendChild(card);
+    });
+
+    sectionEl.appendChild(rowEl);
+    wrapper.appendChild(sectionEl);
+  });
+
+  content.appendChild(wrapper);
+
+  // ── Event delegation ──────────────────────────────────────────
+
+  content.querySelectorAll('[data-action]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const action = btn.dataset.action;
+      const type   = btn.dataset.type;
+      const id     = btn.dataset.id;
+      const cost   = parseInt(btn.dataset.cost || '0', 10);
+
+      if (action === 'unlock') {
+        if (!trySpendCredits(cost)) return;
+        GameSave.setLoadout(type, id); // setLoadout also calls unlockArmory + save
+        renderArmoryView();
+      } else if (action === 'equip') {
+        GameSave.setLoadout(type, id);
+        renderArmoryView();
+      }
+    });
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Stats tab
 
 /**
@@ -2686,6 +2946,7 @@ export function openHangar(opts = {}) {
       <div id="hangarTabBar">
         <button class="hangar-tab-btn active" data-tab="upgrades">Upgrades</button>
         <button class="hangar-tab-btn" data-tab="skins">Skins</button>
+        <button class="hangar-tab-btn" data-tab="armory">Armory</button>
         <button class="hangar-tab-btn" data-tab="missions">Missions</button>
         <button class="hangar-tab-btn" data-tab="achievements">Achievements</button>
         <button class="hangar-tab-btn" data-tab="leaderboard">Leaderboard</button>

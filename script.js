@@ -396,6 +396,10 @@
     ultimate: Object.fromEntries(ARMORY.ultimate.map((w) => [w.id, w]))
   };
 
+  // Expose ARMORY data globally so hangar-ui.js can read weapon definitions
+  window.ARMORY = ARMORY;
+  window.ARMORY_MAP = ARMORY_MAP;
+
   // Shared equipment icon paths and weapon info
   const EQUIPMENT_ICONS = {
     paths: {
@@ -1626,6 +1630,9 @@
       this.save();
     }
   };
+
+  // Expose Save globally so hangar-ui.js can persist armory selections
+  window.Save = Save;
 
   const costOf = (upgrade) => {
     const lvl = Save.getUpgradeLevel(upgrade.id);
