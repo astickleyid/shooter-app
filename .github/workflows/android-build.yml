@@ -7,7 +7,7 @@ on:
       - '**.js'
       - '**.html'
       - '**.css'
-      - 'capacitor.config.ts'
+      - 'capacitor.config.js'
       - 'android/**'
   workflow_dispatch:
     inputs:
@@ -29,7 +29,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
@@ -43,6 +43,15 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+
+      - name: Sync web content
+        run: chmod +x ./sync-ios-content.sh && ./sync-ios-content.sh
+
+      - name: Ensure Android platform exists
+        run: |
+          if [ ! -d android ]; then
+            npx cap add android
+          fi
 
       - name: Sync Capacitor
         run: npx cap sync android
@@ -66,7 +75,7 @@ jobs:
 
           # Build signed release bundle
           cd android && ./gradlew bundleRelease \
-            -Pandroid.injected.signing.store.file=release.keystore \
+            -Pandroid.injected.signing.store.file=app/release.keystore \
             -Pandroid.injected.signing.store.password="$STORE_PASSWORD" \
             -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
             -Pandroid.injected.signing.key.password="$KEY_PASSWORD"

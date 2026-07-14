@@ -42,8 +42,16 @@ echo ""
 # Sync API and supporting files
 echo "🔌 Syncing API and supporting files..."
 cp -v "$ROOT_DIR/backend-api.js" "$IOS_WEB_DIR/backend-api.js"
+cp -v "$ROOT_DIR/firebase-backend.js" "$IOS_WEB_DIR/firebase-backend.js"
+cp -v "$ROOT_DIR/firebase-config.js" "$IOS_WEB_DIR/firebase-config.js"
+cp -v "$ROOT_DIR/firebase-adapter.js" "$IOS_WEB_DIR/firebase-adapter.js"
 cp -v "$ROOT_DIR/audio-manager.js" "$IOS_WEB_DIR/audio-manager.js"
+cp -v "$ROOT_DIR/admob-manager.js" "$IOS_WEB_DIR/admob-manager.js"
 cp -v "$ROOT_DIR/game-utils.js" "$IOS_WEB_DIR/game-utils.js"
+cp -v "$ROOT_DIR/daily-challenge.js" "$IOS_WEB_DIR/daily-challenge.js"
+cp -v "$ROOT_DIR/hangar-ui.js" "$IOS_WEB_DIR/hangar-ui.js"
+cp -v "$ROOT_DIR/gc-only-mode.css" "$IOS_WEB_DIR/gc-only-mode.css"
+cp -v "$ROOT_DIR/gc-only-mode.js" "$IOS_WEB_DIR/gc-only-mode.js"
 echo ""
 
 # Sync social integration files
