@@ -840,6 +840,9 @@
   let bullets = [];
   let coins = [];
   let supplies = [];
+  let powerSurges = [];          // active Power Surge orbs on screen
+  let surgeDamageMultiplier = 1; // current damage multiplier (1 = no boost)
+  let surgeExpiry = 0;           // timestamp when current boost ends
   let spawners = [];
   let starsFar = null;
   let starsMid = null;
@@ -2201,6 +2204,9 @@
     bullets = [];
     coins = [];
     supplies = [];
+    powerSurges = [];
+    surgeDamageMultiplier = 1;
+    surgeExpiry = 0;
     spawners = [];
     particles = [];
     obstacles = [];
@@ -7269,7 +7275,7 @@
         const speed = BASE.BULLET_SPEED * (weaponStats.bulletSpeed || 1) * perkMultipliers.bulletSpeed;
         const size = BASE.BULLET_SIZE * (weaponStats.bulletSize || 1);
         const pierce = (weaponStats.pierce || 0) + perkMultipliers.piercePlus;
-        const dmg = stats.dmg * perkMultipliers.damage;
+        const dmg = stats.dmg * perkMultipliers.damage * surgeDamageMultiplier;
         bullets.push(new Bullet(sx, sy, vel, dmg, color, speed, size, pierce));
         runShotsFired++;
         waveShotsFired++;
@@ -8927,7 +8933,11 @@
     } else if (!wasLeviathan && chance(wasElite ? 0.5 : 0.22)) {
       dropSupply(enemy.x, enemy.y);
     }
-    
+    // Power Surge orb drop (6% chance, not on shards)
+    if (enemy.kind !== 'shard' && Math.random() < 0.06) {
+      powerSurges.push({ x: enemy.x, y: enemy.y, r: 10, created: performance.now(), life: 12000 });
+    }
+
     // Phase A.4: Enhanced death effects based on enemy type
     const deathColor = wasLeviathan ? '#FF2020' :
                        wasBoss ? '#7c3aed' :
@@ -10148,6 +10158,32 @@
       }
     }
 
+    // Power Surge orbs
+    for (let i = powerSurges.length - 1; i >= 0; i--) {
+      const orb = powerSurges[i];
+      if (now - orb.created > orb.life) { powerSurges.splice(i, 1); continue; }
+      const dx = player.x - orb.x;
+      const dy = player.y - orb.y;
+      const dist = Math.hypot(dx, dy);
+      // Gentle attraction when close
+      if (dist < 140) {
+        orb.x += (dx / (dist || 1)) * 1.2;
+        orb.y += (dy / (dist || 1)) * 1.2;
+      }
+      if (dist < player.size + orb.r) {
+        powerSurges.splice(i, 1);
+        surgeDamageMultiplier = 1.8;
+        surgeExpiry = now + 8000;
+        addLogEntry('⚡ POWER SURGE! 1.8× DMG for 8s', '#a855f7');
+        if (typeof AudioManager !== 'undefined') AudioManager.playCoinPickup();
+      }
+    }
+    // Expire surge
+    if (surgeDamageMultiplier > 1 && now > surgeExpiry) {
+      surgeDamageMultiplier = 1;
+      addLogEntry('Power Surge ended', '#6b7280');
+    }
+
     for (const obstacle of obstacles) obstacle.update(dt);
 
     // Update environmental hazards
@@ -10356,6 +10392,9 @@
     bullets = [];
     coins = [];
     supplies = [];
+    powerSurges = [];
+    surgeDamageMultiplier = 1;
+    surgeExpiry = 0;
     spawners = [];
     particles = [];
     bossActive = false;
@@ -10613,6 +10652,22 @@
     for (const spawner of spawners) spawner.draw(ctx);
     for (const coin of coins) coin.draw(ctx);
     for (const supply of supplies) supply.draw(ctx);
+    // Draw Power Surge orbs
+    for (const orb of powerSurges) {
+      const _t = performance.now();
+      const pulse = 0.7 + 0.3 * Math.sin((_t / 250) + orb.created);
+      ctx.save();
+      ctx.globalAlpha = 0.9;
+      const grad = ctx.createRadialGradient(orb.x, orb.y, 0, orb.x, orb.y, orb.r * 2 * pulse);
+      grad.addColorStop(0, '#e879f9');
+      grad.addColorStop(0.5, '#a855f7');
+      grad.addColorStop(1, 'rgba(168,85,247,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(orb.x, orb.y, orb.r * 2 * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
     for (const bullet of bullets) bullet.draw(ctx);
     for (const enemy of enemies) enemy.draw(ctx);
     
@@ -10747,6 +10802,22 @@
           killComboEscalated = false;
         }
       }
+    }
+
+    // ── Power Surge HUD indicator ────────────────────────────────────────────
+    if (surgeDamageMultiplier > 1 && now < surgeExpiry) {
+      const remaining = (surgeExpiry - now) / 8000;
+      ctx.save();
+      ctx.globalAlpha = 0.9;
+      ctx.fillStyle = '#a855f7';
+      ctx.fillRect(16, canvas.height - 56, 120 * remaining, 6);
+      ctx.strokeStyle = '#7c3aed';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(16, canvas.height - 56, 120, 6);
+      ctx.fillStyle = '#e879f9';
+      ctx.font = 'bold 10px Arial';
+      ctx.fillText('⚡ SURGE', 16, canvas.height - 62);
+      ctx.restore();
     }
 
     // ── Combo Timer DOM HUD (live depleting progress bar) ───────────────────
