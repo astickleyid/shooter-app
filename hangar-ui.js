@@ -1237,6 +1237,15 @@ const HANGAR_UI_CSS = `
   .hangar-theme-swatch.active { border-color: #fff; box-shadow: 0 0 0 2px rgba(255,255,255,0.3); transform: scale(1.1); }
   .hangar-theme-hint { font-size: 11px; color: rgba(255,255,255,0.35); margin-top: 8px; }
 
+  /* ── Accessibility section ───────────────────────────────── */
+  .hangar-accessibility-section { margin-top: 8px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.08); }
+  .hangar-toggle-switch { position: relative; display: inline-block; width: 42px; height: 24px; flex-shrink: 0; }
+  .hangar-toggle-switch input { opacity: 0; width: 0; height: 0; }
+  .hangar-toggle-slider { position: absolute; inset: 0; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.15); border-radius: 999px; cursor: pointer; transition: background 0.2s; }
+  .hangar-toggle-slider::before { content: ''; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; background: rgba(255,255,255,0.7); border-radius: 50%; transition: transform 0.2s, background 0.2s; }
+  .hangar-toggle-switch input:checked + .hangar-toggle-slider { background: rgba(74,222,128,0.35); border-color: #4ade80; }
+  .hangar-toggle-switch input:checked + .hangar-toggle-slider::before { transform: translateX(18px); background: #4ade80; }
+
   /* ── Leaderboard tab ─────────────────────────────────────────── */
   .hangar-lb-tabs { display: flex; gap: 4px; padding: 12px 16px 0; }
   .hangar-lb-tab { flex: 1; padding: 7px 12px; font-family: 'Orbitron', monospace; font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; background: transparent; color: rgba(255,255,255,0.35); cursor: pointer; transition: all 0.15s; }
@@ -2093,6 +2102,17 @@ function renderSettingsView() {
         </div>
         <div class="hangar-theme-hint">Applies to mission HUD and status overlays.</div>
       </div>
+      <div class="hangar-settings-section hangar-accessibility-section">
+        <div class="hangar-settings-label">👁️ Accessibility</div>
+        <div class="hangar-settings-row">
+          <span>High Contrast Mode</span>
+          <label class="hangar-toggle-switch">
+            <input type="checkbox" id="settings-high-contrast" ${localStorage.getItem('voidrift_high_contrast') === '1' ? 'checked' : ''}>
+            <span class="hangar-toggle-slider"></span>
+          </label>
+        </div>
+        <div class="hangar-theme-hint">Boosts contrast and saturation to make enemies, bullets, and pickups easier to distinguish.</div>
+      </div>
     </div>
   `;
 
@@ -2181,6 +2201,15 @@ function renderSettingsView() {
         dailyBtn.disabled = false;
         dailyBtn.textContent = "Start Today's Challenge";
       });
+    });
+  }
+
+  // Wire up High Contrast Mode toggle
+  const highContrastToggle = document.getElementById('settings-high-contrast');
+  if (highContrastToggle) {
+    highContrastToggle.addEventListener('change', () => {
+      localStorage.setItem('voidrift_high_contrast', highContrastToggle.checked ? '1' : '0');
+      if (typeof window.applyHighContrast === 'function') window.applyHighContrast();
     });
   }
 
