@@ -4846,6 +4846,10 @@
       baseSpeed *= adaptive.enemySpeedBoost;
       if (isElite) baseSpeed *= ADAPTIVE_CONSTANTS.ELITE_SPEED_MULT;
       if (isBoss) baseSpeed *= ADAPTIVE_CONSTANTS.BOSS_SPEED_MULT; // Bosses are slower but more dangerous
+      // Time Dilation tech fragment: permanent passive enemy slowdown once unlocked
+      if (window.techFragmentSystem && window.techFragmentSystem.hasFragment('chrono_crystal') && window.TECH_UNLOCKS) {
+        baseSpeed *= (1 - (window.TECH_UNLOCKS.time_dilation.stats.enemySlowdown || 0));
+      }
       this.speed = baseSpeed;
       
       // Health scaling with progressive difficulty
@@ -6786,7 +6790,19 @@
       // Bounty target: one per wave from wave 3+, 15% chance on any standard spawn
       if (!bountySpawnedThisWave && level >= 3 && !isElite && kind !== 'shard' && Math.random() < 0.15) {
         const last = enemies[enemies.length - 1];
-        if (last) { last.isBounty = true; last.health = Math.ceil(last.health * 2.5); last.maxHealth = last.health; last.size *= 1.3; bountySpawnedThisWave = true; }
+        if (last) {
+          last.isBounty = true; last.health = Math.ceil(last.health * 2.5); last.maxHealth = last.health; last.size *= 1.3; bountySpawnedThisWave = true;
+          // Give the bounty a named identity from today's active Mission Board bounties, if one is still available
+          if (window.missionSystem) {
+            const namedBounty = window.missionSystem.getActiveBounties().find(b => window.missionSystem.canSpawnBounty(b.id));
+            if (namedBounty) {
+              last.bountyId = namedBounty.id;
+              last.bountyName = namedBounty.name;
+              last.bountyColor = namedBounty.color;
+              window.missionSystem.markBountySpawned(namedBounty.id);
+            }
+          }
+        }
       }
       if (Math.random() < 0.4) this.resetPosition();
     }
@@ -6942,10 +6958,18 @@
       
       // Speed bonuses: keep full benefit for mobility (+ perk multiplier)
       const baseSpeed = BASE.PLAYER_SPEED * shipStat('speed', 1) * perkMultipliers.speed;
-      const boostSpeed = (BASE.PLAYER_BOOST_SPEED + L('boost') * 0.9) * shipStat('boost', shipStat('speed', 1)) * perkMultipliers.speed;
-      
+      const tfs = window.techFragmentSystem;
+      const unlocks = window.TECH_UNLOCKS || {};
+      const quantumDriveMult = (tfs && tfs.hasFragment('quantum_core') && unlocks.quantum_drive)
+        ? unlocks.quantum_drive.stats.boostSpeed : 1;
+      const boostSpeed = (BASE.PLAYER_BOOST_SPEED + L('boost') * 0.9) * shipStat('boost', shipStat('speed', 1)) * perkMultipliers.speed * quantumDriveMult;
+
       // Damage and regen: apply effectiveness modifier
-      const damageMultiplier = (1 + L('damage') * 0.6 * effectiveness);
+      const plasmaOverchargeMult = (tfs && tfs.hasFragment('plasma_cell') && unlocks.plasma_overcharge)
+        ? unlocks.plasma_overcharge.stats.damageBoost : 1;
+      const voidCannonMult = (tfs && tfs.hasFragment('void_shard') && unlocks.void_cannon)
+        ? 1 + (unlocks.void_cannon.stats.damage - 1) * 0.2 : 1; // passive fraction of the full weapon's damage bonus
+      const damageMultiplier = (1 + L('damage') * 0.6 * effectiveness) * plasmaOverchargeMult * voidCannonMult;
       const regenAmount = L('regen') * 3 * effectiveness;
       
       // Repulse field: reduced by both effectiveness and adaptive scaling
@@ -7427,7 +7451,9 @@
 
     addUltimateCharge(amount) {
       if (!amount || amount <= 0) return;
-      this.ultimateCharge = clamp(this.ultimateCharge + amount, 0, this.ultimateChargeMax);
+      const fragmentRate = (window.techFragmentSystem && window.techFragmentSystem.hasFragment('antimatter_vial'))
+        ? (window.TECH_UNLOCKS.antimatter_reactor.stats.ultimateChargeRate || 1) : 1;
+      this.ultimateCharge = clamp(this.ultimateCharge + amount * fragmentRate, 0, this.ultimateChargeMax);
     }
 
     collectSupply(kind) {
@@ -7484,6 +7510,7 @@
       amount *= perkMultipliers.damageTakenMult;
       if (amount <= 0) return;
       tookDamageThisLevel = true;
+      if (window.missionSystem) window.missionSystem.trackDamage(amount);
       this.health -= amount;
       this.flash = true;
       this.invEnd = now + BASE.INVULN_MS + perkMultipliers.invulnBonus;
@@ -8901,6 +8928,7 @@
       dropSupply(enemy.x, enemy.y);
       dropSupply(enemy.x + rand(-40, 40), enemy.y + rand(-40, 40));
       Save.addCredits(250);
+      if (window.missionSystem) window.missionSystem.trackCredits(250);
       leviathanKilledThisRun++;
       // Unlock LEVIATHAN SLAYER achievement
       Auth.playerProfile.leviathanKills = (Auth.playerProfile.leviathanKills || 0) + 1;
@@ -8917,8 +8945,24 @@
       }
       const bountyReward = Math.floor(30 + level * 8);
       Save.addCredits(bountyReward);
+      if (window.missionSystem) window.missionSystem.trackCredits(bountyReward);
       bountyKilledTotal++;
-      addLogEntry(`\u{1F4B0} BOUNTY CLAIMED! +${bountyReward} credits`, '#fbbf24');
+      if (enemy.bountyName) {
+        addLogEntry(`\u{1F4B0} ${enemy.bountyName.toUpperCase()} TAKEN DOWN! +${bountyReward} credits`, '#fbbf24');
+        // Named Mission Board bounties always drop a tech fragment on top of the credit reward
+        if (window.techFragmentSystem) {
+          const bountyFragment = window.techFragmentSystem.rollDrop(true, false) || window.TECH_FRAGMENTS?.[0];
+          if (bountyFragment) {
+            window.techFragmentSystem.collect(bountyFragment.id);
+            if (window.missionSystem) window.missionSystem.trackFragments(1);
+            if (typeof Auth !== 'undefined' && Auth.showTechFragmentNotification) {
+              Auth.showTechFragmentNotification(window.techFragmentSystem.getFragmentCount(bountyFragment.id));
+            }
+          }
+        }
+      } else {
+        addLogEntry(`\u{1F4B0} BOUNTY CLAIMED! +${bountyReward} credits`, '#fbbf24');
+      }
       if (typeof AudioManager !== 'undefined' && AudioManager.playCoin) {
         AudioManager.playCoin();
       }
@@ -9078,7 +9122,7 @@
     if (window.missionSystem) {
       const isBoss = !!enemy.isBoss;
       const isElite = !!(enemy.isElite || enemy.type === 'elite');
-      window.missionSystem.trackKill(isBoss, isElite);
+      window.missionSystem.trackKill(isBoss, isElite, enemy.bountyId || null);
       updateMissionHUD();
     }
 
@@ -9113,6 +9157,7 @@
     // Apply kill combo multiplier + Overclock perk score bonus
     const effectiveMultiplier = killComboMultiplier + perkMultipliers.scoreMultBonus;
     scoreGain = Math.round(scoreGain * effectiveMultiplier);
+    if (PowerUps.isOverdriveActive(Date.now())) scoreGain *= 2;
     score += scoreGain;
     if (window.missionSystem) {
       window.missionSystem.trackScore(score);
@@ -9131,6 +9176,7 @@
         // Immediately collect the pickup and show notification (auto-collect on drop)
         pickup.collected = true;
         window.techFragmentSystem.collect(fragment.id);
+        if (window.missionSystem) window.missionSystem.trackFragments(1);
         const count = window.techFragmentSystem.getFragmentCount(fragment.id);
         if (typeof Auth !== 'undefined' && Auth.showTechFragmentNotification) {
           Auth.showTechFragmentNotification(count);
@@ -9893,6 +9939,7 @@
       SHIELD: { color: '#22c55e', label: 'SHIELD +30', duration: 0, radius: 10 },
       RAPID:  { color: '#06b6d4', label: 'RAPID FIRE', duration: 8000, radius: 10 },
       NUKE:   { color: '#f97316', label: 'NUKE',       duration: 0, radius: 10 },
+      OVERDRIVE: { color: '#eab308', label: '2X SCORE', duration: 10000, radius: 10 },
     };
     const TYPE_KEYS = Object.keys(TYPES);
     let active = [];       // live pickups on the ground
@@ -9930,6 +9977,9 @@
         effects.push({ type: 'RAPID', endsAt: now + 8000 });
       } else if (type === 'NUKE') {
         nukeAllEnemies();
+      } else if (type === 'OVERDRIVE') {
+        effects = effects.filter(e => e.type !== 'OVERDRIVE');
+        effects.push({ type: 'OVERDRIVE', endsAt: now + 10000 });
       }
     }
 
@@ -9949,6 +9999,10 @@
 
     function isRapidActive(now) {
       return effects.some(e => e.type === 'RAPID' && e.endsAt > now);
+    }
+
+    function isOverdriveActive(now) {
+      return effects.some(e => e.type === 'OVERDRIVE' && e.endsAt > now);
     }
 
     function showPickupBanner(type) {
@@ -9996,9 +10050,19 @@
         ctx.fillText('⚡ RAPID ' + remaining + 's', 12, 110);
         ctx.restore();
       }
+      // Overdrive HUD indicator
+      const overdriveEffect = effects.find(e => e.type === 'OVERDRIVE');
+      if (overdriveEffect) {
+        const remaining = ((overdriveEffect.endsAt - now) / 1000).toFixed(1);
+        ctx.save();
+        ctx.fillStyle = '#eab308'; ctx.font = 'bold 12px monospace';
+        ctx.textAlign = 'left'; ctx.globalAlpha = 0.9;
+        ctx.fillText('★ 2X SCORE ' + remaining + 's', 12, rapidEffect ? 128 : 110);
+        ctx.restore();
+      }
     }
 
-    return { maybeSpawn, update, draw, isRapidActive };
+    return { maybeSpawn, update, draw, isRapidActive, isOverdriveActive };
   })();
   // ─── END POWER-UP DROPS ─────────────────────────────────────────────────────
 
@@ -10026,6 +10090,9 @@
     updateComboSystem(); // Phase 1: Update combo timer
     // Power-up pickup collection
     PowerUps.update(player.x, player.y, Date.now());
+    if (window.missionSystem && runStartTime > 0) {
+      window.missionSystem.trackTime(Math.floor((now - runStartTime) / 1000));
+    }
     const targetX = player.x - window.innerWidth / 2;
     const targetY = player.y - window.innerHeight / 2;
     camera.x += (targetX - camera.x) * 0.12;
@@ -10062,18 +10129,28 @@
         const dx = bullet.x - enemy.x;
         const dy = bullet.y - enemy.y;
         if (Math.hypot(dx, dy) < bullet.size + enemy.size) {
-          enemy.health -= bullet.damage;
+          // AI Targeting Matrix tech fragment: chance to crit for bonus damage
+          let hitDamage = bullet.damage;
+          let isCrit = false;
+          if (window.techFragmentSystem && window.techFragmentSystem.hasFragment('neural_chip') && window.TECH_UNLOCKS) {
+            const critStats = window.TECH_UNLOCKS.ai_targeting.stats;
+            if (Math.random() < critStats.critChance) {
+              hitDamage *= critStats.critDamage;
+              isCrit = true;
+            }
+          }
+          enemy.health -= hitDamage;
           runShotsHit++;
           waveShotsHit++;
 
           // Phase 1: Show damage number
-          spawnDamageNumber(enemy.x, enemy.y, bullet.damage, false);
-          
+          spawnDamageNumber(enemy.x, enemy.y, hitDamage, isCrit);
+
           // Phase A.2: Hit flash on damage
           enemy.hitFlash = 150;
-          
+
           addParticles('sparks', bullet.x, bullet.y, 0, 6);
-          if (player) player.addUltimateCharge(bullet.damage * 0.35);
+          if (player) player.addUltimateCharge(hitDamage * 0.35);
           
           // Play hit sound
           if (typeof AudioManager !== 'undefined') {
@@ -10128,6 +10205,7 @@
         coins.splice(i, 1);
         score += 10;
         Save.addCredits(1);
+        if (window.missionSystem) window.missionSystem.trackCredits(1);
         addXP(6);
         
         // Play coin pickup sound
@@ -10154,6 +10232,7 @@
         supplies.splice(i, 1);
         player.collectSupply(crate.kind);
         Save.addCredits(2);
+        if (window.missionSystem) window.missionSystem.trackCredits(2);
         addXP(10);
       }
     }
@@ -10290,6 +10369,10 @@
     Save.addCredits(_creditsBase);
     waveCreditsEarned += _creditsBase;
     addXP(90 + level * 12);
+    if (window.missionSystem) {
+      window.missionSystem.trackCredits(_creditsBase);
+      window.missionSystem.trackLevelComplete(!tookDamageThisLevel);
+    }
     if (!tookDamageThisLevel) {
       addXP(110 + level * 18);
       // Perfect Wave bonus — extra credits + announcement
@@ -10299,6 +10382,7 @@
       // Fixed +50 perfect wave overlay bonus
       Save.addCredits(50);
       waveCreditsEarned += 50;
+      if (window.missionSystem) window.missionSystem.trackCredits(perfectBonus + 50);
       addLogEntry(`🌟 PERFECT WAVE! +${perfectBonus + 50} bonus credits`, '#4ade80');
     }
 
@@ -10321,6 +10405,7 @@
     };
 
     level += 1;
+    if (window.missionSystem) window.missionSystem.trackLevel(level);
     enemiesKilled = 0;
     waveKillCount = 0;
     waveShotsFired = 0;
@@ -10467,6 +10552,7 @@
         () => {
           // onRewarded: add 100 credits
           Save.addCredits(100);
+          if (window.missionSystem) window.missionSystem.trackCredits(100);
           updateHUD();
           addLogEntry('🎬 +100 CR bonus from ad reward!', '#4ade80');
         },
@@ -10581,6 +10667,7 @@
         // Give bonus rewards — tracked for post-wave overlay
         const _bossBonus = level * 50;
         Save.addCredits(_bossBonus);
+        if (window.missionSystem) window.missionSystem.trackCredits(_bossBonus);
         addXP(level * 100);
         advanceLevel();
         waveCreditsEarned += _bossBonus; // add boss bonus after advanceLevel resets counter
@@ -10991,7 +11078,7 @@
         ctx.shadowBlur = 12;
         ctx.textAlign = 'right';
         ctx.textBaseline = 'top';
-        ctx.fillText('⚠ WANTED TARGET', canvas.width - 16, 56);
+        ctx.fillText(aliveBounty.bountyName ? `⚠ WANTED: ${aliveBounty.bountyName.toUpperCase()}` : '⚠ WANTED TARGET', canvas.width - 16, 56);
         ctx.restore();
       }
     }
@@ -12058,7 +12145,9 @@
   const handleGameOver = () => {
     gameOverHandled = true;
     Save.setBest(score, level);
-    Save.addCredits(Math.floor(score / 25));
+    const _finalCashOut = Math.floor(score / 25);
+    Save.addCredits(_finalCashOut);
+    if (window.missionSystem) window.missionSystem.trackCredits(_finalCashOut);
 
     // Local leaderboard — check before saving so isPersonalBest is accurate
     const isNewBest = LocalLeaderboard.isPersonalBest(score);
@@ -12154,6 +12243,15 @@
       showGameOverScreen(finalScore, finalLevel, null, isNewBest, runKillCount, runTimeSec, runAccuracyPct);
     }
   };
+
+  // ── Accessibility ────────────────────────────────────────────────────────
+  function applyHighContrast() {
+    const enabled = localStorage.getItem('voidrift_high_contrast') === '1';
+    if (dom.canvas) {
+      dom.canvas.style.filter = enabled ? 'contrast(1.35) saturate(1.5) brightness(1.05)' : '';
+    }
+  }
+  window.applyHighContrast = applyHighContrast;
 
   // ── Mission HUD ─────────────────────────────────────────────────────────
   function getHudAccent() {
@@ -12664,6 +12762,7 @@
   
   const ready = () => {
     assignDomRefs();
+    applyHighContrast();
     Save.load();
     Auth.load();
     Leaderboard.load();
