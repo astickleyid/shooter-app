@@ -841,6 +841,7 @@
   let coins = [];
   let supplies = [];
   let powerSurges = [];          // active Power Surge orbs on screen
+  let medicOrbs = [];             // active Medic Orb pickups on screen
   let surgeDamageMultiplier = 1; // current damage multiplier (1 = no boost)
   let surgeExpiry = 0;           // timestamp when current boost ends
   let spawners = [];
@@ -2205,6 +2206,7 @@
     coins = [];
     supplies = [];
     powerSurges = [];
+    medicOrbs = [];
     surgeDamageMultiplier = 1;
     surgeExpiry = 0;
     spawners = [];
@@ -8981,6 +8983,10 @@
     if (enemy.kind !== 'shard' && Math.random() < 0.06) {
       powerSurges.push({ x: enemy.x, y: enemy.y, r: 10, created: performance.now(), life: 12000 });
     }
+    // Medic Orb drop (4% chance, not on shards, only if player below 60% HP)
+    if (enemy.kind !== 'shard' && player && player.health < (player.hpMax || 100) * 0.6 && chance(0.04)) {
+      medicOrbs.push({ x: enemy.x, y: enemy.y, r: 9, created: performance.now(), life: 10000 });
+    }
 
     // Phase A.4: Enhanced death effects based on enemy type
     const deathColor = wasLeviathan ? '#FF2020' :
@@ -10263,6 +10269,27 @@
       addLogEntry('Power Surge ended', '#6b7280');
     }
 
+    // Medic Orbs
+    for (let i = medicOrbs.length - 1; i >= 0; i--) {
+      const orb = medicOrbs[i];
+      if (now - orb.created > orb.life) { medicOrbs.splice(i, 1); continue; }
+      const dx = player.x - orb.x;
+      const dy = player.y - orb.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < 120) {
+        orb.x += (dx / (dist || 1)) * 1.4;
+        orb.y += (dy / (dist || 1)) * 1.4;
+      }
+      if (dist < player.size + orb.r) {
+        medicOrbs.splice(i, 1);
+        const hpMax = player.hpMax || 100;
+        const healAmt = Math.min(20, hpMax - player.health);
+        player.health = Math.min(hpMax, player.health + healAmt);
+        addLogEntry(`❤️ Medic Orb +${healAmt} HP`, '#4ade80');
+        if (typeof AudioManager !== 'undefined') AudioManager.playCoinPickup();
+      }
+    }
+
     for (const obstacle of obstacles) obstacle.update(dt);
 
     // Update environmental hazards
@@ -10478,6 +10505,7 @@
     coins = [];
     supplies = [];
     powerSurges = [];
+    medicOrbs = [];
     surgeDamageMultiplier = 1;
     surgeExpiry = 0;
     spawners = [];
@@ -10753,6 +10781,34 @@
       ctx.beginPath();
       ctx.arc(orb.x, orb.y, orb.r * 2 * pulse, 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
+    }
+    // Draw Medic Orbs
+    for (const orb of medicOrbs) {
+      const _t = performance.now();
+      const pulse = 0.7 + 0.3 * Math.sin((_t / 300) + orb.created);
+      ctx.save();
+      ctx.globalAlpha = 0.92;
+      const grad = ctx.createRadialGradient(orb.x, orb.y, 0, orb.x, orb.y, orb.r * 2.2 * pulse);
+      grad.addColorStop(0, '#86efac');
+      grad.addColorStop(0.45, '#4ade80');
+      grad.addColorStop(1, 'rgba(74,222,128,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(orb.x, orb.y, orb.r * 2.2 * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      // Draw cross symbol
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(orb.x, orb.y - 5);
+      ctx.lineTo(orb.x, orb.y + 5);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(orb.x - 5, orb.y);
+      ctx.lineTo(orb.x + 5, orb.y);
+      ctx.stroke();
       ctx.restore();
     }
     for (const bullet of bullets) bullet.draw(ctx);
