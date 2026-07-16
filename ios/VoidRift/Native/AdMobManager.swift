@@ -27,22 +27,22 @@ class AdMobManager: NSObject {
     private let rewardedAdUnitID = "ca-app-pub-3940256099942544/1712485313" // TEST ID
 
     // MARK: - State
-    private var rewardedAd: GADRewardedAd?
+    private var rewardedAd: RewardedAd?
     private var rewardCallback: ((Bool) -> Void)?
 
     // MARK: - Init
     private override init() {
         super.init()
         // Initialize the Mobile Ads SDK
-        GADMobileAds.sharedInstance().start(completionHandler: nil)
+        MobileAds.shared.start(completionHandler: nil)
     }
 
     // MARK: - Preload
     func preloadRewarded() {
         guard rewardedAd == nil else { return } // Already loaded
 
-        let request = GADRequest()
-        GADRewardedAd.load(withAdUnitID: rewardedAdUnitID, request: request) { [weak self] ad, error in
+        let request = Request()
+        RewardedAd.load(with: rewardedAdUnitID, request: request) { [weak self] ad, error in
             if let error = error {
                 print("[AdMob] Failed to load rewarded ad: \(error.localizedDescription)")
                 return
@@ -67,7 +67,7 @@ class AdMobManager: NSObject {
         self.rewardCallback = completion
         var didEarnReward = false
 
-        ad.present(fromRootViewController: vc) {
+        ad.present(from: vc) {
             didEarnReward = true
             print("[AdMob] Reward earned ✅")
             completion(true)
@@ -78,17 +78,17 @@ class AdMobManager: NSObject {
     }
 }
 
-// MARK: - GADFullScreenContentDelegate
-extension AdMobManager: GADFullScreenContentDelegate {
+// MARK: - FullScreenContentDelegate
+extension AdMobManager: FullScreenContentDelegate {
 
-    func adDidDismissFullScreenContent(_ ad: GADFullScreenPresentingAd) {
+    func adDidDismissFullScreenContent(_ ad: FullScreenPresentingAd) {
         print("[AdMob] Ad dismissed")
         // Preload next ad
         rewardedAd = nil
         preloadRewarded()
     }
 
-    func ad(_ ad: GADFullScreenPresentingAd, didFailToPresentFullScreenContentWithError error: Error) {
+    func ad(_ ad: FullScreenPresentingAd, didFailToPresentFullScreenContentWithError error: Error) {
         print("[AdMob] Ad failed to present: \(error.localizedDescription)")
         rewardCallback?(false)
         rewardCallback = nil
