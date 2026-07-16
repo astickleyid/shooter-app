@@ -129,6 +129,24 @@ jobs:
             echo "No Podfile found, skipping pod install"
           fi
 
+      - name: Cache Swift Package dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ios/.spm-cache
+            ~/Library/Caches/org.swift.swiftpm
+          key: ${{ runner.os }}-spm-${{ hashFiles('ios/VoidRift.xcodeproj/project.pbxproj') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
+      - name: Resolve Swift Package dependencies
+        working-directory: ios
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project VoidRift.xcodeproj \
+            -scheme VoidRift \
+            -clonedSourcePackagesDirPath .spm-cache
+
       - name: Build iOS app (Debug)
         working-directory: ios
         run: |
@@ -137,6 +155,7 @@ jobs:
             -scheme VoidRift \
             -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' \
             -configuration Debug \
+            -clonedSourcePackagesDirPath .spm-cache \
             clean build \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
@@ -241,6 +260,24 @@ jobs:
             echo "ASC_AUTH_ARGS=-authenticationKeyPath $KEY_PATH -authenticationKeyID ${ASC_API_KEY_ID} -authenticationKeyIssuerID ${ASC_API_ISSUER_ID}"
           } >> "$GITHUB_ENV"
 
+      - name: Cache Swift Package dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ios/.spm-cache
+            ~/Library/Caches/org.swift.swiftpm
+          key: ${{ runner.os }}-spm-${{ hashFiles('ios/VoidRift.xcodeproj/project.pbxproj') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
+      - name: Resolve Swift Package dependencies
+        working-directory: ios
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project VoidRift.xcodeproj \
+            -scheme VoidRift \
+            -clonedSourcePackagesDirPath .spm-cache
+
       - name: Build iOS Archive
         working-directory: ios
         run: |
@@ -254,6 +291,7 @@ jobs:
               -scheme VoidRift \
               -configuration Release \
               -archivePath $RUNNER_TEMP/VoidRift.xcarchive \
+              -clonedSourcePackagesDirPath .spm-cache \
               -allowProvisioningUpdates ${ASC_AUTH_ARGS:-} \
               archive
           else
@@ -262,6 +300,7 @@ jobs:
               -scheme VoidRift \
               -configuration Release \
               -archivePath $RUNNER_TEMP/VoidRift.xcarchive \
+              -clonedSourcePackagesDirPath .spm-cache \
               archive \
               CODE_SIGN_IDENTITY="" \
               CODE_SIGNING_REQUIRED=NO \

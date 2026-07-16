@@ -6,12 +6,11 @@ import GoogleMobileAds
  *
  * Manages rewarded ads via Google Mobile Ads SDK.
  *
- * SETUP REQUIRED:
- * 1. Add GoogleMobileAds via Swift Package Manager:
- *    Xcode → File → Add Packages → https://github.com/googleads/swift-package-manager-google-mobile-ads.git
- * 2. Add your AdMob App ID to Info.plist:
- *    Key: GADApplicationIdentifier
- *    Value: ca-app-pub-REPLACE_WITH_YOUR_APP_ID
+ * SETUP REQUIRED before App Store submission:
+ * 1. GoogleMobileAds is already wired up as a Swift Package dependency
+ *    (see project.pbxproj) and GADApplicationIdentifier is set in Info.plist.
+ * 2. Replace the test GADApplicationIdentifier in Info.plist with your real
+ *    AdMob App ID from https://admob.google.com/.
  * 3. Replace the ad unit ID below with your real rewarded ad unit ID.
  *
  * Test IDs (use during development — REPLACE before App Store submission):
