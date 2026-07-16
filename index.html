@@ -745,6 +745,14 @@
   <!-- Persistent Upgrade Hangar (Base Mods) -->
   <script type="module">
     import { openHangar, closeHangar } from './hangar-ui.js';
+    import { loadHangar, applyHangarToConfig } from './src/systems/HangarSystem.js';
+
+    // Bridge HangarSystem's purchase-application helper to the classic-script
+    // game loop in script.js, which cannot use ES module imports directly.
+    // script.js calls this at the start of every run so purchased Base Mods
+    // upgrades (max HP, damage, speed, fire rate, credit bonus, piercing)
+    // actually affect gameplay instead of just being stored.
+    window.HangarSystem = { loadHangar, applyHangarToConfig };
 
     // Wire up the Base Mods nav button on the start screen.
     // We delay until DOMContentLoaded so the button element is guaranteed

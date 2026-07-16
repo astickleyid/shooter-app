@@ -2312,7 +2312,15 @@
       piercePlus:          0,
       fragmentOnImpact:    false
     };
-    
+
+    // Apply persistent Hangar (Base Mods) purchases — max HP, damage, speed,
+    // fire rate, credit bonus, and piercing tiers bought with credits between
+    // runs. Bridged via window.HangarSystem since this file is a classic
+    // script and HangarSystem.js is an ES module (see index.html).
+    if (window.HangarSystem && typeof window.HangarSystem.applyHangarToConfig === 'function') {
+      window.HangarSystem.applyHangarToConfig(window.HangarSystem.loadHangar(), perkMultipliers);
+    }
+
     Object.keys(input).forEach((k) => {
       if (typeof input[k] === 'boolean') input[k] = false;
       else input[k] = 0;
@@ -5008,14 +5016,15 @@
         ctx.stroke();
         ctx.restore();
       }
-      // Bounty target: gold crown above enemy
+      // Bounty target: crown above enemy, tinted with the named bounty's signature color
       if (this.isBounty) {
         ctx.save();
         const t = performance.now();
         const pulse = Math.sin(t / 300) * 0.15 + 0.85;
         ctx.globalAlpha = pulse;
-        ctx.fillStyle = '#fbbf24';
-        ctx.shadowColor = '#f59e0b';
+        const crownColor = this.bountyColor || '#fbbf24';
+        ctx.fillStyle = crownColor;
+        ctx.shadowColor = crownColor;
         ctx.shadowBlur = 16;
         // Crown base
         ctx.fillRect(-this.size * 0.6, -this.size * 1.9, this.size * 1.2, this.size * 0.3);
@@ -8963,8 +8972,8 @@
       } else {
         addLogEntry(`\u{1F4B0} BOUNTY CLAIMED! +${bountyReward} credits`, '#fbbf24');
       }
-      if (typeof AudioManager !== 'undefined' && AudioManager.playCoin) {
-        AudioManager.playCoin();
+      if (typeof AudioManager !== 'undefined' && AudioManager.playCoinPickup) {
+        AudioManager.playCoinPickup();
       }
     }
     if (wasBoss) {
@@ -9166,21 +9175,15 @@
     // Power-up drop chance on enemy death
     PowerUps.maybeSpawn(enemy.x, enemy.y);
 
-    // Tech fragment drop chance on elite/boss death
+    // Tech fragment drop chance on elite/boss death — spawns a real orbiting
+    // pickup in the world instead of auto-collecting; the player must fly
+    // over it (collection + notification handled in the main update loop).
     if (window.techFragmentSystem && (wasElite || wasBoss)) {
       const isBoss = !!wasBoss;
       const isElite = !!wasElite;
       const fragment = window.techFragmentSystem.rollDrop(isBoss, isElite);
       if (fragment) {
-        const pickup = window.techFragmentSystem.spawnPickup(fragment, enemy.x, enemy.y);
-        // Immediately collect the pickup and show notification (auto-collect on drop)
-        pickup.collected = true;
-        window.techFragmentSystem.collect(fragment.id);
-        if (window.missionSystem) window.missionSystem.trackFragments(1);
-        const count = window.techFragmentSystem.getFragmentCount(fragment.id);
-        if (typeof Auth !== 'undefined' && Auth.showTechFragmentNotification) {
-          Auth.showTechFragmentNotification(count);
-        }
+        window.techFragmentSystem.spawnPickup(fragment, enemy.x, enemy.y);
       }
     }
 
@@ -10090,6 +10093,20 @@
     updateComboSystem(); // Phase 1: Update combo timer
     // Power-up pickup collection
     PowerUps.update(player.x, player.y, Date.now());
+    // Tech fragment pickup collection — orbiting drops from elite/boss kills
+    if (window.techFragmentSystem) {
+      const tfs = window.techFragmentSystem;
+      tfs.update(dt);
+      const collectedPickup = tfs.checkCollection(player.x, player.y, player.size);
+      if (collectedPickup) {
+        if (window.missionSystem) window.missionSystem.trackFragments(1);
+        if (typeof AudioManager !== 'undefined') AudioManager.playCoinPickup();
+        const count = tfs.getFragmentCount(collectedPickup.fragment.id);
+        if (typeof Auth !== 'undefined' && Auth.showTechFragmentNotification) {
+          Auth.showTechFragmentNotification(count);
+        }
+      }
+    }
     if (window.missionSystem && runStartTime > 0) {
       window.missionSystem.trackTime(Math.floor((now - runStartTime) / 1000));
     }
@@ -10808,6 +10825,31 @@
     drawParticles(ctx, 16.67);
     // Draw power-up orbs (in world space, before ctx.restore)
     PowerUps.draw(ctx);
+    // Draw orbiting tech fragment pickups
+    if (window.techFragmentSystem) {
+      for (const pickup of window.techFragmentSystem.active) {
+        const f = pickup.fragment;
+        const pulse = 0.75 + Math.sin(pickup.pulsePhase) * 0.25;
+        ctx.save();
+        ctx.translate(pickup.x, pickup.y);
+        ctx.rotate(pickup.angle);
+        ctx.globalAlpha = pulse;
+        ctx.shadowColor = f.glowColor || f.color;
+        ctx.shadowBlur = 18;
+        ctx.fillStyle = f.color;
+        ctx.beginPath();
+        ctx.moveTo(0, -pickup.size);
+        ctx.lineTo(pickup.size, 0);
+        ctx.lineTo(0, pickup.size);
+        ctx.lineTo(-pickup.size, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
     player.draw(ctx);
     // Draw Bulwark-7 shield wall arc
     drawShieldWall(ctx);
@@ -11073,8 +11115,9 @@
         ctx.save();
         ctx.globalAlpha = pulse;
         ctx.font = 'bold 13px Arial, sans-serif';
-        ctx.fillStyle = '#fbbf24';
-        ctx.shadowColor = '#f59e0b';
+        const bountyHudColor = aliveBounty.bountyColor || '#fbbf24';
+        ctx.fillStyle = bountyHudColor;
+        ctx.shadowColor = bountyHudColor;
         ctx.shadowBlur = 12;
         ctx.textAlign = 'right';
         ctx.textBaseline = 'top';
