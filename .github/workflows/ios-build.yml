@@ -145,7 +145,7 @@ jobs:
           xcodebuild \
             -project VoidRift.xcodeproj \
             -scheme VoidRift \
-            -destination 'platform=iOS Simulator,name=Any iOS Simulator Device' \
+            -destination 'generic/platform=iOS Simulator' \
             -configuration Debug \
             -clonedSourcePackagesDirPath .spm-cache \
             clean build \
