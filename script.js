@@ -842,6 +842,7 @@
   let supplies = [];
   let powerSurges = [];          // active Power Surge orbs on screen
   let medicOrbs = [];             // active Medic Orb pickups on screen
+  let ghostOrbs = [];             // active Ghost Orb pickups — grant 3s invincibility
   let surgeDamageMultiplier = 1; // current damage multiplier (1 = no boost)
   let surgeExpiry = 0;           // timestamp when current boost ends
   let spawners = [];
@@ -2207,6 +2208,7 @@
     supplies = [];
     powerSurges = [];
     medicOrbs = [];
+    ghostOrbs = [];
     surgeDamageMultiplier = 1;
     surgeExpiry = 0;
     spawners = [];
@@ -8987,6 +8989,10 @@
     if (enemy.kind !== 'shard' && player && player.health < (player.hpMax || 100) * 0.6 && chance(0.04)) {
       medicOrbs.push({ x: enemy.x, y: enemy.y, r: 9, created: performance.now(), life: 10000 });
     }
+    // Ghost Orb drop (3% chance from elite or WANTED enemies only — rare, high-value)
+    if ((wasElite || enemy.isWanted) && Math.random() < 0.03) {
+      ghostOrbs.push({ x: enemy.x, y: enemy.y, r: 10, created: performance.now(), life: 11000 });
+    }
 
     // Phase A.4: Enhanced death effects based on enemy type
     const deathColor = wasLeviathan ? '#FF2020' :
@@ -10290,6 +10296,25 @@
       }
     }
 
+    // Ghost Orbs
+    for (let i = ghostOrbs.length - 1; i >= 0; i--) {
+      const orb = ghostOrbs[i];
+      if (now - orb.created > orb.life) { ghostOrbs.splice(i, 1); continue; }
+      const dx = player.x - orb.x;
+      const dy = player.y - orb.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < 130) {
+        orb.x += (dx / (dist || 1)) * 1.3;
+        orb.y += (dy / (dist || 1)) * 1.3;
+      }
+      if (dist < player.size + orb.r) {
+        ghostOrbs.splice(i, 1);
+        player.invEnd = now + 3000;
+        addLogEntry('👻 GHOST ORB! 3s invincibility', '#67e8f9');
+        if (typeof AudioManager !== 'undefined') AudioManager.playCoinPickup();
+      }
+    }
+
     for (const obstacle of obstacles) obstacle.update(dt);
 
     // Update environmental hazards
@@ -10506,6 +10531,7 @@
     supplies = [];
     powerSurges = [];
     medicOrbs = [];
+    ghostOrbs = [];
     surgeDamageMultiplier = 1;
     surgeExpiry = 0;
     spawners = [];
@@ -10811,9 +10837,43 @@
       ctx.stroke();
       ctx.restore();
     }
+    // Draw Ghost Orbs
+    for (const orb of ghostOrbs) {
+      const _t = performance.now();
+      const pulse = 0.65 + 0.35 * Math.sin((_t / 220) + orb.created);
+      ctx.save();
+      ctx.globalAlpha = 0.88;
+      const grad = ctx.createRadialGradient(orb.x, orb.y, 0, orb.x, orb.y, orb.r * 2.4 * pulse);
+      grad.addColorStop(0, '#e0f7ff');
+      grad.addColorStop(0.4, '#67e8f9');
+      grad.addColorStop(0.75, '#0891b2');
+      grad.addColorStop(1, 'rgba(8,145,178,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(orb.x, orb.y, orb.r * 2.4 * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      // Draw ghost "G" shimmer ring
+      ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(orb.x, orb.y, orb.r * pulse, 0, Math.PI * 2);
+      ctx.stroke();
+      // Draw ghost symbol (simple spirit shape: arc top + flat bottom)
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.beginPath();
+      ctx.arc(orb.x, orb.y - 1, 4.5, Math.PI, 0, false);
+      ctx.lineTo(orb.x + 4.5, orb.y + 4);
+      ctx.lineTo(orb.x + 1.5, orb.y + 2.5);
+      ctx.lineTo(orb.x, orb.y + 4);
+      ctx.lineTo(orb.x - 1.5, orb.y + 2.5);
+      ctx.lineTo(orb.x - 4.5, orb.y + 4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
     for (const bullet of bullets) bullet.draw(ctx);
     for (const enemy of enemies) enemy.draw(ctx);
-    
+
     // Phase 1: Draw enemy health bars
     for (const enemy of enemies) {
       if (enemy.health < enemy.maxHealth) {
