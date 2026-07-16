@@ -139,14 +139,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-spm-
 
-      - name: Resolve Swift Package dependencies
-        working-directory: ios
-        run: |
-          xcodebuild -resolvePackageDependencies \
-            -project VoidRift.xcodeproj \
-            -scheme VoidRift \
-            -clonedSourcePackagesDirPath .spm-cache
-
       - name: Build iOS app (Debug)
         working-directory: ios
         run: |
@@ -269,14 +261,6 @@ jobs:
           key: ${{ runner.os }}-spm-${{ hashFiles('ios/VoidRift.xcodeproj/project.pbxproj') }}
           restore-keys: |
             ${{ runner.os }}-spm-
-
-      - name: Resolve Swift Package dependencies
-        working-directory: ios
-        run: |
-          xcodebuild -resolvePackageDependencies \
-            -project VoidRift.xcodeproj \
-            -scheme VoidRift \
-            -clonedSourcePackagesDirPath .spm-cache
 
       - name: Build iOS Archive
         working-directory: ios
