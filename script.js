@@ -495,6 +495,14 @@
     { id: 'pierce', name: 'Armor Piercing', desc: 'Projectiles pass through additional enemies.', cat: 'Special', base: 200, step: 100, max: 3 }
   ];
 
+  // Named Bounty Targets (MissionSystem.js BOUNTY_TARGETS) each define a flavorful
+  // stats block (speed/health/damage/size) meant to make them feel mechanically
+  // distinct — e.g. "The Crimson Ace" fast and fragile vs "Iron Warlord" slow and
+  // tanky. These baselines are the average of those 5 stat blocks, so a bounty's
+  // own numbers are applied as a multiplier relative to a "typical" bounty rather
+  // than as absolute overrides that would ignore normal wave-based scaling.
+  const BOUNTY_STAT_BASELINE = { speed: 1.28, health: 520, damage: 26, size: 24.6 };
+
   // Adaptive difficulty - scales challenge based on player power
   // Adaptive difficulty constants
   const ADAPTIVE_CONSTANTS = {
@@ -6804,6 +6812,19 @@
               last.bountyName = namedBounty.name;
               last.bountyColor = namedBounty.color;
               window.missionSystem.markBountySpawned(namedBounty.id);
+              // Apply the named bounty's flavor stats (relative to the baseline
+              // across all bounties) so each one plays differently on top of
+              // the generic 2.5x/1.3x bounty scaling above.
+              if (namedBounty.stats) {
+                const s = namedBounty.stats;
+                if (s.speed)  last.speed *= s.speed / BOUNTY_STAT_BASELINE.speed;
+                if (s.damage) last.baseDamage *= s.damage / BOUNTY_STAT_BASELINE.damage;
+                if (s.size)   last.size *= s.size / BOUNTY_STAT_BASELINE.size;
+                if (s.health) {
+                  last.health = Math.ceil(last.health * (s.health / BOUNTY_STAT_BASELINE.health));
+                  last.maxHealth = last.health;
+                }
+              }
             }
           }
         }
@@ -7707,7 +7728,7 @@
       ctx.fill();
       
       // Main fuselage body - ENHANCED: wider and more substantial with intense glow
-      ctx.fillStyle = primary;
+      ctx.fillStyle = createMetallicGradient(ctx, -size, 0, size, 0, primary);
       ctx.strokeStyle = trim;
       ctx.lineWidth = Math.max(2, size * 0.1);
       ctx.shadowColor = primary;
@@ -7960,7 +7981,7 @@
       ctx.stroke();
       
       // Main fuselage - long needle shape - ENHANCED: wider and more substantial
-      ctx.fillStyle = primary;
+      ctx.fillStyle = createMetallicGradient(ctx, -size, 0, size, 0, primary);
       ctx.strokeStyle = trim;
       ctx.lineWidth = Math.max(2, size * 0.08);
       ctx.shadowColor = primary;
@@ -8157,7 +8178,7 @@
       }
       
       // Central main fuselage (armored box) - ENHANCED: wider and more armored looking
-      ctx.fillStyle = primary;
+      ctx.fillStyle = createMetallicGradient(ctx, -size, 0, size, 0, primary);
       ctx.strokeStyle = trim;
       ctx.lineWidth = Math.max(2.5, size * 0.12);
       ctx.shadowColor = primary;
@@ -8394,7 +8415,7 @@
       ctx.stroke();
       
       // Angular main fuselage - ENHANCED: wider and more aggressive
-      ctx.fillStyle = primary;
+      ctx.fillStyle = createMetallicGradient(ctx, -size, 0, size, 0, primary);
       ctx.strokeStyle = trim;
       ctx.lineWidth = Math.max(2, size * 0.09);
       ctx.shadowColor = primary;
@@ -8539,7 +8560,7 @@
       ctx.fill();
       
       // Central body spine - ENHANCED: wider and more substantial
-      ctx.fillStyle = primary;
+      ctx.fillStyle = createMetallicGradient(ctx, -size, 0, size, 0, primary);
       ctx.strokeStyle = trim;
       ctx.lineWidth = Math.max(2, size * 0.08);
       ctx.shadowColor = primary;
@@ -8738,7 +8759,7 @@
       ctx.shadowBlur = 0;
       
       // Armored main hull - ENHANCED: wider and more tank-like
-      ctx.fillStyle = primary;
+      ctx.fillStyle = createMetallicGradient(ctx, -size, 0, size, 0, primary);
       ctx.strokeStyle = trim;
       ctx.lineWidth = Math.max(2.5, size * 0.12);
       ctx.shadowColor = primary;
@@ -8857,7 +8878,7 @@
 
     } else {
       // Fallback to spear shape (default)
-      ctx.fillStyle = primary;
+      ctx.fillStyle = createMetallicGradient(ctx, -size, 0, size, 0, primary);
       ctx.strokeStyle = trim;
       ctx.lineWidth = Math.max(2, size * 0.1);
       ctx.beginPath();
@@ -9944,6 +9965,24 @@
 
   const closeHangar = () => {
     dom.hangarModal.style.display = 'none';
+  };
+
+  // Open the full-featured Hangar overlay (Upgrades/Skins/Missions/Achievements/
+  // Leaderboard/Fragments/Stats/Settings) exposed by hangar-ui.js as window.openHangar.
+  // Named distinctly from the local openHangar() above (which only opens the
+  // simple ship-browser modal) so in-game entry points reach the real overlay
+  // instead of being silently shadowed by the local function of the same name.
+  const openPersistentHangar = () => {
+    if (typeof window.openHangar !== 'function') return;
+    window.openHangar({
+      getCredits: () => Save.data.credits,
+      spendCredits: (amount) => Save.spendCredits(amount),
+      getSelectedShip: () => Save.data.selectedShip || 'vanguard',
+      onSkinEquip: () => {
+        initShipSelection();
+        if (player) player.reconfigureLoadout(true);
+      }
+    });
   };
   // ─── POWER-UP DROPS ─────────────────────────────────────────────────────────
   const PowerUps = (() => {
@@ -12956,6 +12995,9 @@
     openHangar,
     toggleFullscreen,
     toggleFPS,
+    // The Hangar overlay's onSkinEquip bridge (index.html) calls this after a
+    // skin is equipped so the ship preview picks up the new colors right away.
+    initShipSelection,
     getGameState: () => ({
       gameRunning,
       paused,
@@ -13871,7 +13913,7 @@
     });
     document.getElementById('pauseHangarBtn')?.addEventListener('click', () => {
       hidePauseMenu();
-      openHangar();
+      openPersistentHangar();
     });
     document.getElementById('pauseLeaderboardBtn')?.addEventListener('click', () => {
       hidePauseMenu();
@@ -13894,7 +13936,7 @@
       closeGameOverScreen();
       dom.gameContainer.style.display = 'none';
       dom.startScreen.style.display = 'flex';
-      openHangar();
+      openPersistentHangar();
     });
     document.getElementById('gameOverLeaderboardBtn')?.addEventListener('click', () => {
       closeGameOverScreen();
@@ -13970,7 +14012,7 @@
     });
     dom.openHangarFromShop?.addEventListener('click', () => {
       closeShop();
-      openHangar();
+      openPersistentHangar();
     });
     dom.hangarClose?.addEventListener('click', closeHangar);
     dom.hangarModal?.addEventListener('click', (e) => {
@@ -14128,7 +14170,7 @@
     
     document.getElementById('menuHangarBtn')?.addEventListener('click', () => {
       closeUnifiedMenu();
-      openHangar();
+      openPersistentHangar();
     });
     
     document.getElementById('menuLeaderboardBtn')?.addEventListener('click', () => {
@@ -14238,7 +14280,7 @@
     });
     dom.openHangarFromShop?.addEventListener('click', () => {
       closeShop();
-      openHangar();
+      openPersistentHangar();
     });
     dom.hangarClose?.addEventListener('click', closeHangar);
     dom.hangarModal?.addEventListener('click', (e) => {
