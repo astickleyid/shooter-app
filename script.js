@@ -843,6 +843,8 @@
   let powerSurges = [];          // active Power Surge orbs on screen
   let medicOrbs = [];             // active Medic Orb pickups on screen
   let ghostOrbs = [];             // active Ghost Orb pickups — grant 3s invincibility
+  let freezeOrbs = [];           // active Freeze Orb pickups — slow all enemies 60% for 3s
+  let freezeExpiry = 0;          // timestamp when freeze effect ends
   let surgeDamageMultiplier = 1; // current damage multiplier (1 = no boost)
   let surgeExpiry = 0;           // timestamp when current boost ends
   let spawners = [];
@@ -2209,6 +2211,8 @@
     powerSurges = [];
     medicOrbs = [];
     ghostOrbs = [];
+    freezeOrbs = [];
+    freezeExpiry = 0;
     surgeDamageMultiplier = 1;
     surgeExpiry = 0;
     spawners = [];
@@ -8993,6 +8997,10 @@
     if ((wasElite || enemy.isWanted) && Math.random() < 0.03) {
       ghostOrbs.push({ x: enemy.x, y: enemy.y, r: 10, created: performance.now(), life: 11000 });
     }
+    // Freeze Orb drop (4% chance, not on shards — slows all enemies 60% for 3s)
+    if (enemy.kind !== 'shard' && Math.random() < 0.04) {
+      freezeOrbs.push({ x: enemy.x, y: enemy.y, r: 10, created: performance.now(), life: 12000 });
+    }
 
     // Phase A.4: Enhanced death effects based on enemy type
     const deathColor = wasLeviathan ? '#FF2020' :
@@ -10315,6 +10323,41 @@
       }
     }
 
+    // Freeze Orbs
+    for (let i = freezeOrbs.length - 1; i >= 0; i--) {
+      const orb = freezeOrbs[i];
+      if (now - orb.created > orb.life) { freezeOrbs.splice(i, 1); continue; }
+      const dx = player.x - orb.x;
+      const dy = player.y - orb.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist > 220) {
+        orb.x += (dx / (dist || 1)) * 1.1;
+        orb.y += (dy / (dist || 1)) * 1.1;
+      }
+      if (dist < player.size + orb.r) {
+        freezeOrbs.splice(i, 1);
+        // Slow all active enemies — store pre-freeze speed
+        for (const e of enemies) {
+          if (!e._preFreezeSpeed) e._preFreezeSpeed = e.speed;
+          e.speed = (e._preFreezeSpeed) * 0.4;
+        }
+        freezeExpiry = now + 3000;
+        addLogEntry('❄️ FREEZE ORB! Enemies slowed 3s', '#93c5fd');
+        if (typeof AudioManager !== 'undefined') AudioManager.playCoinPickup();
+      }
+    }
+    // Expire freeze
+    if (freezeExpiry > 0 && now >= freezeExpiry) {
+      for (const e of enemies) {
+        if (e._preFreezeSpeed !== undefined) {
+          e.speed = e._preFreezeSpeed;
+          delete e._preFreezeSpeed;
+        }
+      }
+      freezeExpiry = 0;
+      addLogEntry('Freeze ended', '#6b7280');
+    }
+
     for (const obstacle of obstacles) obstacle.update(dt);
 
     // Update environmental hazards
@@ -10532,6 +10575,8 @@
     powerSurges = [];
     medicOrbs = [];
     ghostOrbs = [];
+    freezeOrbs = [];
+    freezeExpiry = 0;
     surgeDamageMultiplier = 1;
     surgeExpiry = 0;
     spawners = [];
@@ -10869,6 +10914,52 @@
       ctx.lineTo(orb.x - 4.5, orb.y + 4);
       ctx.closePath();
       ctx.fill();
+      ctx.restore();
+    }
+    // Draw Freeze Orbs
+    for (const orb of freezeOrbs) {
+      const _t = performance.now();
+      const pulse = 0.7 + 0.3 * Math.sin((_t / 280) + orb.created);
+      ctx.save();
+      ctx.globalAlpha = 0.92;
+      const grad = ctx.createRadialGradient(orb.x, orb.y, 0, orb.x, orb.y, orb.r * 2.2 * pulse);
+      grad.addColorStop(0, '#e0f2fe');
+      grad.addColorStop(0.4, '#38bdf8');
+      grad.addColorStop(0.75, '#0284c7');
+      grad.addColorStop(1, 'rgba(2,132,199,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(orb.x, orb.y, orb.r * 2.2 * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      // Outer ring
+      ctx.strokeStyle = 'rgba(186,230,253,0.8)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(orb.x, orb.y, orb.r * pulse, 0, Math.PI * 2);
+      ctx.stroke();
+      // Snowflake — 6 spokes from center
+      ctx.strokeStyle = 'rgba(255,255,255,0.92)';
+      ctx.lineWidth = 1.5;
+      ctx.lineCap = 'round';
+      for (let a = 0; a < 6; a++) {
+        const angle = (a * Math.PI) / 3;
+        ctx.beginPath();
+        ctx.moveTo(orb.x, orb.y);
+        ctx.lineTo(orb.x + Math.cos(angle) * 5, orb.y + Math.sin(angle) * 5);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+    // Freeze active overlay — blue tint vignette on screen edges
+    if (freezeExpiry > 0) {
+      const remaining = (freezeExpiry - performance.now()) / 3000;
+      const alpha = Math.max(0, remaining * 0.18);
+      const vg = ctx.createRadialGradient(canvas.width / 2, canvas.height / 2, canvas.height * 0.3, canvas.width / 2, canvas.height / 2, canvas.height * 0.85);
+      vg.addColorStop(0, 'rgba(56,189,248,0)');
+      vg.addColorStop(1, `rgba(56,189,248,${alpha.toFixed(3)})`);
+      ctx.save();
+      ctx.fillStyle = vg;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.restore();
     }
     for (const bullet of bullets) bullet.draw(ctx);
