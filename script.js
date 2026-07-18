@@ -847,6 +847,9 @@
   let freezeExpiry = 0;          // timestamp when freeze effect ends
   let surgeDamageMultiplier = 1; // current damage multiplier (1 = no boost)
   let surgeExpiry = 0;           // timestamp when current boost ends
+  let timeWarpExpiry = 0;        // timestamp when Temporal Rift's enemy slow ends
+  let overchargeBoostMultiplier = 1; // current weapon damage multiplier from Overcharge Matrix
+  let overchargeBoostExpiry = 0;     // timestamp when the Overcharge boost ends
   let spawners = [];
   let starsFar = null;
   let starsMid = null;
@@ -1358,6 +1361,7 @@
   let comboTimer = 0;
   const COMBO_TIMEOUT = 2500; // ms - time between kills to maintain combo
   let totalKillsThisRun = 0;
+  let eliteKillsThisRun = 0;
 
   // Kill Combo Multiplier System
   let killComboMultiplier = 1;       // Current score multiplier (1–5)
@@ -2215,6 +2219,9 @@
     freezeExpiry = 0;
     surgeDamageMultiplier = 1;
     surgeExpiry = 0;
+    timeWarpExpiry = 0;
+    overchargeBoostMultiplier = 1;
+    overchargeBoostExpiry = 0;
     spawners = [];
     particles = [];
     obstacles = [];
@@ -2283,6 +2290,7 @@
     comboCount = 0;
     comboTimer = 0;
     totalKillsThisRun = 0;
+    eliteKillsThisRun = 0;
     lastKillStreakNotification = 0;
     runShotsFired = 0;
     runShotsHit = 0;
@@ -7307,7 +7315,7 @@
         const speed = BASE.BULLET_SPEED * (weaponStats.bulletSpeed || 1) * perkMultipliers.bulletSpeed;
         const size = BASE.BULLET_SIZE * (weaponStats.bulletSize || 1);
         const pierce = (weaponStats.pierce || 0) + perkMultipliers.piercePlus;
-        const dmg = stats.dmg * perkMultipliers.damage * surgeDamageMultiplier;
+        const dmg = stats.dmg * perkMultipliers.damage * surgeDamageMultiplier * overchargeBoostMultiplier;
         bullets.push(new Bullet(sx, sy, vel, dmg, color, speed, size, pierce));
         runShotsFired++;
         waveShotsFired++;
@@ -7451,6 +7459,23 @@
         const length = stats.beamLength || 520;
         const width = stats.width || 90;
         applyBeamDamage(this.x, this.y, this.lookAngle, length, width, stats.damage || 220);
+      } else if (this.ultimate.id === 'timewarp') {
+        const slowFactor = stats.slowFactor ?? 0.3;
+        for (const e of enemies) {
+          if (e._preTimeWarpSpeed === undefined) e._preTimeWarpSpeed = e.speed;
+          e.speed = e._preTimeWarpSpeed * slowFactor;
+        }
+        timeWarpExpiry = now + (stats.duration || 5000);
+        addLogEntry('⏳ TEMPORAL RIFT! Enemies slowed', '#c084fc');
+      } else if (this.ultimate.id === 'supernova') {
+        applyRadialDamage(this.x, this.y, stats.radius || 400, stats.damage || 350, { pull: stats.pull || 0.6, knockback: 8, chargeMult: 0 });
+        const selfDamage = (stats.selfDamage || 0) * this.hpMax;
+        if (selfDamage > 0) {
+          this.health = clamp(this.health - selfDamage, 1, this.hpMax);
+          this.flash = true;
+          spawnDamageNumber(this.x, this.y - this.size, selfDamage, true);
+          addLogEntry(`☄️ Supernova overload! -${Math.round(selfDamage)} HP`, '#fb923c');
+        }
       } else {
         applyRadialDamage(this.x, this.y, stats.radius || 220, stats.damage || 160, { pull: stats.pull || 0.6, knockback: 8, chargeMult: 0 });
       }
@@ -7511,6 +7536,12 @@
         
         if ((this.defenseStats.reflect || 0) > 0 && mitigated > 0) {
           applyRadialDamage(this.x, this.y, this.size * 4, mitigated * (this.defenseStats.reflect || 0.25), { knockback: 2, chargeMult: 0.2 });
+        }
+        // Overcharge Matrix: converts absorbed damage into a temporary weapon power boost
+        if (this.defense?.id === 'overcharge' && mitigated > 0 && (this.defenseStats.damageBoost || 0) > 0) {
+          overchargeBoostMultiplier = 1 + this.defenseStats.damageBoost;
+          overchargeBoostExpiry = now + 3000;
+          addLogEntry('⚡ Overcharged! Weapon power boosted', '#eab308');
         }
       }
       if (amount <= 0) return;
@@ -9139,6 +9170,7 @@
 
     enemiesKilled++;
     waveKillCount++;
+    if (wasElite || enemy.type === 'elite') eliteKillsThisRun++;
     if (window.missionSystem) {
       const isBoss = !!enemy.isBoss;
       const isElite = !!(enemy.isElite || enemy.type === 'elite');
@@ -10357,6 +10389,22 @@
       freezeExpiry = 0;
       addLogEntry('Freeze ended', '#6b7280');
     }
+    // Expire Temporal Rift time-slow
+    if (timeWarpExpiry > 0 && now >= timeWarpExpiry) {
+      for (const e of enemies) {
+        if (e._preTimeWarpSpeed !== undefined) {
+          e.speed = e._preTimeWarpSpeed;
+          delete e._preTimeWarpSpeed;
+        }
+      }
+      timeWarpExpiry = 0;
+      addLogEntry('Temporal Rift ended', '#6b7280');
+    }
+    // Expire Overcharge Matrix weapon boost
+    if (overchargeBoostMultiplier > 1 && now > overchargeBoostExpiry) {
+      overchargeBoostMultiplier = 1;
+      addLogEntry('Overcharge faded', '#6b7280');
+    }
 
     for (const obstacle of obstacles) obstacle.update(dt);
 
@@ -10579,6 +10627,9 @@
     freezeExpiry = 0;
     surgeDamageMultiplier = 1;
     surgeExpiry = 0;
+    timeWarpExpiry = 0;
+    overchargeBoostMultiplier = 1;
+    overchargeBoostExpiry = 0;
     spawners = [];
     particles = [];
     bossActive = false;
@@ -11111,6 +11162,22 @@
       ctx.fillStyle = '#e879f9';
       ctx.font = 'bold 10px Arial';
       ctx.fillText('⚡ SURGE', 16, canvas.height - 62);
+      ctx.restore();
+    }
+
+    // ── Overcharge Matrix HUD indicator ──────────────────────────────────────
+    if (overchargeBoostMultiplier > 1 && now < overchargeBoostExpiry) {
+      const remaining = (overchargeBoostExpiry - now) / 3000;
+      ctx.save();
+      ctx.globalAlpha = 0.9;
+      ctx.fillStyle = '#eab308';
+      ctx.fillRect(16, canvas.height - 76, 120 * remaining, 6);
+      ctx.strokeStyle = '#a16207';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(16, canvas.height - 76, 120, 6);
+      ctx.fillStyle = '#fde047';
+      ctx.font = 'bold 10px Arial';
+      ctx.fillText('⚡ OVERCHARGE', 16, canvas.height - 82);
       ctx.restore();
     }
 
@@ -12361,12 +12428,11 @@
     LocalLeaderboard.save(score);
     
     // Update game stats for achievements
-    // Note: Elite enemy tracking to be implemented in future update
     Auth.updateGameStats({
       kills: totalKillsThisRun,
       bossKills: bossActive ? 0 : (bossEntity ? 1 : 0),
       leviathanKills: leviathanKilledThisRun,
-      eliteKills: 0,
+      eliteKills: eliteKillsThisRun,
       playTime: performance.now() - (waveStartTime || performance.now()),
       flawlessLevel: !tookDamageThisLevel
     });
