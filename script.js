@@ -844,6 +844,9 @@
   let medicOrbs = [];             // active Medic Orb pickups on screen
   let ghostOrbs = [];             // active Ghost Orb pickups — grant 3s invincibility
   let freezeOrbs = [];           // active Freeze Orb pickups — slow all enemies 60% for 3s
+  let lightningOrbs = [];        // active Lightning Orb pickups — chain lightning to up to 3 enemies
+  let lightningArcs = [];        // transient arc visuals [ {pts:[{x,y},...], expiry} ]
+  let lightningFlashEnd = 0;     // timestamp when electric screen flash fades out
   let freezeExpiry = 0;          // timestamp when freeze effect ends
   let surgeDamageMultiplier = 1; // current damage multiplier (1 = no boost)
   let surgeExpiry = 0;           // timestamp when current boost ends
@@ -9001,6 +9004,10 @@
     if (enemy.kind !== 'shard' && Math.random() < 0.04) {
       freezeOrbs.push({ x: enemy.x, y: enemy.y, r: 10, created: performance.now(), life: 12000 });
     }
+    // Lightning Orb drop (3.5% chance, not on shards — chain lightning to up to 3 enemies)
+    if (enemy.kind !== 'shard' && Math.random() < 0.035) {
+      lightningOrbs.push({ x: enemy.x, y: enemy.y, r: 10, created: performance.now(), life: 7000 });
+    }
 
     // Phase A.4: Enhanced death effects based on enemy type
     const deathColor = wasLeviathan ? '#FF2020' :
@@ -10358,6 +10365,70 @@
       addLogEntry('Freeze ended', '#6b7280');
     }
 
+    // Lightning Orbs
+    for (let i = lightningOrbs.length - 1; i >= 0; i--) {
+      const orb = lightningOrbs[i];
+      if (now - orb.created > orb.life) { lightningOrbs.splice(i, 1); continue; }
+      const dx = player.x - orb.x;
+      const dy = player.y - orb.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < 150) {
+        orb.x += (dx / (dist || 1)) * 1.2;
+        orb.y += (dy / (dist || 1)) * 1.2;
+      }
+      if (dist < player.size + orb.r) {
+        lightningOrbs.splice(i, 1);
+        // Chain lightning: sort live enemies by distance from player
+        const sorted = enemies
+          .map((e, idx) => ({ e, idx, d: Math.hypot(e.x - player.x, e.y - player.y) }))
+          .sort((a, b) => a.d - b.d);
+        const arcPts = [{ x: player.x, y: player.y }];
+        let hitCount = 0;
+        let lastX = player.x, lastY = player.y;
+        // Hit primary target (45 dmg)
+        if (sorted.length > 0) {
+          const primary = sorted[0];
+          const prev = primary.e.health;
+          primary.e.health -= 45;
+          primary.e.hitFlash = 200;
+          spawnDamageNumber(primary.e.x, primary.e.y, Math.min(prev, 45), false);
+          addParticles('sparks', primary.e.x, primary.e.y, 0, 14);
+          arcPts.push({ x: primary.e.x, y: primary.e.y });
+          if (primary.e.health <= 0) handleEnemyDeath(primary.idx, 0);
+          lastX = primary.e.x; lastY = primary.e.y;
+          hitCount++;
+          // Chain to up to 2 more within 180px of the primary hit
+          let chainCount = 0;
+          for (let j = 1; j < sorted.length && chainCount < 2; j++) {
+            const chain = sorted[j];
+            const chainDist = Math.hypot(chain.e.x - lastX, chain.e.y - lastY);
+            if (chainDist > 180) continue;
+            const prev2 = chain.e.health;
+            chain.e.health -= 22;
+            chain.e.hitFlash = 160;
+            spawnDamageNumber(chain.e.x, chain.e.y, Math.min(prev2, 22), false);
+            addParticles('sparks', chain.e.x, chain.e.y, 0, 8);
+            arcPts.push({ x: chain.e.x, y: chain.e.y });
+            // Re-find index in case array shifted from prior handleEnemyDeath
+            const liveIdx = enemies.indexOf(chain.e);
+            if (chain.e.health <= 0 && liveIdx >= 0) handleEnemyDeath(liveIdx, 0);
+            lastX = chain.e.x; lastY = chain.e.y;
+            chainCount++;
+          }
+        }
+        // Store arc for rendering
+        if (arcPts.length > 1) {
+          lightningArcs.push({ pts: arcPts, expiry: now + 350 });
+        }
+        // Electric screen flash
+        lightningFlashEnd = now + 120;
+        addLogEntry('⚡ CHAIN LIGHTNING', '#facc15');
+        if (typeof AudioManager !== 'undefined') AudioManager.playCoinPickup();
+      }
+    }
+    // Expire lightning arcs
+    lightningArcs = lightningArcs.filter(a => now < a.expiry);
+
     for (const obstacle of obstacles) obstacle.update(dt);
 
     // Update environmental hazards
@@ -10950,6 +11021,81 @@
       }
       ctx.restore();
     }
+    // Draw Lightning Orbs
+    for (const orb of lightningOrbs) {
+      const _t = performance.now();
+      const pulse = 0.65 + 0.35 * Math.sin((_t / 200) + orb.created);
+      ctx.save();
+      ctx.globalAlpha = 0.93;
+      const grad = ctx.createRadialGradient(orb.x, orb.y, 0, orb.x, orb.y, orb.r * 2.3 * pulse);
+      grad.addColorStop(0, '#ffffff');
+      grad.addColorStop(0.35, '#facc15');
+      grad.addColorStop(0.7, '#ca8a04');
+      grad.addColorStop(1, 'rgba(250,204,21,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(orb.x, orb.y, orb.r * 2.3 * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      // Outer ring
+      ctx.strokeStyle = 'rgba(255,255,180,0.75)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(orb.x, orb.y, orb.r * pulse, 0, Math.PI * 2);
+      ctx.stroke();
+      // Lightning bolt glyph — Z-shape (top-center → mid-right → mid-left → bottom-center)
+      ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(orb.x,     orb.y - 5.5);   // top center
+      ctx.lineTo(orb.x + 3, orb.y - 0.5);   // mid right
+      ctx.lineTo(orb.x - 3, orb.y + 0.5);   // mid left
+      ctx.lineTo(orb.x,     orb.y + 5.5);   // bottom center
+      ctx.stroke();
+      ctx.restore();
+    }
+    // Draw lightning arcs (chain lightning visual)
+    const _nowArc = performance.now();
+    for (const arc of lightningArcs) {
+      const frac = 1 - (_nowArc - (_nowArc - (arc.expiry - _nowArc))) / 350;
+      const alpha = Math.max(0, (arc.expiry - _nowArc) / 350);
+      ctx.save();
+      ctx.globalAlpha = alpha * 0.85;
+      ctx.strokeStyle = '#facc15';
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = 'round';
+      ctx.shadowColor = '#ffffff';
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.moveTo(arc.pts[0].x, arc.pts[0].y);
+      for (let p = 1; p < arc.pts.length; p++) {
+        ctx.lineTo(arc.pts[p].x, arc.pts[p].y);
+      }
+      ctx.stroke();
+      // White inner arc for glow
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+      ctx.lineWidth = 1;
+      ctx.shadowBlur = 0;
+      ctx.beginPath();
+      ctx.moveTo(arc.pts[0].x, arc.pts[0].y);
+      for (let p = 1; p < arc.pts.length; p++) {
+        ctx.lineTo(arc.pts[p].x, arc.pts[p].y);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+    // Electric screen flash
+    if (lightningFlashEnd > 0 && _nowArc < lightningFlashEnd) {
+      const flashFrac = (_nowArc - (lightningFlashEnd - 120)) / 120;
+      const flashAlpha = 0.15 * (1 - Math.min(1, flashFrac));
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, flashAlpha);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.restore();
+    }
+
     // Freeze active overlay — blue tint vignette on screen edges
     if (freezeExpiry > 0) {
       const remaining = (freezeExpiry - performance.now()) / 3000;
