@@ -1143,6 +1143,25 @@ const HANGAR_UI_CSS = `
   .hangar-mission-claim-btn.claimed-label { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.3); cursor: default; }
   .hangar-missions-empty { padding: 40px 16px; text-align: center; color: rgba(255,255,255,0.25); font-size: 12px; }
 
+  /* ── Active Bounties (in Missions tab) ─────────────────────── */
+  .hangar-bounties-header { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(255,255,255,0.35); margin: 18px 0 10px; }
+  .hangar-bounty-card {
+    border-radius: 10px; padding: 12px 16px;
+    border: 1px solid var(--bounty-color, rgba(251,191,36,0.3));
+    background: rgba(255,255,255,0.03);
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    margin-bottom: 8px;
+  }
+  .hangar-bounty-name { font-size: 12px; font-weight: 700; color: var(--bounty-color, #fbbf24); letter-spacing: -0.01em; }
+  .hangar-bounty-desc { font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 2px; line-height: 1.4; }
+  .hangar-bounty-difficulty { font-size: 9px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: rgba(255,255,255,0.45); margin-top: 4px; }
+  .hangar-bounty-reward {
+    flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
+    font-size: 11px; font-family: 'Orbitron', monospace; font-weight: 700;
+    color: #fbbf24; white-space: nowrap;
+  }
+  .hangar-bounty-reward .frag-tag { font-size: 9px; color: #c084fc; }
+
   /* ── Fragments tab ─────────────────────────────────────────── */
   .hangar-fragments { padding: 16px; }
   .hangar-fragments-header { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(255,255,255,0.35); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
@@ -2538,11 +2557,41 @@ function renderMissionsView() {
   `;
   wrapper.appendChild(hdr);
 
+  // Active named Bounty Targets — preview today's WANTED enemies before running into one.
+  // Rendered regardless of daily-mission state, appended after the mission list below.
+  const bounties = ms ? ms.getActiveBounties() : [];
+  const appendBounties = () => {
+    if (bounties.length === 0) return;
+    const bountiesHdr = document.createElement('div');
+    bountiesHdr.className = 'hangar-bounties-header';
+    bountiesHdr.textContent = 'Active Bounties';
+    wrapper.appendChild(bountiesHdr);
+
+    bounties.forEach(bounty => {
+      const card = document.createElement('div');
+      card.className = 'hangar-bounty-card';
+      card.style.setProperty('--bounty-color', bounty.color || '#fbbf24');
+      card.innerHTML = `
+        <div>
+          <div class="hangar-bounty-name">⚠ ${bounty.name}</div>
+          <div class="hangar-bounty-desc">${bounty.desc}</div>
+          <div class="hangar-bounty-difficulty">${(bounty.difficulty || '').replace('_', ' ')}</div>
+        </div>
+        <div class="hangar-bounty-reward">
+          ⚡ ${bounty.reward} CR
+          ${bounty.techFragment ? '<span class="frag-tag">+ Fragment</span>' : ''}
+        </div>
+      `;
+      wrapper.appendChild(card);
+    });
+  };
+
   if (!ms || missions.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'hangar-missions-empty';
     empty.innerHTML = `<div style="font-size:28px;margin-bottom:8px">📋</div>No missions loaded yet.<br>Start a game to generate daily missions.`;
     wrapper.appendChild(empty);
+    appendBounties();
     content.appendChild(wrapper);
     return;
   }
@@ -2592,6 +2641,7 @@ function renderMissionsView() {
     wrapper.appendChild(card);
   });
 
+  appendBounties();
   content.appendChild(wrapper);
 
   // Wire claim buttons
@@ -2615,6 +2665,19 @@ function renderMissionsView() {
         // Update credit badge
         const badge = document.getElementById('hangar-credits-amount');
         if (badge) badge.textContent = getLiveCredits().toLocaleString();
+      }
+
+      // Grant the mission's promised bonus tech fragment, if any — previously
+      // reward.techFragment was computed but never actually collected.
+      if (reward.techFragment && window.techFragmentSystem) {
+        const tfs = window.techFragmentSystem;
+        const fragment = tfs.rollDrop(true, false) || (window.TECH_FRAGMENTS || [])[0];
+        if (fragment) {
+          tfs.collect(fragment.id);
+          if (window.missionSystem) window.missionSystem.trackFragments(1);
+          const style = RARITY_STYLES[fragment.rarity] || {};
+          showAchievementToast({ icon: style.emoji || '💎', name: fragment.name, desc: 'Mission reward fragment collected!' });
+        }
       }
 
       // Re-render to show claimed state
@@ -3047,6 +3110,8 @@ function renderStatsView() {
     { label: 'DAILIES DONE',   value: achStats.dailyChallengesCompleted || 0,                 icon: '📅' },
     { label: 'UPGRADES MAXED', value: `${achStats.maxedHangarUpgrades || 0}`,                icon: '🔧' },
     { label: 'CREDITS BANKED', value: (saveData.credits || 0).toLocaleString(),               icon: '💰' },
+    { label: 'MISSIONS DONE',  value: window.missionSystem ? window.missionSystem.getTotalMissionsCompleted() : 0, icon: '📋' },
+    { label: 'BOUNTIES CLAIMED', value: window.missionSystem ? window.missionSystem.getTotalBountiesCompleted() : 0, icon: '⚠️' },
   ];
 
   const wrapper = document.createElement('div');
