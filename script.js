@@ -887,6 +887,7 @@
   let pilotLevel = 1;
   let pilotXP = 0;
   let tookDamageThisLevel = false;
+  let lastCloseCallAt = 0;
   let gameOverHandled = false;
   let continueUsed = false;
   let runShotsFired = 0;
@@ -1354,6 +1355,45 @@
       setTimeout(() => el.remove(), 400);
     }, 2200);
   };
+  // Close Call bonus — brief flash when an enemy bullet grazes the player without hitting
+  const CLOSE_CALL_MARGIN = 16;    // px beyond the hit radius that counts as a graze
+  const CLOSE_CALL_COOLDOWN = 600; // ms between rewards, so a bullet stream can't spam it
+  const CLOSE_CALL_CREDITS = 2;
+  const CLOSE_CALL_SCORE = 15;
+
+  const showCloseCallFlash = () => {
+    const existing = document.getElementById('closeCallBanner');
+    if (existing) existing.remove();
+
+    const el = document.createElement('div');
+    el.id = 'closeCallBanner';
+    el.style.cssText = [
+      'position:fixed',
+      'top:16%',
+      'left:50%',
+      'transform:translate(-50%,-50%)',
+      'color:#38bdf8',
+      'font-size:15px',
+      'font-weight:700',
+      'letter-spacing:.08em',
+      'text-transform:uppercase',
+      'text-shadow:0 0 10px rgba(56,189,248,.8)',
+      'pointer-events:none',
+      'z-index:998',
+      'opacity:1',
+      'transition:opacity 0.5s, transform 0.5s',
+    ].join(';');
+    el.textContent = `⚡ CLOSE CALL! +${CLOSE_CALL_SCORE}`;
+    document.body.appendChild(el);
+
+    requestAnimationFrame(() => {
+      el.style.transform = 'translate(-50%,-70%)';
+    });
+    setTimeout(() => {
+      el.style.opacity = '0';
+      setTimeout(() => el.remove(), 500);
+    }, 500);
+  };
   // ── END PERK SYSTEM ───────────────────────────────────────────────────────
 
   // Phase 1: Combo & Kill Streak System
@@ -1361,6 +1401,7 @@
   let comboTimer = 0;
   const COMBO_TIMEOUT = 2500; // ms - time between kills to maintain combo
   let totalKillsThisRun = 0;
+  let peakComboThisRun = 0;
 
   // Kill Combo Multiplier System
   let killComboMultiplier = 1;       // Current score multiplier (1–5)
@@ -1640,6 +1681,9 @@
       this.save();
     }
   };
+  // Expose on window: the start-screen Hangar entry point (index.html) bridges
+  // credits/ship-selection/loadout callbacks through window.Save.
+  window.Save = Save;
 
   // Expose Save globally so hangar-ui.js can persist armory selections
   window.Save = Save;
@@ -2244,6 +2288,7 @@
     pilotLevel = Save.data.pilotLevel;
     pilotXP = Save.data.pilotXp;
     tookDamageThisLevel = false;
+    lastCloseCallAt = 0;
     gameOverHandled = false;
     continueUsed = false;
     if (window.missionSystem) { window.missionSystem.startRun(); updateMissionHUD(); }
@@ -2286,6 +2331,7 @@
     comboCount = 0;
     comboTimer = 0;
     totalKillsThisRun = 0;
+    peakComboThisRun = 0;
     lastKillStreakNotification = 0;
     runShotsFired = 0;
     runShotsHit = 0;
@@ -2384,9 +2430,16 @@
     }
   };
 
+  const getShakeIntensity = () => {
+    const stored = parseInt(localStorage.getItem('voidrift_screen_shake'), 10);
+    return (Number.isFinite(stored) ? stored : 100) / 100;
+  };
+
   const shakeScreen = (power = 4, duration = 120) => {
+    const scaledPower = power * getShakeIntensity();
+    if (scaledPower <= 0) return;
     shakeUntil = Math.max(shakeUntil, performance.now() + duration);
-    shakePower = power;
+    shakePower = scaledPower;
   };
 
   // ── Special Ability: fire the Q-key ability for the current ship ───────────
@@ -2492,6 +2545,7 @@
     comboCount++;
     comboTimer = now + COMBO_TIMEOUT;
     totalKillsThisRun++;
+    peakComboThisRun = Math.max(peakComboThisRun, comboCount);
     
     // Check for kill streak milestones
     for (const milestone of KILL_STREAK_MILESTONES) {
@@ -6505,8 +6559,9 @@
       const nx = movementX + ax;
       const ny = movementY + ay;
       const nm = Math.hypot(nx, ny) || 1;
-      this.x += (nx / nm) * this.speed * (dt / 16.67);
-      this.y += (ny / nm) * this.speed * (dt / 16.67);
+      const slowMoMult = PowerUps.enemySpeedMultiplier(Date.now());
+      this.x += (nx / nm) * this.speed * slowMoMult * (dt / 16.67);
+      this.y += (ny / nm) * this.speed * slowMoMult * (dt / 16.67);
       // Snipers lock rotation to aim angle during telegraph; otherwise face player
       if (this.kind === 'sniper' && (this.sniperPhase === 'aiming' || this.sniperPhase === 'cooldown')) {
         this.rot = this.sniperAimAngle;
@@ -9448,7 +9503,20 @@
     // Also update radial menu icons if it exists
     updateRadialMenuIcons();
   };
-  
+
+  // Open the Hangar overlay wired to the live save, so its Loadout tab can
+  // read/write the same equipment class the in-game pause menu configures.
+  const openHangarOverlay = () => {
+    openHangar({
+      getLoadout: () => Save.data.armory.equipmentClass || defaultArmory().equipmentClass,
+      setLoadout: (equipClass) => {
+        Save.data.armory.equipmentClass = equipClass;
+        Save.save();
+        updateEquipmentIndicator();
+      }
+    });
+  };
+
   // Update radial menu icons to match equipment loadout
   const updateRadialMenuIcons = () => {
     const radialMenu = document.getElementById('radialMenu');
@@ -9966,8 +10034,11 @@
       SHIELD: { color: '#22c55e', label: 'SHIELD +30', duration: 0, radius: 10 },
       RAPID:  { color: '#06b6d4', label: 'RAPID FIRE', duration: 8000, radius: 10 },
       NUKE:   { color: '#f97316', label: 'NUKE',       duration: 0, radius: 10 },
-      OVERDRIVE: { color: '#eab308', label: '2X SCORE', duration: 10000, radius: 10 },
+      OVERDRIVE: { color: '#a3e635', label: '2X SCORE', duration: 10000, radius: 10 },
+      MAGNET: { color: '#eab308', label: 'MAGNET',     duration: 10000, radius: 10 },
+      SLOWMO: { color: '#a855f7', label: 'SLOW-MO',    duration: 6000, radius: 10 },
     };
+    const SLOWMO_SPEED_MULT = 0.45;
     const TYPE_KEYS = Object.keys(TYPES);
     let active = [];       // live pickups on the ground
     let effects = [];      // active timed effects {type, endsAt}
@@ -10007,6 +10078,12 @@
       } else if (type === 'OVERDRIVE') {
         effects = effects.filter(e => e.type !== 'OVERDRIVE');
         effects.push({ type: 'OVERDRIVE', endsAt: now + 10000 });
+      } else if (type === 'MAGNET') {
+        effects = effects.filter(e => e.type !== 'MAGNET');
+        effects.push({ type: 'MAGNET', endsAt: now + TYPES.MAGNET.duration });
+      } else if (type === 'SLOWMO') {
+        effects = effects.filter(e => e.type !== 'SLOWMO');
+        effects.push({ type: 'SLOWMO', endsAt: now + TYPES.SLOWMO.duration });
       }
     }
 
@@ -10030,6 +10107,14 @@
 
     function isOverdriveActive(now) {
       return effects.some(e => e.type === 'OVERDRIVE' && e.endsAt > now);
+    }
+
+    function isMagnetActive(now) {
+      return effects.some(e => e.type === 'MAGNET' && e.endsAt > now);
+    }
+
+    function enemySpeedMultiplier(now) {
+      return effects.some(e => e.type === 'SLOWMO' && e.endsAt > now) ? SLOWMO_SPEED_MULT : 1;
     }
 
     function showPickupBanner(type) {
@@ -10067,29 +10152,28 @@
         ctx.fillText(p.type, p.x, p.y + 24);
         ctx.restore();
       });
-      // Rapid fire HUD indicator
-      const rapidEffect = effects.find(e => e.type === 'RAPID');
-      if (rapidEffect) {
-        const remaining = ((rapidEffect.endsAt - now) / 1000).toFixed(1);
+      // Timed-effect HUD indicators
+      const hudEffects = [
+        { type: 'RAPID',     icon: '⚡', color: '#06b6d4' },
+        { type: 'OVERDRIVE', icon: '★', color: '#a3e635' },
+        { type: 'MAGNET',    icon: '🧲', color: '#eab308' },
+        { type: 'SLOWMO',    icon: '🐢', color: '#a855f7' },
+      ];
+      let hudY = 110;
+      hudEffects.forEach(({ type, icon, color }) => {
+        const effect = effects.find(e => e.type === type);
+        if (!effect) return;
+        const remaining = ((effect.endsAt - now) / 1000).toFixed(1);
         ctx.save();
-        ctx.fillStyle = '#06b6d4'; ctx.font = 'bold 12px monospace';
+        ctx.fillStyle = color; ctx.font = 'bold 12px monospace';
         ctx.textAlign = 'left'; ctx.globalAlpha = 0.9;
-        ctx.fillText('⚡ RAPID ' + remaining + 's', 12, 110);
+        ctx.fillText(`${icon} ${TYPES[type].label} ${remaining}s`, 12, hudY);
         ctx.restore();
-      }
-      // Overdrive HUD indicator
-      const overdriveEffect = effects.find(e => e.type === 'OVERDRIVE');
-      if (overdriveEffect) {
-        const remaining = ((overdriveEffect.endsAt - now) / 1000).toFixed(1);
-        ctx.save();
-        ctx.fillStyle = '#eab308'; ctx.font = 'bold 12px monospace';
-        ctx.textAlign = 'left'; ctx.globalAlpha = 0.9;
-        ctx.fillText('★ 2X SCORE ' + remaining + 's', 12, rapidEffect ? 128 : 110);
-        ctx.restore();
-      }
+        hudY += 18;
+      });
     }
 
-    return { maybeSpawn, update, draw, isRapidActive, isOverdriveActive };
+    return { maybeSpawn, update, draw, isRapidActive, isOverdriveActive, isMagnetActive, enemySpeedMultiplier };
   })();
   // ─── END POWER-UP DROPS ─────────────────────────────────────────────────────
 
@@ -10220,7 +10304,8 @@
         coins.splice(i, 1);
         continue;
       }
-      const pickupRadius = player ? player.size + 80 : 120;
+      const magnetActive = PowerUps.isMagnetActive(now);
+      const pickupRadius = (player ? player.size + 80 : 120) * (magnetActive ? 6 : 1);
       const dx = player.x - coin.x;
       const dy = player.y - coin.y;
       const dist = Math.hypot(dx, dy);
@@ -10516,6 +10601,16 @@
         const adaptive = getAdaptiveScaling();
         const source = { shieldPenetration: adaptive.shieldPenetration * ADAPTIVE_CONSTANTS.BULLET_PENETRATION_FACTOR };
         player.takeDamage(bullet.damage, source);
+      } else if (
+        !bullet.nearMissCounted &&
+        dist < player.size + bullet.size + CLOSE_CALL_MARGIN &&
+        now - lastCloseCallAt > CLOSE_CALL_COOLDOWN
+      ) {
+        bullet.nearMissCounted = true;
+        lastCloseCallAt = now;
+        score += CLOSE_CALL_SCORE;
+        Save.addCredits(CLOSE_CALL_CREDITS);
+        showCloseCallFlash();
       }
     }
 
@@ -12516,7 +12611,18 @@
       playTime: performance.now() - (waveStartTime || performance.now()),
       flawlessLevel: !tookDamageThisLevel
     });
-    
+
+    // Feed the AchievementSystem lifetime totals so the Hangar's Achievements
+    // and Stats tabs (which read voidrift_achievements) actually update.
+    if (typeof window.updateAchievementStats === 'function') {
+      window.updateAchievementStats({
+        totalKills: Auth.playerProfile.totalKills,
+        maxWave: level,
+        bossKills: Auth.playerProfile.bossKills,
+        maxCombo: peakComboThisRun
+      });
+    }
+
     // Stop game and show game over screen
     gameRunning = false;
     paused = false;
@@ -12554,12 +12660,9 @@
         try {
           const completedCount = getTotalDailyChallengesCompleted();
           const streak = getDailyStreak();
-          import('./src/systems/AchievementSystem.js').then(({ updateStats }) => {
-            const newlyUnlocked = updateStats({ dailyChallengesCompleted: completedCount, dailyStreak: streak });
-            if (newlyUnlocked && newlyUnlocked.length > 0 && typeof showAchievementToast === 'function') {
-              newlyUnlocked.forEach(ach => showAchievementToast(ach));
-            }
-          }).catch(err => console.warn('[DailyChallenge] Achievement update failed:', err));
+          if (typeof window.updateAchievementStats === 'function') {
+            window.updateAchievementStats({ dailyChallengesCompleted: completedCount, dailyStreak: streak });
+          }
         } catch (e) {
           console.warn('[DailyChallenge] Achievement stats error:', e);
         }
@@ -14108,7 +14211,7 @@
     });
     document.getElementById('pauseHangarBtn')?.addEventListener('click', () => {
       hidePauseMenu();
-      openHangar();
+      openHangarOverlay();
     });
     document.getElementById('pauseLeaderboardBtn')?.addEventListener('click', () => {
       hidePauseMenu();
@@ -14131,7 +14234,7 @@
       closeGameOverScreen();
       dom.gameContainer.style.display = 'none';
       dom.startScreen.style.display = 'flex';
-      openHangar();
+      openHangarOverlay();
     });
     document.getElementById('gameOverLeaderboardBtn')?.addEventListener('click', () => {
       closeGameOverScreen();
@@ -14207,7 +14310,7 @@
     });
     dom.openHangarFromShop?.addEventListener('click', () => {
       closeShop();
-      openHangar();
+      openHangarOverlay();
     });
     dom.hangarClose?.addEventListener('click', closeHangar);
     dom.hangarModal?.addEventListener('click', (e) => {
@@ -14365,7 +14468,7 @@
     
     document.getElementById('menuHangarBtn')?.addEventListener('click', () => {
       closeUnifiedMenu();
-      openHangar();
+      openHangarOverlay();
     });
     
     document.getElementById('menuLeaderboardBtn')?.addEventListener('click', () => {
@@ -14475,7 +14578,7 @@
     });
     dom.openHangarFromShop?.addEventListener('click', () => {
       closeShop();
-      openHangar();
+      openHangarOverlay();
     });
     dom.hangarClose?.addEventListener('click', closeHangar);
     dom.hangarModal?.addEventListener('click', (e) => {
