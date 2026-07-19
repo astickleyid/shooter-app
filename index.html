@@ -774,6 +774,17 @@
           getSelectedShip: () => {
             return (window.Save && window.Save.data && window.Save.data.selectedShip) || 'vanguard';
           },
+          // Loadout tab reads/writes the same equipment class the in-game
+          // pause menu configures, so changes made here carry into the next run.
+          getLoadout: () => {
+            return (window.Save && window.Save.data && window.Save.data.armory && window.Save.data.armory.equipmentClass) || null;
+          },
+          setLoadout: (equipClass) => {
+            if (!window.Save || !window.Save.data) return;
+            if (!window.Save.data.armory) window.Save.data.armory = {};
+            window.Save.data.armory.equipmentClass = equipClass;
+            window.Save.save();
+          },
           // When a skin is equipped, re-init ship selection so colors update immediately
           onSkinEquip: (shipId, skinId, skin) => {
             if (window.__VOID_RIFT__ && typeof window.__VOID_RIFT__.initShipSelection === 'function') {
