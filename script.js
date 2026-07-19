@@ -689,6 +689,7 @@
   let bountySpawnedThisWave = false;
   let bountyKilledTotal = 0;
   let bossWaveAnnouncementStart = 0; // timestamp for BOSS WAVE! canvas overlay
+  let bossEnrageAnnouncementStart = 0; // timestamp for BOSS ENRAGED! canvas overlay
 
   /* ====== PLANETARY GAME MODE SYSTEM ====== */
   // Game modes - space (default twin-stick) and planetary (side-scrolling with gravity)
@@ -6480,6 +6481,18 @@
         if (!this.enraged && this.health <= this.maxHealth * 0.5) {
           this.enraged = true;
           this.speed *= 2.2; // surge of speed on enrage
+          bossEnrageAnnouncementStart = performance.now();
+          shakeScreen(8, 400);
+          addLogEntry('⚠ BOSS ENRAGED!', '#dc2626');
+          // 8-bullet radial burst on enrage
+          const burstDamage = this.baseDamage || 10;
+          const burstSpeed = BASE.BULLET_SPEED * 1.4;
+          for (let i = 0; i < 8; i++) {
+            const ang = (i / 8) * Math.PI * 2;
+            const vel = { x: Math.cos(ang), y: Math.sin(ang) };
+            bullets.push(new Bullet(this.x, this.y, vel, burstDamage, '#dc2626', burstSpeed, BASE.BULLET_SIZE * 1.4, 0, true));
+          }
+          addParticles('nova', this.x, this.y, 0, 16);
         }
         if (player) {
           if (this.enraged) {
@@ -11766,6 +11779,62 @@
       }
     }
     // ── END BOSS WAVE! announcement ───────────────────────────────────────────
+
+    // ── BOSS ENRAGED! canvas announcement ─────────────────────────────────────
+    if (bossEnrageAnnouncementStart > 0) {
+      const enrageDur = 2200; // 2.2 seconds
+      const enrageElapsed = performance.now() - bossEnrageAnnouncementStart;
+      if (enrageElapsed < enrageDur) {
+        ctx.save();
+        let enrageAlpha;
+        if (enrageElapsed < 200) {
+          enrageAlpha = enrageElapsed / 200;
+        } else if (enrageElapsed < 1800) {
+          enrageAlpha = 1;
+        } else {
+          enrageAlpha = 1 - ((enrageElapsed - 1800) / 400);
+        }
+        const cw = window.innerWidth;
+        const ch = window.innerHeight;
+        const cx = cw / 2;
+        const cy = ch / 2;
+        // Red overlay background
+        ctx.fillStyle = `rgba(220,38,38,${enrageAlpha * 0.40})`;
+        ctx.fillRect(0, 0, cw, ch);
+        // Red screen-edge vignette
+        const vignette = ctx.createRadialGradient(cx, cy, ch * 0.35, cx, cy, ch * 0.75);
+        vignette.addColorStop(0, `rgba(200,0,0,0)`);
+        vignette.addColorStop(1, `rgba(200,0,0,${enrageAlpha * 0.35})`);
+        ctx.fillStyle = vignette;
+        ctx.fillRect(0, 0, cw, ch);
+        // Main title
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const titleSize = Math.round(ch * 0.055);
+        ctx.font = `bold ${titleSize}px Arial, sans-serif`;
+        ctx.shadowColor = '#ff0000';
+        ctx.shadowBlur = 30;
+        ctx.fillStyle = `rgba(255,255,255,${enrageAlpha})`;
+        ctx.strokeStyle = `rgba(0,0,0,${enrageAlpha * 0.9})`;
+        ctx.lineWidth = 4;
+        ctx.strokeText('⚠ BOSS ENRAGED!', cx, cy - titleSize * 0.6);
+        ctx.fillText('⚠ BOSS ENRAGED!', cx, cy - titleSize * 0.6);
+        // Subtitle
+        const subSize = Math.round(ch * 0.026);
+        ctx.font = `bold ${subSize}px Arial, sans-serif`;
+        ctx.shadowBlur = 16;
+        ctx.fillStyle = `rgba(255,120,120,${enrageAlpha})`;
+        ctx.strokeStyle = `rgba(0,0,0,${enrageAlpha * 0.9})`;
+        ctx.lineWidth = 3;
+        ctx.strokeText('ATTACK PATTERN CHANGING', cx, cy + titleSize * 0.5);
+        ctx.fillText('ATTACK PATTERN CHANGING', cx, cy + titleSize * 0.5);
+        ctx.shadowBlur = 0;
+        ctx.restore();
+      } else {
+        bossEnrageAnnouncementStart = 0;
+      }
+    }
+    // ── END BOSS ENRAGED! announcement ────────────────────────────────────────
 
     // Ready-up overlay is drawn separately after HUD (see drawReadyUpOverlay function)
 
