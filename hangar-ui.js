@@ -594,6 +594,23 @@ const HANGAR_UI_CSS = `
     text-shadow: 0 0 10px rgba(74, 222, 128, 0.5);
   }
 
+  .hangar-nav-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: #f97316;
+    color: #0b0f1a;
+    font-size: 10px;
+    font-weight: 900;
+    line-height: 16px;
+    text-align: center;
+    box-shadow: 0 0 6px rgba(249, 115, 22, 0.7);
+  }
+
   /* ── Achievement grid ──────────────────────────────────────── */
   .achievement-grid {
     display: grid;
@@ -2466,6 +2483,8 @@ function switchTab(tab) {
   } else {
     renderUpgradesView();
   }
+
+  updateMissionsNavBadge();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2518,6 +2537,40 @@ function handlePurchase(upgradeId) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Missions tab
 // ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Count completed-but-unclaimed daily missions, for the nav tab badge.
+ */
+function getUnclaimedMissionCount() {
+  const ms = window.missionSystem;
+  if (!ms || typeof ms.getDailyMissions !== 'function') return 0;
+  try {
+    return ms.getDailyMissions().filter(m => m.completed && !m.claimed).length;
+  } catch (e) {
+    return 0;
+  }
+}
+
+/**
+ * Show/hide a small count badge on the Missions nav tab when a reward is
+ * waiting to be claimed, so players don't have to open the tab to know.
+ */
+function updateMissionsNavBadge() {
+  const btn = document.querySelector('.hangar-tab-btn[data-tab="missions"]');
+  if (!btn) return;
+  const count = getUnclaimedMissionCount();
+  let badge = btn.querySelector('.hangar-nav-badge');
+  if (count > 0) {
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'hangar-nav-badge';
+      btn.appendChild(badge);
+    }
+    badge.textContent = String(count);
+  } else if (badge) {
+    badge.remove();
+  }
+}
 
 /**
  * Render the Missions tab — shows today's 3 daily missions with progress bars,
@@ -2682,6 +2735,7 @@ function renderMissionsView() {
 
       // Re-render to show claimed state
       renderMissionsView();
+      updateMissionsNavBadge();
     });
   });
 }
@@ -3239,6 +3293,7 @@ export function openHangar(opts = {}) {
 
   // Render real cards now that the overlay is in the DOM
   refreshGrid();
+  updateMissionsNavBadge();
 
   // ── Event listeners ──────────────────────────────────────────
 
