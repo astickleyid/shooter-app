@@ -2879,6 +2879,7 @@ function renderFragmentsView() {
   };
 
   const totalCollected = allFragments.filter(f => getCount(f.id) > 0).length;
+  const isComplete = !!(sys && typeof sys.isCollectionComplete === 'function' && sys.isCollectionComplete());
 
   const wrapper = document.createElement('div');
   wrapper.className = 'hangar-fragments';
@@ -2890,7 +2891,9 @@ function renderFragmentsView() {
     TECH FRAGMENTS &nbsp;
     <span>${totalCollected} / ${allFragments.length} discovered</span>
     <span style="flex:1"></span>
-    <span style="font-size:10px;color:rgba(255,255,255,0.28);font-style:italic">Drop from Elites &amp; Bosses</span>
+    ${isComplete
+      ? `<span style="font-size:10px;color:#c084fc;font-weight:700;letter-spacing:0.05em;">&#9733; COLLECTION COMPLETE</span>`
+      : `<span style="font-size:10px;color:rgba(255,255,255,0.28);font-style:italic">Drop from Elites &amp; Bosses</span>`}
   `;
   wrapper.appendChild(hdr);
 
