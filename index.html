@@ -190,11 +190,13 @@
 
     <!-- COMBO TIMER HUD -->
     <div id="comboHud" style="display:none; position:fixed; top:60px; left:50%; transform:translateX(-50%); z-index:100; text-align:center; pointer-events:none;">
-      <div style="font-size:11px; color:#fff; opacity:0.7; font-family:monospace; margin-bottom:3px;">
-        <span id="comboMultDisplay">×2</span>
-      </div>
-      <div style="width:120px; height:5px; background:rgba(255,255,255,0.15); border-radius:3px; overflow:hidden;">
-        <div id="comboTimerBar" style="height:100%; width:100%; border-radius:3px; transition:background 0.3s;"></div>
+      <div style="background:rgba(0,0,0,0.65); border-radius:20px; padding:5px 14px 8px; border:1px solid rgba(255,255,255,0.12); backdrop-filter:blur(4px);">
+        <div style="font-size:15px; font-weight:bold; font-family:monospace; letter-spacing:0.08em; margin-bottom:5px;">
+          <span id="comboMultDisplay">x2 COMBO</span>
+        </div>
+        <div style="width:120px; height:5px; background:rgba(255,255,255,0.15); border-radius:3px; overflow:hidden;">
+          <div id="comboTimerBar" style="height:100%; width:100%; border-radius:3px; transition:background 0.3s;"></div>
+        </div>
       </div>
     </div>
 

@@ -1419,11 +1419,12 @@
   // Kill Combo Multiplier System
   let killComboMultiplier = 1;       // Current score multiplier (1–5)
   let killComboTimerEnd = 0;         // Timestamp when combo window closes
-  const KILL_COMBO_WINDOW = 2000;    // ms - consecutive kill window
+  const KILL_COMBO_WINDOW = 1500;    // ms - consecutive kill window
   const KILL_COMBO_MAX = 5;          // Max multiplier
   let killComboSplashStart = 0;      // When the splash was last shown
   let killComboEscalated = false;    // True the frame multiplier just increased
   let killComboEscalatedStart = 0;   // Timestamp for COMBO ESCALATED flash
+  let comboBreakFlash = 0;           // Timestamp when "COMBO BREAK" was shown (0 = none)
   let lastKillStreakNotification = 0;
   const KILL_STREAK_MILESTONES = [5, 10, 25, 50, 100, 200];
 
@@ -2359,6 +2360,7 @@
     killComboSplashStart = 0;
     killComboEscalated = false;
     killComboEscalatedStart = 0;
+    comboBreakFlash = 0;
 
     // Roguelite perk reset (new run)
     waveUpgradeActive = false;
@@ -2609,6 +2611,7 @@
 
     // Kill combo multiplier: reset when window expires
     if (killComboMultiplier > 1 && now > killComboTimerEnd) {
+      if (killComboMultiplier >= 3) comboBreakFlash = now;
       killComboMultiplier = 1;
       killComboTimerEnd = 0;
     }
@@ -7666,6 +7669,11 @@
         addLogEntry(`Combo broken! (${comboCount}x)`, '#ef4444');
         comboCount = 0;
       }
+      if (killComboMultiplier >= 2) {
+        if (killComboMultiplier >= 3) comboBreakFlash = now;
+        killComboMultiplier = 1;
+        killComboTimerEnd = 0;
+      }
       
       if (this.health <= 0) {
         this.health = 0;
@@ -10409,8 +10417,9 @@
       if (dist < player.size + coin.r) {
         coins.splice(i, 1);
         score += 10;
-        Save.addCredits(1);
-        if (window.missionSystem) window.missionSystem.trackCredits(1);
+        const coinCredits = killComboMultiplier > 1 ? killComboMultiplier : 1;
+        Save.addCredits(coinCredits);
+        if (window.missionSystem) window.missionSystem.trackCredits(coinCredits);
         addXP(6);
         
         // Play coin pickup sound
@@ -11512,16 +11521,42 @@
     if (dom.comboHud && dom.comboTimerBar && dom.comboMultDisplay) {
       if (killComboMultiplier > 1 && killComboTimerEnd > now) {
         const pct = Math.max(0, (killComboTimerEnd - now) / KILL_COMBO_WINDOW) * 100;
-        const comboColors = { 2: '#eab308', 3: '#f97316', 4: '#ef4444', 5: '#a855f7' };
-        const barColor = comboColors[killComboMultiplier] || '#6366f1';
+        const comboColors = { 2: '#f59e0b', 3: '#f59e0b', 4: '#ef4444', 5: '#ef4444' };
+        const barColor = comboColors[killComboMultiplier] || '#ef4444';
         dom.comboHud.style.display = 'block';
-        dom.comboMultDisplay.textContent = `×${killComboMultiplier}`;
+        const comboLabel = killComboMultiplier >= 5 ? `x5+ COMBO` : `x${killComboMultiplier} COMBO`;
+        dom.comboMultDisplay.textContent = comboLabel;
         dom.comboMultDisplay.style.color = barColor;
         dom.comboTimerBar.style.width = pct + '%';
         dom.comboTimerBar.style.background = barColor;
         dom.comboTimerBar.style.boxShadow = `0 0 6px ${barColor}`;
       } else {
         dom.comboHud.style.display = 'none';
+      }
+    }
+
+    // COMBO BREAK canvas flash (600ms fade-out, red text)
+    if (comboBreakFlash > 0) {
+      const elapsed = now - comboBreakFlash;
+      const BREAK_DURATION = 600;
+      if (elapsed < BREAK_DURATION) {
+        const alpha = Math.max(0, 1 - elapsed / BREAK_DURATION);
+        const scale = 1 + (1 - alpha) * 0.3;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = `bold ${Math.round(28 * scale)}px Arial, sans-serif`;
+        ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+        ctx.lineWidth = 4;
+        const bx = canvas.width / 2;
+        const by = 90;
+        ctx.strokeText('COMBO BREAK', bx, by);
+        ctx.fillStyle = '#ef4444';
+        ctx.fillText('COMBO BREAK', bx, by);
+        ctx.restore();
+      } else {
+        comboBreakFlash = 0;
       }
     }
 
