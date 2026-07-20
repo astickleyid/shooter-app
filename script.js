@@ -904,6 +904,7 @@
   let runShotsFired = 0;
   let runShotsHit = 0;
   let runStartTime = 0;
+  let xpBoostMultiplier = 1;
   let countdownActive = false;
   let countdownEnd = 0;
   let countdownCompletedLevel = 0;
@@ -2303,6 +2304,14 @@
     lastCloseCallAt = 0;
     gameOverHandled = false;
     continueUsed = false;
+    // Consume the one-run XP boost granted by a claimed mission reward, if any
+    try {
+      const pendingBoost = parseFloat(localStorage.getItem('voidrift_pending_xp_boost'));
+      xpBoostMultiplier = pendingBoost > 1 ? pendingBoost : 1;
+      localStorage.removeItem('voidrift_pending_xp_boost');
+    } catch (e) {
+      xpBoostMultiplier = 1;
+    }
     if (window.missionSystem) { window.missionSystem.startRun(); updateMissionHUD(); }
 
     // Special ability reset
@@ -2401,13 +2410,17 @@
 
   const addXP = (amount) => {
     if (!amount || amount <= 0) return false;
-    
+
     // Phase 1: Apply combo bonus
     if (comboCount > 1) {
       const comboBonus = 1 + (comboCount * 0.1);
       amount = Math.floor(amount * comboBonus);
     }
-    
+    // Apply a claimed mission's one-run XP boost, if active
+    if (xpBoostMultiplier > 1) {
+      amount = Math.floor(amount * xpBoostMultiplier);
+    }
+
     pilotXP += amount;
     let leveled = false;
     let needed = XP_PER_LEVEL(pilotLevel);
@@ -4793,6 +4806,8 @@
       this.isEnemy = isEnemy;
       this.rotation = Math.random() * Math.PI * 2; // Phase A.3: Rotating bullets
       this.rotSpeed = 0.15; // Phase A.3: Rotation speed
+      this.homing = false; // Seeker Swarm: steers toward the nearest enemy each frame
+      this.homingTurnRate = 0.1;
     }
     draw(ctx) {
       if (this.isEnemy) {
@@ -4892,6 +4907,28 @@
     }
     update(dt) {
       const step = dt / 16.67;
+      if (this.homing && !this.isEnemy && enemies.length) {
+        let nearest = null;
+        let nearestDist = Infinity;
+        for (const enemy of enemies) {
+          if (enemy.phantomInvulnerable) continue;
+          const dx = enemy.x - this.x;
+          const dy = enemy.y - this.y;
+          const d = dx * dx + dy * dy;
+          if (d < nearestDist) { nearestDist = d; nearest = enemy; }
+        }
+        if (nearest) {
+          const dx = nearest.x - this.x;
+          const dy = nearest.y - this.y;
+          const dist = Math.hypot(dx, dy) || 1;
+          const turn = this.homingTurnRate * step;
+          this.vel.x += (dx / dist - this.vel.x) * turn;
+          this.vel.y += (dy / dist - this.vel.y) * turn;
+          const mag = Math.hypot(this.vel.x, this.vel.y) || 1;
+          this.vel.x /= mag;
+          this.vel.y /= mag;
+        }
+      }
       this.x += this.vel.x * this.speed * step;
       this.y += this.vel.y * this.speed * step;
       this.life += dt;
@@ -4915,6 +4952,8 @@
       this.isElite = isElite;
       this.isBoss = isBoss;
       this.isBounty = false;
+      this.bountyBehavior = null; // Named Bounty Target special behavior (phase_blink, tank_barrage, ...)
+      this.blinkTimer = 0;
       this.rot = 0;
       const diff = getDifficulty();
       const adaptive = getAdaptiveScaling();
@@ -6206,7 +6245,21 @@
     update(dt) {
       // Phase A.2: Update hit flash timer
       if (this.hitFlash > 0) this.hitFlash -= dt;
-      
+
+      // Void Phantom bounty: phase_blink — teleports near the player on a cycle
+      if (this.bountyBehavior === 'phase_blink' && player) {
+        this.blinkTimer += dt;
+        if (this.blinkTimer > 2600) {
+          this.blinkTimer = 0;
+          addParticles('nova', this.x, this.y, 0, 10);
+          const blinkAngle = rand(0, Math.PI * 2);
+          const blinkDist = rand(140, 260);
+          this.x = player.x + Math.cos(blinkAngle) * blinkDist;
+          this.y = player.y + Math.sin(blinkAngle) * blinkDist;
+          addParticles('nova', this.x, this.y, 0, 10);
+        }
+      }
+
       const dx = player.x - this.x;
       const dy = player.y - this.y;
       const dist = Math.hypot(dx, dy) || 1;
@@ -6614,13 +6667,24 @@
       const dx = player.x - this.x;
       const dy = player.y - this.y;
       const dist = Math.hypot(dx, dy) || 1;
-      const vel = { x: dx / dist, y: dy / dist };
+      const baseAngle = Math.atan2(dy, dx);
       const damage = this.baseDamage * ADAPTIVE_CONSTANTS.RANGED_DAMAGE_MULT;
-      const speed = this.isBoss 
-        ? BASE.BULLET_SPEED * ADAPTIVE_CONSTANTS.BOSS_BULLET_SPEED_MULT 
+      const speed = this.isBoss
+        ? BASE.BULLET_SPEED * ADAPTIVE_CONSTANTS.BOSS_BULLET_SPEED_MULT
         : BASE.BULLET_SPEED * ADAPTIVE_CONSTANTS.ELITE_BULLET_SPEED_MULT;
       const size = this.isBoss ? BASE.BULLET_SIZE * 1.5 : BASE.BULLET_SIZE * 1.2;
-      bullets.push(new Bullet(this.x, this.y, vel, damage, '#dc2626', speed, size, 0, true));
+      if (this.bountyBehavior === 'tank_barrage') {
+        // Iron Warlord bounty: opens fire with a 3-shot spread instead of a single round
+        const spread = [-0.18, 0, 0.18];
+        for (const offset of spread) {
+          const ang = baseAngle + offset;
+          const vel = { x: Math.cos(ang), y: Math.sin(ang) };
+          bullets.push(new Bullet(this.x, this.y, vel, damage * 0.7, '#dc2626', speed, size, 0, true));
+        }
+      } else {
+        const vel = { x: dx / dist, y: dy / dist };
+        bullets.push(new Bullet(this.x, this.y, vel, damage, '#dc2626', speed, size, 0, true));
+      }
       addParticles('muzzle', this.x, this.y, this.rot, 4);
     }
     
@@ -6901,6 +6965,10 @@
                   last.maxHealth = last.health;
                 }
               }
+              // Give the two simplest named bounties their own signature behavior
+              // (Void Phantom teleports; Iron Warlord opens fire like a turret)
+              last.bountyBehavior = namedBounty.behavior || null;
+              if (namedBounty.behavior === 'tank_barrage') last.canShoot = true;
             }
           }
         }
@@ -7495,8 +7563,36 @@
             applyRadialDamage(cx, cy, (stats.radius || 130) * 0.55, stats.damage || 45, { knockback: 3.5, chargeMult: 0.5 });
           });
         }
+      } else if (this.secondary.id === 'seeker') {
+        // Seeker Swarm: release homing micro-drones that track and eliminate targets
+        addParticles('nova', originX, originY, 0, 14);
+        addLogEntry('\u{1F3AF} SEEKER SWARM RELEASED!', '#22d3ee');
+        const seekerCount = stats.seekers || 6;
+        for (let i = 0; i < seekerCount; i++) {
+          const ang = (Math.PI * 2 * i) / seekerCount + rand(-0.25, 0.25);
+          const vel = { x: Math.cos(ang), y: Math.sin(ang) };
+          const drone = new Bullet(originX, originY, vel, stats.damage || 35, '#22d3ee', BASE.BULLET_SPEED * 0.7, BASE.BULLET_SIZE * 1.15, 0, false);
+          drone.homing = true;
+          drone.homingTurnRate = 0.1;
+          drone.maxLife = 3200;
+          bullets.push(drone);
+        }
+      } else if (this.secondary.id === 'gravity') {
+        // Gravity Well: sustained pull anomaly instead of a one-shot knockback
+        addParticles('nova', originX, originY, 0, 24);
+        shakeScreen(4, 180);
+        addLogEntry('\u{1F300} GRAVITY WELL DEPLOYED!', '#a855f7');
+        const duration = stats.duration || 3000;
+        const pull = stats.pull || 0.8;
+        const tickInterval = 200;
+        const tickCount = Math.max(1, Math.round(duration / tickInterval));
+        for (let i = 0; i < tickCount; i++) {
+          queueTimedEffect(i * tickInterval, () => {
+            applyRadialDamage(originX, originY, stats.radius || 150, (stats.damage || 70) / tickCount, { knockback: 0, pull, chargeMult: 0.6 / tickCount });
+          });
+        }
       } else {
-        // Default secondary weapon behavior (nova, seeker, gravity, etc.)
+        // Default secondary weapon behavior (nova, etc.)
         addParticles('nova', originX, originY, 0, 24);
         shakeScreen(7, 220);
         applyRadialDamage(originX, originY, stats.radius || 150, stats.damage || 70, { knockback: 4.2, pull: 0.2, chargeMult: 0.6 });
@@ -9082,6 +9178,9 @@
             if (typeof Auth !== 'undefined' && Auth.showTechFragmentNotification) {
               Auth.showTechFragmentNotification(window.techFragmentSystem.getFragmentCount(bountyFragment.id));
             }
+            try {
+              localStorage.setItem('voidrift_techfragments', JSON.stringify(window.techFragmentSystem.getSaveData()));
+            } catch (e) { /* storage unavailable — fragment stays session-only */ }
           }
         }
       } else {
@@ -10279,6 +10378,9 @@
         if (typeof Auth !== 'undefined' && Auth.showTechFragmentNotification) {
           Auth.showTechFragmentNotification(count);
         }
+        try {
+          localStorage.setItem('voidrift_techfragments', JSON.stringify(tfs.getSaveData()));
+        } catch (e) { /* storage unavailable — fragment stays session-only */ }
       }
     }
     if (window.missionSystem && runStartTime > 0) {
@@ -14714,19 +14816,7 @@
       }
       touchStartPos = null;
     });
-    
-    dom.closeShopBtn?.addEventListener('click', () => {
-      closeShop();
-      if (!gameRunning && dom.gameContainer?.style.display === 'block') requestAnimationFrame(() => {});
-    });
-    dom.openHangarFromShop?.addEventListener('click', () => {
-      closeShop();
-      openPersistentHangar();
-    });
-    dom.hangarClose?.addEventListener('click', closeHangar);
-    dom.hangarModal?.addEventListener('click', (e) => {
-      if (e.target === dom.hangarModal) closeHangar();
-    });
+
     dom.controlSettingsModal?.addEventListener('click', (e) => {
       if (e.target === dom.controlSettingsModal) closeControlSettings();
     });
