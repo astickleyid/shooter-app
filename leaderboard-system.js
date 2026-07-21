@@ -141,7 +141,7 @@ const LeaderboardSystem = {
         
         const headers = { 'Content-Type': 'application/json' };
         if (token) {
-          headers.Authorization = `******;
+          headers.Authorization = `Bearer ${token}`;
         }
         
         const response = await fetch(LEADERBOARD_CONFIG.API_URL, {
@@ -225,121 +225,7 @@ const LeaderboardSystem = {
     throw lastError;
   }
 };
-    return localScores
-      .filter(entry => entry.userId === user.id)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 10);
-  },
-  
-  /**
-   * Get user's rank for a specific score
-   * @param {number} score
-   * @param {string} difficulty
-   * @returns {Promise<number>} User's rank (1-based)
-   */
-  async getUserRank(score, difficulty = 'all') {
-    const scores = await this.fetchScores(difficulty, 1000);
-    const higherScores = scores.filter(entry => entry.score > score);
-    return higherScores.length + 1;
-  },
-  
-  /**
-   * Clear local leaderboard data
-   */
-  clearLocal() {
-    try {
-      localStorage.removeItem(LEADERBOARD_CONFIG.LOCAL_KEY);
-    } catch (error) {
-      console.error('Failed to clear local leaderboard:', error);
-    }
-  },
-  
-  /**
-   * Submit score to backend
-   * @private
-   */
-  async _submitToBackend(entry, token) {
-    for (let attempt = 0; attempt < LEADERBOARD_CONFIG.RETRY_ATTEMPTS; attempt++) {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), LEADERBOARD_CONFIG.TIMEOUT_MS);
-        
-        const headers = { 'Content-Type': 'application/json' };
-        if (token) {
-          headers.Authorization = `Bearer ${token}`;
-        }
-        
-        const response = await fetch(LEADERBOARD_CONFIG.API_URL, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            ...entry,
-            authToken: token
-          }),
-          signal: controller.signal
-        });
-        
-        clearTimeout(timeout);
-        
-        const data = await response.json();
-        
-        if (!response.ok) {
-          throw new Error(data.error || `HTTP ${response.status}`);
-        }
-        
-        return {
-          success: true,
-          rank: data.rank,
-          storage: data.storage || 'kv'
-        };
-      } catch (error) {
-        if (attempt < LEADERBOARD_CONFIG.RETRY_ATTEMPTS - 1) {
-          await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
-        } else {
-          throw error;
-        }
-      }
-    }
-  },
-  
-  /**
-   * Fetch scores from backend
-   * @private
-   */
-  async _fetchFromBackend(difficulty, limit) {
-    for (let attempt = 0; attempt < LEADERBOARD_CONFIG.RETRY_ATTEMPTS; attempt++) {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), LEADERBOARD_CONFIG.TIMEOUT_MS);
-        
-        const url = new URL(LEADERBOARD_CONFIG.API_URL);
-        url.searchParams.set('difficulty', difficulty);
-        url.searchParams.set('limit', Math.min(limit, 100));
-        
-        const response = await fetch(url, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
-          signal: controller.signal
-        });
-        
-        clearTimeout(timeout);
-        
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-        
-        const data = await response.json();
-        return data.entries || [];
-      } catch (error) {
-        if (attempt < LEADERBOARD_CONFIG.RETRY_ATTEMPTS - 1) {
-          await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
-        } else {
-          throw error;
-        }
-      }
-    }
-  },
-  
+
 // Make available globally
 if (typeof window !== 'undefined') {
   window.LeaderboardSystem = LeaderboardSystem;
