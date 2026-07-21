@@ -6,12 +6,11 @@ import GoogleMobileAds
  *
  * Manages rewarded ads via Google Mobile Ads SDK.
  *
- * SETUP REQUIRED:
- * 1. Add GoogleMobileAds via Swift Package Manager:
- *    Xcode → File → Add Packages → https://github.com/googleads/swift-package-manager-google-mobile-ads.git
- * 2. Add your AdMob App ID to Info.plist:
- *    Key: GADApplicationIdentifier
- *    Value: ca-app-pub-REPLACE_WITH_YOUR_APP_ID
+ * SETUP REQUIRED before App Store submission:
+ * 1. GoogleMobileAds is already wired up as a Swift Package dependency
+ *    (see project.pbxproj) and GADApplicationIdentifier is set in Info.plist.
+ * 2. Replace the test GADApplicationIdentifier in Info.plist with your real
+ *    AdMob App ID from https://admob.google.com/.
  * 3. Replace the ad unit ID below with your real rewarded ad unit ID.
  *
  * Test IDs (use during development — REPLACE before App Store submission):
@@ -28,22 +27,22 @@ class AdMobManager: NSObject {
     private let rewardedAdUnitID = "ca-app-pub-3940256099942544/1712485313" // TEST ID
 
     // MARK: - State
-    private var rewardedAd: GADRewardedAd?
+    private var rewardedAd: RewardedAd?
     private var rewardCallback: ((Bool) -> Void)?
 
     // MARK: - Init
     private override init() {
         super.init()
         // Initialize the Mobile Ads SDK
-        GADMobileAds.sharedInstance().start(completionHandler: nil)
+        MobileAds.shared.start(completionHandler: nil)
     }
 
     // MARK: - Preload
     func preloadRewarded() {
         guard rewardedAd == nil else { return } // Already loaded
 
-        let request = GADRequest()
-        GADRewardedAd.load(withAdUnitID: rewardedAdUnitID, request: request) { [weak self] ad, error in
+        let request = Request()
+        RewardedAd.load(with: rewardedAdUnitID, request: request) { [weak self] ad, error in
             if let error = error {
                 print("[AdMob] Failed to load rewarded ad: \(error.localizedDescription)")
                 return
@@ -68,7 +67,7 @@ class AdMobManager: NSObject {
         self.rewardCallback = completion
         var didEarnReward = false
 
-        ad.present(fromRootViewController: vc) {
+        ad.present(from: vc) {
             didEarnReward = true
             print("[AdMob] Reward earned ✅")
             completion(true)
@@ -79,17 +78,17 @@ class AdMobManager: NSObject {
     }
 }
 
-// MARK: - GADFullScreenContentDelegate
-extension AdMobManager: GADFullScreenContentDelegate {
+// MARK: - FullScreenContentDelegate
+extension AdMobManager: FullScreenContentDelegate {
 
-    func adDidDismissFullScreenContent(_ ad: GADFullScreenPresentingAd) {
+    func adDidDismissFullScreenContent(_ ad: FullScreenPresentingAd) {
         print("[AdMob] Ad dismissed")
         // Preload next ad
         rewardedAd = nil
         preloadRewarded()
     }
 
-    func ad(_ ad: GADFullScreenPresentingAd, didFailToPresentFullScreenContentWithError error: Error) {
+    func ad(_ ad: FullScreenPresentingAd, didFailToPresentFullScreenContentWithError error: Error) {
         print("[AdMob] Ad failed to present: \(error.localizedDescription)")
         rewardCallback?(false)
         rewardCallback = nil
