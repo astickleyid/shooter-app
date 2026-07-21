@@ -686,6 +686,7 @@
   let leviathanKilledThisRun = 0;
   let voidSurgeWavePending = false;
   let voidSurgeKilledThisRun = 0;
+  let voidSurgeBossPending = false;
   let bountySpawnedThisWave = false;
   let bountyKilledTotal = 0;
   let bossWaveAnnouncementStart = 0; // timestamp for BOSS WAVE! canvas overlay
@@ -2336,6 +2337,7 @@
     leviathanKilledThisRun = 0;
     voidSurgeWavePending = false;
     voidSurgeKilledThisRun = 0;
+    voidSurgeBossPending = false;
     bountySpawnedThisWave = false;
     bountyKilledTotal = 0;
     bossWaveAnnouncementStart = 0;
@@ -6520,6 +6522,81 @@
           movementX = (this.vx / (this.speed || 1));
           movementY = (this.vy / (this.speed || 1));
         }
+      } else if (this.heraldPhase !== undefined) {
+        // ── HERALD OF VOID phase logic ────────────────────────────────────────
+        const heraldHpPct = this.health / this.maxHealth;
+        const prevHPhase = this.heraldPhase;
+        if (heraldHpPct <= 0.33) {
+          this.heraldPhase = 3;
+        } else if (heraldHpPct <= 0.66) {
+          this.heraldPhase = 2;
+        } else {
+          this.heraldPhase = 1;
+        }
+        if (this.heraldPhase !== prevHPhase) {
+          const hBase = this.heraldBaseSpeed || this.speed;
+          if (this.heraldPhase === 2) {
+            this.speed = hBase * 1.4;
+            addLogEntry('⚡ HERALD SURGES — VOID RIFT OPENS!', '#a78bfa');
+            shakeScreen(7, 300);
+            // Spawn phantom minion wave
+            for (let h = 0; h < 3; h++) {
+              if (player) {
+                const hx = this.x + (Math.random() - 0.5) * 300;
+                const hy = this.y + (Math.random() - 0.5) * 300;
+                enemies.push(new Enemy(hx, hy, 'phantom', false, false));
+              }
+            }
+          } else if (this.heraldPhase === 3) {
+            this.speed = hBase * 2.0;
+            addLogEntry('☠️ HERALD CRITICAL — SWARM UNLEASHED!', '#7c3aed');
+            shakeScreen(10, 450);
+            // Spawn swarmer minion wave
+            for (let h = 0; h < 5; h++) {
+              if (player) {
+                const hx = this.x + (Math.random() - 0.5) * 250;
+                const hy = this.y + (Math.random() - 0.5) * 250;
+                enemies.push(new Enemy(hx, hy, 'swarmer', false, false));
+              }
+            }
+          }
+        }
+        // Herald fires in bursts at player — faster than regular berserker
+        const hNow = performance.now();
+        const hShotCd = this.heraldPhase >= 3 ? 900 : this.heraldPhase === 2 ? 1400 : 2200;
+        if (player && hNow - (this.heraldShotTimer || 0) > hShotCd) {
+          this.heraldShotTimer = hNow;
+          const hAngle = Math.atan2(player.y - this.y, player.x - this.x);
+          const hDamage = this.baseDamage * ADAPTIVE_CONSTANTS.RANGED_DAMAGE_MULT;
+          const hSpeed = BASE.BULLET_SPEED * 0.9;
+          const hSize = BASE.BULLET_SIZE * 1.4;
+          const hColor = '#a78bfa';
+          if (this.heraldPhase >= 3) {
+            // Phase 3: radial burst + aimed shots
+            for (let i = 0; i < 6; i++) {
+              const ang = (i / 6) * Math.PI * 2;
+              const vel = { x: Math.cos(ang), y: Math.sin(ang) };
+              bullets.push(new Bullet(this.x, this.y, vel, hDamage, hColor, hSpeed * 0.7, hSize, 0, true));
+            }
+            const vel = { x: Math.cos(hAngle), y: Math.sin(hAngle) };
+            bullets.push(new Bullet(this.x, this.y, vel, hDamage * 1.5, '#7c3aed', hSpeed * 1.2, hSize * 1.3, 0, true));
+            addParticles('nova', this.x, this.y, 0, 10);
+          } else if (this.heraldPhase >= 2) {
+            // Phase 2: 3-shot spread
+            const spread = Math.PI * 0.35;
+            for (let i = 0; i < 3; i++) {
+              const ang = hAngle - spread / 2 + (i / 2) * spread;
+              const vel = { x: Math.cos(ang), y: Math.sin(ang) };
+              bullets.push(new Bullet(this.x, this.y, vel, hDamage, hColor, hSpeed, hSize, 0, true));
+            }
+            addParticles('muzzle', this.x, this.y, hAngle, 6);
+          } else {
+            // Phase 1: single shot
+            const vel = { x: Math.cos(hAngle), y: Math.sin(hAngle) };
+            bullets.push(new Bullet(this.x, this.y, vel, hDamage, hColor, hSpeed, hSize, 0, true));
+            addParticles('muzzle', this.x, this.y, hAngle, 4);
+          }
+        }
       } else if (this.kind === 'leviathan') {
         // Update phase based on HP
         const hpPct = this.health / this.maxHealth;
@@ -9454,7 +9531,7 @@
       const bossMaxHp = bossEntity.hpMax || bossEntity.maxHealth || 1;
       const bossPct = Math.max(0, (bossEntity.health / bossMaxHp) * 100);
       dom.bossBarFill.style.width = bossPct + '%';
-      dom.bossBarName.textContent = bossEntity.kind === 'leviathan' ? 'LEVIATHAN' : (bossEntity.kind || 'BOSS').toUpperCase();
+      dom.bossBarName.textContent = bossEntity.kind === 'leviathan' ? 'LEVIATHAN' : (bossEntity.displayName || bossEntity.kind || 'BOSS').toUpperCase();
     } else {
       dom.bossBar.style.display = 'none';
     }
@@ -10808,11 +10885,12 @@
       voidSurgeWavePending = false;
       addLogEntry(`⚠️ BOSS WAVE INCOMING!`, '#dc2626');
     } else if (voidSurgeLevel) {
-      // VOID SURGE — elite wave with dramatic overlay
+      // VOID SURGE — elite wave with dramatic overlay + HERALD OF VOID boss
       currentWaveType = 'elite';
       voidSurgeWavePending = true;
+      voidSurgeBossPending = true;
       leviathanWavePending = false;
-      addLogEntry(`⚡ VOID SURGE INCOMING — ELITE FORCES!`, '#8b5cf6');
+      addLogEntry(`⚡ VOID SURGE INCOMING — HERALD OF VOID APPROACHES!`, '#8b5cf6');
     } else if (level % 5 === 0 && getPowerRatio() > 0.3) {
       // Every 5th level (non-boss), special wave type
       const waveTypes = ['swarm', 'elite', 'survival', 'hazard'];
@@ -10992,6 +11070,10 @@
       if (currentWaveType === 'boss') {
         spawnBoss();
       }
+      // Spawn HERALD OF VOID for VOID SURGE waves
+      if (voidSurgeBossPending) {
+        spawnBoss();
+      }
       
       recenterStars();
       lastTime = performance.now();
@@ -11003,7 +11085,39 @@
     if (!player) return;
     const pos = randomAround(player.x, player.y, viewRadius(0.6), viewRadius(0.9));
 
-    if (leviathanWavePending) {
+    if (voidSurgeBossPending) {
+      // Spawn the HERALD OF VOID — fast, multi-phase swarm commander
+      voidSurgeBossPending = false;
+      const heraldKind = 'berserker';
+      bossEntity = new Enemy(pos.x, pos.y, heraldKind, false, true);
+      bossEntity.displayName = 'HERALD OF VOID';
+      // Herald is faster and has more health than a regular berserker
+      bossEntity.maxHealth = Math.round(bossEntity.maxHealth * 2.5 * (1 + level * 0.08));
+      bossEntity.health = bossEntity.maxHealth;
+      bossEntity.hpMax = bossEntity.maxHealth;
+      bossEntity.speed *= 1.6;
+      // Herald phases — like leviathan but aggressive speed ramp
+      bossEntity.heraldPhase = 1;
+      bossEntity.heraldShotTimer = 0;
+      bossEntity.heraldBaseSpeed = bossEntity.speed;
+      // Tint / color override for purple void theme
+      bossEntity.colorOverride = '#8b5cf6';
+      bossEntity.isBoss = true;
+      enemies.push(bossEntity);
+      bossActive = true;
+      bossWaveAnnouncementStart = performance.now();
+      addLogEntry('⚡ HERALD OF VOID HAS ARRIVED!', '#8b5cf6');
+      shakeScreen(12, 500);
+      // Spawn an initial swarm escort with the Herald
+      for (let s = 0; s < 4; s++) {
+        const sx = pos.x + (Math.random() - 0.5) * 200;
+        const sy = pos.y + (Math.random() - 0.5) * 200;
+        enemies.push(new Enemy(sx, sy, 'phantom', false, false));
+      }
+      if (typeof AudioManager !== 'undefined') {
+        AudioManager.playBossSpawn();
+      }
+    } else if (leviathanWavePending) {
       // Spawn the LEVIATHAN boss
       leviathanWavePending = false;
       bossEntity = new Enemy(pos.x, pos.y, 'leviathan', false, false);
