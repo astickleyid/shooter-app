@@ -8,7 +8,6 @@
   /* ====== CONFIG ====== */
   const SAVE_KEY = 'void_rift_v11';
   const AUTH_KEY = 'void_rift_auth';
-  const LEADERBOARD_KEY = 'void_rift_leaderboard';
 
   const DIFFICULTY_PRESETS = {
     easy: {

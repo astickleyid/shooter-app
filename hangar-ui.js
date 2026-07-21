@@ -2344,7 +2344,7 @@ function _buildLeaderboardTable(container, entries, emptyMsg = 'No runs recorded
     const diff = entry.difficulty ? entry.difficulty.charAt(0).toUpperCase() + entry.difficulty.slice(1) : '—';
     const date = entry.timestamp
       ? new Date(entry.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-      : '—';
+      : (entry.date || '—'); // local entries store a pre-formatted date string, not a timestamp
     const pilot = entry.username || entry.userId || 'Pilot';
     const tr = document.createElement('tr');
     tr.className = `hangar-lb-row ${rowClass}`;
@@ -2394,12 +2394,16 @@ function renderLeaderboardView() {
   if (_lbMode === 'local') {
     let entries = [];
     try {
-      const raw = localStorage.getItem('void_rift_leaderboard');
+      // Read from the same key script.js's LocalLeaderboard actually writes to
+      // (voidrift_local_scores) — this used to read 'void_rift_leaderboard',
+      // a key nothing ever populates, so the tab was always empty. Local
+      // entries are stored as {score, date} with no username field.
+      const raw = localStorage.getItem('voidrift_local_scores');
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
           entries = parsed
-            .filter(e => e && typeof e.score === 'number' && typeof e.username === 'string')
+            .filter(e => e && typeof e.score === 'number')
             .sort((a, b) => b.score - a.score)
             .slice(0, 20);
         }
