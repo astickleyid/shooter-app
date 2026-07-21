@@ -7647,6 +7647,11 @@
       if (amount <= 0) return;
       // Reinforced Hull perk: reduce damage taken
       amount *= perkMultipliers.damageTakenMult;
+      // Reactive Armor shop upgrade ('armor'): purchasable ("Reduce incoming
+      // damage percentage") but its level was never applied anywhere — fixed
+      // to actually mitigate damage. 5% per level, capped at 25% at max level 5.
+      const armorLevel = Save.getUpgradeLevel('armor');
+      if (armorLevel > 0) amount *= (1 - Math.min(0.5, armorLevel * 0.05));
       if (amount <= 0) return;
       tookDamageThisLevel = true;
       if (window.missionSystem) window.missionSystem.trackDamage(amount);
