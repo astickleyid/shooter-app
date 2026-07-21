@@ -10345,9 +10345,18 @@
         const dx = bullet.x - enemy.x;
         const dy = bullet.y - enemy.y;
         if (Math.hypot(dx, dy) < bullet.size + enemy.size) {
-          // AI Targeting Matrix tech fragment: chance to crit for bonus damage
           let hitDamage = bullet.damage;
           let isCrit = false;
+          // Critical Strike shop upgrade ('crit'): was purchasable with credits
+          // (see UPGRADES catalog) but its level was never read anywhere —
+          // players could max it out for zero effect. 5% chance per level,
+          // double damage, up to 30% at max level 6.
+          const shopCritChance = Save.getUpgradeLevel('crit') * 0.05;
+          if (shopCritChance > 0 && Math.random() < shopCritChance) {
+            hitDamage *= 2;
+            isCrit = true;
+          }
+          // AI Targeting Matrix tech fragment: chance to crit for bonus damage
           if (window.techFragmentSystem && window.techFragmentSystem.hasFragment('neural_chip') && window.TECH_UNLOCKS) {
             const critStats = window.TECH_UNLOCKS.ai_targeting.stats;
             if (Math.random() < critStats.critChance) {
