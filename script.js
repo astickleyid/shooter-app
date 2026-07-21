@@ -13236,11 +13236,15 @@
 
     // Save daily challenge best and restore Math.random
     if (window.DAILY_CHALLENGE_ACTIVE) {
-      import('./daily-challenge.js').then(({ saveDailyBest, deactivateDailyChallenge, getDailyStreak, getTotalDailyChallengesCompleted }) => {
+      import('./daily-challenge.js').then(({ saveDailyBest, getTodayBest, deactivateDailyChallenge, getDailyStreak, getTotalDailyChallengesCompleted }) => {
+        // saveDailyBest() only overwrites the stored best when finalScore is
+        // actually higher — but its return value was previously discarded,
+        // so the display below unconditionally showed *this run's* score
+        // even after a worse run, overwriting a legitimately higher best.
         saveDailyBest(finalScore);
         deactivateDailyChallenge();
         const bestEl = document.getElementById('dailyBestDisplay');
-        if (bestEl) bestEl.textContent = `Best: ${finalScore.toLocaleString()}`;
+        if (bestEl) bestEl.textContent = `Best: ${getTodayBest().toLocaleString()}`;
 
         // Update achievement stats for daily challenge completion
         try {
