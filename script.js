@@ -6727,6 +6727,64 @@
         }
       }
 
+      // Named Bounty Target unique behaviors — layered on top of the generic
+      // kind-based movement above. (phase_blink/tank_barrage are handled at
+      // their own dedicated sites elsewhere.)
+      if (this.bountyBehavior === 'aggressive_dodge') {
+        // Crimson Ace: charges the player harder, and juts perpendicular
+        // when a player bullet is on a near-collision course.
+        movementX *= 1.35;
+        movementY *= 1.35;
+        for (const b of bullets) {
+          if (b.isEnemy) continue;
+          const bdx = this.x - b.x;
+          const bdy = this.y - b.y;
+          const bdist = Math.hypot(bdx, bdy);
+          if (bdist > 140) continue;
+          const bvel = Math.hypot(b.vel.x, b.vel.y) || 1;
+          const toward = (bdx * b.vel.x + bdy * b.vel.y) / (bdist * bvel);
+          if (toward > 0.5) {
+            movementX += (-b.vel.y / bvel) * 1.6;
+            movementY += (b.vel.x / bvel) * 1.6;
+          }
+        }
+      } else if (this.bountyBehavior === 'time_distortion') {
+        // Quantum Hunter: speeds itself up and applies a one-time slow to
+        // player bullets as they enter its aura.
+        movementX *= 1.5;
+        movementY *= 1.5;
+        for (const b of bullets) {
+          if (b.isEnemy || b.timeDistorted) continue;
+          if (Math.hypot(b.x - this.x, b.y - this.y) < 220) {
+            b.speed *= 0.6;
+            b.timeDistorted = true;
+          }
+        }
+      } else if (this.bountyBehavior === 'spawn_minions') {
+        // Swarm Queen: periodically calls in small swarmer reinforcements,
+        // capped so it can't flood the wave indefinitely.
+        const bnow = performance.now();
+        if (!this.minionSpawnTimer) this.minionSpawnTimer = bnow;
+        if (bnow - this.minionSpawnTimer > 4000) {
+          this.minionSpawnTimer = bnow;
+          const nearbyMinions = enemies.filter(e =>
+            e !== this && e.kind === 'swarmer' && Math.hypot(e.x - this.x, e.y - this.y) < 400
+          ).length;
+          if (nearbyMinions < 4) {
+            for (let m = 0; m < 2; m++) {
+              const spawnAngle = Math.random() * Math.PI * 2;
+              const spawnDist = this.size + 30;
+              enemies.push(new Enemy(
+                this.x + Math.cos(spawnAngle) * spawnDist,
+                this.y + Math.sin(spawnAngle) * spawnDist,
+                'swarmer', false, false
+              ));
+            }
+            addLogEntry('🐝 Swarm Queen summoned reinforcements!', '#ec4899');
+          }
+        }
+      }
+
       const nx = movementX + ax;
       const ny = movementY + ay;
       const nm = Math.hypot(nx, ny) || 1;
@@ -7047,6 +7105,11 @@
               last.bountyId = namedBounty.id;
               last.bountyName = namedBounty.name;
               last.bountyColor = namedBounty.color;
+              // Each named bounty declares a distinct AI `behavior` flavor
+              // string (see BOUNTY_TARGETS in MissionSystem.js) — dispatched
+              // in Enemy.update() below so bounties don't all just play like
+              // reskinned stat blocks of their base kind.
+              last.bountyBehavior = namedBounty.behavior || null;
               window.missionSystem.markBountySpawned(namedBounty.id);
               // Apply the named bounty's flavor stats (relative to the baseline
               // across all bounties) so each one plays differently on top of
@@ -7192,7 +7255,10 @@
       const defenseStats = (this.defense && this.defense.stats) || {};
       const ultimateStats = (this.ultimate && this.ultimate.stats) || {};
       this.secondaryCapacity = Math.max(0, Math.round(secondaryStats.ammo || 0));
-      this.secondaryCooldownMs = secondaryStats.cooldown || 9000;
+      // System Coolant shop upgrade ('cooldown'): was purchasable but its level
+      // was never read anywhere — 5% shorter cooldowns per level, up to 25% at max level 5.
+      const cooldownMult = 1 - Math.min(0.5, Save.getUpgradeLevel('cooldown') * 0.05);
+      this.secondaryCooldownMs = (secondaryStats.cooldown || 9000) * cooldownMult;
       this.secondaryAmmo = preserveVitals ? clamp(Math.round(this.secondaryCapacity * prevSecondaryRatio), 0, this.secondaryCapacity) : this.secondaryCapacity;
       this.defenseStats = defenseStats;
       if (!preserveVitals) {
@@ -7563,7 +7629,9 @@
         const sy = this.y + Math.sin(angle) * this.size * 0.9;
         const speed = BASE.BULLET_SPEED * (weaponStats.bulletSpeed || 1) * perkMultipliers.bulletSpeed;
         const size = BASE.BULLET_SIZE * (weaponStats.bulletSize || 1);
-        const pierce = (weaponStats.pierce || 0) + perkMultipliers.piercePlus;
+        // Armor Piercing shop upgrade ('pierce'): was purchasable but its level
+        // was never read anywhere — +1 pierce per level, up to +3 at max level 3.
+        const pierce = (weaponStats.pierce || 0) + perkMultipliers.piercePlus + Save.getUpgradeLevel('pierce');
         const dmg = stats.dmg * perkMultipliers.damage * surgeDamageMultiplier * overchargeBoostMultiplier;
         bullets.push(new Bullet(sx, sy, vel, dmg, color, speed, size, pierce));
         runShotsFired++;
@@ -7700,7 +7768,10 @@
       if (!this.defense) return false;
       const stats = this.defense.stats || {};
       if (now < this.defenseReadyAt) return false;
-      this.defenseReadyAt = now + (stats.cooldown || 12000);
+      // System Coolant shop upgrade ('cooldown') also reduces the defense
+      // system's recharge time, matching the secondary-weapon cooldown above.
+      const cooldownMult = 1 - Math.min(0.5, Save.getUpgradeLevel('cooldown') * 0.05);
+      this.defenseReadyAt = now + (stats.cooldown || 12000) * cooldownMult;
       this.defenseActiveUntil = now + (stats.duration || 3000);
       addParticles('shield', this.x, this.y, 0, 24);
       shakeScreen(4, 140);
@@ -7763,7 +7834,10 @@
       if (!amount || amount <= 0) return;
       const fragmentRate = (window.techFragmentSystem && window.techFragmentSystem.hasFragment('antimatter_vial'))
         ? (window.TECH_UNLOCKS.antimatter_reactor.stats.ultimateChargeRate || 1) : 1;
-      this.ultimateCharge = clamp(this.ultimateCharge + amount * fragmentRate, 0, this.ultimateChargeMax);
+      // Ultimate Charger shop upgrade ('ultimate'): was purchasable but its level
+      // was never read anywhere — 5% faster charge per level, up to 25% at max level 5.
+      const upgradeRate = 1 + Save.getUpgradeLevel('ultimate') * 0.05;
+      this.ultimateCharge = clamp(this.ultimateCharge + amount * fragmentRate * upgradeRate, 0, this.ultimateChargeMax);
     }
 
     collectSupply(kind) {
@@ -10288,6 +10362,9 @@
     window.openHangar({
       getCredits: () => Save.data.credits,
       spendCredits: (amount) => Save.spendCredits(amount),
+      // Mission-reward credit claims must land in the real Save balance,
+      // not the hangar's own disconnected internal credit pool.
+      addCredits: (amount) => Save.addCredits(amount),
       getSelectedShip: () => Save.data.selectedShip || 'vanguard',
       // Loadout tab reads/writes the same equipment class the in-game
       // pause menu configures, so changes made here carry into the next run.
@@ -10617,7 +10694,10 @@
       if (dist < player.size + coin.r) {
         coins.splice(i, 1);
         score += 10;
-        const coinCredits = killComboMultiplier > 1 ? killComboMultiplier : 1;
+        const rawCoinCredits = killComboMultiplier > 1 ? killComboMultiplier : 1;
+        // Fortune Module shop upgrade ('luck'): was purchasable but its level
+        // was never read anywhere — 5% more credits per level, up to 30% at max level 6.
+        const coinCredits = Math.round(rawCoinCredits * (1 + Save.getUpgradeLevel('luck') * 0.05));
         Save.addCredits(coinCredits);
         if (window.missionSystem) window.missionSystem.trackCredits(coinCredits);
         addXP(6);
@@ -10984,7 +11064,9 @@
   const advanceLevel = () => {
     // Reset per-wave stats before accumulating this wave's rewards
     waveCreditsEarned = 0;
-    const _creditsBase = Math.floor(20 + level * 5 + enemiesKilled * 1.5);
+    // Fortune Module shop upgrade ('luck') applies to this per-kill wave-clear
+    // reward too, same as the coin-pickup credits above.
+    const _creditsBase = Math.floor((20 + level * 5 + enemiesKilled * 1.5) * (1 + Save.getUpgradeLevel('luck') * 0.05));
     Save.addCredits(_creditsBase);
     waveCreditsEarned += _creditsBase;
     addXP(90 + level * 12);
@@ -11042,18 +11124,23 @@
       leviathanWavePending = true;
       voidSurgeWavePending = false;
       addLogEntry(`☠️ LEVIATHAN APPROACHES — FLEE OR FIGHT!`, '#FF2020');
-    } else if (bossLevel) {
-      currentWaveType = 'boss';
-      leviathanWavePending = false;
-      voidSurgeWavePending = false;
-      addLogEntry(`⚠️ BOSS WAVE INCOMING!`, '#dc2626');
     } else if (voidSurgeLevel) {
-      // VOID SURGE — elite wave with dramatic overlay + HERALD OF VOID boss
+      // VOID SURGE — elite wave with dramatic overlay + HERALD OF VOID boss.
+      // Checked before the generic bossLevel below: whenever the current
+      // adaptive bossInterval (3-7) happens to divide evenly into a void
+      // surge level (15, 40, 65, 90, ...), bossLevel is ALSO true — if that
+      // branch ran first it would silently swallow this one, spawning a
+      // plain boss wave and skipping the HERALD OF VOID encounter entirely.
       currentWaveType = 'elite';
       voidSurgeWavePending = true;
       voidSurgeBossPending = true;
       leviathanWavePending = false;
       addLogEntry(`⚡ VOID SURGE INCOMING — HERALD OF VOID APPROACHES!`, '#8b5cf6');
+    } else if (bossLevel) {
+      currentWaveType = 'boss';
+      leviathanWavePending = false;
+      voidSurgeWavePending = false;
+      addLogEntry(`⚠️ BOSS WAVE INCOMING!`, '#dc2626');
     } else if (level % 5 === 0 && getPowerRatio() > 0.3) {
       // Every 5th level (non-boss), special wave type
       const waveTypes = ['swarm', 'elite', 'survival', 'hazard'];

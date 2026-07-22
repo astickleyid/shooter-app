@@ -780,6 +780,13 @@
             }
             return false; // fall back — internal pool handles it
           },
+          // Grants (e.g. mission reward claims) go to the main Save balance
+          // when available, instead of the hangar's disconnected internal pool.
+          addCredits: (amount) => {
+            if (window.Save && typeof window.Save.addCredits === 'function') {
+              window.Save.addCredits(amount);
+            }
+          },
           // Provide the currently selected ship so the Skins tab defaults to it
           getSelectedShip: () => {
             return (window.Save && window.Save.data && window.Save.data.selectedShip) || 'vanguard';

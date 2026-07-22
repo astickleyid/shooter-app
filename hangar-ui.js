@@ -2708,21 +2708,17 @@ function renderMissionsView() {
       const reward = ms.claimMissionReward(missionId);
       if (!reward) return;
 
-      // Grant credits to the main save if the callback is available
-      if (typeof _options.getCredits === 'function' && typeof _options.spendCredits !== 'function') {
-        // Read-only accessor provided — can't grant; store for next session via HangarSystem pool
-      }
-      // Attempt to add credits via the external handler or internal pool
+      // Attempt to add credits via the external handler (bridges into the main
+      // game's Save balance) or fall back to the hangar's own internal pool.
       if (typeof _options.addCredits === 'function') {
         _options.addCredits(reward.credits);
       } else {
-        // Fallback: credit the internal hangar pool
         _hangarState.credits = (_hangarState.credits || 0) + reward.credits;
         saveHangar(_hangarState);
-        // Update credit badge
-        const badge = document.getElementById('hangar-credits-amount');
-        if (badge) badge.textContent = getLiveCredits().toLocaleString();
       }
+      // Update credit badge — needed for both paths above
+      const badge = document.getElementById('hangar-credits-amount');
+      if (badge) badge.textContent = getLiveCredits().toLocaleString();
 
       // Grant the mission's promised XP boost for the player's next run — previously
       // reward.xpBoost was computed but never stored or applied anywhere.
