@@ -3216,6 +3216,45 @@ function renderStatsView() {
   });
 
   wrapper.appendChild(grid);
+
+  // ── Prestige ─────────────────────────────────────────────────────────────
+  // Auth.doPrestige() resets Pilot Level to 1 in exchange for a permanent
+  // title (and, at select tiers, a rare weapon or ship unlock). It had no
+  // caller anywhere in the UI, so it — and the prestige_1/5/10 achievements
+  // that key off it — could never be reached through normal play.
+  const auth = window.Auth;
+  if (auth && typeof auth.canPrestige === 'function') {
+    const profile = auth.playerProfile || {};
+    const prestigeBox = document.createElement('div');
+    prestigeBox.style.cssText = 'margin-top:16px; background:rgba(192,132,252,0.06); border:1px solid rgba(192,132,252,0.25); border-radius:10px; padding:14px 16px;';
+
+    if (auth.canPrestige()) {
+      prestigeBox.innerHTML = `
+        <div style="font-size:11px;color:#c084fc;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;">&#11088; Prestige Available</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.6);margin-bottom:10px;">Reset your Pilot Level to 1 for a permanent title and reward. Credits and upgrades are kept.</div>
+        <button id="hangar-prestige-btn" style="padding:8px 16px; border-radius:8px; border:1px solid rgba(192,132,252,0.4); background:rgba(192,132,252,0.15); color:#e9d5ff; font-weight:700; cursor:pointer;">Prestige Now (${(profile.prestige || 0) + 1}/10)</button>
+      `;
+    } else {
+      const current = profile.prestige || 0;
+      prestigeBox.innerHTML = `
+        <div style="font-size:11px;color:rgba(255,255,255,0.3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px;">&#11088; Prestige ${current}/10${profile.title ? ` — ${profile.title}` : ''}</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.28);">Reach Pilot Level 50 to prestige again.</div>
+      `;
+    }
+    wrapper.appendChild(prestigeBox);
+
+    const prestigeBtn = prestigeBox.querySelector('#hangar-prestige-btn');
+    if (prestigeBtn) {
+      prestigeBtn.addEventListener('click', () => {
+        if (window.confirm('Prestige now? Your Pilot Level will reset to 1. Credits and upgrades are kept.')) {
+          if (auth.doPrestige()) {
+            renderStatsView();
+          }
+        }
+      });
+    }
+  }
+
   content.appendChild(wrapper);
 }
 

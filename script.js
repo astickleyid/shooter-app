@@ -1781,8 +1781,8 @@
     { id: 'upgrader', name: 'Upgrader', desc: 'Purchase 10 upgrades', icon: 'assets/icons/achievement-upgrade.svg', category: 'special', requirement: { totalUpgrades: 10 } }
   ];
 
-  // Achievement categories for UI grouping (used by profile renderer)
-  // eslint-disable-next-line no-unused-vars
+  // Achievement categories — labels the category badge shown on the
+  // unlock toast (see showAchievementNotification below).
   const ACHIEVEMENT_CATEGORIES = {
     combat: { name: 'Combat', icon: 'assets/icons/achievement-sword.svg' },
     survival: { name: 'Survival', icon: 'assets/icons/achievement-shield.svg' },
@@ -2030,6 +2030,7 @@
       const stackOffset = existing.length * 90;
 
       // Create achievement toast notification
+      const category = ACHIEVEMENT_CATEGORIES[achievement.category];
       const toast = document.createElement('div');
       toast.className = 'achievement-toast';
       toast.style.top = `${20 + stackOffset}px`;
@@ -2039,7 +2040,7 @@
                onerror="this.style.display='none';this.parentElement.textContent='🏆'" />
         </div>
         <div class="achievement-toast-content">
-          <div class="achievement-toast-title">Achievement Unlocked!</div>
+          <div class="achievement-toast-title">Achievement Unlocked!${category ? ` <span class="achievement-toast-category">${category.name}</span>` : ''}</div>
           <div class="achievement-toast-name">${achievement.name}</div>
           <div class="achievement-toast-desc">${achievement.desc}</div>
         </div>
@@ -2114,6 +2115,11 @@
       this.checkAchievements();
     }
   };
+  // Expose on window: hangar-ui.js is an ES module and cannot see this
+  // script's closure directly. Without this, canPrestige()/doPrestige()
+  // (and the prestige_1/5/10 achievements they gate) are unreachable from
+  // any UI — there is no other bridge into the Prestige system.
+  window.Auth = Auth;
 
   /* ====== LOCAL LEADERBOARD (localStorage top-5) ====== */
   const LOCAL_SCORES_KEY = 'voidrift_local_scores';
@@ -2221,11 +2227,14 @@
       return [];
     },
     
-    getUserBest(username) {
+    async getUserBest(username) {
       // Use new LeaderboardSystem
       if (this.useGlobal && typeof LeaderboardSystem !== 'undefined') {
         try {
-          const userScores = LeaderboardSystem.getUserBestScores();
+          // getUserBestScores() is async — it must be awaited, otherwise
+          // `userScores` is a pending Promise and `.length` is always
+          // undefined, so this silently returned null for every caller.
+          const userScores = await LeaderboardSystem.getUserBestScores();
           return userScores.length > 0 ? userScores[0] : null;
         } catch (err) {
           return null;
@@ -7250,6 +7259,11 @@
       } else {
         this.health = this.hpMax;
         this.ammo = this.ammoMax;
+        // Hangar "Void Shield" / "Emergency Clone Bay" upgrades only apply at
+        // the start of a fresh run (preserveVitals === false) — otherwise
+        // they'd silently refill on every wave transition.
+        this.shieldHp = Math.max(0, perkMultipliers.startShield || 0);
+        this.livesRemaining = Math.max(0, Math.round(perkMultipliers.extraLives || 0));
       }
       const secondaryStats = (this.secondary && this.secondary.stats) || {};
       const defenseStats = (this.defense && this.defense.stats) || {};
@@ -7904,6 +7918,14 @@
       const armorLevel = Save.getUpgradeLevel('armor');
       if (armorLevel > 0) amount *= (1 - Math.min(0.5, armorLevel * 0.05));
       if (amount <= 0) return;
+      // Hangar "Void Shield" upgrade: absorb damage from a separate pool
+      // before any of it reaches HP.
+      if (this.shieldHp > 0) {
+        const absorbed = Math.min(this.shieldHp, amount);
+        this.shieldHp -= absorbed;
+        amount -= absorbed;
+        if (amount <= 0) return;
+      }
       tookDamageThisLevel = true;
       if (window.missionSystem) window.missionSystem.trackDamage(amount);
       this.health -= amount;
@@ -7931,8 +7953,16 @@
       }
       
       if (this.health <= 0) {
-        this.health = 0;
-        gameRunning = false;
+        // Hangar "Emergency Clone Bay" upgrade: revive instead of ending the run.
+        if (this.livesRemaining > 0) {
+          this.livesRemaining--;
+          this.health = Math.ceil(this.hpMax * 0.5);
+          this.invEnd = now + BASE.INVULN_MS * 3;
+          addLogEntry('💚 Emergency Clone Bay activated! Extra life used', '#4ade80');
+        } else {
+          this.health = 0;
+          gameRunning = false;
+        }
       }
     }
   }
@@ -13836,17 +13866,32 @@
     
     const entries = await Leaderboard.getEntries(difficulty, 100);
     const currentUsername = Auth.getCurrentUsername();
-    
+
     if (entries.length === 0) {
       dom.leaderboardList.innerHTML = '<div class="leaderboard-empty">No scores yet. Be the first!</div>';
       return;
     }
-    
-    const sourceLabel = Leaderboard.useGlobal 
-      ? '<div style="text-align:center;color:#22c55e;font-size:12px;margin-bottom:8px;">🌍 Global Leaderboard - Top 100</div>' 
+
+    const sourceLabel = Leaderboard.useGlobal
+      ? '<div style="text-align:center;color:#22c55e;font-size:12px;margin-bottom:8px;">🌍 Global Leaderboard - Top 100</div>'
       : '<div style="text-align:center;color:#eab308;font-size:12px;margin-bottom:8px;">📱 Local Scores - Top 100</div>';
-    
-    dom.leaderboardList.innerHTML = sourceLabel + entries.map((entry, index) => {
+
+    // "Your Best" banner — surfaces Leaderboard.getUserBest(), which previously
+    // returned null unconditionally due to a missing await on the underlying
+    // async call, so it had never been worth wiring into the UI before.
+    let personalBestLabel = '';
+    if (Leaderboard.useGlobal && currentUsername) {
+      try {
+        const best = await Leaderboard.getUserBest(currentUsername);
+        if (best) {
+          personalBestLabel = `<div style="text-align:center;color:#93c5fd;font-size:11px;margin-bottom:8px;">⭐ Your Best: ${best.score.toLocaleString()} (Lvl ${best.level})</div>`;
+        }
+      } catch (err) {
+        // Non-fatal — leaderboard still renders without the personal-best banner.
+      }
+    }
+
+    dom.leaderboardList.innerHTML = sourceLabel + personalBestLabel + entries.map((entry, index) => {
       const rank = index + 1;
       const isCurrentUser = currentUsername && entry.username.toLowerCase() === currentUsername.toLowerCase();
       const rankClass = rank === 1 ? 'top-1' : rank === 2 ? 'top-2' : rank === 3 ? 'top-3' : '';
