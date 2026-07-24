@@ -2282,6 +2282,9 @@
     medicOrbs = [];
     ghostOrbs = [];
     freezeOrbs = [];
+    lightningOrbs = [];
+    lightningArcs = [];
+    lightningFlashEnd = 0;
     freezeExpiry = 0;
     novaOrbs = [];
     novaRings = [];
@@ -2290,6 +2293,7 @@
     timeWarpExpiry = 0;
     overchargeBoostMultiplier = 1;
     overchargeBoostExpiry = 0;
+    PowerUps.reset();
     spawners = [];
     particles = [];
     obstacles = [];
@@ -10500,6 +10504,11 @@
       return effects.some(e => e.type === 'SLOWMO' && e.endsAt > now) ? SLOWMO_SPEED_MULT : 1;
     }
 
+    function reset() {
+      active = [];
+      effects = [];
+    }
+
     function showPickupBanner(type) {
       const cfg = TYPES[type];
       const el = document.createElement('div');
@@ -10556,7 +10565,7 @@
       });
     }
 
-    return { maybeSpawn, update, draw, isRapidActive, isOverdriveActive, isMagnetActive, enemySpeedMultiplier };
+    return { maybeSpawn, update, draw, isRapidActive, isOverdriveActive, isMagnetActive, enemySpeedMultiplier, reset };
   })();
   // ─── END POWER-UP DROPS ─────────────────────────────────────────────────────
 
@@ -10835,7 +10844,7 @@
       const dx = player.x - orb.x;
       const dy = player.y - orb.y;
       const dist = Math.hypot(dx, dy);
-      if (dist > 220) {
+      if (dist < 220) {
         orb.x += (dx / (dist || 1)) * 1.1;
         orb.y += (dy / (dist || 1)) * 1.1;
       }
@@ -11219,6 +11228,9 @@
     medicOrbs = [];
     ghostOrbs = [];
     freezeOrbs = [];
+    lightningOrbs = [];
+    lightningArcs = [];
+    lightningFlashEnd = 0;
     freezeExpiry = 0;
     novaOrbs = [];
     novaRings = [];
@@ -11227,6 +11239,7 @@
     timeWarpExpiry = 0;
     overchargeBoostMultiplier = 1;
     overchargeBoostExpiry = 0;
+    PowerUps.reset();
     spawners = [];
     particles = [];
     bossActive = false;
