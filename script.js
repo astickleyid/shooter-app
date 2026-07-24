@@ -2362,6 +2362,7 @@
     bountySpawnedThisWave = false;
     bountyKilledTotal = 0;
     bossWaveAnnouncementStart = 0;
+    bossEnrageAnnouncementStart = 0;
     if (dom.bossBar) dom.bossBar.style.display = 'none';
 
     // Phase 1: Reset combo and kill streak
