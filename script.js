@@ -2271,12 +2271,16 @@
     medicOrbs = [];
     ghostOrbs = [];
     freezeOrbs = [];
+    lightningOrbs = [];
+    lightningArcs = [];
+    lightningFlashEnd = 0;
     freezeExpiry = 0;
     surgeDamageMultiplier = 1;
     surgeExpiry = 0;
     timeWarpExpiry = 0;
     overchargeBoostMultiplier = 1;
     overchargeBoostExpiry = 0;
+    PowerUps.reset();
     spawners = [];
     particles = [];
     obstacles = [];
@@ -2341,6 +2345,7 @@
     bountySpawnedThisWave = false;
     bountyKilledTotal = 0;
     bossWaveAnnouncementStart = 0;
+    bossEnrageAnnouncementStart = 0;
     if (dom.bossBar) dom.bossBar.style.display = 'none';
 
     // Phase 1: Reset combo and kill streak
@@ -10281,6 +10286,11 @@
       return effects.some(e => e.type === 'SLOWMO' && e.endsAt > now) ? SLOWMO_SPEED_MULT : 1;
     }
 
+    function reset() {
+      active = [];
+      effects = [];
+    }
+
     function showPickupBanner(type) {
       const cfg = TYPES[type];
       const el = document.createElement('div');
@@ -10337,7 +10347,7 @@
       });
     }
 
-    return { maybeSpawn, update, draw, isRapidActive, isOverdriveActive, isMagnetActive, enemySpeedMultiplier };
+    return { maybeSpawn, update, draw, isRapidActive, isOverdriveActive, isMagnetActive, enemySpeedMultiplier, reset };
   })();
   // ─── END POWER-UP DROPS ─────────────────────────────────────────────────────
 
@@ -10601,7 +10611,7 @@
       const dx = player.x - orb.x;
       const dy = player.y - orb.y;
       const dist = Math.hypot(dx, dy);
-      if (dist > 220) {
+      if (dist < 220) {
         orb.x += (dx / (dist || 1)) * 1.1;
         orb.y += (dy / (dist || 1)) * 1.1;
       }
@@ -10938,12 +10948,16 @@
     medicOrbs = [];
     ghostOrbs = [];
     freezeOrbs = [];
+    lightningOrbs = [];
+    lightningArcs = [];
+    lightningFlashEnd = 0;
     freezeExpiry = 0;
     surgeDamageMultiplier = 1;
     surgeExpiry = 0;
     timeWarpExpiry = 0;
     overchargeBoostMultiplier = 1;
     overchargeBoostExpiry = 0;
+    PowerUps.reset();
     spawners = [];
     particles = [];
     bossActive = false;
