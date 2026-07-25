@@ -2277,6 +2277,7 @@
     timeWarpExpiry = 0;
     overchargeBoostMultiplier = 1;
     overchargeBoostExpiry = 0;
+    if (window.techFragmentSystem) window.techFragmentSystem.clearActivePickups();
     spawners = [];
     particles = [];
     obstacles = [];
@@ -9165,7 +9166,12 @@
       for (let i = 0; i < 5; i++) {
         dropCoin(enemy.x + rand(-30, 30), enemy.y + rand(-30, 30));
       }
-      const bountyReward = Math.floor(30 + level * 8);
+      // Named Mission Board bounties advertise a specific reward (see the Hangar's
+      // Active Bounties cards); anonymous bounty spawns fall back to the generic
+      // level-scaled formula since they have no BOUNTY_TARGETS entry to draw from.
+      const namedBountyDef = enemy.bountyId && window.BOUNTY_TARGETS
+        ? window.BOUNTY_TARGETS.find(b => b.id === enemy.bountyId) : null;
+      const bountyReward = namedBountyDef ? namedBountyDef.reward : Math.floor(30 + level * 8);
       Save.addCredits(bountyReward);
       if (window.missionSystem) window.missionSystem.trackCredits(bountyReward);
       bountyKilledTotal++;
@@ -10476,6 +10482,11 @@
 
     for (const enemy of enemies) enemy.update(dt);
 
+    // Magnet Range shop upgrade (Save.getUpgradeLevel('magnet')) adds on top of the
+    // base drift radius for both coins and supplies below — previously computed
+    // (as Player#dynamicStats' pickupR) but never actually applied to pickups.
+    const magnetBonus = Save.getUpgradeLevel('magnet') * 14 * getAdaptiveScaling().powerEffectiveness;
+
     for (let i = coins.length - 1; i >= 0; i--) {
       const coin = coins[i];
       if (now - coin.created > BASE.COIN_LIFETIME) {
@@ -10483,7 +10494,7 @@
         continue;
       }
       const magnetActive = PowerUps.isMagnetActive(now);
-      const pickupRadius = (player ? player.size + 80 : 120) * (magnetActive ? 6 : 1);
+      const pickupRadius = (player ? player.size + 80 + magnetBonus : 120) * (magnetActive ? 6 : 1);
       const dx = player.x - coin.x;
       const dy = player.y - coin.y;
       const dist = Math.hypot(dx, dy);
@@ -10515,7 +10526,7 @@
       const dx = player.x - crate.x;
       const dy = player.y - crate.y;
       const dist = Math.hypot(dx, dy);
-      if (dist < player.size + 120) {
+      if (dist < player.size + 120 + magnetBonus) {
         crate.x += (dx / (dist || 1)) * 1.6;
         crate.y += (dy / (dist || 1)) * 1.6;
       }
@@ -10944,6 +10955,7 @@
     timeWarpExpiry = 0;
     overchargeBoostMultiplier = 1;
     overchargeBoostExpiry = 0;
+    if (window.techFragmentSystem) window.techFragmentSystem.clearActivePickups();
     spawners = [];
     particles = [];
     bossActive = false;
@@ -12306,10 +12318,12 @@
     waveCreditsEarned = 0;
     // Use the improved scaling with difficulty
     const diff = getDifficulty();
-    // Progressive enemy count calculation
+    // Progressive enemy count calculation — kept in sync with advanceLevel()'s
+    // early-game formula (12 + level * 3.5), which superseded the old 8 + level * 2.5
+    // scaling; this is the only place level 1's enemiesToKill is computed.
     let baseEnemies;
     if (level <= ADAPTIVE_CONSTANTS.EASY_LEVELS) {
-      baseEnemies = Math.floor((8 + level * 2.5) * diff.enemiesToKill);
+      baseEnemies = Math.floor((12 + level * 3.5) * diff.enemiesToKill);
     } else if (level <= ADAPTIVE_CONSTANTS.LATE_GAME_START) {
       baseEnemies = Math.floor((10 + level * 5.5) * diff.enemiesToKill);
     } else {
@@ -12661,10 +12675,17 @@
     setTimeout(() => {
       // Reset runtime state
       resetRuntimeState();
-      
+
+      // Quitting a Daily Challenge run without dying skips handleGameOver(),
+      // which is the only other place Math.random's seeded override gets
+      // restored — leaving it seeded for every subsequent run otherwise.
+      if (window.DAILY_CHALLENGE_ACTIVE) {
+        import('./daily-challenge.js').then(({ deactivateDailyChallenge }) => deactivateDailyChallenge());
+      }
+
       // Return to main menu
       returnToMainMenu();
-      
+
       isExiting = false;
     }, 500);
   };
@@ -14819,6 +14840,11 @@
     
     document.getElementById('menuExitBtn')?.addEventListener('click', () => {
       closeUnifiedMenu();
+      // Same DAILY_CHALLENGE_ACTIVE leak as exitToMainMenu(): quitting here
+      // without dying also skips handleGameOver()'s Math.random restore.
+      if (window.DAILY_CHALLENGE_ACTIVE) {
+        import('./daily-challenge.js').then(({ deactivateDailyChallenge }) => deactivateDailyChallenge());
+      }
       returnToMainMenu();
     });
     
