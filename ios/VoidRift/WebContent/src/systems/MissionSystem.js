@@ -38,7 +38,11 @@ const MISSION_TEMPLATES = [
   // Credits missions
   { type: MISSION_TYPES.COLLECT_CREDITS, target: 200, reward: 100, xpBoost: 1.1, name: 'Scavenger', desc: 'Collect {target} credits' },
   { type: MISSION_TYPES.COLLECT_CREDITS, target: 500, reward: 250, xpBoost: 1.2, name: 'Prospector', desc: 'Collect {target} credits' },
-  
+
+  // Tech fragment missions
+  { type: MISSION_TYPES.COLLECT_FRAGMENTS, target: 2, reward: 200, xpBoost: 1.2, name: 'Fragment Hunter', desc: 'Collect {target} tech fragments' },
+  { type: MISSION_TYPES.COLLECT_FRAGMENTS, target: 4, reward: 400, xpBoost: 1.35, name: 'Relic Seeker', desc: 'Collect {target} tech fragments' },
+
   // Boss/Elite missions
   { type: MISSION_TYPES.KILL_BOSSES, target: 3, reward: 300, techFragment: true, name: 'Boss Hunter', desc: 'Defeat {target} boss enemies' },
   { type: MISSION_TYPES.KILL_ELITES, target: 10, reward: 200, xpBoost: 1.3, name: 'Elite Destroyer', desc: 'Defeat {target} elite enemies' },

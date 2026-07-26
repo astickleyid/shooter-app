@@ -8,7 +8,6 @@
   /* ====== CONFIG ====== */
   const SAVE_KEY = 'void_rift_v11';
   const AUTH_KEY = 'void_rift_auth';
-  const LEADERBOARD_KEY = 'void_rift_leaderboard';
 
   const DIFFICULTY_PRESETS = {
     easy: {
@@ -684,6 +683,7 @@
   let bossEntity = null;
   let leviathanWavePending = false;
   let leviathanKilledThisRun = 0;
+  let bossKilledThisRun = 0;
   let voidSurgeWavePending = false;
   let voidSurgeKilledThisRun = 0;
   let voidSurgeBossPending = false;
@@ -908,6 +908,7 @@
   let runShotsFired = 0;
   let runShotsHit = 0;
   let runStartTime = 0;
+  let xpBoostMultiplier = 1;
   let countdownActive = false;
   let countdownEnd = 0;
   let countdownCompletedLevel = 0;
@@ -1750,7 +1751,8 @@
     { id: 'boss_hunter', name: 'Boss Hunter', desc: 'Defeat your first boss', icon: 'assets/icons/achievement-boss.svg', category: 'combat', requirement: { bossKills: 1 } },
     { id: 'leviathan_slayer', name: 'LEVIATHAN SLAYER', desc: 'Defeat the Leviathan boss', icon: 'assets/icons/achievement-skull.svg', category: 'combat', requirement: { leviathanKills: 1 } },
     { id: 'elite_destroyer', name: 'Elite Destroyer', desc: 'Kill 50 elite enemies', icon: 'assets/icons/achievement-diamond.svg', category: 'combat', requirement: { eliteKills: 50 } },
-    
+    { id: 'void_breaker', name: 'Void Breaker', desc: 'Defeat the HERALD OF VOID', icon: 'assets/icons/achievement-boss.svg', category: 'combat', requirement: { voidSurgeKills: 1 } },
+
     // Survival achievements
     { id: 'survivor', name: 'Survivor', desc: 'Reach level 5', icon: 'assets/icons/achievement-shield.svg', category: 'survival', requirement: { level: 5 } },
     { id: 'veteran', name: 'Veteran', desc: 'Reach level 10', icon: 'assets/icons/achievement-star.svg', category: 'survival', requirement: { level: 10 } },
@@ -1781,8 +1783,8 @@
     { id: 'upgrader', name: 'Upgrader', desc: 'Purchase 10 upgrades', icon: 'assets/icons/achievement-upgrade.svg', category: 'special', requirement: { totalUpgrades: 10 } }
   ];
 
-  // Achievement categories for UI grouping (used by profile renderer)
-  // eslint-disable-next-line no-unused-vars
+  // Achievement categories — labels the category badge shown on the
+  // unlock toast (see showAchievementNotification below).
   const ACHIEVEMENT_CATEGORIES = {
     combat: { name: 'Combat', icon: 'assets/icons/achievement-sword.svg' },
     survival: { name: 'Survival', icon: 'assets/icons/achievement-shield.svg' },
@@ -1807,6 +1809,7 @@
       bossKills: 0,
       leviathanKills: 0,
       eliteKills: 0,
+      voidSurgeKills: 0,
       gamesPlayed: 0,
       totalPlayTime: 0,
       flawlessLevels: 0,
@@ -1988,6 +1991,7 @@
         if (req.bossKills && profile.bossKills >= req.bossKills) unlocked = true;
         if (req.leviathanKills && (profile.leviathanKills || 0) >= req.leviathanKills) unlocked = true;
         if (req.eliteKills && profile.eliteKills >= req.eliteKills) unlocked = true;
+        if (req.voidSurgeKills && (profile.voidSurgeKills || 0) >= req.voidSurgeKills) unlocked = true;
         if (req.level && profile.highestLevel >= req.level) unlocked = true;
         if (req.score && profile.bestScore >= req.score) unlocked = true;
         if (req.pilotLevel && profile.pilotLevel >= req.pilotLevel) unlocked = true;
@@ -2030,6 +2034,7 @@
       const stackOffset = existing.length * 90;
 
       // Create achievement toast notification
+      const category = ACHIEVEMENT_CATEGORIES[achievement.category];
       const toast = document.createElement('div');
       toast.className = 'achievement-toast';
       toast.style.top = `${20 + stackOffset}px`;
@@ -2039,7 +2044,7 @@
                onerror="this.style.display='none';this.parentElement.textContent='🏆'" />
         </div>
         <div class="achievement-toast-content">
-          <div class="achievement-toast-title">Achievement Unlocked!</div>
+          <div class="achievement-toast-title">Achievement Unlocked!${category ? ` <span class="achievement-toast-category">${category.name}</span>` : ''}</div>
           <div class="achievement-toast-name">${achievement.name}</div>
           <div class="achievement-toast-desc">${achievement.desc}</div>
         </div>
@@ -2104,6 +2109,7 @@
       this.playerProfile.bossKills += stats.bossKills || 0;
       this.playerProfile.leviathanKills = (this.playerProfile.leviathanKills || 0) + (stats.leviathanKills || 0);
       this.playerProfile.eliteKills += stats.eliteKills || 0;
+      this.playerProfile.voidSurgeKills = (this.playerProfile.voidSurgeKills || 0) + (stats.voidSurgeKills || 0);
       this.playerProfile.totalPlayTime += stats.playTime || 0;
       
       if (stats.flawlessLevel) {
@@ -2114,6 +2120,11 @@
       this.checkAchievements();
     }
   };
+  // Expose on window: hangar-ui.js is an ES module and cannot see this
+  // script's closure directly. Without this, canPrestige()/doPrestige()
+  // (and the prestige_1/5/10 achievements they gate) are unreachable from
+  // any UI — there is no other bridge into the Prestige system.
+  window.Auth = Auth;
 
   /* ====== LOCAL LEADERBOARD (localStorage top-5) ====== */
   const LOCAL_SCORES_KEY = 'voidrift_local_scores';
@@ -2221,11 +2232,14 @@
       return [];
     },
     
-    getUserBest(username) {
+    async getUserBest(username) {
       // Use new LeaderboardSystem
       if (this.useGlobal && typeof LeaderboardSystem !== 'undefined') {
         try {
-          const userScores = LeaderboardSystem.getUserBestScores();
+          // getUserBestScores() is async — it must be awaited, otherwise
+          // `userScores` is a pending Promise and `.length` is always
+          // undefined, so this silently returned null for every caller.
+          const userScores = await LeaderboardSystem.getUserBestScores();
           return userScores.length > 0 ? userScores[0] : null;
         } catch (err) {
           return null;
@@ -2273,6 +2287,9 @@
     medicOrbs = [];
     ghostOrbs = [];
     freezeOrbs = [];
+    lightningOrbs = [];
+    lightningArcs = [];
+    lightningFlashEnd = 0;
     freezeExpiry = 0;
     novaOrbs = [];
     novaRings = [];
@@ -2281,6 +2298,8 @@
     timeWarpExpiry = 0;
     overchargeBoostMultiplier = 1;
     overchargeBoostExpiry = 0;
+PowerUps.reset();
+    if (window.techFragmentSystem) window.techFragmentSystem.clearActivePickups();
     spawners = [];
     particles = [];
     obstacles = [];
@@ -2310,6 +2329,14 @@
     lastCloseCallAt = 0;
     gameOverHandled = false;
     continueUsed = false;
+    // Consume the one-run XP boost granted by a claimed mission reward, if any
+    try {
+      const pendingBoost = parseFloat(localStorage.getItem('voidrift_pending_xp_boost'));
+      xpBoostMultiplier = pendingBoost > 1 ? pendingBoost : 1;
+      localStorage.removeItem('voidrift_pending_xp_boost');
+    } catch (e) {
+      xpBoostMultiplier = 1;
+    }
     if (window.missionSystem) { window.missionSystem.startRun(); updateMissionHUD(); }
 
     // Special ability reset
@@ -2339,12 +2366,14 @@
     bossEntity = null;
     leviathanWavePending = false;
     leviathanKilledThisRun = 0;
+    bossKilledThisRun = 0;
     voidSurgeWavePending = false;
     voidSurgeKilledThisRun = 0;
     voidSurgeBossPending = false;
     bountySpawnedThisWave = false;
     bountyKilledTotal = 0;
     bossWaveAnnouncementStart = 0;
+    bossEnrageAnnouncementStart = 0;
     if (dom.bossBar) dom.bossBar.style.display = 'none';
 
     // Phase 1: Reset combo and kill streak
@@ -2410,13 +2439,17 @@
 
   const addXP = (amount) => {
     if (!amount || amount <= 0) return false;
-    
+
     // Phase 1: Apply combo bonus
     if (comboCount > 1) {
       const comboBonus = 1 + (comboCount * 0.1);
       amount = Math.floor(amount * comboBonus);
     }
-    
+    // Apply a claimed mission's one-run XP boost, if active
+    if (xpBoostMultiplier > 1) {
+      amount = Math.floor(amount * xpBoostMultiplier);
+    }
+
     pilotXP += amount;
     let leveled = false;
     let needed = XP_PER_LEVEL(pilotLevel);
@@ -4803,6 +4836,8 @@
       this.isEnemy = isEnemy;
       this.rotation = Math.random() * Math.PI * 2; // Phase A.3: Rotating bullets
       this.rotSpeed = 0.15; // Phase A.3: Rotation speed
+      this.homing = false; // Seeker Swarm: steers toward the nearest enemy each frame
+      this.homingTurnRate = 0.1;
     }
     draw(ctx) {
       if (this.isEnemy) {
@@ -4902,6 +4937,28 @@
     }
     update(dt) {
       const step = dt / 16.67;
+      if (this.homing && !this.isEnemy && enemies.length) {
+        let nearest = null;
+        let nearestDist = Infinity;
+        for (const enemy of enemies) {
+          if (enemy.phantomInvulnerable) continue;
+          const dx = enemy.x - this.x;
+          const dy = enemy.y - this.y;
+          const d = dx * dx + dy * dy;
+          if (d < nearestDist) { nearestDist = d; nearest = enemy; }
+        }
+        if (nearest) {
+          const dx = nearest.x - this.x;
+          const dy = nearest.y - this.y;
+          const dist = Math.hypot(dx, dy) || 1;
+          const turn = this.homingTurnRate * step;
+          this.vel.x += (dx / dist - this.vel.x) * turn;
+          this.vel.y += (dy / dist - this.vel.y) * turn;
+          const mag = Math.hypot(this.vel.x, this.vel.y) || 1;
+          this.vel.x /= mag;
+          this.vel.y /= mag;
+        }
+      }
       this.x += this.vel.x * this.speed * step;
       this.y += this.vel.y * this.speed * step;
       this.life += dt;
@@ -4925,6 +4982,8 @@
       this.isElite = isElite;
       this.isBoss = isBoss;
       this.isBounty = false;
+      this.bountyBehavior = null; // Named Bounty Target special behavior (phase_blink, tank_barrage, ...)
+      this.blinkTimer = 0;
       this.rot = 0;
       const diff = getDifficulty();
       const adaptive = getAdaptiveScaling();
@@ -6216,7 +6275,21 @@
     update(dt) {
       // Phase A.2: Update hit flash timer
       if (this.hitFlash > 0) this.hitFlash -= dt;
-      
+
+      // Void Phantom bounty: phase_blink — teleports near the player on a cycle
+      if (this.bountyBehavior === 'phase_blink' && player) {
+        this.blinkTimer += dt;
+        if (this.blinkTimer > 2600) {
+          this.blinkTimer = 0;
+          addParticles('nova', this.x, this.y, 0, 10);
+          const blinkAngle = rand(0, Math.PI * 2);
+          const blinkDist = rand(140, 260);
+          this.x = player.x + Math.cos(blinkAngle) * blinkDist;
+          this.y = player.y + Math.sin(blinkAngle) * blinkDist;
+          addParticles('nova', this.x, this.y, 0, 10);
+        }
+      }
+
       const dx = player.x - this.x;
       const dy = player.y - this.y;
       const dist = Math.hypot(dx, dy) || 1;
@@ -6675,6 +6748,64 @@
         }
       }
 
+      // Named Bounty Target unique behaviors — layered on top of the generic
+      // kind-based movement above. (phase_blink/tank_barrage are handled at
+      // their own dedicated sites elsewhere.)
+      if (this.bountyBehavior === 'aggressive_dodge') {
+        // Crimson Ace: charges the player harder, and juts perpendicular
+        // when a player bullet is on a near-collision course.
+        movementX *= 1.35;
+        movementY *= 1.35;
+        for (const b of bullets) {
+          if (b.isEnemy) continue;
+          const bdx = this.x - b.x;
+          const bdy = this.y - b.y;
+          const bdist = Math.hypot(bdx, bdy);
+          if (bdist > 140) continue;
+          const bvel = Math.hypot(b.vel.x, b.vel.y) || 1;
+          const toward = (bdx * b.vel.x + bdy * b.vel.y) / (bdist * bvel);
+          if (toward > 0.5) {
+            movementX += (-b.vel.y / bvel) * 1.6;
+            movementY += (b.vel.x / bvel) * 1.6;
+          }
+        }
+      } else if (this.bountyBehavior === 'time_distortion') {
+        // Quantum Hunter: speeds itself up and applies a one-time slow to
+        // player bullets as they enter its aura.
+        movementX *= 1.5;
+        movementY *= 1.5;
+        for (const b of bullets) {
+          if (b.isEnemy || b.timeDistorted) continue;
+          if (Math.hypot(b.x - this.x, b.y - this.y) < 220) {
+            b.speed *= 0.6;
+            b.timeDistorted = true;
+          }
+        }
+      } else if (this.bountyBehavior === 'spawn_minions') {
+        // Swarm Queen: periodically calls in small swarmer reinforcements,
+        // capped so it can't flood the wave indefinitely.
+        const bnow = performance.now();
+        if (!this.minionSpawnTimer) this.minionSpawnTimer = bnow;
+        if (bnow - this.minionSpawnTimer > 4000) {
+          this.minionSpawnTimer = bnow;
+          const nearbyMinions = enemies.filter(e =>
+            e !== this && e.kind === 'swarmer' && Math.hypot(e.x - this.x, e.y - this.y) < 400
+          ).length;
+          if (nearbyMinions < 4) {
+            for (let m = 0; m < 2; m++) {
+              const spawnAngle = Math.random() * Math.PI * 2;
+              const spawnDist = this.size + 30;
+              enemies.push(new Enemy(
+                this.x + Math.cos(spawnAngle) * spawnDist,
+                this.y + Math.sin(spawnAngle) * spawnDist,
+                'swarmer', false, false
+              ));
+            }
+            addLogEntry('🐝 Swarm Queen summoned reinforcements!', '#ec4899');
+          }
+        }
+      }
+
       const nx = movementX + ax;
       const ny = movementY + ay;
       const nm = Math.hypot(nx, ny) || 1;
@@ -6711,13 +6842,24 @@
       const dx = player.x - this.x;
       const dy = player.y - this.y;
       const dist = Math.hypot(dx, dy) || 1;
-      const vel = { x: dx / dist, y: dy / dist };
+      const baseAngle = Math.atan2(dy, dx);
       const damage = this.baseDamage * ADAPTIVE_CONSTANTS.RANGED_DAMAGE_MULT;
-      const speed = this.isBoss 
-        ? BASE.BULLET_SPEED * ADAPTIVE_CONSTANTS.BOSS_BULLET_SPEED_MULT 
+      const speed = this.isBoss
+        ? BASE.BULLET_SPEED * ADAPTIVE_CONSTANTS.BOSS_BULLET_SPEED_MULT
         : BASE.BULLET_SPEED * ADAPTIVE_CONSTANTS.ELITE_BULLET_SPEED_MULT;
       const size = this.isBoss ? BASE.BULLET_SIZE * 1.5 : BASE.BULLET_SIZE * 1.2;
-      bullets.push(new Bullet(this.x, this.y, vel, damage, '#dc2626', speed, size, 0, true));
+      if (this.bountyBehavior === 'tank_barrage') {
+        // Iron Warlord bounty: opens fire with a 3-shot spread instead of a single round
+        const spread = [-0.18, 0, 0.18];
+        for (const offset of spread) {
+          const ang = baseAngle + offset;
+          const vel = { x: Math.cos(ang), y: Math.sin(ang) };
+          bullets.push(new Bullet(this.x, this.y, vel, damage * 0.7, '#dc2626', speed, size, 0, true));
+        }
+      } else {
+        const vel = { x: dx / dist, y: dy / dist };
+        bullets.push(new Bullet(this.x, this.y, vel, damage, '#dc2626', speed, size, 0, true));
+      }
       addParticles('muzzle', this.x, this.y, this.rot, 4);
     }
     
@@ -6984,6 +7126,11 @@
               last.bountyId = namedBounty.id;
               last.bountyName = namedBounty.name;
               last.bountyColor = namedBounty.color;
+              // Each named bounty declares a distinct AI `behavior` flavor
+              // string (see BOUNTY_TARGETS in MissionSystem.js) — dispatched
+              // in Enemy.update() below so bounties don't all just play like
+              // reskinned stat blocks of their base kind.
+              last.bountyBehavior = namedBounty.behavior || null;
               window.missionSystem.markBountySpawned(namedBounty.id);
               // Apply the named bounty's flavor stats (relative to the baseline
               // across all bounties) so each one plays differently on top of
@@ -6998,6 +7145,10 @@
                   last.maxHealth = last.health;
                 }
               }
+              // Give the two simplest named bounties their own signature behavior
+              // (Void Phantom teleports; Iron Warlord opens fire like a turret)
+              last.bountyBehavior = namedBounty.behavior || null;
+              if (namedBounty.behavior === 'tank_barrage') last.canShoot = true;
             }
           }
         }
@@ -7120,12 +7271,20 @@
       } else {
         this.health = this.hpMax;
         this.ammo = this.ammoMax;
+        // Hangar "Void Shield" / "Emergency Clone Bay" upgrades only apply at
+        // the start of a fresh run (preserveVitals === false) — otherwise
+        // they'd silently refill on every wave transition.
+        this.shieldHp = Math.max(0, perkMultipliers.startShield || 0);
+        this.livesRemaining = Math.max(0, Math.round(perkMultipliers.extraLives || 0));
       }
       const secondaryStats = (this.secondary && this.secondary.stats) || {};
       const defenseStats = (this.defense && this.defense.stats) || {};
       const ultimateStats = (this.ultimate && this.ultimate.stats) || {};
       this.secondaryCapacity = Math.max(0, Math.round(secondaryStats.ammo || 0));
-      this.secondaryCooldownMs = secondaryStats.cooldown || 9000;
+      // System Coolant shop upgrade ('cooldown'): was purchasable but its level
+      // was never read anywhere — 5% shorter cooldowns per level, up to 25% at max level 5.
+      const cooldownMult = 1 - Math.min(0.5, Save.getUpgradeLevel('cooldown') * 0.05);
+      this.secondaryCooldownMs = (secondaryStats.cooldown || 9000) * cooldownMult;
       this.secondaryAmmo = preserveVitals ? clamp(Math.round(this.secondaryCapacity * prevSecondaryRatio), 0, this.secondaryCapacity) : this.secondaryCapacity;
       this.defenseStats = defenseStats;
       if (!preserveVitals) {
@@ -7496,7 +7655,9 @@
         const sy = this.y + Math.sin(angle) * this.size * 0.9;
         const speed = BASE.BULLET_SPEED * (weaponStats.bulletSpeed || 1) * perkMultipliers.bulletSpeed;
         const size = BASE.BULLET_SIZE * (weaponStats.bulletSize || 1);
-        const pierce = (weaponStats.pierce || 0) + perkMultipliers.piercePlus;
+        // Armor Piercing shop upgrade ('pierce'): was purchasable but its level
+        // was never read anywhere — +1 pierce per level, up to +3 at max level 3.
+        const pierce = (weaponStats.pierce || 0) + perkMultipliers.piercePlus + Save.getUpgradeLevel('pierce');
         const dmg = stats.dmg * perkMultipliers.damage * surgeDamageMultiplier * overchargeBoostMultiplier;
         bullets.push(new Bullet(sx, sy, vel, dmg, color, speed, size, pierce));
         runShotsFired++;
@@ -7592,8 +7753,36 @@
             applyRadialDamage(cx, cy, (stats.radius || 130) * 0.55, stats.damage || 45, { knockback: 3.5, chargeMult: 0.5 });
           });
         }
+      } else if (this.secondary.id === 'seeker') {
+        // Seeker Swarm: release homing micro-drones that track and eliminate targets
+        addParticles('nova', originX, originY, 0, 14);
+        addLogEntry('\u{1F3AF} SEEKER SWARM RELEASED!', '#22d3ee');
+        const seekerCount = stats.seekers || 6;
+        for (let i = 0; i < seekerCount; i++) {
+          const ang = (Math.PI * 2 * i) / seekerCount + rand(-0.25, 0.25);
+          const vel = { x: Math.cos(ang), y: Math.sin(ang) };
+          const drone = new Bullet(originX, originY, vel, stats.damage || 35, '#22d3ee', BASE.BULLET_SPEED * 0.7, BASE.BULLET_SIZE * 1.15, 0, false);
+          drone.homing = true;
+          drone.homingTurnRate = 0.1;
+          drone.maxLife = 3200;
+          bullets.push(drone);
+        }
+      } else if (this.secondary.id === 'gravity') {
+        // Gravity Well: sustained pull anomaly instead of a one-shot knockback
+        addParticles('nova', originX, originY, 0, 24);
+        shakeScreen(4, 180);
+        addLogEntry('\u{1F300} GRAVITY WELL DEPLOYED!', '#a855f7');
+        const duration = stats.duration || 3000;
+        const pull = stats.pull || 0.8;
+        const tickInterval = 200;
+        const tickCount = Math.max(1, Math.round(duration / tickInterval));
+        for (let i = 0; i < tickCount; i++) {
+          queueTimedEffect(i * tickInterval, () => {
+            applyRadialDamage(originX, originY, stats.radius || 150, (stats.damage || 70) / tickCount, { knockback: 0, pull, chargeMult: 0.6 / tickCount });
+          });
+        }
       } else {
-        // Default secondary weapon behavior (nova, seeker, gravity, etc.)
+        // Default secondary weapon behavior (nova, etc.)
         addParticles('nova', originX, originY, 0, 24);
         shakeScreen(7, 220);
         applyRadialDamage(originX, originY, stats.radius || 150, stats.damage || 70, { knockback: 4.2, pull: 0.2, chargeMult: 0.6 });
@@ -7605,7 +7794,10 @@
       if (!this.defense) return false;
       const stats = this.defense.stats || {};
       if (now < this.defenseReadyAt) return false;
-      this.defenseReadyAt = now + (stats.cooldown || 12000);
+      // System Coolant shop upgrade ('cooldown') also reduces the defense
+      // system's recharge time, matching the secondary-weapon cooldown above.
+      const cooldownMult = 1 - Math.min(0.5, Save.getUpgradeLevel('cooldown') * 0.05);
+      this.defenseReadyAt = now + (stats.cooldown || 12000) * cooldownMult;
       this.defenseActiveUntil = now + (stats.duration || 3000);
       addParticles('shield', this.x, this.y, 0, 24);
       shakeScreen(4, 140);
@@ -7668,7 +7860,10 @@
       if (!amount || amount <= 0) return;
       const fragmentRate = (window.techFragmentSystem && window.techFragmentSystem.hasFragment('antimatter_vial'))
         ? (window.TECH_UNLOCKS.antimatter_reactor.stats.ultimateChargeRate || 1) : 1;
-      this.ultimateCharge = clamp(this.ultimateCharge + amount * fragmentRate, 0, this.ultimateChargeMax);
+      // Ultimate Charger shop upgrade ('ultimate'): was purchasable but its level
+      // was never read anywhere — 5% faster charge per level, up to 25% at max level 5.
+      const upgradeRate = 1 + Save.getUpgradeLevel('ultimate') * 0.05;
+      this.ultimateCharge = clamp(this.ultimateCharge + amount * fragmentRate * upgradeRate, 0, this.ultimateChargeMax);
     }
 
     collectSupply(kind) {
@@ -7729,7 +7924,20 @@
       if (amount <= 0) return;
       // Reinforced Hull perk: reduce damage taken
       amount *= perkMultipliers.damageTakenMult;
+      // Reactive Armor shop upgrade ('armor'): purchasable ("Reduce incoming
+      // damage percentage") but its level was never applied anywhere — fixed
+      // to actually mitigate damage. 5% per level, capped at 25% at max level 5.
+      const armorLevel = Save.getUpgradeLevel('armor');
+      if (armorLevel > 0) amount *= (1 - Math.min(0.5, armorLevel * 0.05));
       if (amount <= 0) return;
+      // Hangar "Void Shield" upgrade: absorb damage from a separate pool
+      // before any of it reaches HP.
+      if (this.shieldHp > 0) {
+        const absorbed = Math.min(this.shieldHp, amount);
+        this.shieldHp -= absorbed;
+        amount -= absorbed;
+        if (amount <= 0) return;
+      }
       tookDamageThisLevel = true;
       if (window.missionSystem) window.missionSystem.trackDamage(amount);
       this.health -= amount;
@@ -7757,8 +7965,16 @@
       }
       
       if (this.health <= 0) {
-        this.health = 0;
-        gameRunning = false;
+        // Hangar "Emergency Clone Bay" upgrade: revive instead of ending the run.
+        if (this.livesRemaining > 0) {
+          this.livesRemaining--;
+          this.health = Math.ceil(this.hpMax * 0.5);
+          this.invEnd = now + BASE.INVULN_MS * 3;
+          addLogEntry('💚 Emergency Clone Bay activated! Extra life used', '#4ade80');
+        } else {
+          this.health = 0;
+          gameRunning = false;
+        }
       }
     }
   }
@@ -9169,7 +9385,12 @@
       for (let i = 0; i < 5; i++) {
         dropCoin(enemy.x + rand(-30, 30), enemy.y + rand(-30, 30));
       }
-      const bountyReward = Math.floor(30 + level * 8);
+      // Named Mission Board bounties advertise a specific reward (see the Hangar's
+      // Active Bounties cards); anonymous bounty spawns fall back to the generic
+      // level-scaled formula since they have no BOUNTY_TARGETS entry to draw from.
+      const namedBountyDef = enemy.bountyId && window.BOUNTY_TARGETS
+        ? window.BOUNTY_TARGETS.find(b => b.id === enemy.bountyId) : null;
+      const bountyReward = namedBountyDef ? namedBountyDef.reward : Math.floor(30 + level * 8);
       Save.addCredits(bountyReward);
       if (window.missionSystem) window.missionSystem.trackCredits(bountyReward);
       bountyKilledTotal++;
@@ -9184,6 +9405,9 @@
             if (typeof Auth !== 'undefined' && Auth.showTechFragmentNotification) {
               Auth.showTechFragmentNotification(window.techFragmentSystem.getFragmentCount(bountyFragment.id));
             }
+            try {
+              localStorage.setItem('voidrift_techfragments', JSON.stringify(window.techFragmentSystem.getSaveData()));
+            } catch (e) { /* storage unavailable — fragment stays session-only */ }
           }
         }
       } else {
@@ -9275,6 +9499,11 @@
       addParticles('levelup', enemy.x, enemy.y, 0, 30);
       shakeScreen(15, 500);
       addLogEntry('💀 BOSS DESTROYED!', '#f59e0b');
+      bossKilledThisRun++;
+      // HERALD OF VOID is the VOID SURGE wave's boss (tagged via heraldPhase);
+      // this was the only per-run counter for it, previously declared and
+      // reset but never incremented or read anywhere.
+      if (enemy.heraldPhase !== undefined) voidSurgeKilledThisRun++;
     } else if (wasElite) {
       addParticles('debris', enemy.x, enemy.y, 0, 25);
       addParticles('sparks', enemy.x, enemy.y, 0, 20);
@@ -9325,12 +9554,15 @@
     if (perkMultipliers.chainDamage > 0) {
       const chainR = 60;
       addParticles('ring', enemy.x, enemy.y, 0, 1, '#a5b4fc');
-      enemies.forEach(nearby => {
+      enemies.forEach((nearby, ni) => {
         if (nearby !== enemy) {
           const dx = nearby.x - enemy.x;
           const dy = nearby.y - enemy.y;
           if (Math.hypot(dx, dy) <= chainR) {
-            nearby.hp -= perkMultipliers.chainDamage;
+            // Was writing to a nonexistent `.hp` field (Enemy only has `.health`),
+            // so the perk's advertised on-kill splash never actually hurt anyone.
+            nearby.health -= perkMultipliers.chainDamage;
+            if (nearby.health <= 0) handleEnemyDeath(ni);
           }
         }
       });
@@ -9786,82 +10018,6 @@
     return `${delta > 0 ? '+' : ''}${delta}%`;
   };
 
-  const drawWeaponPreview = (canvas, item) => {
-    const ctx = canvas.getContext('2d');
-    const width = (canvas.width = canvas.clientWidth || 160);
-    const height = (canvas.height = canvas.clientHeight || 110);
-    
-    // Black sleek background
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, width, height);
-    
-    // Add subtle gradient
-    const gradient = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, width / 2);
-    gradient.addColorStop(0, 'rgba(74, 222, 128, 0.15)');
-    gradient.addColorStop(1, 'rgba(0, 0, 0, 0.8)');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, width, height);
-    
-    // Fallback: draw generic weapon shape with item color
-    const drawFallback = () => {
-      ctx.save();
-      ctx.translate(width / 2, height / 2);
-      ctx.rotate(-Math.PI / 8);
-      ctx.fillStyle = item.color || '#4ade80';
-      ctx.shadowBlur = 10;
-      ctx.shadowColor = item.color || '#4ade80';
-      ctx.beginPath();
-      ctx.moveTo(-width * 0.28, -height * 0.14);
-      ctx.lineTo(width * 0.35, 0);
-      ctx.lineTo(-width * 0.28, height * 0.14);
-      ctx.closePath();
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(-width * 0.15, -height * 0.22);
-      ctx.lineTo(width * 0.28, -height * 0.04);
-      ctx.moveTo(-width * 0.15, height * 0.22);
-      ctx.lineTo(width * 0.28, height * 0.04);
-      ctx.stroke();
-      ctx.restore();
-    };
-    
-    // Load and display weapon icon if available
-    const weaponType = item.id ? 
-      (ARMORY.primary.find(w => w.id === item.id) ? 'primary' :
-       ARMORY.secondary.find(w => w.id === item.id) ? 'secondary' :
-       ARMORY.defense.find(w => w.id === item.id) ? 'defense' :
-       ARMORY.ultimate.find(w => w.id === item.id) ? 'ultimate' : null) : null;
-    
-    if (weaponType && item.id) {
-      const iconPath = `assets/icons/${weaponType}-${item.id}.svg`;
-      const img = new Image();
-      
-      img.onload = () => {
-        ctx.save();
-        ctx.translate(width / 2, height / 2);
-        // Apply glow effect with single draw
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = item.color || '#4ade80';
-        // Draw icon centered and scaled
-        const iconSize = Math.min(width, height) * 0.6;
-        ctx.drawImage(img, -iconSize / 2, -iconSize / 2, iconSize, iconSize);
-        ctx.restore();
-      };
-      
-      img.onerror = () => {
-        // If icon fails to load, render fallback shape
-        drawFallback();
-      };
-      
-      img.src = iconPath;
-    } else {
-      // No weapon type identified, use fallback
-      drawFallback();
-    }
-  };
-
   const createSectionHeader = (label) => {
     const div = document.createElement('div');
     div.className = 'hangarSectionHeader';
@@ -9974,72 +10130,6 @@
       drawShip(ctx, ship.id, 20 * (ship.scale || 1));
       ctx.restore();
     });
-    return card;
-  };
-
-  const createArmoryCard = (type, item) => {
-    const unlocked = Save.isUnlocked(type, item.id);
-    const equipped = Save.data.armory.loadout[type] === item.id;
-    const card = document.createElement('div');
-    card.className = 'hangarShip armoryCard';
-    if (equipped) card.classList.add('selected');
-    const preview = document.createElement('canvas');
-    preview.className = 'shipPreview weaponPreview';
-    card.appendChild(preview);
-    const meta = document.createElement('div');
-    meta.className = 'shipMeta';
-    meta.innerHTML = `<h3>${item.name}</h3><p>${item.desc}</p>`;
-    card.appendChild(meta);
-    const statsWrap = document.createElement('div');
-    statsWrap.className = 'shipStats';
-    const entries = [];
-    if (type === 'primary') {
-      entries.push(['Damage', formatMultiplier(item.stats.damage || 1)]);
-      entries.push(['Cadence', formatMultiplier(item.stats.cd || 1, true)]);
-      entries.push(['Shots', `${(item.stats.shots || 0) + 1}`]);
-      entries.push(['Ammo', formatMultiplier(item.stats.ammo || 1)]);
-    } else if (type === 'secondary') {
-      entries.push(['Ammo', `${item.stats.ammo || 0}`]);
-      entries.push(['Cooldown', `${((item.stats.cooldown || 0) / 1000).toFixed(1)}s`]);
-      entries.push(['Radius', `${item.stats.radius || 0}`]);
-    } else if (type === 'defense') {
-      entries.push(['Duration', `${((item.stats.duration || 0) / 1000).toFixed(1)}s`]);
-      entries.push(['Absorb', `${Math.round((item.stats.absorb || 0) * 100)}%`]);
-      entries.push(['Cooldown', `${((item.stats.cooldown || 0) / 1000).toFixed(1)}s`]);
-    } else if (type === 'ultimate') {
-      entries.push(['Charge', `${item.stats.charge || 0}`]);
-      if (item.stats.radius) entries.push(['Radius', `${item.stats.radius}`]);
-      if (item.stats.damage) entries.push(['Damage', `${item.stats.damage}`]);
-    }
-    for (const [label, value] of entries) {
-      const span = document.createElement('span');
-      span.innerHTML = `<strong>${label}</strong> ${value}`;
-      statsWrap.appendChild(span);
-    }
-    card.appendChild(statsWrap);
-    const btn = document.createElement('button');
-    if (!unlocked && item.unlock > 0) {
-      btn.textContent = `Unlock — CR ${item.unlock}`;
-      if (Save.data.credits < item.unlock) btn.disabled = true;
-      btn.addEventListener('click', () => {
-        if (Save.spendCredits(item.unlock)) {
-          Save.unlockArmory(type, item.id);
-          Save.setLoadout(type, item.id);
-          if (player) player.reconfigureLoadout(true);
-          renderHangar();
-        }
-      });
-    } else {
-      btn.textContent = equipped ? 'Equipped' : 'Equip';
-      if (equipped) btn.disabled = true;
-      btn.addEventListener('click', () => {
-        Save.setLoadout(type, item.id);
-        if (player) player.reconfigureLoadout(true);
-        renderHangar();
-      });
-    }
-    card.appendChild(btn);
-    requestAnimationFrame(() => drawWeaponPreview(preview, item));
     return card;
   };
 
@@ -10185,6 +10275,9 @@
     window.openHangar({
       getCredits: () => Save.data.credits,
       spendCredits: (amount) => Save.spendCredits(amount),
+      // Mission-reward credit claims must land in the real Save balance,
+      // not the hangar's own disconnected internal credit pool.
+      addCredits: (amount) => Save.addCredits(amount),
       getSelectedShip: () => Save.data.selectedShip || 'vanguard',
       // Loadout tab reads/writes the same equipment class the in-game
       // pause menu configures, so changes made here carry into the next run.
@@ -10289,6 +10382,11 @@
       return effects.some(e => e.type === 'SLOWMO' && e.endsAt > now) ? SLOWMO_SPEED_MULT : 1;
     }
 
+    function reset() {
+      active = [];
+      effects = [];
+    }
+
     function showPickupBanner(type) {
       const cfg = TYPES[type];
       const el = document.createElement('div');
@@ -10345,7 +10443,7 @@
       });
     }
 
-    return { maybeSpawn, update, draw, isRapidActive, isOverdriveActive, isMagnetActive, enemySpeedMultiplier };
+    return { maybeSpawn, update, draw, isRapidActive, isOverdriveActive, isMagnetActive, enemySpeedMultiplier, reset };
   })();
   // ─── END POWER-UP DROPS ─────────────────────────────────────────────────────
 
@@ -10385,6 +10483,9 @@
         if (typeof Auth !== 'undefined' && Auth.showTechFragmentNotification) {
           Auth.showTechFragmentNotification(count);
         }
+        try {
+          localStorage.setItem('voidrift_techfragments', JSON.stringify(tfs.getSaveData()));
+        } catch (e) { /* storage unavailable — fragment stays session-only */ }
       }
     }
     if (window.missionSystem && runStartTime > 0) {
@@ -10426,9 +10527,18 @@
         const dx = bullet.x - enemy.x;
         const dy = bullet.y - enemy.y;
         if (Math.hypot(dx, dy) < bullet.size + enemy.size) {
-          // AI Targeting Matrix tech fragment: chance to crit for bonus damage
           let hitDamage = bullet.damage;
           let isCrit = false;
+          // Critical Strike shop upgrade ('crit'): was purchasable with credits
+          // (see UPGRADES catalog) but its level was never read anywhere —
+          // players could max it out for zero effect. 5% chance per level,
+          // double damage, up to 30% at max level 6.
+          const shopCritChance = Save.getUpgradeLevel('crit') * 0.05;
+          if (shopCritChance > 0 && Math.random() < shopCritChance) {
+            hitDamage *= 2;
+            isCrit = true;
+          }
+          // AI Targeting Matrix tech fragment: chance to crit for bonus damage
           if (window.techFragmentSystem && window.techFragmentSystem.hasFragment('neural_chip') && window.TECH_UNLOCKS) {
             const critStats = window.TECH_UNLOCKS.ai_targeting.stats;
             if (Math.random() < critStats.critChance) {
@@ -10484,6 +10594,11 @@
 
     for (const enemy of enemies) enemy.update(dt);
 
+    // Magnet Range shop upgrade (Save.getUpgradeLevel('magnet')) adds on top of the
+    // base drift radius for both coins and supplies below — previously computed
+    // (as Player#dynamicStats' pickupR) but never actually applied to pickups.
+    const magnetBonus = Save.getUpgradeLevel('magnet') * 14 * getAdaptiveScaling().powerEffectiveness;
+
     for (let i = coins.length - 1; i >= 0; i--) {
       const coin = coins[i];
       if (now - coin.created > BASE.COIN_LIFETIME) {
@@ -10491,7 +10606,7 @@
         continue;
       }
       const magnetActive = PowerUps.isMagnetActive(now);
-      const pickupRadius = (player ? player.size + 80 : 120) * (magnetActive ? 6 : 1);
+      const pickupRadius = (player ? player.size + 80 + magnetBonus : 120) * (magnetActive ? 6 : 1);
       const dx = player.x - coin.x;
       const dy = player.y - coin.y;
       const dist = Math.hypot(dx, dy);
@@ -10502,7 +10617,10 @@
       if (dist < player.size + coin.r) {
         coins.splice(i, 1);
         score += 10;
-        const coinCredits = killComboMultiplier > 1 ? killComboMultiplier : 1;
+        const rawCoinCredits = killComboMultiplier > 1 ? killComboMultiplier : 1;
+        // Fortune Module shop upgrade ('luck'): was purchasable but its level
+        // was never read anywhere — 5% more credits per level, up to 30% at max level 6.
+        const coinCredits = Math.round(rawCoinCredits * (1 + Save.getUpgradeLevel('luck') * 0.05));
         Save.addCredits(coinCredits);
         if (window.missionSystem) window.missionSystem.trackCredits(coinCredits);
         addXP(6);
@@ -10523,7 +10641,7 @@
       const dx = player.x - crate.x;
       const dy = player.y - crate.y;
       const dist = Math.hypot(dx, dy);
-      if (dist < player.size + 120) {
+      if (dist < player.size + 120 + magnetBonus) {
         crate.x += (dx / (dist || 1)) * 1.6;
         crate.y += (dy / (dist || 1)) * 1.6;
       }
@@ -10609,7 +10727,7 @@
       const dx = player.x - orb.x;
       const dy = player.y - orb.y;
       const dist = Math.hypot(dx, dy);
-      if (dist > 220) {
+      if (dist < 220) {
         orb.x += (dx / (dist || 1)) * 1.1;
         orb.y += (dy / (dist || 1)) * 1.1;
       }
@@ -10869,7 +10987,9 @@
   const advanceLevel = () => {
     // Reset per-wave stats before accumulating this wave's rewards
     waveCreditsEarned = 0;
-    const _creditsBase = Math.floor(20 + level * 5 + enemiesKilled * 1.5);
+    // Fortune Module shop upgrade ('luck') applies to this per-kill wave-clear
+    // reward too, same as the coin-pickup credits above.
+    const _creditsBase = Math.floor((20 + level * 5 + enemiesKilled * 1.5) * (1 + Save.getUpgradeLevel('luck') * 0.05));
     Save.addCredits(_creditsBase);
     waveCreditsEarned += _creditsBase;
     addXP(90 + level * 12);
@@ -10927,18 +11047,23 @@
       leviathanWavePending = true;
       voidSurgeWavePending = false;
       addLogEntry(`☠️ LEVIATHAN APPROACHES — FLEE OR FIGHT!`, '#FF2020');
-    } else if (bossLevel) {
-      currentWaveType = 'boss';
-      leviathanWavePending = false;
-      voidSurgeWavePending = false;
-      addLogEntry(`⚠️ BOSS WAVE INCOMING!`, '#dc2626');
     } else if (voidSurgeLevel) {
-      // VOID SURGE — elite wave with dramatic overlay + HERALD OF VOID boss
+      // VOID SURGE — elite wave with dramatic overlay + HERALD OF VOID boss.
+      // Checked before the generic bossLevel below: whenever the current
+      // adaptive bossInterval (3-7) happens to divide evenly into a void
+      // surge level (15, 40, 65, 90, ...), bossLevel is ALSO true — if that
+      // branch ran first it would silently swallow this one, spawning a
+      // plain boss wave and skipping the HERALD OF VOID encounter entirely.
       currentWaveType = 'elite';
       voidSurgeWavePending = true;
       voidSurgeBossPending = true;
       leviathanWavePending = false;
       addLogEntry(`⚡ VOID SURGE INCOMING — HERALD OF VOID APPROACHES!`, '#8b5cf6');
+    } else if (bossLevel) {
+      currentWaveType = 'boss';
+      leviathanWavePending = false;
+      voidSurgeWavePending = false;
+      addLogEntry(`⚠️ BOSS WAVE INCOMING!`, '#dc2626');
     } else if (level % 5 === 0 && getPowerRatio() > 0.3) {
       // Every 5th level (non-boss), special wave type
       const waveTypes = ['swarm', 'elite', 'survival', 'hazard'];
@@ -10986,6 +11111,9 @@
     medicOrbs = [];
     ghostOrbs = [];
     freezeOrbs = [];
+    lightningOrbs = [];
+    lightningArcs = [];
+    lightningFlashEnd = 0;
     freezeExpiry = 0;
     novaOrbs = [];
     novaRings = [];
@@ -10994,6 +11122,8 @@
     timeWarpExpiry = 0;
     overchargeBoostMultiplier = 1;
     overchargeBoostExpiry = 0;
+PowerUps.reset();
+    if (window.techFragmentSystem) window.techFragmentSystem.clearActivePickups();
     spawners = [];
     particles = [];
     bossActive = false;
@@ -12419,10 +12549,12 @@
     waveCreditsEarned = 0;
     // Use the improved scaling with difficulty
     const diff = getDifficulty();
-    // Progressive enemy count calculation
+    // Progressive enemy count calculation — kept in sync with advanceLevel()'s
+    // early-game formula (12 + level * 3.5), which superseded the old 8 + level * 2.5
+    // scaling; this is the only place level 1's enemiesToKill is computed.
     let baseEnemies;
     if (level <= ADAPTIVE_CONSTANTS.EASY_LEVELS) {
-      baseEnemies = Math.floor((8 + level * 2.5) * diff.enemiesToKill);
+      baseEnemies = Math.floor((12 + level * 3.5) * diff.enemiesToKill);
     } else if (level <= ADAPTIVE_CONSTANTS.LATE_GAME_START) {
       baseEnemies = Math.floor((10 + level * 5.5) * diff.enemiesToKill);
     } else {
@@ -12774,10 +12906,17 @@
     setTimeout(() => {
       // Reset runtime state
       resetRuntimeState();
-      
+
+      // Quitting a Daily Challenge run without dying skips handleGameOver(),
+      // which is the only other place Math.random's seeded override gets
+      // restored — leaving it seeded for every subsequent run otherwise.
+      if (window.DAILY_CHALLENGE_ACTIVE) {
+        import('./daily-challenge.js').then(({ deactivateDailyChallenge }) => deactivateDailyChallenge());
+      }
+
       // Return to main menu
       returnToMainMenu();
-      
+
       isExiting = false;
     }, 500);
   };
@@ -13076,9 +13215,15 @@
     // Update game stats for achievements
     Auth.updateGameStats({
       kills: totalKillsThisRun,
-      bossKills: bossActive ? 0 : (bossEntity ? 1 : 0),
+      // Was `bossActive ? 0 : (bossEntity ? 1 : 0)` — but checkWaveCompletion()
+      // already clears both bossActive and bossEntity in the same tick a boss
+      // dies, so by the time the player later reaches game over this almost
+      // always evaluated to 0 even after killing several bosses that run.
+      // bossKilledThisRun is a real per-run counter incremented on each boss kill.
+      bossKills: bossKilledThisRun,
       leviathanKills: leviathanKilledThisRun,
       eliteKills: eliteKillsThisRun,
+      voidSurgeKills: voidSurgeKilledThisRun,
       playTime: performance.now() - (waveStartTime || performance.now()),
       flawlessLevel: !tookDamageThisLevel
     });
@@ -13121,11 +13266,15 @@
 
     // Save daily challenge best and restore Math.random
     if (window.DAILY_CHALLENGE_ACTIVE) {
-      import('./daily-challenge.js').then(({ saveDailyBest, deactivateDailyChallenge, getDailyStreak, getTotalDailyChallengesCompleted }) => {
+      import('./daily-challenge.js').then(({ saveDailyBest, getTodayBest, deactivateDailyChallenge, getDailyStreak, getTotalDailyChallengesCompleted }) => {
+        // saveDailyBest() only overwrites the stored best when finalScore is
+        // actually higher — but its return value was previously discarded,
+        // so the display below unconditionally showed *this run's* score
+        // even after a worse run, overwriting a legitimately higher best.
         saveDailyBest(finalScore);
         deactivateDailyChallenge();
         const bestEl = document.getElementById('dailyBestDisplay');
-        if (bestEl) bestEl.textContent = `Best: ${finalScore.toLocaleString()}`;
+        if (bestEl) bestEl.textContent = `Best: ${getTodayBest().toLocaleString()}`;
 
         // Update achievement stats for daily challenge completion
         try {
@@ -13630,17 +13779,32 @@
     
     const entries = await Leaderboard.getEntries(difficulty, 100);
     const currentUsername = Auth.getCurrentUsername();
-    
+
     if (entries.length === 0) {
       dom.leaderboardList.innerHTML = '<div class="leaderboard-empty">No scores yet. Be the first!</div>';
       return;
     }
-    
-    const sourceLabel = Leaderboard.useGlobal 
-      ? '<div style="text-align:center;color:#22c55e;font-size:12px;margin-bottom:8px;">🌍 Global Leaderboard - Top 100</div>' 
+
+    const sourceLabel = Leaderboard.useGlobal
+      ? '<div style="text-align:center;color:#22c55e;font-size:12px;margin-bottom:8px;">🌍 Global Leaderboard - Top 100</div>'
       : '<div style="text-align:center;color:#eab308;font-size:12px;margin-bottom:8px;">📱 Local Scores - Top 100</div>';
-    
-    dom.leaderboardList.innerHTML = sourceLabel + entries.map((entry, index) => {
+
+    // "Your Best" banner — surfaces Leaderboard.getUserBest(), which previously
+    // returned null unconditionally due to a missing await on the underlying
+    // async call, so it had never been worth wiring into the UI before.
+    let personalBestLabel = '';
+    if (Leaderboard.useGlobal && currentUsername) {
+      try {
+        const best = await Leaderboard.getUserBest(currentUsername);
+        if (best) {
+          personalBestLabel = `<div style="text-align:center;color:#93c5fd;font-size:11px;margin-bottom:8px;">⭐ Your Best: ${best.score.toLocaleString()} (Lvl ${best.level})</div>`;
+        }
+      } catch (err) {
+        // Non-fatal — leaderboard still renders without the personal-best banner.
+      }
+    }
+
+    dom.leaderboardList.innerHTML = sourceLabel + personalBestLabel + entries.map((entry, index) => {
       const rank = index + 1;
       const isCurrentUser = currentUsername && entry.username.toLowerCase() === currentUsername.toLowerCase();
       const rankClass = rank === 1 ? 'top-1' : rank === 2 ? 'top-2' : rank === 3 ? 'top-3' : '';
@@ -14932,6 +15096,11 @@
     
     document.getElementById('menuExitBtn')?.addEventListener('click', () => {
       closeUnifiedMenu();
+      // Same DAILY_CHALLENGE_ACTIVE leak as exitToMainMenu(): quitting here
+      // without dying also skips handleGameOver()'s Math.random restore.
+      if (window.DAILY_CHALLENGE_ACTIVE) {
+        import('./daily-challenge.js').then(({ deactivateDailyChallenge }) => deactivateDailyChallenge());
+      }
       returnToMainMenu();
     });
     
@@ -15045,19 +15214,7 @@
       }
       touchStartPos = null;
     });
-    
-    dom.closeShopBtn?.addEventListener('click', () => {
-      closeShop();
-      if (!gameRunning && dom.gameContainer?.style.display === 'block') requestAnimationFrame(() => {});
-    });
-    dom.openHangarFromShop?.addEventListener('click', () => {
-      closeShop();
-      openPersistentHangar();
-    });
-    dom.hangarClose?.addEventListener('click', closeHangar);
-    dom.hangarModal?.addEventListener('click', (e) => {
-      if (e.target === dom.hangarModal) closeHangar();
-    });
+
     dom.controlSettingsModal?.addEventListener('click', (e) => {
       if (e.target === dom.controlSettingsModal) closeControlSettings();
     });

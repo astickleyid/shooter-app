@@ -2344,7 +2344,7 @@ function _buildLeaderboardTable(container, entries, emptyMsg = 'No runs recorded
     const diff = entry.difficulty ? entry.difficulty.charAt(0).toUpperCase() + entry.difficulty.slice(1) : '—';
     const date = entry.timestamp
       ? new Date(entry.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-      : '—';
+      : (entry.date || '—'); // local entries store a pre-formatted date string, not a timestamp
     const pilot = entry.username || entry.userId || 'Pilot';
     const tr = document.createElement('tr');
     tr.className = `hangar-lb-row ${rowClass}`;
@@ -2394,12 +2394,16 @@ function renderLeaderboardView() {
   if (_lbMode === 'local') {
     let entries = [];
     try {
-      const raw = localStorage.getItem('void_rift_leaderboard');
+      // Read from the same key script.js's LocalLeaderboard actually writes to
+      // (voidrift_local_scores) — this used to read 'void_rift_leaderboard',
+      // a key nothing ever populates, so the tab was always empty. Local
+      // entries are stored as {score, date} with no username field.
+      const raw = localStorage.getItem('voidrift_local_scores');
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
           entries = parsed
-            .filter(e => e && typeof e.score === 'number' && typeof e.username === 'string')
+            .filter(e => e && typeof e.score === 'number')
             .sort((a, b) => b.score - a.score)
             .slice(0, 20);
         }
@@ -2704,20 +2708,24 @@ function renderMissionsView() {
       const reward = ms.claimMissionReward(missionId);
       if (!reward) return;
 
-      // Grant credits to the main save if the callback is available
-      if (typeof _options.getCredits === 'function' && typeof _options.spendCredits !== 'function') {
-        // Read-only accessor provided — can't grant; store for next session via HangarSystem pool
-      }
-      // Attempt to add credits via the external handler or internal pool
+      // Attempt to add credits via the external handler (bridges into the main
+      // game's Save balance) or fall back to the hangar's own internal pool.
       if (typeof _options.addCredits === 'function') {
         _options.addCredits(reward.credits);
       } else {
-        // Fallback: credit the internal hangar pool
         _hangarState.credits = (_hangarState.credits || 0) + reward.credits;
         saveHangar(_hangarState);
-        // Update credit badge
-        const badge = document.getElementById('hangar-credits-amount');
-        if (badge) badge.textContent = getLiveCredits().toLocaleString();
+      }
+      // Update credit badge — needed for both paths above
+      const badge = document.getElementById('hangar-credits-amount');
+      if (badge) badge.textContent = getLiveCredits().toLocaleString();
+
+      // Grant the mission's promised XP boost for the player's next run — previously
+      // reward.xpBoost was computed but never stored or applied anywhere.
+      if (reward.xpBoost && reward.xpBoost > 1) {
+        try {
+          localStorage.setItem('voidrift_pending_xp_boost', String(reward.xpBoost));
+        } catch (e) { /* storage unavailable — boost skipped */ }
       }
 
       // Grant the mission's promised bonus tech fragment, if any — previously
@@ -2782,6 +2790,8 @@ const LOADOUT_SLOT_OPTIONS = [
       ['primary:scatter', 'Scatter Coil'],
       ['primary:rail', 'Rail Lance'],
       ['primary:ionburst', 'Ion Burst'],
+      ['primary:plasma', 'Plasma Cutter'],
+      ['primary:photon', 'Photon Repeater'],
     ],
   },
   {
@@ -2789,10 +2799,14 @@ const LOADOUT_SLOT_OPTIONS = [
     options: [
       ['defense:aegis', 'Aegis Shield'],
       ['defense:reflector', 'Reflector Veil'],
+      ['defense:phaseshift', 'Phase Shift'],
+      ['defense:overcharge', 'Overcharge Matrix'],
       ['secondary:nova', 'Nova Bomb'],
       ['secondary:cluster', 'Cluster Barrage'],
       ['secondary:seeker', 'Seeker Swarm'],
       ['secondary:gravity', 'Gravity Well'],
+      ['secondary:charge', 'Ramming Charge'],
+      ['secondary:reinforcement', 'Orbital Strike'],
       ['boost:boost', 'Boost'],
     ],
   },
@@ -2803,8 +2817,12 @@ const LOADOUT_SLOT_OPTIONS = [
       ['secondary:cluster', 'Cluster Barrage'],
       ['secondary:seeker', 'Seeker Swarm'],
       ['secondary:gravity', 'Gravity Well'],
+      ['secondary:charge', 'Ramming Charge'],
+      ['secondary:reinforcement', 'Orbital Strike'],
       ['defense:aegis', 'Aegis Shield'],
       ['defense:reflector', 'Reflector Veil'],
+      ['defense:phaseshift', 'Phase Shift'],
+      ['defense:overcharge', 'Overcharge Matrix'],
       ['boost:boost', 'Boost'],
     ],
   },
@@ -2814,6 +2832,8 @@ const LOADOUT_SLOT_OPTIONS = [
       ['boost:boost', 'Boost'],
       ['ultimate:voidstorm', 'Voidstorm'],
       ['ultimate:solarbeam', 'Solar Beam'],
+      ['ultimate:timewarp', 'Temporal Rift'],
+      ['ultimate:supernova', 'Supernova Burst'],
       ['defense:aegis', 'Aegis Shield'],
       ['secondary:nova', 'Nova Bomb'],
       ['secondary:cluster', 'Cluster Barrage'],
@@ -3208,6 +3228,45 @@ function renderStatsView() {
   });
 
   wrapper.appendChild(grid);
+
+  // ── Prestige ─────────────────────────────────────────────────────────────
+  // Auth.doPrestige() resets Pilot Level to 1 in exchange for a permanent
+  // title (and, at select tiers, a rare weapon or ship unlock). It had no
+  // caller anywhere in the UI, so it — and the prestige_1/5/10 achievements
+  // that key off it — could never be reached through normal play.
+  const auth = window.Auth;
+  if (auth && typeof auth.canPrestige === 'function') {
+    const profile = auth.playerProfile || {};
+    const prestigeBox = document.createElement('div');
+    prestigeBox.style.cssText = 'margin-top:16px; background:rgba(192,132,252,0.06); border:1px solid rgba(192,132,252,0.25); border-radius:10px; padding:14px 16px;';
+
+    if (auth.canPrestige()) {
+      prestigeBox.innerHTML = `
+        <div style="font-size:11px;color:#c084fc;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;">&#11088; Prestige Available</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.6);margin-bottom:10px;">Reset your Pilot Level to 1 for a permanent title and reward. Credits and upgrades are kept.</div>
+        <button id="hangar-prestige-btn" style="padding:8px 16px; border-radius:8px; border:1px solid rgba(192,132,252,0.4); background:rgba(192,132,252,0.15); color:#e9d5ff; font-weight:700; cursor:pointer;">Prestige Now (${(profile.prestige || 0) + 1}/10)</button>
+      `;
+    } else {
+      const current = profile.prestige || 0;
+      prestigeBox.innerHTML = `
+        <div style="font-size:11px;color:rgba(255,255,255,0.3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px;">&#11088; Prestige ${current}/10${profile.title ? ` — ${profile.title}` : ''}</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.28);">Reach Pilot Level 50 to prestige again.</div>
+      `;
+    }
+    wrapper.appendChild(prestigeBox);
+
+    const prestigeBtn = prestigeBox.querySelector('#hangar-prestige-btn');
+    if (prestigeBtn) {
+      prestigeBtn.addEventListener('click', () => {
+        if (window.confirm('Prestige now? Your Pilot Level will reset to 1. Credits and upgrades are kept.')) {
+          if (auth.doPrestige()) {
+            renderStatsView();
+          }
+        }
+      });
+    }
+  }
+
   content.appendChild(wrapper);
 }
 

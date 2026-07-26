@@ -4431,6 +4431,20 @@ html, body {
   letter-spacing: 0.5px;
 }
 
+.achievement-toast-category {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(74, 222, 128, 0.12);
+  color: rgba(74, 222, 128, 0.85);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
 .achievement-toast-name {
   font-size: 15px;
   color: #e2e8f0;
