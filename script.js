@@ -684,6 +684,7 @@
   let bossEntity = null;
   let leviathanWavePending = false;
   let leviathanKilledThisRun = 0;
+  let bossKilledThisRun = 0;
   let voidSurgeWavePending = false;
   let voidSurgeKilledThisRun = 0;
   let voidSurgeBossPending = false;
@@ -1750,7 +1751,8 @@
     { id: 'boss_hunter', name: 'Boss Hunter', desc: 'Defeat your first boss', icon: 'assets/icons/achievement-boss.svg', category: 'combat', requirement: { bossKills: 1 } },
     { id: 'leviathan_slayer', name: 'LEVIATHAN SLAYER', desc: 'Defeat the Leviathan boss', icon: 'assets/icons/achievement-skull.svg', category: 'combat', requirement: { leviathanKills: 1 } },
     { id: 'elite_destroyer', name: 'Elite Destroyer', desc: 'Kill 50 elite enemies', icon: 'assets/icons/achievement-diamond.svg', category: 'combat', requirement: { eliteKills: 50 } },
-    
+    { id: 'void_breaker', name: 'Void Breaker', desc: 'Defeat the HERALD OF VOID', icon: 'assets/icons/achievement-boss.svg', category: 'combat', requirement: { voidSurgeKills: 1 } },
+
     // Survival achievements
     { id: 'survivor', name: 'Survivor', desc: 'Reach level 5', icon: 'assets/icons/achievement-shield.svg', category: 'survival', requirement: { level: 5 } },
     { id: 'veteran', name: 'Veteran', desc: 'Reach level 10', icon: 'assets/icons/achievement-star.svg', category: 'survival', requirement: { level: 10 } },
@@ -1807,6 +1809,7 @@
       bossKills: 0,
       leviathanKills: 0,
       eliteKills: 0,
+      voidSurgeKills: 0,
       gamesPlayed: 0,
       totalPlayTime: 0,
       flawlessLevels: 0,
@@ -1988,6 +1991,7 @@
         if (req.bossKills && profile.bossKills >= req.bossKills) unlocked = true;
         if (req.leviathanKills && (profile.leviathanKills || 0) >= req.leviathanKills) unlocked = true;
         if (req.eliteKills && profile.eliteKills >= req.eliteKills) unlocked = true;
+        if (req.voidSurgeKills && (profile.voidSurgeKills || 0) >= req.voidSurgeKills) unlocked = true;
         if (req.level && profile.highestLevel >= req.level) unlocked = true;
         if (req.score && profile.bestScore >= req.score) unlocked = true;
         if (req.pilotLevel && profile.pilotLevel >= req.pilotLevel) unlocked = true;
@@ -2104,6 +2108,7 @@
       this.playerProfile.bossKills += stats.bossKills || 0;
       this.playerProfile.leviathanKills = (this.playerProfile.leviathanKills || 0) + (stats.leviathanKills || 0);
       this.playerProfile.eliteKills += stats.eliteKills || 0;
+      this.playerProfile.voidSurgeKills = (this.playerProfile.voidSurgeKills || 0) + (stats.voidSurgeKills || 0);
       this.playerProfile.totalPlayTime += stats.playTime || 0;
       
       if (stats.flawlessLevel) {
@@ -2339,6 +2344,7 @@
     bossEntity = null;
     leviathanWavePending = false;
     leviathanKilledThisRun = 0;
+    bossKilledThisRun = 0;
     voidSurgeWavePending = false;
     voidSurgeKilledThisRun = 0;
     voidSurgeBossPending = false;
@@ -9275,6 +9281,11 @@
       addParticles('levelup', enemy.x, enemy.y, 0, 30);
       shakeScreen(15, 500);
       addLogEntry('💀 BOSS DESTROYED!', '#f59e0b');
+      bossKilledThisRun++;
+      // HERALD OF VOID is the VOID SURGE wave's boss (tagged via heraldPhase);
+      // this was the only per-run counter for it, previously declared and
+      // reset but never incremented or read anywhere.
+      if (enemy.heraldPhase !== undefined) voidSurgeKilledThisRun++;
     } else if (wasElite) {
       addParticles('debris', enemy.x, enemy.y, 0, 25);
       addParticles('sparks', enemy.x, enemy.y, 0, 20);
@@ -9325,12 +9336,15 @@
     if (perkMultipliers.chainDamage > 0) {
       const chainR = 60;
       addParticles('ring', enemy.x, enemy.y, 0, 1, '#a5b4fc');
-      enemies.forEach(nearby => {
+      enemies.forEach((nearby, ni) => {
         if (nearby !== enemy) {
           const dx = nearby.x - enemy.x;
           const dy = nearby.y - enemy.y;
           if (Math.hypot(dx, dy) <= chainR) {
-            nearby.hp -= perkMultipliers.chainDamage;
+            // Was writing to a nonexistent `.hp` field (Enemy only has `.health`),
+            // so the perk's advertised on-kill splash never actually hurt anyone.
+            nearby.health -= perkMultipliers.chainDamage;
+            if (nearby.health <= 0) handleEnemyDeath(ni);
           }
         }
       });
@@ -9786,82 +9800,6 @@
     return `${delta > 0 ? '+' : ''}${delta}%`;
   };
 
-  const drawWeaponPreview = (canvas, item) => {
-    const ctx = canvas.getContext('2d');
-    const width = (canvas.width = canvas.clientWidth || 160);
-    const height = (canvas.height = canvas.clientHeight || 110);
-    
-    // Black sleek background
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, width, height);
-    
-    // Add subtle gradient
-    const gradient = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, width / 2);
-    gradient.addColorStop(0, 'rgba(74, 222, 128, 0.15)');
-    gradient.addColorStop(1, 'rgba(0, 0, 0, 0.8)');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, width, height);
-    
-    // Fallback: draw generic weapon shape with item color
-    const drawFallback = () => {
-      ctx.save();
-      ctx.translate(width / 2, height / 2);
-      ctx.rotate(-Math.PI / 8);
-      ctx.fillStyle = item.color || '#4ade80';
-      ctx.shadowBlur = 10;
-      ctx.shadowColor = item.color || '#4ade80';
-      ctx.beginPath();
-      ctx.moveTo(-width * 0.28, -height * 0.14);
-      ctx.lineTo(width * 0.35, 0);
-      ctx.lineTo(-width * 0.28, height * 0.14);
-      ctx.closePath();
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(-width * 0.15, -height * 0.22);
-      ctx.lineTo(width * 0.28, -height * 0.04);
-      ctx.moveTo(-width * 0.15, height * 0.22);
-      ctx.lineTo(width * 0.28, height * 0.04);
-      ctx.stroke();
-      ctx.restore();
-    };
-    
-    // Load and display weapon icon if available
-    const weaponType = item.id ? 
-      (ARMORY.primary.find(w => w.id === item.id) ? 'primary' :
-       ARMORY.secondary.find(w => w.id === item.id) ? 'secondary' :
-       ARMORY.defense.find(w => w.id === item.id) ? 'defense' :
-       ARMORY.ultimate.find(w => w.id === item.id) ? 'ultimate' : null) : null;
-    
-    if (weaponType && item.id) {
-      const iconPath = `assets/icons/${weaponType}-${item.id}.svg`;
-      const img = new Image();
-      
-      img.onload = () => {
-        ctx.save();
-        ctx.translate(width / 2, height / 2);
-        // Apply glow effect with single draw
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = item.color || '#4ade80';
-        // Draw icon centered and scaled
-        const iconSize = Math.min(width, height) * 0.6;
-        ctx.drawImage(img, -iconSize / 2, -iconSize / 2, iconSize, iconSize);
-        ctx.restore();
-      };
-      
-      img.onerror = () => {
-        // If icon fails to load, render fallback shape
-        drawFallback();
-      };
-      
-      img.src = iconPath;
-    } else {
-      // No weapon type identified, use fallback
-      drawFallback();
-    }
-  };
-
   const createSectionHeader = (label) => {
     const div = document.createElement('div');
     div.className = 'hangarSectionHeader';
@@ -9974,72 +9912,6 @@
       drawShip(ctx, ship.id, 20 * (ship.scale || 1));
       ctx.restore();
     });
-    return card;
-  };
-
-  const createArmoryCard = (type, item) => {
-    const unlocked = Save.isUnlocked(type, item.id);
-    const equipped = Save.data.armory.loadout[type] === item.id;
-    const card = document.createElement('div');
-    card.className = 'hangarShip armoryCard';
-    if (equipped) card.classList.add('selected');
-    const preview = document.createElement('canvas');
-    preview.className = 'shipPreview weaponPreview';
-    card.appendChild(preview);
-    const meta = document.createElement('div');
-    meta.className = 'shipMeta';
-    meta.innerHTML = `<h3>${item.name}</h3><p>${item.desc}</p>`;
-    card.appendChild(meta);
-    const statsWrap = document.createElement('div');
-    statsWrap.className = 'shipStats';
-    const entries = [];
-    if (type === 'primary') {
-      entries.push(['Damage', formatMultiplier(item.stats.damage || 1)]);
-      entries.push(['Cadence', formatMultiplier(item.stats.cd || 1, true)]);
-      entries.push(['Shots', `${(item.stats.shots || 0) + 1}`]);
-      entries.push(['Ammo', formatMultiplier(item.stats.ammo || 1)]);
-    } else if (type === 'secondary') {
-      entries.push(['Ammo', `${item.stats.ammo || 0}`]);
-      entries.push(['Cooldown', `${((item.stats.cooldown || 0) / 1000).toFixed(1)}s`]);
-      entries.push(['Radius', `${item.stats.radius || 0}`]);
-    } else if (type === 'defense') {
-      entries.push(['Duration', `${((item.stats.duration || 0) / 1000).toFixed(1)}s`]);
-      entries.push(['Absorb', `${Math.round((item.stats.absorb || 0) * 100)}%`]);
-      entries.push(['Cooldown', `${((item.stats.cooldown || 0) / 1000).toFixed(1)}s`]);
-    } else if (type === 'ultimate') {
-      entries.push(['Charge', `${item.stats.charge || 0}`]);
-      if (item.stats.radius) entries.push(['Radius', `${item.stats.radius}`]);
-      if (item.stats.damage) entries.push(['Damage', `${item.stats.damage}`]);
-    }
-    for (const [label, value] of entries) {
-      const span = document.createElement('span');
-      span.innerHTML = `<strong>${label}</strong> ${value}`;
-      statsWrap.appendChild(span);
-    }
-    card.appendChild(statsWrap);
-    const btn = document.createElement('button');
-    if (!unlocked && item.unlock > 0) {
-      btn.textContent = `Unlock — CR ${item.unlock}`;
-      if (Save.data.credits < item.unlock) btn.disabled = true;
-      btn.addEventListener('click', () => {
-        if (Save.spendCredits(item.unlock)) {
-          Save.unlockArmory(type, item.id);
-          Save.setLoadout(type, item.id);
-          if (player) player.reconfigureLoadout(true);
-          renderHangar();
-        }
-      });
-    } else {
-      btn.textContent = equipped ? 'Equipped' : 'Equip';
-      if (equipped) btn.disabled = true;
-      btn.addEventListener('click', () => {
-        Save.setLoadout(type, item.id);
-        if (player) player.reconfigureLoadout(true);
-        renderHangar();
-      });
-    }
-    card.appendChild(btn);
-    requestAnimationFrame(() => drawWeaponPreview(preview, item));
     return card;
   };
 
@@ -13076,9 +12948,15 @@
     // Update game stats for achievements
     Auth.updateGameStats({
       kills: totalKillsThisRun,
-      bossKills: bossActive ? 0 : (bossEntity ? 1 : 0),
+      // Was `bossActive ? 0 : (bossEntity ? 1 : 0)` — but checkWaveCompletion()
+      // already clears both bossActive and bossEntity in the same tick a boss
+      // dies, so by the time the player later reaches game over this almost
+      // always evaluated to 0 even after killing several bosses that run.
+      // bossKilledThisRun is a real per-run counter incremented on each boss kill.
+      bossKills: bossKilledThisRun,
       leviathanKills: leviathanKilledThisRun,
       eliteKills: eliteKillsThisRun,
+      voidSurgeKills: voidSurgeKilledThisRun,
       playTime: performance.now() - (waveStartTime || performance.now()),
       flawlessLevel: !tookDamageThisLevel
     });
