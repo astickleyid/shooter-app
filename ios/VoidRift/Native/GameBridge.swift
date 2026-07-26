@@ -285,13 +285,29 @@ extension GameBridge: WKScriptMessageHandler {
     }
     
     private func handleGameCenterSubmitScore(_ body: Any) {
-        guard let data = body as? [String: Any],
-              let score = data["score"] as? Int,
-              let leaderboardID = data["leaderboardID"] as? String else {
+        guard let data = body as? [String: Any] else { return }
+
+        // JS numbers arrive as NSNumber — accept Int/Double/String
+        let score: Int
+        if let n = data["score"] as? Int {
+            score = n
+        } else if let n = data["score"] as? Double {
+            score = Int(n)
+        } else if let n = data["score"] as? NSNumber {
+            score = n.intValue
+        } else if let s = data["score"] as? String, let n = Int(s) {
+            score = n
+        } else {
+            print("⚠️ gcSubmitScore: invalid score payload \(data)")
             return
         }
-        
-        GameCenterManager.shared.submitScore(score, to: leaderboardID)
+
+        let leaderboardID = (data["leaderboardID"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedID = (leaderboardID?.isEmpty == false) ? leaderboardID! : "com.voidrift.highscore"
+
+        DispatchQueue.main.async {
+            GameCenterManager.shared.submitScore(score, to: resolvedID)
+        }
     }
     
     private func handleGameCenterReportAchievement(_ body: Any) {
@@ -299,19 +315,57 @@ extension GameBridge: WKScriptMessageHandler {
               let identifier = data["identifier"] as? String else {
             return
         }
-        
-        let percentComplete = data["percentComplete"] as? Double ?? 100.0
-        GameCenterManager.shared.reportAchievement(identifier: identifier, percentComplete: percentComplete)
+
+        let percentComplete: Double
+        if let p = data["percentComplete"] as? Double {
+            percentComplete = p
+        } else if let p = data["percentComplete"] as? Int {
+            percentComplete = Double(p)
+        } else if let p = data["percentComplete"] as? NSNumber {
+            percentComplete = p.doubleValue
+        } else {
+            percentComplete = 100.0
+        }
+
+        DispatchQueue.main.async {
+            GameCenterManager.shared.reportAchievement(identifier: identifier, percentComplete: percentComplete)
+        }
     }
     
     private func handleGameCenterShowLeaderboard(_ body: Any) {
         let data = body as? [String: Any]
-        let leaderboardID = data?["leaderboardID"] as? String
-        GameCenterManager.shared.showLeaderboard(leaderboardID)
+        var leaderboardID = data?["leaderboardID"] as? String
+        if leaderboardID == nil || leaderboardID?.isEmpty == true || leaderboardID == "null" {
+            leaderboardID = "com.voidrift.highscore"
+        }
+        DispatchQueue.main.async {
+            // If not authenticated yet, kick auth then show
+            if !GameCenterManager.shared.isAuthenticated {
+                GameCenterManager.shared.authenticatePlayer { [weak self] ok in
+                    self?.notifyGameCenterStatus(authenticated: ok)
+                    if ok {
+                        GameCenterManager.shared.showLeaderboard(leaderboardID)
+                    }
+                }
+            } else {
+                GameCenterManager.shared.showLeaderboard(leaderboardID)
+            }
+        }
     }
     
     private func handleGameCenterShowAchievements() {
-        GameCenterManager.shared.showAchievements()
+        DispatchQueue.main.async {
+            if !GameCenterManager.shared.isAuthenticated {
+                GameCenterManager.shared.authenticatePlayer { [weak self] ok in
+                    self?.notifyGameCenterStatus(authenticated: ok)
+                    if ok {
+                        GameCenterManager.shared.showAchievements()
+                    }
+                }
+            } else {
+                GameCenterManager.shared.showAchievements()
+            }
+        }
     }
     
     private func handleGameCenterLoadFriends(_ body: Any) {
@@ -333,30 +387,50 @@ extension GameBridge: WKScriptMessageHandler {
     }
     
     private func notifyGameCenterStatus(authenticated: Bool) {
+        // Escape alias for JS string safety
         var playerInfo = "null"
         if authenticated, let info = GameCenterManager.shared.getPlayerInfo() {
+            let alias = info.alias
+                .replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "\"", with: "\\\"")
+                .replacingOccurrences(of: "\n", with: " ")
+            let playerID = info.playerID
+                .replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "\"", with: "\\\"")
             playerInfo = """
             {
-                "alias": "\(info.alias)",
-                "playerID": "\(info.playerID)"
+                "alias": "\(alias)",
+                "playerID": "\(playerID)"
             }
             """
         }
         
         let script = """
-        if (window.iOSBridge && window.iOSBridge.gameCenter) {
-            window.iOSBridge.gameCenter.isAuthenticated = \(authenticated);
-            window.iOSBridge.gameCenter.playerInfo = \(playerInfo);
-            
-            // Notify the game
-            if (typeof window.onGameCenterAuthChanged === 'function') {
-                window.onGameCenterAuthChanged(\(authenticated), \(playerInfo));
+        (function() {
+          window.iOSBridge = window.iOSBridge || {};
+          window.iOSBridge.gameCenter = window.iOSBridge.gameCenter || { isAvailable: true };
+          window.iOSBridge.gameCenter.isAuthenticated = \(authenticated);
+          window.iOSBridge.gameCenter.playerInfo = \(playerInfo);
+          if (window.UnifiedSocial) {
+            window.UnifiedSocial.isGameCenterAvailable = true;
+            window.UnifiedSocial.isGameCenterAuthenticated = \(authenticated);
+            if (typeof window.UnifiedSocial.updateSocialUI === 'function') {
+              window.UnifiedSocial.updateSocialUI();
             }
-        }
-        console.log('Game Center authentication status: \(authenticated)');
+          }
+          if (typeof window.onGameCenterAuthChanged === 'function') {
+            window.onGameCenterAuthChanged(\(authenticated), \(playerInfo));
+          }
+          window.dispatchEvent(new CustomEvent('gameCenterAuth', {
+            detail: { authenticated: \(authenticated), player: \(playerInfo) }
+          }));
+          console.log('[GameCenter] auth=', \(authenticated));
+        })();
         """
         
-        webView?.evaluateJavaScript(script, completionHandler: nil)
+        DispatchQueue.main.async { [weak self] in
+            self?.webView?.evaluateJavaScript(script, completionHandler: nil)
+        }
     }
     
     private func notifyGameCenterFriends(_ friends: [[String: String]], callbackId: Int) {

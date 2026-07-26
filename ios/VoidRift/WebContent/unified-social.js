@@ -29,60 +29,95 @@ const UnifiedSocial = {
   
   achievementIDs: {
     firstBlood: 'com.voidrift.achievement.firstblood',
+    first_blood: 'com.voidrift.achievement.firstblood',
     centurion: 'com.voidrift.achievement.centurion',
     slayer: 'com.voidrift.achievement.slayer',
     bossHunter: 'com.voidrift.achievement.bosshunter',
+    boss_hunter: 'com.voidrift.achievement.bosshunter',
     survivor: 'com.voidrift.achievement.survivor',
     veteran: 'com.voidrift.achievement.veteran',
     champion: 'com.voidrift.achievement.champion',
     flawless: 'com.voidrift.achievement.flawless',
     prestige1: 'com.voidrift.achievement.prestige1',
+    prestige_1: 'com.voidrift.achievement.prestige1',
     prestige5: 'com.voidrift.achievement.prestige5',
-    prestige10: 'com.voidrift.achievement.prestige10'
+    prestige_5: 'com.voidrift.achievement.prestige5',
+    prestige10: 'com.voidrift.achievement.prestige10',
+    prestige_10: 'com.voidrift.achievement.prestige10',
+    voidBreaker: 'com.voidrift.achievement.voidbreaker',
+    void_breaker: 'com.voidrift.achievement.voidbreaker'
   },
 
   // Initialize unified social system
   async initialize() {
-    // Check for Game Center on iOS
-    if (this.isIOS && window.iOSBridge?.gameCenter) {
+    // Detect iOS after bridge inject (bridge is atDocumentStart but race is still possible)
+    this.isIOS = typeof window.iOSBridge !== 'undefined' ||
+      !!(window.webkit?.messageHandlers?.gcAuthenticate);
+
+    if (this.isIOS) {
       this.isGameCenterAvailable = true;
-      
-      // Listen for Game Center auth changes
-      window.onGameCenterAuthChanged = (authenticated, _playerInfo) => {
-        this.isGameCenterAuthenticated = authenticated;
-        
-        // Update UI
+      if (!window.iOSBridge) {
+        window.iOSBridge = { gameCenter: { isAvailable: true, isAuthenticated: false, playerInfo: null } };
+      }
+
+      const prev = window.onGameCenterAuthChanged;
+      window.onGameCenterAuthChanged = (authenticated, playerInfo) => {
+        this.isGameCenterAuthenticated = !!authenticated;
+        if (playerInfo) this._gcPlayer = playerInfo;
         this.updateSocialUI();
+        if (typeof prev === 'function') prev(authenticated, playerInfo);
       };
-      
-      // Try to authenticate
-      window.iOSBridge.gameCenter.authenticate();
+
+      if (window.iOSBridge?.gameCenter?.authenticate) {
+        window.iOSBridge.gameCenter.authenticate();
+      } else if (window.webkit?.messageHandlers?.gcAuthenticate) {
+        try { window.webkit.messageHandlers.gcAuthenticate.postMessage({}); } catch (_) {}
+      }
+
+      // Pick up late auth state
+      if (window.iOSBridge?.gameCenter?.isAuthenticated) {
+        this.isGameCenterAuthenticated = true;
+      }
     }
-    
-    // Initialize web-based social (always available)
-    if (typeof SocialAPI !== 'undefined') {
+
+    // Initialize web-based social (skip custom accounts on GC-only iOS)
+    if (!window.VOID_RIFT_GC_ONLY && typeof SocialAPI !== 'undefined') {
       SocialAPI.loadSession();
     }
-    
+
     this.updateSocialUI();
   },
 
   // Submit score to both systems
   async submitScore(score, level, difficulty) {
+    const n = Math.max(0, Math.floor(Number(score) || 0));
+
+    // Re-check GC auth (bridge may have authenticated after initialize)
+    if (window.iOSBridge?.gameCenter?.isAuthenticated) {
+      this.isGameCenterAuthenticated = true;
+    }
+
     // Submit to Game Center (iOS only)
-    if (this.isGameCenterAuthenticated) {
+    if (this.isGameCenterAuthenticated && window.iOSBridge?.gameCenter) {
       try {
-        window.iOSBridge.gameCenter.submitScore(score, this.leaderboardIDs.highScore);
+        window.iOSBridge.gameCenter.submitScore(n, this.leaderboardIDs.highScore);
+        // Survival board tracks the same run score for v1
+        window.iOSBridge.gameCenter.submitScore(n, this.leaderboardIDs.survival);
+        if (window.DAILY_CHALLENGE_ACTIVE) {
+          window.iOSBridge.gameCenter.submitScore(n, this.leaderboardIDs.weekly);
+        }
       } catch (error) {
-        // Silently ignore Game Center errors
+        console.warn('[UnifiedSocial] GC score submit failed', error);
       }
     }
-    
-    // Submit to web leaderboard
+
+    // Submit to web leaderboard (skipped in GC-only iOS mode to avoid custom accounts)
+    if (window.VOID_RIFT_GC_ONLY) return;
+
     if (typeof submitSocialScore === 'function') {
       try {
         const username = this.getUsername();
-        await submitSocialScore(username, score, level, difficulty);
+        await submitSocialScore(username, n, level, difficulty);
       } catch (error) {
         // Silently ignore web leaderboard errors
       }
@@ -342,45 +377,32 @@ const UnifiedSocial = {
   // Check for achievement unlocks
   checkAchievements(score, level, stats) {
     const kills = stats?.kills || 0;
-    const deaths = stats?.deaths || 0;
-    
-    // First Blood - Get 1 kill
-    if (kills >= 1) {
-      this.reportAchievement('firstBlood', 100);
-    }
-    
-    // Centurion - Get 100 kills
-    if (kills >= 100) {
-      this.reportAchievement('centurion', 100);
-    }
-    
-    // Slayer - Get 1000 kills (lifetime)
-    // This would need to track lifetime stats
-    
-    // Boss Hunter - Kill a boss
-    if (stats?.bossKills >= 1) {
-      this.reportAchievement('bossHunter', 100);
-    }
-    
-    // Survivor - Reach level 10
-    if (level >= 10) {
-      this.reportAchievement('survivor', 100);
-    }
-    
-    // Veteran - Reach level 25
-    if (level >= 25) {
-      this.reportAchievement('veteran', 100);
-    }
-    
-    // Champion - Reach level 50
-    if (level >= 50) {
-      this.reportAchievement('champion', 100);
-    }
-    
-    // Flawless - Complete a level without taking damage
-    if (deaths === 0 && level >= 5) {
-      this.reportAchievement('flawless', 100);
-    }
+    const bossKills = stats?.bossKills || 0;
+    const voidSurgeKills = stats?.voidSurgeKills || 0;
+    const flawless = !!stats?.flawless;
+
+    // Lifetime totals when Auth profile is available
+    let totalKills = kills;
+    let prestige = 0;
+    try {
+      if (typeof Auth !== 'undefined' && Auth.playerProfile) {
+        totalKills = Math.max(totalKills, Auth.playerProfile.totalKills || 0);
+        prestige = Auth.playerProfile.prestige || 0;
+      }
+    } catch (_) {}
+
+    if (kills >= 1 || totalKills >= 1) this.reportAchievement('firstBlood', 100);
+    if (totalKills >= 100) this.reportAchievement('centurion', Math.min(100, (totalKills / 100) * 100));
+    if (totalKills >= 1000) this.reportAchievement('slayer', 100);
+    if (bossKills >= 1) this.reportAchievement('bossHunter', 100);
+    if (voidSurgeKills >= 1) this.reportAchievement('voidBreaker', 100);
+    if (level >= 10) this.reportAchievement('survivor', 100);
+    if (level >= 25) this.reportAchievement('veteran', 100);
+    if (level >= 50) this.reportAchievement('champion', 100);
+    if (flawless && level >= 1) this.reportAchievement('flawless', 100);
+    if (prestige >= 1) this.reportAchievement('prestige1', 100);
+    if (prestige >= 5) this.reportAchievement('prestige5', 100);
+    if (prestige >= 10) this.reportAchievement('prestige10', 100);
   }
 };
 

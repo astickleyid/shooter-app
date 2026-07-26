@@ -13259,10 +13259,36 @@ PowerUps.reset();
         playTime: performance.now() - (waveStartTime || performance.now())
       });
     }
-    
+
     // Submit to leaderboard and update stats if logged in
     const finalScore = score;
     const finalLevel = level;
+
+    // Game Center + unified social (scores, achievements) — fire-and-forget
+    try {
+      const goStats = {
+        kills: totalKillsThisRun,
+        deaths: 1,
+        bossKills: bossKilledThisRun,
+        voidSurgeKills: voidSurgeKilledThisRun,
+        eliteKills: eliteKillsThisRun,
+        flawless: !tookDamageThisLevel,
+        maxCombo: peakComboThisRun,
+        playTime: performance.now() - (waveStartTime || performance.now())
+      };
+      if (typeof window.UnifiedSocial !== 'undefined' && typeof window.UnifiedSocial.handleGameOver === 'function') {
+        window.UnifiedSocial.handleGameOver(finalScore, finalLevel, currentDifficulty, goStats);
+      } else if (window.iOSBridge?.gameCenter?.isAuthenticated) {
+        // Fallback if unified-social failed to load
+        window.iOSBridge.gameCenter.submitScore(finalScore, 'com.voidrift.highscore');
+        window.iOSBridge.gameCenter.submitScore(finalScore, 'com.voidrift.survival');
+        if (window.DAILY_CHALLENGE_ACTIVE) {
+          window.iOSBridge.gameCenter.submitScore(finalScore, 'com.voidrift.weekly');
+        }
+      }
+    } catch (gcErr) {
+      console.warn('[GameCenter] game-over submit failed:', gcErr);
+    }
 
     // Save daily challenge best and restore Math.random
     if (window.DAILY_CHALLENGE_ACTIVE) {
@@ -14878,13 +14904,34 @@ PowerUps.reset();
       closeGameOverScreen();
       dom.gameContainer.style.display = 'none';
       dom.startScreen.style.display = 'flex';
-      openLeaderboardModal();
+      // Native iOS → Game Center leaderboards; web → modal
+      if (window.VOID_RIFT_GC_ONLY || window.iOSBridge?.gameCenter) {
+        if (typeof window.UnifiedSocial !== 'undefined') {
+          window.UnifiedSocial.showLeaderboard('highScore');
+        } else if (window.iOSBridge?.gameCenter?.showLeaderboard) {
+          window.iOSBridge.gameCenter.showLeaderboard('com.voidrift.highscore');
+        } else {
+          openLeaderboardModal();
+        }
+      } else {
+        openLeaderboardModal();
+      }
     });
     document.getElementById('gameOverLoginBtn')?.addEventListener('click', () => {
       closeGameOverScreen();
       dom.gameContainer.style.display = 'none';
       dom.startScreen.style.display = 'flex';
-      openAuthModal();
+      if (window.VOID_RIFT_GC_ONLY || window.iOSBridge?.gameCenter) {
+        if (window.iOSBridge?.gameCenter?.isAuthenticated) {
+          window.iOSBridge.gameCenter.showAchievements();
+        } else if (window.iOSBridge?.gameCenter?.authenticate) {
+          window.iOSBridge.gameCenter.authenticate();
+        } else {
+          openAuthModal();
+        }
+      } else {
+        openAuthModal();
+      }
     });
     document.getElementById('gameOverMenuBtn')?.addEventListener('click', () => {
       closeGameOverScreen();

@@ -21,29 +21,41 @@ class GameCenterManager: NSObject {
     /// Authenticate the local player with Game Center
     func authenticatePlayer(completion: @escaping (Bool) -> Void) {
         localPlayer = GKLocalPlayer.local
-        
+
+        // Already signed in
+        if let player = localPlayer, player.isAuthenticated {
+            isAuthenticated = true
+            loadPlayerInfo()
+            completion(true)
+            onAuthenticationComplete?(true)
+            return
+        }
+
         localPlayer?.authenticateHandler = { [weak self] viewController, error in
             guard let self = self else { return }
-            
-            if let viewController = viewController {
-                // Present authentication view controller
-                if let rootVC = self.getRootViewController() {
-                    rootVC.present(viewController, animated: true)
+
+            DispatchQueue.main.async {
+                if let viewController = viewController {
+                    // Present authentication view controller above game UI
+                    if let rootVC = self.topViewController() {
+                        // Avoid double-present
+                        if rootVC.presentedViewController == nil {
+                            rootVC.present(viewController, animated: true)
+                        }
+                    }
+                } else if let player = self.localPlayer, player.isAuthenticated {
+                    self.isAuthenticated = true
+                    self.loadPlayerInfo()
+                    completion(true)
+                    self.onAuthenticationComplete?(true)
+                } else {
+                    self.isAuthenticated = false
+                    if let error = error {
+                        print("Game Center authentication failed: \(error.localizedDescription)")
+                    }
+                    completion(false)
+                    self.onAuthenticationComplete?(false)
                 }
-            } else if let player = self.localPlayer, player.isAuthenticated {
-                // Successfully authenticated
-                self.isAuthenticated = true
-                self.loadPlayerInfo()
-                completion(true)
-                self.onAuthenticationComplete?(true)
-            } else {
-                // Authentication failed
-                self.isAuthenticated = false
-                if let error = error {
-                    print("Game Center authentication failed: \(error.localizedDescription)")
-                }
-                completion(false)
-                self.onAuthenticationComplete?(false)
             }
         }
     }
@@ -95,11 +107,11 @@ class GameCenterManager: NSObject {
         if #available(iOS 14.0, *), let leaderboardID = leaderboardID {
             let vc = GKGameCenterViewController(leaderboardID: leaderboardID, playerScope: .global, timeScope: .allTime)
             vc.gameCenterDelegate = self
-            getRootViewController()?.present(vc, animated: true)
+            topViewController()?.present(vc, animated: true)
         } else {
             let vc = GKGameCenterViewController(state: .leaderboards)
             vc.gameCenterDelegate = self
-            getRootViewController()?.present(vc, animated: true)
+            topViewController()?.present(vc, animated: true)
         }
     }
     
@@ -169,7 +181,7 @@ class GameCenterManager: NSObject {
         
         let vc = GKGameCenterViewController(state: .achievements)
         vc.gameCenterDelegate = self
-        getRootViewController()?.present(vc, animated: true)
+        topViewController()?.present(vc, animated: true)
     }
     
     /// Load all achievements
@@ -246,7 +258,7 @@ class GameCenterManager: NSObject {
             preferredStyle: .alert
         )
         alert.addAction(UIAlertAction(title: "OK", style: .default))
-        getRootViewController()?.present(alert, animated: true)
+        topViewController()?.present(alert, animated: true)
     }
     
     // MARK: - Player Info
@@ -267,6 +279,15 @@ class GameCenterManager: NSObject {
             .flatMap { $0.windows }
             .first { $0.isKeyWindow }?
             .rootViewController
+    }
+
+    /// Top-most presented VC so GC sheets appear over WebView/modals
+    private func topViewController() -> UIViewController? {
+        var top = getRootViewController()
+        while let presented = top?.presentedViewController {
+            top = presented
+        }
+        return top
     }
 }
 
