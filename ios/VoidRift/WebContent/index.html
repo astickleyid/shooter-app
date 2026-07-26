@@ -190,11 +190,21 @@
 
     <!-- COMBO TIMER HUD -->
     <div id="comboHud" style="display:none; position:fixed; top:60px; left:50%; transform:translateX(-50%); z-index:100; text-align:center; pointer-events:none;">
-      <div style="font-size:11px; color:#fff; opacity:0.7; font-family:monospace; margin-bottom:3px;">
-        <span id="comboMultDisplay">×2</span>
+      <div style="background:rgba(0,0,0,0.65); border-radius:20px; padding:5px 14px 8px; border:1px solid rgba(255,255,255,0.12); backdrop-filter:blur(4px);">
+        <div style="font-size:15px; font-weight:bold; font-family:monospace; letter-spacing:0.08em; margin-bottom:5px;">
+          <span id="comboMultDisplay">x2 COMBO</span>
+        </div>
+        <div style="width:120px; height:5px; background:rgba(255,255,255,0.15); border-radius:3px; overflow:hidden;">
+          <div id="comboTimerBar" style="height:100%; width:100%; border-radius:3px; transition:background 0.3s;"></div>
+        </div>
       </div>
-      <div style="width:120px; height:5px; background:rgba(255,255,255,0.15); border-radius:3px; overflow:hidden;">
-        <div id="comboTimerBar" style="height:100%; width:100%; border-radius:3px; transition:background 0.3s;"></div>
+    </div>
+
+    <!-- MISSION TRACKER HUD -->
+    <div id="missionHud" style="display:none; position:fixed; top:12px; right:12px; z-index:150; pointer-events:none; min-width:180px; max-width:220px;">
+      <div style="background:rgba(8,8,16,0.82); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:10px 12px; backdrop-filter:blur(8px);">
+        <div style="font-family:monospace; font-size:9px; letter-spacing:0.15em; color:rgba(255,255,255,0.35); text-transform:uppercase; margin-bottom:8px;">Daily Missions</div>
+        <div id="missionHudSlots"></div>
       </div>
     </div>
 
@@ -297,6 +307,38 @@
       </div>
     </div>
     
+    <!-- LEVIATHAN Boss Incoming Warning -->
+    <div id="bossIncomingOverlay" style="display:none; position:fixed; inset:0; z-index:8500; background:rgba(0,0,0,0.92); align-items:center; justify-content:center; flex-direction:column; font-family:Arial,sans-serif;">
+      <div style="text-align:center; animation: bossAlertPulse 0.6s ease-in-out infinite alternate;">
+        <div style="font-size:11px; letter-spacing:0.3em; color:rgba(255,80,80,0.7); text-transform:uppercase; margin-bottom:16px; font-weight:700;">WARNING — WAVE 10</div>
+        <div id="bossIncomingTitle" style="font-size:clamp(36px,8vw,72px); font-weight:900; color:#ef4444; letter-spacing:0.12em; text-transform:uppercase; text-shadow:0 0 40px rgba(239,68,68,0.9), 0 0 80px rgba(239,68,68,0.5); line-height:1; margin-bottom:12px;">LEVIATHAN</div>
+        <div style="font-size:clamp(14px,3vw,22px); font-weight:700; color:rgba(255,255,255,0.7); letter-spacing:0.2em; text-transform:uppercase; margin-bottom:32px;">INCOMING</div>
+        <div style="width:180px; height:2px; background:rgba(239,68,68,0.4); margin:0 auto 28px; position:relative; overflow:hidden;">
+          <div id="bossIncomingBar" style="position:absolute; top:0; left:0; height:100%; background:#ef4444; width:100%; transition:width 3s linear;"></div>
+        </div>
+        <div style="font-size:11px; letter-spacing:0.15em; color:rgba(255,255,255,0.35); text-transform:uppercase;">BRACE FOR IMPACT</div>
+      </div>
+      <style>
+        @keyframes bossAlertPulse { from { opacity:0.7; transform:scale(0.98); } to { opacity:1; transform:scale(1.02); } }
+      </style>
+    </div>
+
+    <!-- VOID SURGE Wave 15 Warning -->
+    <div id="voidSurgeOverlay" style="display:none; position:fixed; inset:0; z-index:8500; background:rgba(0,0,20,0.94); align-items:center; justify-content:center; flex-direction:column; font-family:Arial,sans-serif;">
+      <div style="text-align:center; animation: surgeAlertPulse 0.7s ease-in-out infinite alternate;">
+        <div style="font-size:11px; letter-spacing:0.3em; color:rgba(139,92,246,0.7); text-transform:uppercase; margin-bottom:16px; font-weight:700;">WARNING — WAVE 15</div>
+        <div style="font-size:clamp(36px,8vw,72px); font-weight:900; color:#8b5cf6; letter-spacing:0.12em; text-transform:uppercase; text-shadow:0 0 40px rgba(139,92,246,0.9), 0 0 80px rgba(139,92,246,0.5); line-height:1; margin-bottom:12px;">VOID SURGE</div>
+        <div style="font-size:clamp(14px,3vw,22px); font-weight:700; color:rgba(255,255,255,0.7); letter-spacing:0.2em; text-transform:uppercase; margin-bottom:32px;">INCOMING</div>
+        <div style="width:180px; height:2px; background:rgba(139,92,246,0.4); margin:0 auto 28px; position:relative; overflow:hidden;">
+          <div id="voidSurgeBar" style="position:absolute; top:0; left:0; height:100%; background:#8b5cf6; width:100%; transition:width 3s linear;"></div>
+        </div>
+        <div style="font-size:11px; letter-spacing:0.15em; color:rgba(255,255,255,0.35); text-transform:uppercase;">ELITE ENEMIES CONVERGING</div>
+      </div>
+      <style>
+        @keyframes surgeAlertPulse { from { opacity:0.7; transform:scale(0.98); } to { opacity:1; transform:scale(1.02); } }
+      </style>
+    </div>
+
     <!-- Game Over Modal -->
     <div id="gameOverModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="gameOverTitle">
       <div class="modal-content game-over-screen">
@@ -696,6 +738,8 @@
   
   <script src="audio-manager.js"></script>
   <script src="admob-manager.js"></script>
+  <script src="src/systems/MissionSystem.js"></script>
+  <script src="src/systems/TechFragmentSystem.js"></script>
   <script src="script.js"></script>
   <!-- Game Center-only mode for the native iOS build (no-op on web) -->
   <script src="gc-only-mode.js"></script>
@@ -703,6 +747,14 @@
   <!-- Persistent Upgrade Hangar (Base Mods) -->
   <script type="module">
     import { openHangar, closeHangar } from './hangar-ui.js';
+    import { loadHangar, applyHangarToConfig } from './src/systems/HangarSystem.js';
+
+    // Bridge HangarSystem's purchase-application helper to the classic-script
+    // game loop in script.js, which cannot use ES module imports directly.
+    // script.js calls this at the start of every run so purchased Base Mods
+    // upgrades (max HP, damage, speed, fire rate, credit bonus, piercing)
+    // actually affect gameplay instead of just being stored.
+    window.HangarSystem = { loadHangar, applyHangarToConfig };
 
     // Wire up the Base Mods nav button on the start screen.
     // We delay until DOMContentLoaded so the button element is guaranteed
@@ -731,6 +783,17 @@
           // Provide the currently selected ship so the Skins tab defaults to it
           getSelectedShip: () => {
             return (window.Save && window.Save.data && window.Save.data.selectedShip) || 'vanguard';
+          },
+          // Loadout tab reads/writes the same equipment class the in-game
+          // pause menu configures, so changes made here carry into the next run.
+          getLoadout: () => {
+            return (window.Save && window.Save.data && window.Save.data.armory && window.Save.data.armory.equipmentClass) || null;
+          },
+          setLoadout: (equipClass) => {
+            if (!window.Save || !window.Save.data) return;
+            if (!window.Save.data.armory) window.Save.data.armory = {};
+            window.Save.data.armory.equipmentClass = equipClass;
+            window.Save.save();
           },
           // When a skin is equipped, re-init ship selection so colors update immediately
           onSkinEquip: (shipId, skinId, skin) => {
@@ -774,5 +837,40 @@
       });
     });
   </script>
+
+  <!-- Wave Cleared Overlay -->
+  <style>
+    @keyframes waveClearedIn {
+      from { opacity: 0; transform: scale(0.88) translateY(12px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    #waveClearedCard { animation: waveClearedIn 0.32s cubic-bezier(0.16,1,0.3,1) both; }
+    #waveClearedOverlay.wc-visible { display: flex !important; pointer-events: all; cursor: pointer; }
+  </style>
+  <div id="waveClearedOverlay" style="display:none; position:fixed; inset:0; z-index:9500; align-items:center; justify-content:center; background:rgba(0,0,0,0.78);">
+    <div id="waveClearedCard" style="text-align:center; padding:40px 56px; background:rgba(10,10,20,0.96); border:1px solid rgba(74,222,128,0.35); border-radius:18px; box-shadow:0 0 60px rgba(74,222,128,0.18); min-width:300px;">
+      <div id="waveClearedTitle" style="font-size:1rem; letter-spacing:0.22em; color:#4ade80; text-transform:uppercase; font-family:monospace; margin-bottom:6px;">WAVE CLEARED</div>
+      <div id="waveClearedNumber" style="font-size:3.5rem; font-weight:900; color:#fff; line-height:1; margin-bottom:28px; text-shadow:0 0 24px rgba(74,222,128,0.4);">1</div>
+      <div style="display:flex; gap:32px; justify-content:center; margin-bottom:20px;">
+        <div>
+          <div id="waveClearedKills" style="font-size:2rem; font-weight:700; color:#facc15;">0</div>
+          <div style="font-size:0.65rem; letter-spacing:0.15em; color:#6b7280; text-transform:uppercase; margin-top:4px;">Kills</div>
+        </div>
+        <div>
+          <div id="waveClearedCredits" style="font-size:2rem; font-weight:700; color:#4ade80;">0</div>
+          <div style="font-size:0.65rem; letter-spacing:0.15em; color:#6b7280; text-transform:uppercase; margin-top:4px;">Credits</div>
+        </div>
+        <div>
+          <div id="waveClearedAccuracy" style="font-size:2rem; font-weight:700; color:#38bdf8;">—</div>
+          <div style="font-size:0.65rem; letter-spacing:0.15em; color:#6b7280; text-transform:uppercase; margin-top:4px;">Accuracy</div>
+        </div>
+        <div>
+          <div id="waveClearedTime" style="font-size:2rem; font-weight:700; color:#a78bfa;">—</div>
+          <div style="font-size:0.65rem; letter-spacing:0.15em; color:#6b7280; text-transform:uppercase; margin-top:4px;">Time</div>
+        </div>
+      </div>
+      <div id="waveClearedHint" style="font-size:0.65rem; letter-spacing:0.12em; color:rgba(107,114,128,0.6); text-transform:uppercase; font-family:monospace;">tap to continue</div>
+    </div>
+  </div>
 </body>
 </html>

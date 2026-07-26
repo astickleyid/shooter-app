@@ -95,36 +95,128 @@ const AdMobManager = {
   },
 
   // ── Web placeholder (dev/testing) ──────────────────────────────────────────
+  // Simulates a 5-second rewarded ad (matches AdMob minimum watch time for reward).
+  // Skip button is locked for the first 5 seconds — skipping before completion cancels reward.
+  // After 5 seconds the countdown turns green and a "Claim Reward" button replaces the skip.
   _showWebPlaceholder(onRewarded, onCancelled) {
+    const AD_DURATION = 5; // seconds — matches AdMob rewarded minimum
+
     const overlay = document.createElement('div');
     overlay.id = 'admob-web-placeholder';
     overlay.style.cssText = `
-      position: fixed; inset: 0; background: rgba(0,0,0,0.92);
+      position: fixed; inset: 0; background: rgba(0,0,0,0.96);
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       z-index: 99999; font-family: 'Orbitron', monospace; color: #fff;
     `;
+
     overlay.innerHTML = `
-      <div style="text-align:center; max-width:320px; padding:24px;">
-        <div style="font-size:48px; margin-bottom:16px;">📺</div>
-        <div style="font-size:18px; font-weight:700; margin-bottom:8px; color:#4ade80;">REWARDED AD</div>
-        <div style="font-size:13px; color:#94a3b8; margin-bottom:24px;">
-          Ad would play here on iOS / Android.<br>Simulating 3-second ad…
+      <div style="
+        text-align:center; max-width:340px; padding:32px 24px;
+        border: 1px solid rgba(255,255,255,0.08); border-radius:16px;
+        background: rgba(255,255,255,0.04); backdrop-filter:blur(12px);
+      ">
+        <div style="font-size:11px; letter-spacing:3px; color:rgba(255,255,255,0.3); margin-bottom:20px; text-transform:uppercase;">
+          Rewarded Ad · Web Preview
         </div>
-        <div id="admob-countdown" style="font-size:32px; font-weight:900; color:#4ade80;">3</div>
+
+        <!-- Simulated ad creative -->
+        <div style="
+          background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 50%,#0f172a 100%);
+          border-radius:12px; padding:24px; margin-bottom:20px;
+          border:1px solid rgba(99,102,241,0.3);
+        ">
+          <div style="font-size:36px; margin-bottom:10px;">🚀</div>
+          <div style="font-size:16px; font-weight:800; color:#818cf8; margin-bottom:6px;">VOID RIFT</div>
+          <div style="font-size:11px; color:rgba(255,255,255,0.5);">Twin-stick space shooter</div>
+          <div style="font-size:10px; color:rgba(99,102,241,0.7); margin-top:8px; letter-spacing:1px;">PLAY FREE</div>
+        </div>
+
+        <!-- Progress bar -->
+        <div style="
+          width:100%; height:4px; background:rgba(255,255,255,0.1);
+          border-radius:2px; overflow:hidden; margin-bottom:14px;
+        ">
+          <div id="admob-progress-bar" style="
+            height:100%; width:0%; background:#4ade80;
+            border-radius:2px; transition:width 1s linear;
+          "></div>
+        </div>
+
+        <!-- Countdown + skip row -->
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+          <div style="font-size:12px; color:rgba(255,255,255,0.4);">
+            Ad ends in <span id="admob-countdown" style="color:#fff; font-weight:700;">${AD_DURATION}</span>s
+          </div>
+          <button id="admob-skip-btn" style="
+            font-family:'Orbitron',monospace; font-size:11px; font-weight:700;
+            padding:6px 14px; border-radius:6px; border:none; cursor:not-allowed;
+            background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.25);
+            letter-spacing:1px; transition:all 0.3s;
+          " disabled>SKIP ›</button>
+        </div>
       </div>
     `;
+
     document.body.appendChild(overlay);
 
-    let count = 3;
+    let elapsed = 0;
+    let rewarded = false;
+
+    const skipBtn = document.getElementById('admob-skip-btn');
+    const progressBar = document.getElementById('admob-progress-bar');
+    const countdownEl = document.getElementById('admob-countdown');
+
+    // Animate progress bar (CSS transition handles smoothness)
+    // Kick off progress after a brief paint frame
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (progressBar) progressBar.style.width = '100%';
+        if (progressBar) progressBar.style.transition = `width ${AD_DURATION}s linear`;
+      });
+    });
+
     const timer = setInterval(() => {
-      count--;
-      const el = document.getElementById('admob-countdown');
-      if (el) el.textContent = count;
-      if (count <= 0) {
+      elapsed++;
+      const remaining = AD_DURATION - elapsed;
+
+      if (countdownEl) countdownEl.textContent = Math.max(0, remaining);
+
+      if (elapsed >= AD_DURATION) {
+        // Ad complete — unlock reward
         clearInterval(timer);
-        overlay.remove();
-        if (onRewarded) onRewarded({ type: 'coins', amount: 1 });
-        this._postAdCleanup();
+        rewarded = true;
+        if (progressBar) progressBar.style.background = '#4ade80';
+        if (countdownEl) {
+          countdownEl.textContent = '0';
+          countdownEl.style.color = '#4ade80';
+        }
+        // Swap skip for "Claim Reward"
+        if (skipBtn) {
+          skipBtn.textContent = 'CLAIM REWARD ✓';
+          skipBtn.style.background = '#4ade80';
+          skipBtn.style.color = '#000';
+          skipBtn.style.cursor = 'pointer';
+          skipBtn.style.cursor = 'pointer';
+          skipBtn.disabled = false;
+          skipBtn.onclick = () => {
+            overlay.remove();
+            if (onRewarded) onRewarded({ type: 'continue', amount: 1 });
+            this._postAdCleanup();
+          };
+        }
+      } else if (elapsed >= 3) {
+        // After 3s, allow skipping (without reward)
+        if (skipBtn && skipBtn.disabled) {
+          skipBtn.disabled = false;
+          skipBtn.style.cursor = 'pointer';
+          skipBtn.style.color = 'rgba(255,255,255,0.5)';
+          skipBtn.style.background = 'rgba(255,255,255,0.1)';
+          skipBtn.onclick = () => {
+            clearInterval(timer);
+            overlay.remove();
+            if (onCancelled) onCancelled('skipped');
+          };
+        }
       }
     }, 1000);
   },

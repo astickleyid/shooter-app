@@ -31,6 +31,16 @@ cp -v "$ROOT_DIR/script.js" "$IOS_WEB_DIR/script.js"
 cp -v "$ROOT_DIR/style.css" "$IOS_WEB_DIR/style.css"
 echo ""
 
+# Sync gameplay / hangar / challenge systems
+echo "🎮 Syncing gameplay and hangar files..."
+for f in hangar-ui.js daily-challenge.js admob-manager.js gc-only-mode.js gc-only-mode.css \
+         backend-monitor.js firebase-adapter.js firebase-backend.js firebase-config.js; do
+  if [ -f "$ROOT_DIR/$f" ]; then
+    cp -v "$ROOT_DIR/$f" "$IOS_WEB_DIR/$f"
+  fi
+done
+echo ""
+
 # Sync auth + social UI system files
 echo "🧩 Syncing auth and social UI files..."
 cp -v "$ROOT_DIR/auth-system.js" "$IOS_WEB_DIR/auth-system.js"

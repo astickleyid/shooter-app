@@ -396,6 +396,10 @@
     ultimate: Object.fromEntries(ARMORY.ultimate.map((w) => [w.id, w]))
   };
 
+  // Expose ARMORY data globally so hangar-ui.js can read weapon definitions
+  window.ARMORY = ARMORY;
+  window.ARMORY_MAP = ARMORY_MAP;
+
   // Shared equipment icon paths and weapon info
   const EQUIPMENT_ICONS = {
     paths: {
@@ -490,6 +494,14 @@
     { id: 'cooldown', name: 'System Coolant', desc: 'Reduce all ability cooldowns.', cat: 'Special', base: 175, step: 88, max: 5 },
     { id: 'pierce', name: 'Armor Piercing', desc: 'Projectiles pass through additional enemies.', cat: 'Special', base: 200, step: 100, max: 3 }
   ];
+
+  // Named Bounty Targets (MissionSystem.js BOUNTY_TARGETS) each define a flavorful
+  // stats block (speed/health/damage/size) meant to make them feel mechanically
+  // distinct — e.g. "The Crimson Ace" fast and fragile vs "Iron Warlord" slow and
+  // tanky. These baselines are the average of those 5 stat blocks, so a bounty's
+  // own numbers are applied as a multiplier relative to a "typical" bounty rather
+  // than as absolute overrides that would ignore normal wave-based scaling.
+  const BOUNTY_STAT_BASELINE = { speed: 1.28, health: 520, damage: 26, size: 24.6 };
 
   // Adaptive difficulty - scales challenge based on player power
   // Adaptive difficulty constants
@@ -672,7 +684,13 @@
   let bossEntity = null;
   let leviathanWavePending = false;
   let leviathanKilledThisRun = 0;
+  let voidSurgeWavePending = false;
+  let voidSurgeKilledThisRun = 0;
+  let voidSurgeBossPending = false;
+  let bountySpawnedThisWave = false;
+  let bountyKilledTotal = 0;
   let bossWaveAnnouncementStart = 0; // timestamp for BOSS WAVE! canvas overlay
+  let bossEnrageAnnouncementStart = 0; // timestamp for BOSS ENRAGED! canvas overlay
 
   /* ====== PLANETARY GAME MODE SYSTEM ====== */
   // Game modes - space (default twin-stick) and planetary (side-scrolling with gravity)
@@ -832,6 +850,21 @@
   let bullets = [];
   let coins = [];
   let supplies = [];
+  let powerSurges = [];          // active Power Surge orbs on screen
+  let medicOrbs = [];             // active Medic Orb pickups on screen
+  let ghostOrbs = [];             // active Ghost Orb pickups — grant 3s invincibility
+  let freezeOrbs = [];           // active Freeze Orb pickups — slow all enemies 60% for 3s
+  let lightningOrbs = [];        // active Lightning Orb pickups — chain lightning to up to 3 enemies
+  let lightningArcs = [];        // transient arc visuals [ {pts:[{x,y},...], expiry} ]
+  let lightningFlashEnd = 0;     // timestamp when electric screen flash fades out
+  let freezeExpiry = 0;          // timestamp when freeze effect ends
+  let novaOrbs = [];             // active Void Nova Orb pickups — expanding ring that destroys all enemies
+  let novaRings = [];            // transient nova ring visuals [ {x,y,r,maxR,expiry,created} ]
+  let surgeDamageMultiplier = 1; // current damage multiplier (1 = no boost)
+  let surgeExpiry = 0;           // timestamp when current boost ends
+  let timeWarpExpiry = 0;        // timestamp when Temporal Rift's enemy slow ends
+  let overchargeBoostMultiplier = 1; // current weapon damage multiplier from Overcharge Matrix
+  let overchargeBoostExpiry = 0;     // timestamp when the Overcharge boost ends
   let spawners = [];
   let starsFar = null;
   let starsMid = null;
@@ -848,6 +881,10 @@
   let level = 1;
   let enemiesToKill = 15;  // Increased from 10 for better pacing
   let enemiesKilled = 0;
+  let waveKillCount = 0;      // kills this wave (reset each wave, displayed in post-wave overlay)
+  let waveCreditsEarned = 0;  // credits earned this wave (reset each wave)
+  let waveShotsFired = 0;     // shots fired this wave (for per-wave accuracy)
+  let waveShotsHit = 0;       // shots that connected this wave
   let lastTime = 0;
 
   // ── Special Ability State ──────────────────────────────────────────────────
@@ -865,6 +902,7 @@
   let pilotLevel = 1;
   let pilotXP = 0;
   let tookDamageThisLevel = false;
+  let lastCloseCallAt = 0;
   let gameOverHandled = false;
   let continueUsed = false;
   let runShotsFired = 0;
@@ -1239,6 +1277,138 @@
 
     modal.classList.add('active');
   };
+
+  // Post-wave stats overlay: shows for 2 s, then hands off to upgrade picker
+  const showWaveClearedThenUpgrade = (onChosen) => {
+    const overlay = document.getElementById('waveClearedOverlay');
+    const numEl = document.getElementById('waveClearedNumber');
+    const killsEl = document.getElementById('waveClearedKills');
+    const creditsEl = document.getElementById('waveClearedCredits');
+    const accuracyEl = document.getElementById('waveClearedAccuracy');
+    const timeEl = document.getElementById('waveClearedTime');
+    if (overlay && numEl && killsEl && creditsEl) {
+      // Use snapshotted stats (captured before wave counters were reset)
+      const stats = window._lastWaveStats || { kills: 0, credits: waveCreditsEarned, accuracy: null, timeSec: 0 };
+      numEl.textContent = readyUpLevel;
+      killsEl.textContent = stats.kills;
+      creditsEl.textContent = stats.credits;
+      if (accuracyEl) accuracyEl.textContent = stats.accuracy !== null ? `${stats.accuracy}%` : '—';
+      if (timeEl) {
+        const m = Math.floor(stats.timeSec / 60);
+        const s = stats.timeSec % 60;
+        timeEl.textContent = m > 0 ? `${m}m ${s}s` : `${s}s`;
+      }
+
+      // Show with animation class
+      overlay.classList.add('wc-visible');
+
+      // Perfect Wave banner — shown briefly over the wave-cleared overlay
+      if (stats.perfect && readyUpLevel > 1) {
+        showPerfectWaveBanner();
+      }
+
+      // Auto-dismiss after 3.5s; click/tap dismisses immediately
+      let dismissed = false;
+      const dismiss = () => {
+        if (dismissed) return;
+        dismissed = true;
+        overlay.classList.remove('wc-visible');
+        overlay.removeEventListener('click', dismiss);
+        showWaveUpgradeScreen(onChosen);
+      };
+      overlay.addEventListener('click', dismiss);
+      setTimeout(dismiss, 3500);
+    } else {
+      showWaveUpgradeScreen(onChosen);
+    }
+  };
+
+  // Perfect Wave banner — displayed briefly over the wave-cleared overlay
+  const showPerfectWaveBanner = () => {
+    const existing = document.getElementById('perfectWaveBanner');
+    if (existing) existing.remove();
+
+    const el = document.createElement('div');
+    el.id = 'perfectWaveBanner';
+    el.style.cssText = [
+      'position:fixed',
+      'top:30%',
+      'left:50%',
+      'transform:translate(-50%,-50%)',
+      'background:linear-gradient(135deg,#f59e0b,#fbbf24)',
+      'color:#1c1917',
+      'font-size:22px',
+      'font-weight:700',
+      'letter-spacing:.08em',
+      'text-transform:uppercase',
+      'padding:14px 32px',
+      'border-radius:12px',
+      'box-shadow:0 8px 32px rgba(251,191,36,.5)',
+      'z-index:9999',
+      'pointer-events:none',
+      'animation:perfectWaveIn 0.3s cubic-bezier(.22,1,.36,1) forwards',
+    ].join(';');
+    el.textContent = '⭐ PERFECT WAVE! +50';
+
+    if (!document.getElementById('perfectWaveBannerStyle')) {
+      const style = document.createElement('style');
+      style.id = 'perfectWaveBannerStyle';
+      style.textContent = [
+        '@keyframes perfectWaveIn {',
+        '  from { opacity:0; transform:translate(-50%,-60%) scale(.8); }',
+        '  to   { opacity:1; transform:translate(-50%,-50%) scale(1); }',
+        '}',
+      ].join('\n');
+      document.head.appendChild(style);
+    }
+
+    document.body.appendChild(el);
+
+    setTimeout(() => {
+      el.style.transition = 'opacity 0.4s';
+      el.style.opacity = '0';
+      setTimeout(() => el.remove(), 400);
+    }, 2200);
+  };
+  // Close Call bonus — brief flash when an enemy bullet grazes the player without hitting
+  const CLOSE_CALL_MARGIN = 16;    // px beyond the hit radius that counts as a graze
+  const CLOSE_CALL_COOLDOWN = 600; // ms between rewards, so a bullet stream can't spam it
+  const CLOSE_CALL_CREDITS = 2;
+  const CLOSE_CALL_SCORE = 15;
+
+  const showCloseCallFlash = () => {
+    const existing = document.getElementById('closeCallBanner');
+    if (existing) existing.remove();
+
+    const el = document.createElement('div');
+    el.id = 'closeCallBanner';
+    el.style.cssText = [
+      'position:fixed',
+      'top:16%',
+      'left:50%',
+      'transform:translate(-50%,-50%)',
+      'color:#38bdf8',
+      'font-size:15px',
+      'font-weight:700',
+      'letter-spacing:.08em',
+      'text-transform:uppercase',
+      'text-shadow:0 0 10px rgba(56,189,248,.8)',
+      'pointer-events:none',
+      'z-index:998',
+      'opacity:1',
+      'transition:opacity 0.5s, transform 0.5s',
+    ].join(';');
+    el.textContent = `⚡ CLOSE CALL! +${CLOSE_CALL_SCORE}`;
+    document.body.appendChild(el);
+
+    requestAnimationFrame(() => {
+      el.style.transform = 'translate(-50%,-70%)';
+    });
+    setTimeout(() => {
+      el.style.opacity = '0';
+      setTimeout(() => el.remove(), 500);
+    }, 500);
+  };
   // ── END PERK SYSTEM ───────────────────────────────────────────────────────
 
   // Phase 1: Combo & Kill Streak System
@@ -1246,15 +1416,18 @@
   let comboTimer = 0;
   const COMBO_TIMEOUT = 2500; // ms - time between kills to maintain combo
   let totalKillsThisRun = 0;
+  let peakComboThisRun = 0;
+  let eliteKillsThisRun = 0;
 
   // Kill Combo Multiplier System
   let killComboMultiplier = 1;       // Current score multiplier (1–5)
   let killComboTimerEnd = 0;         // Timestamp when combo window closes
-  const KILL_COMBO_WINDOW = 2000;    // ms - consecutive kill window
+  const KILL_COMBO_WINDOW = 1500;    // ms - consecutive kill window
   const KILL_COMBO_MAX = 5;          // Max multiplier
   let killComboSplashStart = 0;      // When the splash was last shown
   let killComboEscalated = false;    // True the frame multiplier just increased
   let killComboEscalatedStart = 0;   // Timestamp for COMBO ESCALATED flash
+  let comboBreakFlash = 0;           // Timestamp when "COMBO BREAK" was shown (0 = none)
   let lastKillStreakNotification = 0;
   const KILL_STREAK_MILESTONES = [5, 10, 25, 50, 100, 200];
 
@@ -1333,6 +1506,7 @@
     8: 'CARRIER DETECTED',
     9: 'BERSERKER ALERT',
     10: 'LEVIATHAN BOSS — MAXIMUM THREAT',
+    15: 'VOID SURGE — ELITE FORCES',
   };
 
   const showWaveBanner = (waveNum, hint) => {
@@ -1524,6 +1698,9 @@
       this.save();
     }
   };
+  // Expose on window: the start-screen Hangar entry point (index.html) bridges
+  // credits/ship-selection/loadout callbacks through window.Save.
+  window.Save = Save;
 
   const costOf = (upgrade) => {
     const lvl = Save.getUpgradeLevel(upgrade.id);
@@ -1884,7 +2061,42 @@
         }, 350);
       }, 4500);
     },
-    
+
+    showTechFragmentNotification(count) {
+      // Stack offset: account for both achievement toasts and existing fragment toasts
+      const existingAchievement = document.querySelectorAll('.achievement-toast');
+      const existingFragment = document.querySelectorAll('.tech-fragment-toast');
+      const stackOffset = (existingAchievement.length + existingFragment.length) * 90;
+
+      const toast = document.createElement('div');
+      toast.className = 'tech-fragment-toast';
+      toast.style.top = `${20 + stackOffset}px`;
+      toast.innerHTML = `
+        <div class="tech-fragment-toast-icon">💠</div>
+        <div class="tech-fragment-toast-content">
+          <div class="tech-fragment-toast-title">Tech Fragment ×${count}</div>
+          <div class="tech-fragment-toast-sub">Rare material collected</div>
+        </div>
+      `;
+      document.body.appendChild(toast);
+
+      // Animate in
+      setTimeout(() => toast.classList.add('show'), 50);
+
+      // Remove after 3 seconds
+      setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => {
+          if (toast.parentNode) toast.remove();
+          // Re-stack remaining toasts
+          const allToasts = document.querySelectorAll('.achievement-toast, .tech-fragment-toast');
+          allToasts.forEach((el, idx) => {
+            el.style.top = `${20 + idx * 90}px`;
+          });
+        }, 350);
+      }, 3000);
+    },
+
     // Update stats after a game
     updateGameStats(stats) {
       this.playerProfile.gamesPlayed++;
@@ -2057,6 +2269,18 @@
     bullets = [];
     coins = [];
     supplies = [];
+    powerSurges = [];
+    medicOrbs = [];
+    ghostOrbs = [];
+    freezeOrbs = [];
+    freezeExpiry = 0;
+    novaOrbs = [];
+    novaRings = [];
+    surgeDamageMultiplier = 1;
+    surgeExpiry = 0;
+    timeWarpExpiry = 0;
+    overchargeBoostMultiplier = 1;
+    overchargeBoostExpiry = 0;
     spawners = [];
     particles = [];
     obstacles = [];
@@ -2069,6 +2293,10 @@
     level = 1;
     enemiesToKill = 15;  // Increased from 10 for better pacing
     enemiesKilled = 0;
+    waveKillCount = 0;
+    waveCreditsEarned = 0;
+    waveShotsFired = 0;
+    waveShotsHit = 0;
     lastTime = 0;
     gameRunning = false;
     paused = false;
@@ -2079,8 +2307,10 @@
     pilotLevel = Save.data.pilotLevel;
     pilotXP = Save.data.pilotXp;
     tookDamageThisLevel = false;
+    lastCloseCallAt = 0;
     gameOverHandled = false;
     continueUsed = false;
+    if (window.missionSystem) { window.missionSystem.startRun(); updateMissionHUD(); }
 
     // Special ability reset
     specialCooldown = 0;
@@ -2109,6 +2339,11 @@
     bossEntity = null;
     leviathanWavePending = false;
     leviathanKilledThisRun = 0;
+    voidSurgeWavePending = false;
+    voidSurgeKilledThisRun = 0;
+    voidSurgeBossPending = false;
+    bountySpawnedThisWave = false;
+    bountyKilledTotal = 0;
     bossWaveAnnouncementStart = 0;
     if (dom.bossBar) dom.bossBar.style.display = 'none';
 
@@ -2116,6 +2351,8 @@
     comboCount = 0;
     comboTimer = 0;
     totalKillsThisRun = 0;
+    peakComboThisRun = 0;
+    eliteKillsThisRun = 0;
     lastKillStreakNotification = 0;
     runShotsFired = 0;
     runShotsHit = 0;
@@ -2129,6 +2366,7 @@
     killComboSplashStart = 0;
     killComboEscalated = false;
     killComboEscalatedStart = 0;
+    comboBreakFlash = 0;
 
     // Roguelite perk reset (new run)
     waveUpgradeActive = false;
@@ -2153,7 +2391,15 @@
       piercePlus:          0,
       fragmentOnImpact:    false
     };
-    
+
+    // Apply persistent Hangar (Base Mods) purchases — max HP, damage, speed,
+    // fire rate, credit bonus, and piercing tiers bought with credits between
+    // runs. Bridged via window.HangarSystem since this file is a classic
+    // script and HangarSystem.js is an ES module (see index.html).
+    if (window.HangarSystem && typeof window.HangarSystem.applyHangarToConfig === 'function') {
+      window.HangarSystem.applyHangarToConfig(window.HangarSystem.loadHangar(), perkMultipliers);
+    }
+
     Object.keys(input).forEach((k) => {
       if (typeof input[k] === 'boolean') input[k] = false;
       else input[k] = 0;
@@ -2214,9 +2460,16 @@
     }
   };
 
+  const getShakeIntensity = () => {
+    const stored = parseInt(localStorage.getItem('voidrift_screen_shake'), 10);
+    return (Number.isFinite(stored) ? stored : 100) / 100;
+  };
+
   const shakeScreen = (power = 4, duration = 120) => {
+    const scaledPower = power * getShakeIntensity();
+    if (scaledPower <= 0) return;
     shakeUntil = Math.max(shakeUntil, performance.now() + duration);
-    shakePower = power;
+    shakePower = scaledPower;
   };
 
   // ── Special Ability: fire the Q-key ability for the current ship ───────────
@@ -2322,6 +2575,7 @@
     comboCount++;
     comboTimer = now + COMBO_TIMEOUT;
     totalKillsThisRun++;
+    peakComboThisRun = Math.max(peakComboThisRun, comboCount);
     
     // Check for kill streak milestones
     for (const milestone of KILL_STREAK_MILESTONES) {
@@ -2363,6 +2617,7 @@
 
     // Kill combo multiplier: reset when window expires
     if (killComboMultiplier > 1 && now > killComboTimerEnd) {
+      if (killComboMultiplier >= 3) comboBreakFlash = now;
       killComboMultiplier = 1;
       killComboTimerEnd = 0;
     }
@@ -4662,13 +4917,14 @@
   }
 
   class Enemy {
-    constructor(x, y, kind = 'chaser', isElite = false, isBoss = false) {
+    constructor(x, y, kind = 'chaser', isElite = false, isBoss = false, isBounty = false) {
       this.id = `enemy_${entityIdCounter++}`;
       this.x = x;
       this.y = y;
       this.kind = kind;
       this.isElite = isElite;
       this.isBoss = isBoss;
+      this.isBounty = false;
       this.rot = 0;
       const diff = getDifficulty();
       const adaptive = getAdaptiveScaling();
@@ -4686,6 +4942,10 @@
       baseSpeed *= adaptive.enemySpeedBoost;
       if (isElite) baseSpeed *= ADAPTIVE_CONSTANTS.ELITE_SPEED_MULT;
       if (isBoss) baseSpeed *= ADAPTIVE_CONSTANTS.BOSS_SPEED_MULT; // Bosses are slower but more dangerous
+      // Time Dilation tech fragment: permanent passive enemy slowdown once unlocked
+      if (window.techFragmentSystem && window.techFragmentSystem.hasFragment('chrono_crystal') && window.TECH_UNLOCKS) {
+        baseSpeed *= (1 - (window.TECH_UNLOCKS.time_dilation.stats.enemySlowdown || 0));
+      }
       this.speed = baseSpeed;
       
       // Health scaling with progressive difficulty
@@ -4695,7 +4955,8 @@
       if (isBoss) health *= ADAPTIVE_CONSTANTS.BOSS_BASE_HEALTH_MULT + level * ADAPTIVE_CONSTANTS.BOSS_HEALTH_PER_LEVEL;
       this.health = health;
       this.maxHealth = this.health;
-      
+      if (isBounty) { this.isBounty = true; this.health = Math.ceil(this.health * 2.5); this.maxHealth = this.health; this.size *= 1.3; }
+
       // Damage scaling with adaptive difficulty
       this.baseDamage = BASE.ENEMY_DAMAGE * diff.enemyDamage * adaptive.enemyDamageMultiplier;
       if (kind === 'sniper') this.baseDamage *= 2.2; // Snipers hit hard
@@ -4843,7 +5104,32 @@
         ctx.stroke();
         ctx.restore();
       }
-      
+      // Bounty target: crown above enemy, tinted with the named bounty's signature color
+      if (this.isBounty) {
+        ctx.save();
+        const t = performance.now();
+        const pulse = Math.sin(t / 300) * 0.15 + 0.85;
+        ctx.globalAlpha = pulse;
+        const crownColor = this.bountyColor || '#fbbf24';
+        ctx.fillStyle = crownColor;
+        ctx.shadowColor = crownColor;
+        ctx.shadowBlur = 16;
+        // Crown base
+        ctx.fillRect(-this.size * 0.6, -this.size * 1.9, this.size * 1.2, this.size * 0.3);
+        // Crown points (3 points)
+        ctx.beginPath();
+        ctx.moveTo(-this.size * 0.6, -this.size * 1.9);
+        ctx.lineTo(-this.size * 0.7, -this.size * 2.4);
+        ctx.lineTo(-this.size * 0.3, -this.size * 2.0);
+        ctx.lineTo(0, -this.size * 2.5);
+        ctx.lineTo(this.size * 0.3, -this.size * 2.0);
+        ctx.lineTo(this.size * 0.7, -this.size * 2.4);
+        ctx.lineTo(this.size * 0.6, -this.size * 1.9);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+
       // Phase A.2: Hit flash effect overlay
       if (this.hitFlash > 0) {
         ctx.globalAlpha = this.hitFlash / 150;
@@ -6204,6 +6490,18 @@
         if (!this.enraged && this.health <= this.maxHealth * 0.5) {
           this.enraged = true;
           this.speed *= 2.2; // surge of speed on enrage
+          bossEnrageAnnouncementStart = performance.now();
+          shakeScreen(8, 400);
+          addLogEntry('⚠ BOSS ENRAGED!', '#dc2626');
+          // 8-bullet radial burst on enrage
+          const burstDamage = this.baseDamage || 10;
+          const burstSpeed = BASE.BULLET_SPEED * 1.4;
+          for (let i = 0; i < 8; i++) {
+            const ang = (i / 8) * Math.PI * 2;
+            const vel = { x: Math.cos(ang), y: Math.sin(ang) };
+            bullets.push(new Bullet(this.x, this.y, vel, burstDamage, '#dc2626', burstSpeed, BASE.BULLET_SIZE * 1.4, 0, true));
+          }
+          addParticles('nova', this.x, this.y, 0, 16);
         }
         if (player) {
           if (this.enraged) {
@@ -6227,6 +6525,81 @@
           }
           movementX = (this.vx / (this.speed || 1));
           movementY = (this.vy / (this.speed || 1));
+        }
+      } else if (this.heraldPhase !== undefined) {
+        // ── HERALD OF VOID phase logic ────────────────────────────────────────
+        const heraldHpPct = this.health / this.maxHealth;
+        const prevHPhase = this.heraldPhase;
+        if (heraldHpPct <= 0.33) {
+          this.heraldPhase = 3;
+        } else if (heraldHpPct <= 0.66) {
+          this.heraldPhase = 2;
+        } else {
+          this.heraldPhase = 1;
+        }
+        if (this.heraldPhase !== prevHPhase) {
+          const hBase = this.heraldBaseSpeed || this.speed;
+          if (this.heraldPhase === 2) {
+            this.speed = hBase * 1.4;
+            addLogEntry('⚡ HERALD SURGES — VOID RIFT OPENS!', '#a78bfa');
+            shakeScreen(7, 300);
+            // Spawn phantom minion wave
+            for (let h = 0; h < 3; h++) {
+              if (player) {
+                const hx = this.x + (Math.random() - 0.5) * 300;
+                const hy = this.y + (Math.random() - 0.5) * 300;
+                enemies.push(new Enemy(hx, hy, 'phantom', false, false));
+              }
+            }
+          } else if (this.heraldPhase === 3) {
+            this.speed = hBase * 2.0;
+            addLogEntry('☠️ HERALD CRITICAL — SWARM UNLEASHED!', '#7c3aed');
+            shakeScreen(10, 450);
+            // Spawn swarmer minion wave
+            for (let h = 0; h < 5; h++) {
+              if (player) {
+                const hx = this.x + (Math.random() - 0.5) * 250;
+                const hy = this.y + (Math.random() - 0.5) * 250;
+                enemies.push(new Enemy(hx, hy, 'swarmer', false, false));
+              }
+            }
+          }
+        }
+        // Herald fires in bursts at player — faster than regular berserker
+        const hNow = performance.now();
+        const hShotCd = this.heraldPhase >= 3 ? 900 : this.heraldPhase === 2 ? 1400 : 2200;
+        if (player && hNow - (this.heraldShotTimer || 0) > hShotCd) {
+          this.heraldShotTimer = hNow;
+          const hAngle = Math.atan2(player.y - this.y, player.x - this.x);
+          const hDamage = this.baseDamage * ADAPTIVE_CONSTANTS.RANGED_DAMAGE_MULT;
+          const hSpeed = BASE.BULLET_SPEED * 0.9;
+          const hSize = BASE.BULLET_SIZE * 1.4;
+          const hColor = '#a78bfa';
+          if (this.heraldPhase >= 3) {
+            // Phase 3: radial burst + aimed shots
+            for (let i = 0; i < 6; i++) {
+              const ang = (i / 6) * Math.PI * 2;
+              const vel = { x: Math.cos(ang), y: Math.sin(ang) };
+              bullets.push(new Bullet(this.x, this.y, vel, hDamage, hColor, hSpeed * 0.7, hSize, 0, true));
+            }
+            const vel = { x: Math.cos(hAngle), y: Math.sin(hAngle) };
+            bullets.push(new Bullet(this.x, this.y, vel, hDamage * 1.5, '#7c3aed', hSpeed * 1.2, hSize * 1.3, 0, true));
+            addParticles('nova', this.x, this.y, 0, 10);
+          } else if (this.heraldPhase >= 2) {
+            // Phase 2: 3-shot spread
+            const spread = Math.PI * 0.35;
+            for (let i = 0; i < 3; i++) {
+              const ang = hAngle - spread / 2 + (i / 2) * spread;
+              const vel = { x: Math.cos(ang), y: Math.sin(ang) };
+              bullets.push(new Bullet(this.x, this.y, vel, hDamage, hColor, hSpeed, hSize, 0, true));
+            }
+            addParticles('muzzle', this.x, this.y, hAngle, 6);
+          } else {
+            // Phase 1: single shot
+            const vel = { x: Math.cos(hAngle), y: Math.sin(hAngle) };
+            bullets.push(new Bullet(this.x, this.y, vel, hDamage, hColor, hSpeed, hSize, 0, true));
+            addParticles('muzzle', this.x, this.y, hAngle, 4);
+          }
         }
       } else if (this.kind === 'leviathan') {
         // Update phase based on HP
@@ -6305,8 +6678,9 @@
       const nx = movementX + ax;
       const ny = movementY + ay;
       const nm = Math.hypot(nx, ny) || 1;
-      this.x += (nx / nm) * this.speed * (dt / 16.67);
-      this.y += (ny / nm) * this.speed * (dt / 16.67);
+      const slowMoMult = PowerUps.enemySpeedMultiplier(Date.now());
+      this.x += (nx / nm) * this.speed * slowMoMult * (dt / 16.67);
+      this.y += (ny / nm) * this.speed * slowMoMult * (dt / 16.67);
       // Snipers lock rotation to aim angle during telegraph; otherwise face player
       if (this.kind === 'sniper' && (this.sniperPhase === 'aiming' || this.sniperPhase === 'cooldown')) {
         this.rot = this.sniperAimAngle;
@@ -6598,6 +6972,36 @@
       const x = this.x + Math.cos(dir) * dist + Math.cos(dir + Math.PI / 2) * jitter;
       const y = this.y + Math.sin(dir) * dist + Math.sin(dir + Math.PI / 2) * jitter;
       enemies.push(new Enemy(x, y, kind, isElite, false));
+      // Bounty target: one per wave from wave 3+, 15% chance on any standard spawn
+      if (!bountySpawnedThisWave && level >= 3 && !isElite && kind !== 'shard' && Math.random() < 0.15) {
+        const last = enemies[enemies.length - 1];
+        if (last) {
+          last.isBounty = true; last.health = Math.ceil(last.health * 2.5); last.maxHealth = last.health; last.size *= 1.3; bountySpawnedThisWave = true;
+          // Give the bounty a named identity from today's active Mission Board bounties, if one is still available
+          if (window.missionSystem) {
+            const namedBounty = window.missionSystem.getActiveBounties().find(b => window.missionSystem.canSpawnBounty(b.id));
+            if (namedBounty) {
+              last.bountyId = namedBounty.id;
+              last.bountyName = namedBounty.name;
+              last.bountyColor = namedBounty.color;
+              window.missionSystem.markBountySpawned(namedBounty.id);
+              // Apply the named bounty's flavor stats (relative to the baseline
+              // across all bounties) so each one plays differently on top of
+              // the generic 2.5x/1.3x bounty scaling above.
+              if (namedBounty.stats) {
+                const s = namedBounty.stats;
+                if (s.speed)  last.speed *= s.speed / BOUNTY_STAT_BASELINE.speed;
+                if (s.damage) last.baseDamage *= s.damage / BOUNTY_STAT_BASELINE.damage;
+                if (s.size)   last.size *= s.size / BOUNTY_STAT_BASELINE.size;
+                if (s.health) {
+                  last.health = Math.ceil(last.health * (s.health / BOUNTY_STAT_BASELINE.health));
+                  last.maxHealth = last.health;
+                }
+              }
+            }
+          }
+        }
+      }
       if (Math.random() < 0.4) this.resetPosition();
     }
     resetPosition() {
@@ -6752,10 +7156,18 @@
       
       // Speed bonuses: keep full benefit for mobility (+ perk multiplier)
       const baseSpeed = BASE.PLAYER_SPEED * shipStat('speed', 1) * perkMultipliers.speed;
-      const boostSpeed = (BASE.PLAYER_BOOST_SPEED + L('boost') * 0.9) * shipStat('boost', shipStat('speed', 1)) * perkMultipliers.speed;
-      
+      const tfs = window.techFragmentSystem;
+      const unlocks = window.TECH_UNLOCKS || {};
+      const quantumDriveMult = (tfs && tfs.hasFragment('quantum_core') && unlocks.quantum_drive)
+        ? unlocks.quantum_drive.stats.boostSpeed : 1;
+      const boostSpeed = (BASE.PLAYER_BOOST_SPEED + L('boost') * 0.9) * shipStat('boost', shipStat('speed', 1)) * perkMultipliers.speed * quantumDriveMult;
+
       // Damage and regen: apply effectiveness modifier
-      const damageMultiplier = (1 + L('damage') * 0.6 * effectiveness);
+      const plasmaOverchargeMult = (tfs && tfs.hasFragment('plasma_cell') && unlocks.plasma_overcharge)
+        ? unlocks.plasma_overcharge.stats.damageBoost : 1;
+      const voidCannonMult = (tfs && tfs.hasFragment('void_shard') && unlocks.void_cannon)
+        ? 1 + (unlocks.void_cannon.stats.damage - 1) * 0.2 : 1; // passive fraction of the full weapon's damage bonus
+      const damageMultiplier = (1 + L('damage') * 0.6 * effectiveness) * plasmaOverchargeMult * voidCannonMult;
       const regenAmount = L('regen') * 3 * effectiveness;
       
       // Repulse field: reduced by both effectiveness and adaptive scaling
@@ -7085,9 +7497,10 @@
         const speed = BASE.BULLET_SPEED * (weaponStats.bulletSpeed || 1) * perkMultipliers.bulletSpeed;
         const size = BASE.BULLET_SIZE * (weaponStats.bulletSize || 1);
         const pierce = (weaponStats.pierce || 0) + perkMultipliers.piercePlus;
-        const dmg = stats.dmg * perkMultipliers.damage;
+        const dmg = stats.dmg * perkMultipliers.damage * surgeDamageMultiplier * overchargeBoostMultiplier;
         bullets.push(new Bullet(sx, sy, vel, dmg, color, speed, size, pierce));
         runShotsFired++;
+        waveShotsFired++;
         // Twin Shot perk: fire a second bullet with slight angle offset
         if (perkMultipliers.twinShot > 0 && Math.random() < perkMultipliers.twinShot) {
           const twinAngle = angle + (Math.random() < 0.5 ? 0.08 : -0.08);
@@ -7228,6 +7641,23 @@
         const length = stats.beamLength || 520;
         const width = stats.width || 90;
         applyBeamDamage(this.x, this.y, this.lookAngle, length, width, stats.damage || 220);
+      } else if (this.ultimate.id === 'timewarp') {
+        const slowFactor = stats.slowFactor ?? 0.3;
+        for (const e of enemies) {
+          if (e._preTimeWarpSpeed === undefined) e._preTimeWarpSpeed = e.speed;
+          e.speed = e._preTimeWarpSpeed * slowFactor;
+        }
+        timeWarpExpiry = now + (stats.duration || 5000);
+        addLogEntry('⏳ TEMPORAL RIFT! Enemies slowed', '#c084fc');
+      } else if (this.ultimate.id === 'supernova') {
+        applyRadialDamage(this.x, this.y, stats.radius || 400, stats.damage || 350, { pull: stats.pull || 0.6, knockback: 8, chargeMult: 0 });
+        const selfDamage = (stats.selfDamage || 0) * this.hpMax;
+        if (selfDamage > 0) {
+          this.health = clamp(this.health - selfDamage, 1, this.hpMax);
+          this.flash = true;
+          spawnDamageNumber(this.x, this.y - this.size, selfDamage, true);
+          addLogEntry(`☄️ Supernova overload! -${Math.round(selfDamage)} HP`, '#fb923c');
+        }
       } else {
         applyRadialDamage(this.x, this.y, stats.radius || 220, stats.damage || 160, { pull: stats.pull || 0.6, knockback: 8, chargeMult: 0 });
       }
@@ -7236,7 +7666,9 @@
 
     addUltimateCharge(amount) {
       if (!amount || amount <= 0) return;
-      this.ultimateCharge = clamp(this.ultimateCharge + amount, 0, this.ultimateChargeMax);
+      const fragmentRate = (window.techFragmentSystem && window.techFragmentSystem.hasFragment('antimatter_vial'))
+        ? (window.TECH_UNLOCKS.antimatter_reactor.stats.ultimateChargeRate || 1) : 1;
+      this.ultimateCharge = clamp(this.ultimateCharge + amount * fragmentRate, 0, this.ultimateChargeMax);
     }
 
     collectSupply(kind) {
@@ -7287,12 +7719,19 @@
         if ((this.defenseStats.reflect || 0) > 0 && mitigated > 0) {
           applyRadialDamage(this.x, this.y, this.size * 4, mitigated * (this.defenseStats.reflect || 0.25), { knockback: 2, chargeMult: 0.2 });
         }
+        // Overcharge Matrix: converts absorbed damage into a temporary weapon power boost
+        if (this.defense?.id === 'overcharge' && mitigated > 0 && (this.defenseStats.damageBoost || 0) > 0) {
+          overchargeBoostMultiplier = 1 + this.defenseStats.damageBoost;
+          overchargeBoostExpiry = now + 3000;
+          addLogEntry('⚡ Overcharged! Weapon power boosted', '#eab308');
+        }
       }
       if (amount <= 0) return;
       // Reinforced Hull perk: reduce damage taken
       amount *= perkMultipliers.damageTakenMult;
       if (amount <= 0) return;
       tookDamageThisLevel = true;
+      if (window.missionSystem) window.missionSystem.trackDamage(amount);
       this.health -= amount;
       this.flash = true;
       this.invEnd = now + BASE.INVULN_MS + perkMultipliers.invulnBonus;
@@ -7310,6 +7749,11 @@
       if (comboCount >= 3) {
         addLogEntry(`Combo broken! (${comboCount}x)`, '#ef4444');
         comboCount = 0;
+      }
+      if (killComboMultiplier >= 2) {
+        if (killComboMultiplier >= 3) comboBreakFlash = now;
+        killComboMultiplier = 1;
+        killComboTimerEnd = 0;
       }
       
       if (this.health <= 0) {
@@ -7485,7 +7929,7 @@
       ctx.fill();
       
       // Main fuselage body - ENHANCED: wider and more substantial with intense glow
-      ctx.fillStyle = primary;
+      ctx.fillStyle = createMetallicGradient(ctx, -size, 0, size, 0, primary);
       ctx.strokeStyle = trim;
       ctx.lineWidth = Math.max(2, size * 0.1);
       ctx.shadowColor = primary;
@@ -7738,7 +8182,7 @@
       ctx.stroke();
       
       // Main fuselage - long needle shape - ENHANCED: wider and more substantial
-      ctx.fillStyle = primary;
+      ctx.fillStyle = createMetallicGradient(ctx, -size, 0, size, 0, primary);
       ctx.strokeStyle = trim;
       ctx.lineWidth = Math.max(2, size * 0.08);
       ctx.shadowColor = primary;
@@ -7935,7 +8379,7 @@
       }
       
       // Central main fuselage (armored box) - ENHANCED: wider and more armored looking
-      ctx.fillStyle = primary;
+      ctx.fillStyle = createMetallicGradient(ctx, -size, 0, size, 0, primary);
       ctx.strokeStyle = trim;
       ctx.lineWidth = Math.max(2.5, size * 0.12);
       ctx.shadowColor = primary;
@@ -8172,7 +8616,7 @@
       ctx.stroke();
       
       // Angular main fuselage - ENHANCED: wider and more aggressive
-      ctx.fillStyle = primary;
+      ctx.fillStyle = createMetallicGradient(ctx, -size, 0, size, 0, primary);
       ctx.strokeStyle = trim;
       ctx.lineWidth = Math.max(2, size * 0.09);
       ctx.shadowColor = primary;
@@ -8317,7 +8761,7 @@
       ctx.fill();
       
       // Central body spine - ENHANCED: wider and more substantial
-      ctx.fillStyle = primary;
+      ctx.fillStyle = createMetallicGradient(ctx, -size, 0, size, 0, primary);
       ctx.strokeStyle = trim;
       ctx.lineWidth = Math.max(2, size * 0.08);
       ctx.shadowColor = primary;
@@ -8516,7 +8960,7 @@
       ctx.shadowBlur = 0;
       
       // Armored main hull - ENHANCED: wider and more tank-like
-      ctx.fillStyle = primary;
+      ctx.fillStyle = createMetallicGradient(ctx, -size, 0, size, 0, primary);
       ctx.strokeStyle = trim;
       ctx.lineWidth = Math.max(2.5, size * 0.12);
       ctx.shadowColor = primary;
@@ -8635,7 +9079,7 @@
 
     } else {
       // Fallback to spear shape (default)
-      ctx.fillStyle = primary;
+      ctx.fillStyle = createMetallicGradient(ctx, -size, 0, size, 0, primary);
       ctx.strokeStyle = trim;
       ctx.lineWidth = Math.max(2, size * 0.1);
       ctx.beginPath();
@@ -8690,6 +9134,7 @@
     // Check if this was the boss
     const wasBoss = enemy.isBoss;
     const wasElite = enemy.isElite;
+    const wasBounty = enemy.isBounty;
     const wasLeviathan = enemy.kind === 'leviathan';
 
     // Phase 1: Add to combo system
@@ -8709,6 +9154,7 @@
       dropSupply(enemy.x, enemy.y);
       dropSupply(enemy.x + rand(-40, 40), enemy.y + rand(-40, 40));
       Save.addCredits(250);
+      if (window.missionSystem) window.missionSystem.trackCredits(250);
       leviathanKilledThisRun++;
       // Unlock LEVIATHAN SLAYER achievement
       Auth.playerProfile.leviathanKills = (Auth.playerProfile.leviathanKills || 0) + 1;
@@ -8717,6 +9163,35 @@
     } else if (wasElite) {
       dropCoin(enemy.x + rand(-20, 20), enemy.y + rand(-20, 20));
       dropCoin(enemy.x + rand(-20, 20), enemy.y + rand(-20, 20));
+    }
+    if (wasBounty) {
+      // Bounty kill: extra coin drops + big credit reward
+      for (let i = 0; i < 5; i++) {
+        dropCoin(enemy.x + rand(-30, 30), enemy.y + rand(-30, 30));
+      }
+      const bountyReward = Math.floor(30 + level * 8);
+      Save.addCredits(bountyReward);
+      if (window.missionSystem) window.missionSystem.trackCredits(bountyReward);
+      bountyKilledTotal++;
+      if (enemy.bountyName) {
+        addLogEntry(`\u{1F4B0} ${enemy.bountyName.toUpperCase()} TAKEN DOWN! +${bountyReward} credits`, '#fbbf24');
+        // Named Mission Board bounties always drop a tech fragment on top of the credit reward
+        if (window.techFragmentSystem) {
+          const bountyFragment = window.techFragmentSystem.rollDrop(true, false) || window.TECH_FRAGMENTS?.[0];
+          if (bountyFragment) {
+            window.techFragmentSystem.collect(bountyFragment.id);
+            if (window.missionSystem) window.missionSystem.trackFragments(1);
+            if (typeof Auth !== 'undefined' && Auth.showTechFragmentNotification) {
+              Auth.showTechFragmentNotification(window.techFragmentSystem.getFragmentCount(bountyFragment.id));
+            }
+          }
+        }
+      } else {
+        addLogEntry(`\u{1F4B0} BOUNTY CLAIMED! +${bountyReward} credits`, '#fbbf24');
+      }
+      if (typeof AudioManager !== 'undefined' && AudioManager.playCoinPickup) {
+        AudioManager.playCoinPickup();
+      }
     }
     if (wasBoss) {
       for (let i = 0; i < 10; i++) {
@@ -8728,7 +9203,31 @@
     } else if (!wasLeviathan && chance(wasElite ? 0.5 : 0.22)) {
       dropSupply(enemy.x, enemy.y);
     }
-    
+    // Power Surge orb drop (6% chance, not on shards)
+    if (enemy.kind !== 'shard' && Math.random() < 0.06) {
+      powerSurges.push({ x: enemy.x, y: enemy.y, r: 10, created: performance.now(), life: 12000 });
+    }
+    // Medic Orb drop (4% chance, not on shards, only if player below 60% HP)
+    if (enemy.kind !== 'shard' && player && player.health < (player.hpMax || 100) * 0.6 && chance(0.04)) {
+      medicOrbs.push({ x: enemy.x, y: enemy.y, r: 9, created: performance.now(), life: 10000 });
+    }
+    // Ghost Orb drop (3% chance from elite or WANTED enemies only — rare, high-value)
+    if ((wasElite || enemy.isWanted) && Math.random() < 0.03) {
+      ghostOrbs.push({ x: enemy.x, y: enemy.y, r: 10, created: performance.now(), life: 11000 });
+    }
+    // Freeze Orb drop (4% chance, not on shards — slows all enemies 60% for 3s)
+    if (enemy.kind !== 'shard' && Math.random() < 0.04) {
+      freezeOrbs.push({ x: enemy.x, y: enemy.y, r: 10, created: performance.now(), life: 12000 });
+    }
+    // Lightning Orb drop (3.5% chance, not on shards — chain lightning to up to 3 enemies)
+    if (enemy.kind !== 'shard' && Math.random() < 0.035) {
+      lightningOrbs.push({ x: enemy.x, y: enemy.y, r: 10, created: performance.now(), life: 7000 });
+    }
+    // Void Nova Orb drop (2.5% chance from elite or boss-tier only — screen-clearing ring nova)
+    if ((wasElite || enemy.isWanted || wasBoss) && Math.random() < 0.025) {
+      novaOrbs.push({ x: enemy.x, y: enemy.y, r: 11, created: performance.now(), life: 12000 });
+    }
+
     // Phase A.4: Enhanced death effects based on enemy type
     const deathColor = wasLeviathan ? '#FF2020' :
                        wasBoss ? '#7c3aed' :
@@ -8781,6 +9280,12 @@
       addParticles('sparks', enemy.x, enemy.y, 0, 20);
       shakeScreen(8, 250);
       addLogEntry('⭐ Elite enemy destroyed!', '#f59e0b');
+    }
+    if (wasBounty) {
+      addParticles('nova', enemy.x, enemy.y, 0, 18);
+      addParticles('sparks', enemy.x, enemy.y, 0, 25);
+      addParticles('ring', enemy.x, enemy.y, 0, 2, '#fbbf24');
+      shakeScreen(10, 300);
     } else if (enemy.kind === 'heavy') {
       addParticles('debris', enemy.x, enemy.y, 0, 20);
       addParticles('smoke', enemy.x, enemy.y, 0, 8);
@@ -8859,6 +9364,14 @@
     }
 
     enemiesKilled++;
+    waveKillCount++;
+    if (wasElite || enemy.type === 'elite') eliteKillsThisRun++;
+    if (window.missionSystem) {
+      const isBoss = !!enemy.isBoss;
+      const isElite = !!(enemy.isElite || enemy.type === 'elite');
+      window.missionSystem.trackKill(isBoss, isElite, enemy.bountyId || null);
+      updateMissionHUD();
+    }
 
     // Kill Combo Multiplier: advance/extend on each kill
     const _kcNow = performance.now();
@@ -8891,10 +9404,26 @@
     // Apply kill combo multiplier + Overclock perk score bonus
     const effectiveMultiplier = killComboMultiplier + perkMultipliers.scoreMultBonus;
     scoreGain = Math.round(scoreGain * effectiveMultiplier);
+    if (PowerUps.isOverdriveActive(Date.now())) scoreGain *= 2;
     score += scoreGain;
+    if (window.missionSystem) {
+      window.missionSystem.trackScore(score);
+    }
 
     // Power-up drop chance on enemy death
     PowerUps.maybeSpawn(enemy.x, enemy.y);
+
+    // Tech fragment drop chance on elite/boss death — spawns a real orbiting
+    // pickup in the world instead of auto-collecting; the player must fly
+    // over it (collection + notification handled in the main update loop).
+    if (window.techFragmentSystem && (wasElite || wasBoss)) {
+      const isBoss = !!wasBoss;
+      const isElite = !!wasElite;
+      const fragment = window.techFragmentSystem.rollDrop(isBoss, isElite);
+      if (fragment) {
+        window.techFragmentSystem.spawnPickup(fragment, enemy.x, enemy.y);
+      }
+    }
 
     // Phase 1: Show score as damage number
     spawnDamageNumber(enemy.x, enemy.y - enemy.size, `+${scoreGain}`, wasBoss || wasElite);
@@ -9010,7 +9539,7 @@
       const bossMaxHp = bossEntity.hpMax || bossEntity.maxHealth || 1;
       const bossPct = Math.max(0, (bossEntity.health / bossMaxHp) * 100);
       dom.bossBarFill.style.width = bossPct + '%';
-      dom.bossBarName.textContent = bossEntity.kind === 'leviathan' ? 'LEVIATHAN' : (bossEntity.kind || 'BOSS').toUpperCase();
+      dom.bossBarName.textContent = bossEntity.kind === 'leviathan' ? 'LEVIATHAN' : (bossEntity.displayName || bossEntity.kind || 'BOSS').toUpperCase();
     } else {
       dom.bossBar.style.display = 'none';
     }
@@ -9133,7 +9662,7 @@
     // Also update radial menu icons if it exists
     updateRadialMenuIcons();
   };
-  
+
   // Update radial menu icons to match equipment loadout
   const updateRadialMenuIcons = () => {
     const radialMenu = document.getElementById('radialMenu');
@@ -9645,13 +10174,43 @@
   const closeHangar = () => {
     dom.hangarModal.style.display = 'none';
   };
+
+  // Open the full-featured Hangar overlay (Upgrades/Skins/Missions/Achievements/
+  // Leaderboard/Fragments/Stats/Settings) exposed by hangar-ui.js as window.openHangar.
+  // Named distinctly from the local openHangar() above (which only opens the
+  // simple ship-browser modal) so in-game entry points reach the real overlay
+  // instead of being silently shadowed by the local function of the same name.
+  const openPersistentHangar = () => {
+    if (typeof window.openHangar !== 'function') return;
+    window.openHangar({
+      getCredits: () => Save.data.credits,
+      spendCredits: (amount) => Save.spendCredits(amount),
+      getSelectedShip: () => Save.data.selectedShip || 'vanguard',
+      // Loadout tab reads/writes the same equipment class the in-game
+      // pause menu configures, so changes made here carry into the next run.
+      getLoadout: () => Save.data.armory.equipmentClass || defaultArmory().equipmentClass,
+      setLoadout: (equipClass) => {
+        Save.data.armory.equipmentClass = equipClass;
+        Save.save();
+        updateEquipmentIndicator();
+      },
+      onSkinEquip: () => {
+        initShipSelection();
+        if (player) player.reconfigureLoadout(true);
+      }
+    });
+  };
   // ─── POWER-UP DROPS ─────────────────────────────────────────────────────────
   const PowerUps = (() => {
     const TYPES = {
       SHIELD: { color: '#22c55e', label: 'SHIELD +30', duration: 0, radius: 10 },
       RAPID:  { color: '#06b6d4', label: 'RAPID FIRE', duration: 8000, radius: 10 },
       NUKE:   { color: '#f97316', label: 'NUKE',       duration: 0, radius: 10 },
+      OVERDRIVE: { color: '#a3e635', label: '2X SCORE', duration: 10000, radius: 10 },
+      MAGNET: { color: '#eab308', label: 'MAGNET',     duration: 10000, radius: 10 },
+      SLOWMO: { color: '#a855f7', label: 'SLOW-MO',    duration: 6000, radius: 10 },
     };
+    const SLOWMO_SPEED_MULT = 0.45;
     const TYPE_KEYS = Object.keys(TYPES);
     let active = [];       // live pickups on the ground
     let effects = [];      // active timed effects {type, endsAt}
@@ -9688,6 +10247,15 @@
         effects.push({ type: 'RAPID', endsAt: now + 8000 });
       } else if (type === 'NUKE') {
         nukeAllEnemies();
+      } else if (type === 'OVERDRIVE') {
+        effects = effects.filter(e => e.type !== 'OVERDRIVE');
+        effects.push({ type: 'OVERDRIVE', endsAt: now + 10000 });
+      } else if (type === 'MAGNET') {
+        effects = effects.filter(e => e.type !== 'MAGNET');
+        effects.push({ type: 'MAGNET', endsAt: now + TYPES.MAGNET.duration });
+      } else if (type === 'SLOWMO') {
+        effects = effects.filter(e => e.type !== 'SLOWMO');
+        effects.push({ type: 'SLOWMO', endsAt: now + TYPES.SLOWMO.duration });
       }
     }
 
@@ -9707,6 +10275,18 @@
 
     function isRapidActive(now) {
       return effects.some(e => e.type === 'RAPID' && e.endsAt > now);
+    }
+
+    function isOverdriveActive(now) {
+      return effects.some(e => e.type === 'OVERDRIVE' && e.endsAt > now);
+    }
+
+    function isMagnetActive(now) {
+      return effects.some(e => e.type === 'MAGNET' && e.endsAt > now);
+    }
+
+    function enemySpeedMultiplier(now) {
+      return effects.some(e => e.type === 'SLOWMO' && e.endsAt > now) ? SLOWMO_SPEED_MULT : 1;
     }
 
     function showPickupBanner(type) {
@@ -9744,19 +10324,28 @@
         ctx.fillText(p.type, p.x, p.y + 24);
         ctx.restore();
       });
-      // Rapid fire HUD indicator
-      const rapidEffect = effects.find(e => e.type === 'RAPID');
-      if (rapidEffect) {
-        const remaining = ((rapidEffect.endsAt - now) / 1000).toFixed(1);
+      // Timed-effect HUD indicators
+      const hudEffects = [
+        { type: 'RAPID',     icon: '⚡', color: '#06b6d4' },
+        { type: 'OVERDRIVE', icon: '★', color: '#a3e635' },
+        { type: 'MAGNET',    icon: '🧲', color: '#eab308' },
+        { type: 'SLOWMO',    icon: '🐢', color: '#a855f7' },
+      ];
+      let hudY = 110;
+      hudEffects.forEach(({ type, icon, color }) => {
+        const effect = effects.find(e => e.type === type);
+        if (!effect) return;
+        const remaining = ((effect.endsAt - now) / 1000).toFixed(1);
         ctx.save();
-        ctx.fillStyle = '#06b6d4'; ctx.font = 'bold 12px monospace';
+        ctx.fillStyle = color; ctx.font = 'bold 12px monospace';
         ctx.textAlign = 'left'; ctx.globalAlpha = 0.9;
-        ctx.fillText('⚡ RAPID ' + remaining + 's', 12, 110);
+        ctx.fillText(`${icon} ${TYPES[type].label} ${remaining}s`, 12, hudY);
         ctx.restore();
-      }
+        hudY += 18;
+      });
     }
 
-    return { maybeSpawn, update, draw, isRapidActive };
+    return { maybeSpawn, update, draw, isRapidActive, isOverdriveActive, isMagnetActive, enemySpeedMultiplier };
   })();
   // ─── END POWER-UP DROPS ─────────────────────────────────────────────────────
 
@@ -9784,6 +10373,23 @@
     updateComboSystem(); // Phase 1: Update combo timer
     // Power-up pickup collection
     PowerUps.update(player.x, player.y, Date.now());
+    // Tech fragment pickup collection — orbiting drops from elite/boss kills
+    if (window.techFragmentSystem) {
+      const tfs = window.techFragmentSystem;
+      tfs.update(dt);
+      const collectedPickup = tfs.checkCollection(player.x, player.y, player.size);
+      if (collectedPickup) {
+        if (window.missionSystem) window.missionSystem.trackFragments(1);
+        if (typeof AudioManager !== 'undefined') AudioManager.playCoinPickup();
+        const count = tfs.getFragmentCount(collectedPickup.fragment.id);
+        if (typeof Auth !== 'undefined' && Auth.showTechFragmentNotification) {
+          Auth.showTechFragmentNotification(count);
+        }
+      }
+    }
+    if (window.missionSystem && runStartTime > 0) {
+      window.missionSystem.trackTime(Math.floor((now - runStartTime) / 1000));
+    }
     const targetX = player.x - window.innerWidth / 2;
     const targetY = player.y - window.innerHeight / 2;
     camera.x += (targetX - camera.x) * 0.12;
@@ -9820,17 +10426,28 @@
         const dx = bullet.x - enemy.x;
         const dy = bullet.y - enemy.y;
         if (Math.hypot(dx, dy) < bullet.size + enemy.size) {
-          enemy.health -= bullet.damage;
+          // AI Targeting Matrix tech fragment: chance to crit for bonus damage
+          let hitDamage = bullet.damage;
+          let isCrit = false;
+          if (window.techFragmentSystem && window.techFragmentSystem.hasFragment('neural_chip') && window.TECH_UNLOCKS) {
+            const critStats = window.TECH_UNLOCKS.ai_targeting.stats;
+            if (Math.random() < critStats.critChance) {
+              hitDamage *= critStats.critDamage;
+              isCrit = true;
+            }
+          }
+          enemy.health -= hitDamage;
           runShotsHit++;
+          waveShotsHit++;
 
           // Phase 1: Show damage number
-          spawnDamageNumber(enemy.x, enemy.y, bullet.damage, false);
-          
+          spawnDamageNumber(enemy.x, enemy.y, hitDamage, isCrit);
+
           // Phase A.2: Hit flash on damage
           enemy.hitFlash = 150;
-          
+
           addParticles('sparks', bullet.x, bullet.y, 0, 6);
-          if (player) player.addUltimateCharge(bullet.damage * 0.35);
+          if (player) player.addUltimateCharge(hitDamage * 0.35);
           
           // Play hit sound
           if (typeof AudioManager !== 'undefined') {
@@ -9873,7 +10490,8 @@
         coins.splice(i, 1);
         continue;
       }
-      const pickupRadius = player ? player.size + 80 : 120;
+      const magnetActive = PowerUps.isMagnetActive(now);
+      const pickupRadius = (player ? player.size + 80 : 120) * (magnetActive ? 6 : 1);
       const dx = player.x - coin.x;
       const dy = player.y - coin.y;
       const dist = Math.hypot(dx, dy);
@@ -9884,7 +10502,9 @@
       if (dist < player.size + coin.r) {
         coins.splice(i, 1);
         score += 10;
-        Save.addCredits(1);
+        const coinCredits = killComboMultiplier > 1 ? killComboMultiplier : 1;
+        Save.addCredits(coinCredits);
+        if (window.missionSystem) window.missionSystem.trackCredits(coinCredits);
         addXP(6);
         
         // Play coin pickup sound
@@ -9911,8 +10531,230 @@
         supplies.splice(i, 1);
         player.collectSupply(crate.kind);
         Save.addCredits(2);
+        if (window.missionSystem) window.missionSystem.trackCredits(2);
         addXP(10);
       }
+    }
+
+    // Power Surge orbs
+    for (let i = powerSurges.length - 1; i >= 0; i--) {
+      const orb = powerSurges[i];
+      if (now - orb.created > orb.life) { powerSurges.splice(i, 1); continue; }
+      const dx = player.x - orb.x;
+      const dy = player.y - orb.y;
+      const dist = Math.hypot(dx, dy);
+      // Gentle attraction when close
+      if (dist < 140) {
+        orb.x += (dx / (dist || 1)) * 1.2;
+        orb.y += (dy / (dist || 1)) * 1.2;
+      }
+      if (dist < player.size + orb.r) {
+        powerSurges.splice(i, 1);
+        surgeDamageMultiplier = 1.8;
+        surgeExpiry = now + 8000;
+        addLogEntry('⚡ POWER SURGE! 1.8× DMG for 8s', '#a855f7');
+        if (typeof AudioManager !== 'undefined') AudioManager.playCoinPickup();
+      }
+    }
+    // Expire surge
+    if (surgeDamageMultiplier > 1 && now > surgeExpiry) {
+      surgeDamageMultiplier = 1;
+      addLogEntry('Power Surge ended', '#6b7280');
+    }
+
+    // Medic Orbs
+    for (let i = medicOrbs.length - 1; i >= 0; i--) {
+      const orb = medicOrbs[i];
+      if (now - orb.created > orb.life) { medicOrbs.splice(i, 1); continue; }
+      const dx = player.x - orb.x;
+      const dy = player.y - orb.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < 120) {
+        orb.x += (dx / (dist || 1)) * 1.4;
+        orb.y += (dy / (dist || 1)) * 1.4;
+      }
+      if (dist < player.size + orb.r) {
+        medicOrbs.splice(i, 1);
+        const hpMax = player.hpMax || 100;
+        const healAmt = Math.min(20, hpMax - player.health);
+        player.health = Math.min(hpMax, player.health + healAmt);
+        addLogEntry(`❤️ Medic Orb +${healAmt} HP`, '#4ade80');
+        if (typeof AudioManager !== 'undefined') AudioManager.playCoinPickup();
+      }
+    }
+
+    // Ghost Orbs
+    for (let i = ghostOrbs.length - 1; i >= 0; i--) {
+      const orb = ghostOrbs[i];
+      if (now - orb.created > orb.life) { ghostOrbs.splice(i, 1); continue; }
+      const dx = player.x - orb.x;
+      const dy = player.y - orb.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < 130) {
+        orb.x += (dx / (dist || 1)) * 1.3;
+        orb.y += (dy / (dist || 1)) * 1.3;
+      }
+      if (dist < player.size + orb.r) {
+        ghostOrbs.splice(i, 1);
+        player.invEnd = now + 3000;
+        addLogEntry('👻 GHOST ORB! 3s invincibility', '#67e8f9');
+        if (typeof AudioManager !== 'undefined') AudioManager.playCoinPickup();
+      }
+    }
+
+    // Freeze Orbs
+    for (let i = freezeOrbs.length - 1; i >= 0; i--) {
+      const orb = freezeOrbs[i];
+      if (now - orb.created > orb.life) { freezeOrbs.splice(i, 1); continue; }
+      const dx = player.x - orb.x;
+      const dy = player.y - orb.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist > 220) {
+        orb.x += (dx / (dist || 1)) * 1.1;
+        orb.y += (dy / (dist || 1)) * 1.1;
+      }
+      if (dist < player.size + orb.r) {
+        freezeOrbs.splice(i, 1);
+        // Slow all active enemies — store pre-freeze speed
+        for (const e of enemies) {
+          if (!e._preFreezeSpeed) e._preFreezeSpeed = e.speed;
+          e.speed = (e._preFreezeSpeed) * 0.4;
+        }
+        freezeExpiry = now + 3000;
+        addLogEntry('❄️ FREEZE ORB! Enemies slowed 3s', '#93c5fd');
+        if (typeof AudioManager !== 'undefined') AudioManager.playCoinPickup();
+      }
+    }
+    // Expire freeze
+    if (freezeExpiry > 0 && now >= freezeExpiry) {
+      for (const e of enemies) {
+        if (e._preFreezeSpeed !== undefined) {
+          e.speed = e._preFreezeSpeed;
+          delete e._preFreezeSpeed;
+        }
+      }
+      freezeExpiry = 0;
+      addLogEntry('Freeze ended', '#6b7280');
+    }
+    // Expire Temporal Rift time-slow
+    if (timeWarpExpiry > 0 && now >= timeWarpExpiry) {
+      for (const e of enemies) {
+        if (e._preTimeWarpSpeed !== undefined) {
+          e.speed = e._preTimeWarpSpeed;
+          delete e._preTimeWarpSpeed;
+        }
+      }
+      timeWarpExpiry = 0;
+      addLogEntry('Temporal Rift ended', '#6b7280');
+    }
+    // Expire Overcharge Matrix weapon boost
+    if (overchargeBoostMultiplier > 1 && now > overchargeBoostExpiry) {
+      overchargeBoostMultiplier = 1;
+      addLogEntry('Overcharge faded', '#6b7280');
+    }
+
+    // Lightning Orbs
+    for (let i = lightningOrbs.length - 1; i >= 0; i--) {
+      const orb = lightningOrbs[i];
+      if (now - orb.created > orb.life) { lightningOrbs.splice(i, 1); continue; }
+      const dx = player.x - orb.x;
+      const dy = player.y - orb.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < 150) {
+        orb.x += (dx / (dist || 1)) * 1.2;
+        orb.y += (dy / (dist || 1)) * 1.2;
+      }
+      if (dist < player.size + orb.r) {
+        lightningOrbs.splice(i, 1);
+        // Chain lightning: sort live enemies by distance from player
+        const sorted = enemies
+          .map((e, idx) => ({ e, idx, d: Math.hypot(e.x - player.x, e.y - player.y) }))
+          .sort((a, b) => a.d - b.d);
+        const arcPts = [{ x: player.x, y: player.y }];
+        let hitCount = 0;
+        let lastX = player.x, lastY = player.y;
+        // Hit primary target (45 dmg)
+        if (sorted.length > 0) {
+          const primary = sorted[0];
+          const prev = primary.e.health;
+          primary.e.health -= 45;
+          primary.e.hitFlash = 200;
+          spawnDamageNumber(primary.e.x, primary.e.y, Math.min(prev, 45), false);
+          addParticles('sparks', primary.e.x, primary.e.y, 0, 14);
+          arcPts.push({ x: primary.e.x, y: primary.e.y });
+          if (primary.e.health <= 0) handleEnemyDeath(primary.idx, 0);
+          lastX = primary.e.x; lastY = primary.e.y;
+          hitCount++;
+          // Chain to up to 2 more within 180px of the primary hit
+          let chainCount = 0;
+          for (let j = 1; j < sorted.length && chainCount < 2; j++) {
+            const chain = sorted[j];
+            const chainDist = Math.hypot(chain.e.x - lastX, chain.e.y - lastY);
+            if (chainDist > 180) continue;
+            const prev2 = chain.e.health;
+            chain.e.health -= 22;
+            chain.e.hitFlash = 160;
+            spawnDamageNumber(chain.e.x, chain.e.y, Math.min(prev2, 22), false);
+            addParticles('sparks', chain.e.x, chain.e.y, 0, 8);
+            arcPts.push({ x: chain.e.x, y: chain.e.y });
+            // Re-find index in case array shifted from prior handleEnemyDeath
+            const liveIdx = enemies.indexOf(chain.e);
+            if (chain.e.health <= 0 && liveIdx >= 0) handleEnemyDeath(liveIdx, 0);
+            lastX = chain.e.x; lastY = chain.e.y;
+            chainCount++;
+          }
+        }
+        // Store arc for rendering
+        if (arcPts.length > 1) {
+          lightningArcs.push({ pts: arcPts, expiry: now + 350 });
+        }
+        // Electric screen flash
+        lightningFlashEnd = now + 120;
+        addLogEntry('⚡ CHAIN LIGHTNING', '#facc15');
+        if (typeof AudioManager !== 'undefined') AudioManager.playCoinPickup();
+      }
+    }
+    // Expire lightning arcs
+    lightningArcs = lightningArcs.filter(a => now < a.expiry);
+
+    // Void Nova Orbs — pickup triggers expanding ring that destroys all on-screen enemies
+    for (let i = novaOrbs.length - 1; i >= 0; i--) {
+      const orb = novaOrbs[i];
+      if (now - orb.created > orb.life) { novaOrbs.splice(i, 1); continue; }
+      const dx = player.x - orb.x;
+      const dy = player.y - orb.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < 160) {
+        orb.x += (dx / (dist || 1)) * 1.3;
+        orb.y += (dy / (dist || 1)) * 1.3;
+      }
+      if (dist < player.size + orb.r) {
+        novaOrbs.splice(i, 1);
+        // Launch expanding ring from player position
+        const maxR = Math.max(canvas.width, canvas.height) * 0.85;
+        novaRings.push({ x: player.x, y: player.y, r: 0, maxR, created: now, duration: 700 });
+        // Destroy all live enemies caught by the nova — deal 999 damage (instakill standard, heavy on boss)
+        for (let j = enemies.length - 1; j >= 0; j--) {
+          const e = enemies[j];
+          const d = Math.hypot(e.x - player.x, e.y - player.y);
+          const novaDmg = e.isBoss ? 250 : 999;
+          const prev = e.health;
+          e.health -= novaDmg;
+          e.hitFlash = 300;
+          spawnDamageNumber(e.x, e.y, Math.min(prev, novaDmg), false);
+          addParticles('explosion', e.x, e.y, 0, 20);
+          if (e.health <= 0) handleEnemyDeath(j, 0);
+        }
+        // Purple screen flash
+        lightningFlashEnd = now + 200; // reuse flash mechanism with purple tint via novaFlashEnd
+        addLogEntry('💥 VOID NOVA — ALL CLEAR', '#a855f7');
+        if (typeof AudioManager !== 'undefined') AudioManager.playLevelComplete?.() || AudioManager.playCoinPickup();
+      }
+    }
+    // Advance nova ring radii
+    novaRings = novaRings.filter(ring => now - ring.created < ring.duration);
+    for (const ring of novaRings) {
+      ring.r = ring.maxR * Math.min(1, (now - ring.created) / ring.duration);
     }
 
     for (const obstacle of obstacles) obstacle.update(dt);
@@ -10002,6 +10844,16 @@
         const adaptive = getAdaptiveScaling();
         const source = { shieldPenetration: adaptive.shieldPenetration * ADAPTIVE_CONSTANTS.BULLET_PENETRATION_FACTOR };
         player.takeDamage(bullet.damage, source);
+      } else if (
+        !bullet.nearMissCounted &&
+        dist < player.size + bullet.size + CLOSE_CALL_MARGIN &&
+        now - lastCloseCallAt > CLOSE_CALL_COOLDOWN
+      ) {
+        bullet.nearMissCounted = true;
+        lastCloseCallAt = now;
+        score += CLOSE_CALL_SCORE;
+        Save.addCredits(CLOSE_CALL_CREDITS);
+        showCloseCallFlash();
       }
     }
 
@@ -10015,14 +10867,27 @@
   };
 
   const advanceLevel = () => {
-    Save.addCredits(Math.floor(20 + level * 5 + enemiesKilled * 1.5));
+    // Reset per-wave stats before accumulating this wave's rewards
+    waveCreditsEarned = 0;
+    const _creditsBase = Math.floor(20 + level * 5 + enemiesKilled * 1.5);
+    Save.addCredits(_creditsBase);
+    waveCreditsEarned += _creditsBase;
     addXP(90 + level * 12);
+    if (window.missionSystem) {
+      window.missionSystem.trackCredits(_creditsBase);
+      window.missionSystem.trackLevelComplete(!tookDamageThisLevel);
+    }
     if (!tookDamageThisLevel) {
       addXP(110 + level * 18);
       // Perfect Wave bonus — extra credits + announcement
       const perfectBonus = Math.floor(40 + level * 10);
       Save.addCredits(perfectBonus);
-      addLogEntry(`🌟 PERFECT WAVE! +${perfectBonus} bonus credits`, '#4ade80');
+      waveCreditsEarned += perfectBonus;
+      // Fixed +50 perfect wave overlay bonus
+      Save.addCredits(50);
+      waveCreditsEarned += 50;
+      if (window.missionSystem) window.missionSystem.trackCredits(perfectBonus + 50);
+      addLogEntry(`🌟 PERFECT WAVE! +${perfectBonus + 50} bonus credits`, '#4ade80');
     }
 
     // Play level advance sound
@@ -10031,37 +10896,66 @@
     }
     
     const completedLevel = level; // Store current level before incrementing
+
+    // Snapshot wave stats before resets — read by showWaveClearedThenUpgrade
+    const _waveElapsed = waveStartTime > 0 ? Math.round((performance.now() - waveStartTime) / 1000) : 0;
+    const _waveAccuracy = waveShotsFired > 0 ? Math.round((waveShotsHit / waveShotsFired) * 100) : null;
+    window._lastWaveStats = {
+      kills: waveKillCount,
+      credits: waveCreditsEarned,
+      accuracy: _waveAccuracy,
+      timeSec: _waveElapsed,
+      perfect: !tookDamageThisLevel,
+    };
+
     level += 1;
+    if (window.missionSystem) window.missionSystem.trackLevel(level);
     enemiesKilled = 0;
-    
+    waveKillCount = 0;
+    waveShotsFired = 0;
+    waveShotsHit = 0;
+
     // Determine wave type based on level and player power
     const adaptive = getAdaptiveScaling();
     const bossLevel = level % adaptive.bossInterval === 0;
     const leviathanLevel = level % 10 === 0; // Leviathan spawns at wave 10, 20, 30, ...
+    const voidSurgeLevel = level === 15 || (level > 15 && level % 25 === 15); // VOID SURGE at 15, 40, 65, ...
 
     if (leviathanLevel) {
       // Leviathan boss wave — takes priority over generic boss
       currentWaveType = 'boss';
       leviathanWavePending = true;
+      voidSurgeWavePending = false;
       addLogEntry(`☠️ LEVIATHAN APPROACHES — FLEE OR FIGHT!`, '#FF2020');
     } else if (bossLevel) {
       currentWaveType = 'boss';
       leviathanWavePending = false;
+      voidSurgeWavePending = false;
       addLogEntry(`⚠️ BOSS WAVE INCOMING!`, '#dc2626');
+    } else if (voidSurgeLevel) {
+      // VOID SURGE — elite wave with dramatic overlay + HERALD OF VOID boss
+      currentWaveType = 'elite';
+      voidSurgeWavePending = true;
+      voidSurgeBossPending = true;
+      leviathanWavePending = false;
+      addLogEntry(`⚡ VOID SURGE INCOMING — HERALD OF VOID APPROACHES!`, '#8b5cf6');
     } else if (level % 5 === 0 && getPowerRatio() > 0.3) {
       // Every 5th level (non-boss), special wave type
       const waveTypes = ['swarm', 'elite', 'survival', 'hazard'];
       currentWaveType = waveTypes[Math.floor(Math.random() * waveTypes.length)];
       leviathanWavePending = false;
+      voidSurgeWavePending = false;
       const waveInfo = WAVE_TYPES[currentWaveType];
       addLogEntry(`🎯 ${waveInfo.name}: ${waveInfo.desc}`, '#f59e0b');
     } else {
       currentWaveType = 'standard';
       leviathanWavePending = false;
+      voidSurgeWavePending = false;
     }
 
     // Show wave intro banner
     const _bossHint = leviathanWavePending ? 'LEVIATHAN BOSS — MAXIMUM THREAT'
+      : voidSurgeWavePending ? 'VOID SURGE — ELITE FORCES'
       : currentWaveType === 'boss' ? 'BOSS WAVE — MAXIMUM THREAT' : undefined;
     showWaveBanner(level, _bossHint);
 
@@ -10088,10 +10982,23 @@
     bullets = [];
     coins = [];
     supplies = [];
+    powerSurges = [];
+    medicOrbs = [];
+    ghostOrbs = [];
+    freezeOrbs = [];
+    freezeExpiry = 0;
+    novaOrbs = [];
+    novaRings = [];
+    surgeDamageMultiplier = 1;
+    surgeExpiry = 0;
+    timeWarpExpiry = 0;
+    overchargeBoostMultiplier = 1;
+    overchargeBoostExpiry = 0;
     spawners = [];
     particles = [];
     bossActive = false;
     bossEntity = null;
+    bountySpawnedThisWave = false;
     waveStartTime = performance.now();
     
     // Survival waves use timer instead of kill count
@@ -10159,6 +11066,7 @@
         () => {
           // onRewarded: add 100 credits
           Save.addCredits(100);
+          if (window.missionSystem) window.missionSystem.trackCredits(100);
           updateHUD();
           addLogEntry('🎬 +100 CR bonus from ad reward!', '#4ade80');
         },
@@ -10172,7 +11080,24 @@
   // NEW: Function to start countdown from ready-up phase
   const startCountdownFromReadyUp = () => {
     if (!readyUpPhase) return;
-    
+
+    // Show VOID SURGE overlay for 3s before starting the wave countdown
+    if (voidSurgeWavePending) {
+      showVoidSurgeOverlay(() => {
+        voidSurgeWavePending = false;
+        startCountdownFromReadyUp();
+      });
+      return;
+    }
+
+    // Show LEVIATHAN INCOMING overlay for 3s before starting the wave countdown
+    if (leviathanWavePending) {
+      showBossIncomingOverlay(() => {
+        startCountdownFromReadyUp();
+      });
+      return;
+    }
+
     readyUpPhase = false;
     countdownActive = true;
     countdownEnd = performance.now() + 3000;
@@ -10195,6 +11120,10 @@
       if (currentWaveType === 'boss') {
         spawnBoss();
       }
+      // Spawn HERALD OF VOID for VOID SURGE waves
+      if (voidSurgeBossPending) {
+        spawnBoss();
+      }
       
       recenterStars();
       lastTime = performance.now();
@@ -10206,7 +11135,39 @@
     if (!player) return;
     const pos = randomAround(player.x, player.y, viewRadius(0.6), viewRadius(0.9));
 
-    if (leviathanWavePending) {
+    if (voidSurgeBossPending) {
+      // Spawn the HERALD OF VOID — fast, multi-phase swarm commander
+      voidSurgeBossPending = false;
+      const heraldKind = 'berserker';
+      bossEntity = new Enemy(pos.x, pos.y, heraldKind, false, true);
+      bossEntity.displayName = 'HERALD OF VOID';
+      // Herald is faster and has more health than a regular berserker
+      bossEntity.maxHealth = Math.round(bossEntity.maxHealth * 2.5 * (1 + level * 0.08));
+      bossEntity.health = bossEntity.maxHealth;
+      bossEntity.hpMax = bossEntity.maxHealth;
+      bossEntity.speed *= 1.6;
+      // Herald phases — like leviathan but aggressive speed ramp
+      bossEntity.heraldPhase = 1;
+      bossEntity.heraldShotTimer = 0;
+      bossEntity.heraldBaseSpeed = bossEntity.speed;
+      // Tint / color override for purple void theme
+      bossEntity.colorOverride = '#8b5cf6';
+      bossEntity.isBoss = true;
+      enemies.push(bossEntity);
+      bossActive = true;
+      bossWaveAnnouncementStart = performance.now();
+      addLogEntry('⚡ HERALD OF VOID HAS ARRIVED!', '#8b5cf6');
+      shakeScreen(12, 500);
+      // Spawn an initial swarm escort with the Herald
+      for (let s = 0; s < 4; s++) {
+        const sx = pos.x + (Math.random() - 0.5) * 200;
+        const sy = pos.y + (Math.random() - 0.5) * 200;
+        enemies.push(new Enemy(sx, sy, 'phantom', false, false));
+      }
+      if (typeof AudioManager !== 'undefined') {
+        AudioManager.playBossSpawn();
+      }
+    } else if (leviathanWavePending) {
       // Spawn the LEVIATHAN boss
       leviathanWavePending = false;
       bossEntity = new Enemy(pos.x, pos.y, 'leviathan', false, false);
@@ -10253,10 +11214,13 @@
       if (bossActive && !bossEntity) {
         addLogEntry('🎉 BOSS DEFEATED!', '#4ade80');
         bossActive = false;
-        // Give bonus rewards
-        Save.addCredits(level * 50);
+        // Give bonus rewards — tracked for post-wave overlay
+        const _bossBonus = level * 50;
+        Save.addCredits(_bossBonus);
+        if (window.missionSystem) window.missionSystem.trackCredits(_bossBonus);
         addXP(level * 100);
         advanceLevel();
+        waveCreditsEarned += _bossBonus; // add boss bonus after advanceLevel resets counter
         return true;
       }
       // Don't advance from normal kills in boss wave
@@ -10325,9 +11289,271 @@
     for (const spawner of spawners) spawner.draw(ctx);
     for (const coin of coins) coin.draw(ctx);
     for (const supply of supplies) supply.draw(ctx);
+    // Draw Power Surge orbs
+    for (const orb of powerSurges) {
+      const _t = performance.now();
+      const pulse = 0.7 + 0.3 * Math.sin((_t / 250) + orb.created);
+      ctx.save();
+      ctx.globalAlpha = 0.9;
+      const grad = ctx.createRadialGradient(orb.x, orb.y, 0, orb.x, orb.y, orb.r * 2 * pulse);
+      grad.addColorStop(0, '#e879f9');
+      grad.addColorStop(0.5, '#a855f7');
+      grad.addColorStop(1, 'rgba(168,85,247,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(orb.x, orb.y, orb.r * 2 * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+    // Draw Medic Orbs
+    for (const orb of medicOrbs) {
+      const _t = performance.now();
+      const pulse = 0.7 + 0.3 * Math.sin((_t / 300) + orb.created);
+      ctx.save();
+      ctx.globalAlpha = 0.92;
+      const grad = ctx.createRadialGradient(orb.x, orb.y, 0, orb.x, orb.y, orb.r * 2.2 * pulse);
+      grad.addColorStop(0, '#86efac');
+      grad.addColorStop(0.45, '#4ade80');
+      grad.addColorStop(1, 'rgba(74,222,128,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(orb.x, orb.y, orb.r * 2.2 * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      // Draw cross symbol
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(orb.x, orb.y - 5);
+      ctx.lineTo(orb.x, orb.y + 5);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(orb.x - 5, orb.y);
+      ctx.lineTo(orb.x + 5, orb.y);
+      ctx.stroke();
+      ctx.restore();
+    }
+    // Draw Ghost Orbs
+    for (const orb of ghostOrbs) {
+      const _t = performance.now();
+      const pulse = 0.65 + 0.35 * Math.sin((_t / 220) + orb.created);
+      ctx.save();
+      ctx.globalAlpha = 0.88;
+      const grad = ctx.createRadialGradient(orb.x, orb.y, 0, orb.x, orb.y, orb.r * 2.4 * pulse);
+      grad.addColorStop(0, '#e0f7ff');
+      grad.addColorStop(0.4, '#67e8f9');
+      grad.addColorStop(0.75, '#0891b2');
+      grad.addColorStop(1, 'rgba(8,145,178,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(orb.x, orb.y, orb.r * 2.4 * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      // Draw ghost "G" shimmer ring
+      ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(orb.x, orb.y, orb.r * pulse, 0, Math.PI * 2);
+      ctx.stroke();
+      // Draw ghost symbol (simple spirit shape: arc top + flat bottom)
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.beginPath();
+      ctx.arc(orb.x, orb.y - 1, 4.5, Math.PI, 0, false);
+      ctx.lineTo(orb.x + 4.5, orb.y + 4);
+      ctx.lineTo(orb.x + 1.5, orb.y + 2.5);
+      ctx.lineTo(orb.x, orb.y + 4);
+      ctx.lineTo(orb.x - 1.5, orb.y + 2.5);
+      ctx.lineTo(orb.x - 4.5, orb.y + 4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+    // Draw Freeze Orbs
+    for (const orb of freezeOrbs) {
+      const _t = performance.now();
+      const pulse = 0.7 + 0.3 * Math.sin((_t / 280) + orb.created);
+      ctx.save();
+      ctx.globalAlpha = 0.92;
+      const grad = ctx.createRadialGradient(orb.x, orb.y, 0, orb.x, orb.y, orb.r * 2.2 * pulse);
+      grad.addColorStop(0, '#e0f2fe');
+      grad.addColorStop(0.4, '#38bdf8');
+      grad.addColorStop(0.75, '#0284c7');
+      grad.addColorStop(1, 'rgba(2,132,199,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(orb.x, orb.y, orb.r * 2.2 * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      // Outer ring
+      ctx.strokeStyle = 'rgba(186,230,253,0.8)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(orb.x, orb.y, orb.r * pulse, 0, Math.PI * 2);
+      ctx.stroke();
+      // Snowflake — 6 spokes from center
+      ctx.strokeStyle = 'rgba(255,255,255,0.92)';
+      ctx.lineWidth = 1.5;
+      ctx.lineCap = 'round';
+      for (let a = 0; a < 6; a++) {
+        const angle = (a * Math.PI) / 3;
+        ctx.beginPath();
+        ctx.moveTo(orb.x, orb.y);
+        ctx.lineTo(orb.x + Math.cos(angle) * 5, orb.y + Math.sin(angle) * 5);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+    // Draw Lightning Orbs
+    for (const orb of lightningOrbs) {
+      const _t = performance.now();
+      const pulse = 0.65 + 0.35 * Math.sin((_t / 200) + orb.created);
+      ctx.save();
+      ctx.globalAlpha = 0.93;
+      const grad = ctx.createRadialGradient(orb.x, orb.y, 0, orb.x, orb.y, orb.r * 2.3 * pulse);
+      grad.addColorStop(0, '#ffffff');
+      grad.addColorStop(0.35, '#facc15');
+      grad.addColorStop(0.7, '#ca8a04');
+      grad.addColorStop(1, 'rgba(250,204,21,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(orb.x, orb.y, orb.r * 2.3 * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      // Outer ring
+      ctx.strokeStyle = 'rgba(255,255,180,0.75)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(orb.x, orb.y, orb.r * pulse, 0, Math.PI * 2);
+      ctx.stroke();
+      // Lightning bolt glyph — Z-shape (top-center → mid-right → mid-left → bottom-center)
+      ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(orb.x,     orb.y - 5.5);   // top center
+      ctx.lineTo(orb.x + 3, orb.y - 0.5);   // mid right
+      ctx.lineTo(orb.x - 3, orb.y + 0.5);   // mid left
+      ctx.lineTo(orb.x,     orb.y + 5.5);   // bottom center
+      ctx.stroke();
+      ctx.restore();
+    }
+    // Draw lightning arcs (chain lightning visual)
+    const _nowArc = performance.now();
+    for (const arc of lightningArcs) {
+      const frac = 1 - (_nowArc - (_nowArc - (arc.expiry - _nowArc))) / 350;
+      const alpha = Math.max(0, (arc.expiry - _nowArc) / 350);
+      ctx.save();
+      ctx.globalAlpha = alpha * 0.85;
+      ctx.strokeStyle = '#facc15';
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = 'round';
+      ctx.shadowColor = '#ffffff';
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.moveTo(arc.pts[0].x, arc.pts[0].y);
+      for (let p = 1; p < arc.pts.length; p++) {
+        ctx.lineTo(arc.pts[p].x, arc.pts[p].y);
+      }
+      ctx.stroke();
+      // White inner arc for glow
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+      ctx.lineWidth = 1;
+      ctx.shadowBlur = 0;
+      ctx.beginPath();
+      ctx.moveTo(arc.pts[0].x, arc.pts[0].y);
+      for (let p = 1; p < arc.pts.length; p++) {
+        ctx.lineTo(arc.pts[p].x, arc.pts[p].y);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+    // Electric screen flash
+    if (lightningFlashEnd > 0 && _nowArc < lightningFlashEnd) {
+      const flashFrac = (_nowArc - (lightningFlashEnd - 120)) / 120;
+      const flashAlpha = 0.15 * (1 - Math.min(1, flashFrac));
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, flashAlpha);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.restore();
+    }
+
+    // Draw Void Nova Orbs
+    for (const orb of novaOrbs) {
+      const _t = performance.now();
+      const pulse = 0.7 + 0.3 * Math.sin((_t / 180) + orb.created);
+      ctx.save();
+      ctx.globalAlpha = 0.95;
+      // Outer glow — deep purple to gold
+      const grad = ctx.createRadialGradient(orb.x, orb.y, 0, orb.x, orb.y, orb.r * 2.6 * pulse);
+      grad.addColorStop(0, '#ffffff');
+      grad.addColorStop(0.25, '#e879f9');
+      grad.addColorStop(0.6, '#7c3aed');
+      grad.addColorStop(0.85, '#fbbf24');
+      grad.addColorStop(1, 'rgba(124,58,237,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(orb.x, orb.y, orb.r * 2.6 * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      // Outer ring
+      ctx.strokeStyle = 'rgba(232,121,249,0.85)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(orb.x, orb.y, orb.r * pulse, 0, Math.PI * 2);
+      ctx.stroke();
+      // Nova starburst glyph — 8 spokes
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+      ctx.lineWidth = 1.5;
+      ctx.lineCap = 'round';
+      for (let s = 0; s < 8; s++) {
+        const angle = (s * Math.PI) / 4 + (_t / 900);
+        ctx.beginPath();
+        ctx.moveTo(orb.x + Math.cos(angle) * 2, orb.y + Math.sin(angle) * 2);
+        ctx.lineTo(orb.x + Math.cos(angle) * 6.5, orb.y + Math.sin(angle) * 6.5);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // Draw Void Nova rings (expanding shockwave)
+    for (const ring of novaRings) {
+      const elapsed = performance.now() - ring.created;
+      const progress = Math.min(1, elapsed / ring.duration);
+      const alpha = (1 - progress) * 0.75;
+      ctx.save();
+      // Outer ring — purple
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = '#a855f7';
+      ctx.lineWidth = 4 + (1 - progress) * 6;
+      ctx.shadowColor = '#e879f9';
+      ctx.shadowBlur = 18;
+      ctx.beginPath();
+      ctx.arc(ring.x, ring.y, ring.r, 0, Math.PI * 2);
+      ctx.stroke();
+      // Inner ring — gold, slightly behind
+      ctx.globalAlpha = alpha * 0.55;
+      ctx.strokeStyle = '#fbbf24';
+      ctx.lineWidth = 2;
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(ring.x, ring.y, Math.max(0, ring.r - 10), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Freeze active overlay — blue tint vignette on screen edges
+    if (freezeExpiry > 0) {
+      const remaining = (freezeExpiry - performance.now()) / 3000;
+      const alpha = Math.max(0, remaining * 0.18);
+      const vg = ctx.createRadialGradient(canvas.width / 2, canvas.height / 2, canvas.height * 0.3, canvas.width / 2, canvas.height / 2, canvas.height * 0.85);
+      vg.addColorStop(0, 'rgba(56,189,248,0)');
+      vg.addColorStop(1, `rgba(56,189,248,${alpha.toFixed(3)})`);
+      ctx.save();
+      ctx.fillStyle = vg;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.restore();
+    }
     for (const bullet of bullets) bullet.draw(ctx);
     for (const enemy of enemies) enemy.draw(ctx);
-    
+
     // Phase 1: Draw enemy health bars
     for (const enemy of enemies) {
       if (enemy.health < enemy.maxHealth) {
@@ -10378,6 +11604,31 @@
     drawParticles(ctx, 16.67);
     // Draw power-up orbs (in world space, before ctx.restore)
     PowerUps.draw(ctx);
+    // Draw orbiting tech fragment pickups
+    if (window.techFragmentSystem) {
+      for (const pickup of window.techFragmentSystem.active) {
+        const f = pickup.fragment;
+        const pulse = 0.75 + Math.sin(pickup.pulsePhase) * 0.25;
+        ctx.save();
+        ctx.translate(pickup.x, pickup.y);
+        ctx.rotate(pickup.angle);
+        ctx.globalAlpha = pulse;
+        ctx.shadowColor = f.glowColor || f.color;
+        ctx.shadowBlur = 18;
+        ctx.fillStyle = f.color;
+        ctx.beginPath();
+        ctx.moveTo(0, -pickup.size);
+        ctx.lineTo(pickup.size, 0);
+        ctx.lineTo(0, pickup.size);
+        ctx.lineTo(-pickup.size, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
     player.draw(ctx);
     // Draw Bulwark-7 shield wall arc
     drawShieldWall(ctx);
@@ -10461,20 +11712,78 @@
       }
     }
 
+    // ── Power Surge HUD indicator ────────────────────────────────────────────
+    if (surgeDamageMultiplier > 1 && now < surgeExpiry) {
+      const remaining = (surgeExpiry - now) / 8000;
+      ctx.save();
+      ctx.globalAlpha = 0.9;
+      ctx.fillStyle = '#a855f7';
+      ctx.fillRect(16, canvas.height - 56, 120 * remaining, 6);
+      ctx.strokeStyle = '#7c3aed';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(16, canvas.height - 56, 120, 6);
+      ctx.fillStyle = '#e879f9';
+      ctx.font = 'bold 10px Arial';
+      ctx.fillText('⚡ SURGE', 16, canvas.height - 62);
+      ctx.restore();
+    }
+
+    // ── Overcharge Matrix HUD indicator ──────────────────────────────────────
+    if (overchargeBoostMultiplier > 1 && now < overchargeBoostExpiry) {
+      const remaining = (overchargeBoostExpiry - now) / 3000;
+      ctx.save();
+      ctx.globalAlpha = 0.9;
+      ctx.fillStyle = '#eab308';
+      ctx.fillRect(16, canvas.height - 76, 120 * remaining, 6);
+      ctx.strokeStyle = '#a16207';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(16, canvas.height - 76, 120, 6);
+      ctx.fillStyle = '#fde047';
+      ctx.font = 'bold 10px Arial';
+      ctx.fillText('⚡ OVERCHARGE', 16, canvas.height - 82);
+      ctx.restore();
+    }
+
     // ── Combo Timer DOM HUD (live depleting progress bar) ───────────────────
     if (dom.comboHud && dom.comboTimerBar && dom.comboMultDisplay) {
       if (killComboMultiplier > 1 && killComboTimerEnd > now) {
         const pct = Math.max(0, (killComboTimerEnd - now) / KILL_COMBO_WINDOW) * 100;
-        const comboColors = { 2: '#eab308', 3: '#f97316', 4: '#ef4444', 5: '#a855f7' };
-        const barColor = comboColors[killComboMultiplier] || '#6366f1';
+        const comboColors = { 2: '#f59e0b', 3: '#f59e0b', 4: '#ef4444', 5: '#ef4444' };
+        const barColor = comboColors[killComboMultiplier] || '#ef4444';
         dom.comboHud.style.display = 'block';
-        dom.comboMultDisplay.textContent = `×${killComboMultiplier}`;
+        const comboLabel = killComboMultiplier >= 5 ? `x5+ COMBO` : `x${killComboMultiplier} COMBO`;
+        dom.comboMultDisplay.textContent = comboLabel;
         dom.comboMultDisplay.style.color = barColor;
         dom.comboTimerBar.style.width = pct + '%';
         dom.comboTimerBar.style.background = barColor;
         dom.comboTimerBar.style.boxShadow = `0 0 6px ${barColor}`;
       } else {
         dom.comboHud.style.display = 'none';
+      }
+    }
+
+    // COMBO BREAK canvas flash (600ms fade-out, red text)
+    if (comboBreakFlash > 0) {
+      const elapsed = now - comboBreakFlash;
+      const BREAK_DURATION = 600;
+      if (elapsed < BREAK_DURATION) {
+        const alpha = Math.max(0, 1 - elapsed / BREAK_DURATION);
+        const scale = 1 + (1 - alpha) * 0.3;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = `bold ${Math.round(28 * scale)}px Arial, sans-serif`;
+        ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+        ctx.lineWidth = 4;
+        const bx = canvas.width / 2;
+        const by = 90;
+        ctx.strokeText('COMBO BREAK', bx, by);
+        ctx.fillStyle = '#ef4444';
+        ctx.fillText('COMBO BREAK', bx, by);
+        ctx.restore();
+      } else {
+        comboBreakFlash = 0;
       }
     }
 
@@ -10618,6 +11927,26 @@
       }
     }
 
+    // ── BOUNTY TARGET HUD indicator ──────────────────────────────────────────
+    {
+      const aliveBounty = enemies.find(e => e.isBounty && !e.dead);
+      if (aliveBounty) {
+        const t = performance.now();
+        const pulse = Math.sin(t / 250) * 0.3 + 0.7;
+        ctx.save();
+        ctx.globalAlpha = pulse;
+        ctx.font = 'bold 13px Arial, sans-serif';
+        const bountyHudColor = aliveBounty.bountyColor || '#fbbf24';
+        ctx.fillStyle = bountyHudColor;
+        ctx.shadowColor = bountyHudColor;
+        ctx.shadowBlur = 12;
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'top';
+        ctx.fillText(aliveBounty.bountyName ? `⚠ WANTED: ${aliveBounty.bountyName.toUpperCase()}` : '⚠ WANTED TARGET', canvas.width - 16, 56);
+        ctx.restore();
+      }
+    }
+
     // ── BOSS INCOMING countdown HUD (waves 7-9 of each 10-wave cycle) ─────────
     {
       const waveInCycle = level % 10;
@@ -10712,6 +12041,62 @@
       }
     }
     // ── END BOSS WAVE! announcement ───────────────────────────────────────────
+
+    // ── BOSS ENRAGED! canvas announcement ─────────────────────────────────────
+    if (bossEnrageAnnouncementStart > 0) {
+      const enrageDur = 2200; // 2.2 seconds
+      const enrageElapsed = performance.now() - bossEnrageAnnouncementStart;
+      if (enrageElapsed < enrageDur) {
+        ctx.save();
+        let enrageAlpha;
+        if (enrageElapsed < 200) {
+          enrageAlpha = enrageElapsed / 200;
+        } else if (enrageElapsed < 1800) {
+          enrageAlpha = 1;
+        } else {
+          enrageAlpha = 1 - ((enrageElapsed - 1800) / 400);
+        }
+        const cw = window.innerWidth;
+        const ch = window.innerHeight;
+        const cx = cw / 2;
+        const cy = ch / 2;
+        // Red overlay background
+        ctx.fillStyle = `rgba(220,38,38,${enrageAlpha * 0.40})`;
+        ctx.fillRect(0, 0, cw, ch);
+        // Red screen-edge vignette
+        const vignette = ctx.createRadialGradient(cx, cy, ch * 0.35, cx, cy, ch * 0.75);
+        vignette.addColorStop(0, `rgba(200,0,0,0)`);
+        vignette.addColorStop(1, `rgba(200,0,0,${enrageAlpha * 0.35})`);
+        ctx.fillStyle = vignette;
+        ctx.fillRect(0, 0, cw, ch);
+        // Main title
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const titleSize = Math.round(ch * 0.055);
+        ctx.font = `bold ${titleSize}px Arial, sans-serif`;
+        ctx.shadowColor = '#ff0000';
+        ctx.shadowBlur = 30;
+        ctx.fillStyle = `rgba(255,255,255,${enrageAlpha})`;
+        ctx.strokeStyle = `rgba(0,0,0,${enrageAlpha * 0.9})`;
+        ctx.lineWidth = 4;
+        ctx.strokeText('⚠ BOSS ENRAGED!', cx, cy - titleSize * 0.6);
+        ctx.fillText('⚠ BOSS ENRAGED!', cx, cy - titleSize * 0.6);
+        // Subtitle
+        const subSize = Math.round(ch * 0.026);
+        ctx.font = `bold ${subSize}px Arial, sans-serif`;
+        ctx.shadowBlur = 16;
+        ctx.fillStyle = `rgba(255,120,120,${enrageAlpha})`;
+        ctx.strokeStyle = `rgba(0,0,0,${enrageAlpha * 0.9})`;
+        ctx.lineWidth = 3;
+        ctx.strokeText('ATTACK PATTERN CHANGING', cx, cy + titleSize * 0.5);
+        ctx.fillText('ATTACK PATTERN CHANGING', cx, cy + titleSize * 0.5);
+        ctx.shadowBlur = 0;
+        ctx.restore();
+      } else {
+        bossEnrageAnnouncementStart = 0;
+      }
+    }
+    // ── END BOSS ENRAGED! announcement ────────────────────────────────────────
 
     // Ready-up overlay is drawn separately after HUD (see drawReadyUpOverlay function)
 
@@ -11030,6 +12415,8 @@
     level = lvl;
     if (resetScore) score = 0;
     enemiesKilled = 0;
+    waveKillCount = 0;
+    waveCreditsEarned = 0;
     // Use the improved scaling with difficulty
     const diff = getDifficulty();
     // Progressive enemy count calculation
@@ -11678,23 +13065,35 @@
   const handleGameOver = () => {
     gameOverHandled = true;
     Save.setBest(score, level);
-    Save.addCredits(Math.floor(score / 25));
+    const _finalCashOut = Math.floor(score / 25);
+    Save.addCredits(_finalCashOut);
+    if (window.missionSystem) window.missionSystem.trackCredits(_finalCashOut);
 
     // Local leaderboard — check before saving so isPersonalBest is accurate
     const isNewBest = LocalLeaderboard.isPersonalBest(score);
     LocalLeaderboard.save(score);
     
     // Update game stats for achievements
-    // Note: Elite enemy tracking to be implemented in future update
     Auth.updateGameStats({
       kills: totalKillsThisRun,
       bossKills: bossActive ? 0 : (bossEntity ? 1 : 0),
       leviathanKills: leviathanKilledThisRun,
-      eliteKills: 0,
+      eliteKills: eliteKillsThisRun,
       playTime: performance.now() - (waveStartTime || performance.now()),
       flawlessLevel: !tookDamageThisLevel
     });
-    
+
+    // Feed the AchievementSystem lifetime totals so the Hangar's Achievements
+    // and Stats tabs (which read voidrift_achievements) actually update.
+    if (typeof window.updateAchievementStats === 'function') {
+      window.updateAchievementStats({
+        totalKills: Auth.playerProfile.totalKills,
+        maxWave: level,
+        bossKills: Auth.playerProfile.bossKills,
+        maxCombo: peakComboThisRun
+      });
+    }
+
     // Stop game and show game over screen
     gameRunning = false;
     paused = false;
@@ -11722,11 +13121,22 @@
 
     // Save daily challenge best and restore Math.random
     if (window.DAILY_CHALLENGE_ACTIVE) {
-      import('./daily-challenge.js').then(({ saveDailyBest, deactivateDailyChallenge }) => {
+      import('./daily-challenge.js').then(({ saveDailyBest, deactivateDailyChallenge, getDailyStreak, getTotalDailyChallengesCompleted }) => {
         saveDailyBest(finalScore);
         deactivateDailyChallenge();
         const bestEl = document.getElementById('dailyBestDisplay');
         if (bestEl) bestEl.textContent = `Best: ${finalScore.toLocaleString()}`;
+
+        // Update achievement stats for daily challenge completion
+        try {
+          const completedCount = getTotalDailyChallengesCompleted();
+          const streak = getDailyStreak();
+          if (typeof window.updateAchievementStats === 'function') {
+            window.updateAchievementStats({ dailyChallengesCompleted: completedCount, dailyStreak: streak });
+          }
+        } catch (e) {
+          console.warn('[DailyChallenge] Achievement stats error:', e);
+        }
       }).catch(err => console.warn('[DailyChallenge] Save failed:', err));
     }
     const runKillCount = totalKillsThisRun;
@@ -11761,11 +13171,114 @@
     }
   };
 
+  // ── Accessibility ────────────────────────────────────────────────────────
+  function applyHighContrast() {
+    const enabled = localStorage.getItem('voidrift_high_contrast') === '1';
+    if (dom.canvas) {
+      dom.canvas.style.filter = enabled ? 'contrast(1.35) saturate(1.5) brightness(1.05)' : '';
+    }
+  }
+  window.applyHighContrast = applyHighContrast;
+
+  // ── Mission HUD ─────────────────────────────────────────────────────────
+  function getHudAccent() {
+    const THEME_COLORS = {
+      cyan:   '#38bdf8',
+      green:  '#4ade80',
+      red:    '#f87171',
+      purple: '#a855f7',
+      gold:   '#fbbf24',
+    };
+    const saved = localStorage.getItem('voidrift_hud_theme') || 'cyan';
+    return THEME_COLORS[saved] || '#38bdf8';
+  }
+
+  function updateMissionHUD() {
+    if (!window.missionSystem) return;
+    const hud = document.getElementById('missionHud');
+    const slots = document.getElementById('missionHudSlots');
+    if (!hud || !slots) return;
+
+    const missions = window.missionSystem.dailyMissions;
+    if (!missions || missions.length === 0) { hud.style.display = 'none'; return; }
+
+    const hudAccent = getHudAccent();
+    hud.style.display = 'block';
+    slots.innerHTML = missions.map((m, idx) => {
+      const progress = m.progress || 0;
+      const pct = Math.min(100, Math.round((progress / m.target) * 100));
+      const done = m.completed || m.claimed;
+      const desc = m.desc.replace('{target}', m.target);
+      const barColor = done ? '#4ade80' : pct > 50 ? '#facc15' : hudAccent;
+      return `<div style="margin-bottom:${idx < missions.length - 1 ? '8px' : '0'}">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px;">
+          <span style="font-family:monospace; font-size:10px; color:${done ? '#4ade80' : 'rgba(255,255,255,0.7)'}; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${done ? '✓ ' : ''}${desc}</span>
+          <span style="font-family:monospace; font-size:9px; color:rgba(255,255,255,0.35); margin-left:4px; flex-shrink:0;">${Math.min(progress, m.target)}/${m.target}</span>
+        </div>
+        <div style="height:3px; background:rgba(255,255,255,0.08); border-radius:2px; overflow:hidden;">
+          <div style="height:100%; width:${pct}%; background:${barColor}; border-radius:2px; transition:width 0.3s ease;"></div>
+        </div>
+      </div>`;
+    }).join('');
+
+    // Persist mission state
+    try {
+      localStorage.setItem('voidrift_missions', JSON.stringify(window.missionSystem.getSaveData()));
+    } catch(e) {}
+  }
+
+  // ── LEVIATHAN Boss Incoming Overlay ─────────────────────────────────────────
+  const showBossIncomingOverlay = (onComplete) => {
+    const overlay = document.getElementById('bossIncomingOverlay');
+    if (!overlay) { onComplete(); return; }
+    overlay.style.display = 'flex';
+    // Animate the countdown bar from 100% to 0%
+    const bar = document.getElementById('bossIncomingBar');
+    if (bar) {
+      bar.style.width = '100%';
+      bar.style.transition = 'none';
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          bar.style.transition = 'width 3s linear';
+          bar.style.width = '0%';
+        });
+      });
+    }
+    // Hide overlay and call onComplete after 3s
+    setTimeout(() => {
+      overlay.style.display = 'none';
+      onComplete();
+    }, 3000);
+  };
+
+  // ── VOID SURGE Wave 15 Overlay ─────────────────────────────────────────────
+  const showVoidSurgeOverlay = (onComplete) => {
+    const overlay = document.getElementById('voidSurgeOverlay');
+    if (!overlay) { onComplete(); return; }
+    overlay.style.display = 'flex';
+    const bar = document.getElementById('voidSurgeBar');
+    if (bar) {
+      bar.style.width = '100%';
+      bar.style.transition = 'none';
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          bar.style.transition = 'width 3s linear';
+          bar.style.width = '0%';
+        });
+      });
+    }
+    setTimeout(() => {
+      overlay.style.display = 'none';
+      onComplete();
+    }, 3000);
+  };
+
   const showGameOverScreen = (finalScore, finalLevel, rank, isNewBest, runKillCount = 0, runTimeSec = 0, runAccuracyPct = 0) => {
+    if (window.missionSystem) updateMissionHUD();
     // Note: Don't hide gameContainer - the gameOverModal is a child element
     // inside gameContainer, so hiding the container would also hide the modal.
     // The modal overlays on top of the game canvas with its own styling.
-    
+
     // Show custom game over modal
     const gameOverModal = document.getElementById('gameOverModal');
     if (gameOverModal) {
@@ -11847,31 +13360,43 @@
       // Watch Ad to Continue button
       const watchAdBtn = document.getElementById('gameOverWatchAdBtn');
       if (watchAdBtn) {
-        // Show only if AdMob is available and player hasn't already used a continue this run
-        const canContinue = typeof AdMobManager !== 'undefined' && !continueUsed;
-        watchAdBtn.style.display = canContinue ? 'flex' : 'none';
+        const adsRemoved = (() => { try { return localStorage.getItem('vr_ads_removed') === 'true'; } catch (_) { return false; } })();
 
-        watchAdBtn.onclick = () => {
-          if (typeof AdMobManager === 'undefined') return;
-          watchAdBtn.disabled = true;
-          watchAdBtn.textContent = 'Loading ad…';
+        if (adsRemoved && !continueUsed) {
+          // Player paid to remove ads — offer a free continue instead
+          watchAdBtn.innerHTML = '<span>▶</span> Continue';
+          watchAdBtn.style.display = 'flex';
+          watchAdBtn.onclick = () => {
+            gameOverModal.style.display = 'none';
+            _continueRun(finalScore, finalLevel);
+          };
+        } else {
+          // Show only if AdMob is available and player hasn't already used a continue this run
+          const canContinue = typeof AdMobManager !== 'undefined' && !continueUsed && !adsRemoved;
+          watchAdBtn.style.display = canContinue ? 'flex' : 'none';
 
-          AdMobManager.showRewarded(
-            // Rewarded: grant 1 continue
-            () => {
-              gameOverModal.style.display = 'none';
-              _continueRun(finalScore, finalLevel);
-            },
-            // Cancelled/not ready
-            (reason) => {
-              watchAdBtn.disabled = false;
-              watchAdBtn.innerHTML = '<span>📺</span> Watch Ad to Continue';
-              if (reason === 'not_ready') {
-                watchAdBtn.title = 'Ad is loading, try again in a moment';
+          watchAdBtn.onclick = () => {
+            if (typeof AdMobManager === 'undefined') return;
+            watchAdBtn.disabled = true;
+            watchAdBtn.textContent = 'Loading ad…';
+
+            AdMobManager.showRewarded(
+              // Rewarded: grant 1 continue
+              () => {
+                gameOverModal.style.display = 'none';
+                _continueRun(finalScore, finalLevel);
+              },
+              // Cancelled/not ready
+              (reason) => {
+                watchAdBtn.disabled = false;
+                watchAdBtn.innerHTML = '<span>📺</span> Watch Ad to Continue';
+                if (reason === 'not_ready') {
+                  watchAdBtn.title = 'Ad is loading, try again in a moment';
+                }
               }
-            }
-          );
-        };
+            );
+          };
+        }
       }
 
       // Share Score button
@@ -12164,10 +13689,32 @@
   
   const ready = () => {
     assignDomRefs();
+    applyHighContrast();
     Save.load();
     Auth.load();
     Leaderboard.load();
     if (typeof AdMobManager !== 'undefined') AdMobManager.initialize();
+    // Initialize MissionSystem
+    if (typeof MissionSystem !== 'undefined') {
+      window.missionSystem = new MissionSystem();
+      // Load saved mission state if available
+      try {
+        const savedMissions = JSON.parse(localStorage.getItem('voidrift_missions') || 'null');
+        if (savedMissions) window.missionSystem.load(savedMissions);
+        else window.missionSystem.checkDailyRefresh();
+      } catch(e) {
+        window.missionSystem.checkDailyRefresh();
+      }
+      updateMissionHUD();
+    }
+    // Initialize TechFragmentSystem
+    if (typeof TechFragmentSystem !== 'undefined') {
+      window.techFragmentSystem = new TechFragmentSystem();
+      try {
+        const savedFragments = JSON.parse(localStorage.getItem('voidrift_techfragments') || 'null');
+        if (savedFragments) window.techFragmentSystem.load({ techFragments: savedFragments });
+      } catch(e) {}
+    }
     pilotLevel = Save.data.pilotLevel;
     pilotXP = Save.data.pilotXp;
     // Sync selectedShip from saved data (default to 'spectre-9' if not one of the 3 featured)
@@ -12220,6 +13767,9 @@
     openHangar,
     toggleFullscreen,
     toggleFPS,
+    // The Hangar overlay's onSkinEquip bridge (index.html) calls this after a
+    // skin is equipped so the ship preview picks up the new colors right away.
+    initShipSelection,
     getGameState: () => ({
       gameRunning,
       paused,
@@ -13135,7 +14685,7 @@
     });
     document.getElementById('pauseHangarBtn')?.addEventListener('click', () => {
       hidePauseMenu();
-      openHangar();
+      openPersistentHangar();
     });
     document.getElementById('pauseLeaderboardBtn')?.addEventListener('click', () => {
       hidePauseMenu();
@@ -13158,7 +14708,7 @@
       closeGameOverScreen();
       dom.gameContainer.style.display = 'none';
       dom.startScreen.style.display = 'flex';
-      openHangar();
+      openPersistentHangar();
     });
     document.getElementById('gameOverLeaderboardBtn')?.addEventListener('click', () => {
       closeGameOverScreen();
@@ -13234,7 +14784,7 @@
     });
     dom.openHangarFromShop?.addEventListener('click', () => {
       closeShop();
-      openHangar();
+      openPersistentHangar();
     });
     dom.hangarClose?.addEventListener('click', closeHangar);
     dom.hangarModal?.addEventListener('click', (e) => {
@@ -13392,7 +14942,7 @@
     
     document.getElementById('menuHangarBtn')?.addEventListener('click', () => {
       closeUnifiedMenu();
-      openHangar();
+      openPersistentHangar();
     });
     
     document.getElementById('menuLeaderboardBtn')?.addEventListener('click', () => {
@@ -13420,7 +14970,7 @@
 
       // Show upgrade card picker on wave clear, then continue to countdown
       if (readyUpPhase) {
-        showWaveUpgradeScreen(() => startCountdownFromReadyUp());
+        showWaveClearedThenUpgrade(() => startCountdownFromReadyUp());
         return;
       }
       
@@ -13502,7 +15052,7 @@
     });
     dom.openHangarFromShop?.addEventListener('click', () => {
       closeShop();
-      openHangar();
+      openPersistentHangar();
     });
     dom.hangarClose?.addEventListener('click', closeHangar);
     dom.hangarModal?.addEventListener('click', (e) => {
@@ -13518,7 +15068,7 @@
         if (e.key === ' ' || e.key === 'Enter') {
           e.preventDefault();
           if (!waveUpgradeActive) {
-            showWaveUpgradeScreen(() => startCountdownFromReadyUp());
+            showWaveClearedThenUpgrade(() => startCountdownFromReadyUp());
           }
           return;
         }
@@ -13592,7 +15142,7 @@
         if (readyUpPhase) {
           e.preventDefault();
           if (!waveUpgradeActive) {
-            showWaveUpgradeScreen(() => startCountdownFromReadyUp());
+            showWaveClearedThenUpgrade(() => startCountdownFromReadyUp());
           }
           return;
         }
