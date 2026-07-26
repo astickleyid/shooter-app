@@ -858,6 +858,8 @@
   let lightningArcs = [];        // transient arc visuals [ {pts:[{x,y},...], expiry} ]
   let lightningFlashEnd = 0;     // timestamp when electric screen flash fades out
   let freezeExpiry = 0;          // timestamp when freeze effect ends
+  let novaOrbs = [];             // active Void Nova Orb pickups — expanding ring that destroys all enemies
+  let novaRings = [];            // transient nova ring visuals [ {x,y,r,maxR,expiry,created} ]
   let surgeDamageMultiplier = 1; // current damage multiplier (1 = no boost)
   let surgeExpiry = 0;           // timestamp when current boost ends
   let timeWarpExpiry = 0;        // timestamp when Temporal Rift's enemy slow ends
@@ -2272,6 +2274,8 @@
     ghostOrbs = [];
     freezeOrbs = [];
     freezeExpiry = 0;
+    novaOrbs = [];
+    novaRings = [];
     surgeDamageMultiplier = 1;
     surgeExpiry = 0;
     timeWarpExpiry = 0;
@@ -9219,6 +9223,10 @@
     if (enemy.kind !== 'shard' && Math.random() < 0.035) {
       lightningOrbs.push({ x: enemy.x, y: enemy.y, r: 10, created: performance.now(), life: 7000 });
     }
+    // Void Nova Orb drop (2.5% chance from elite or boss-tier only — screen-clearing ring nova)
+    if ((wasElite || enemy.isWanted || wasBoss) && Math.random() < 0.025) {
+      novaOrbs.push({ x: enemy.x, y: enemy.y, r: 11, created: performance.now(), life: 12000 });
+    }
 
     // Phase A.4: Enhanced death effects based on enemy type
     const deathColor = wasLeviathan ? '#FF2020' :
@@ -10709,6 +10717,46 @@
     // Expire lightning arcs
     lightningArcs = lightningArcs.filter(a => now < a.expiry);
 
+    // Void Nova Orbs — pickup triggers expanding ring that destroys all on-screen enemies
+    for (let i = novaOrbs.length - 1; i >= 0; i--) {
+      const orb = novaOrbs[i];
+      if (now - orb.created > orb.life) { novaOrbs.splice(i, 1); continue; }
+      const dx = player.x - orb.x;
+      const dy = player.y - orb.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < 160) {
+        orb.x += (dx / (dist || 1)) * 1.3;
+        orb.y += (dy / (dist || 1)) * 1.3;
+      }
+      if (dist < player.size + orb.r) {
+        novaOrbs.splice(i, 1);
+        // Launch expanding ring from player position
+        const maxR = Math.max(canvas.width, canvas.height) * 0.85;
+        novaRings.push({ x: player.x, y: player.y, r: 0, maxR, created: now, duration: 700 });
+        // Destroy all live enemies caught by the nova — deal 999 damage (instakill standard, heavy on boss)
+        for (let j = enemies.length - 1; j >= 0; j--) {
+          const e = enemies[j];
+          const d = Math.hypot(e.x - player.x, e.y - player.y);
+          const novaDmg = e.isBoss ? 250 : 999;
+          const prev = e.health;
+          e.health -= novaDmg;
+          e.hitFlash = 300;
+          spawnDamageNumber(e.x, e.y, Math.min(prev, novaDmg), false);
+          addParticles('explosion', e.x, e.y, 0, 20);
+          if (e.health <= 0) handleEnemyDeath(j, 0);
+        }
+        // Purple screen flash
+        lightningFlashEnd = now + 200; // reuse flash mechanism with purple tint via novaFlashEnd
+        addLogEntry('💥 VOID NOVA — ALL CLEAR', '#a855f7');
+        if (typeof AudioManager !== 'undefined') AudioManager.playLevelComplete?.() || AudioManager.playCoinPickup();
+      }
+    }
+    // Advance nova ring radii
+    novaRings = novaRings.filter(ring => now - ring.created < ring.duration);
+    for (const ring of novaRings) {
+      ring.r = ring.maxR * Math.min(1, (now - ring.created) / ring.duration);
+    }
+
     for (const obstacle of obstacles) obstacle.update(dt);
 
     // Update environmental hazards
@@ -10939,6 +10987,8 @@
     ghostOrbs = [];
     freezeOrbs = [];
     freezeExpiry = 0;
+    novaOrbs = [];
+    novaRings = [];
     surgeDamageMultiplier = 1;
     surgeExpiry = 0;
     timeWarpExpiry = 0;
@@ -11423,6 +11473,69 @@
       ctx.globalAlpha = Math.max(0, flashAlpha);
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.restore();
+    }
+
+    // Draw Void Nova Orbs
+    for (const orb of novaOrbs) {
+      const _t = performance.now();
+      const pulse = 0.7 + 0.3 * Math.sin((_t / 180) + orb.created);
+      ctx.save();
+      ctx.globalAlpha = 0.95;
+      // Outer glow — deep purple to gold
+      const grad = ctx.createRadialGradient(orb.x, orb.y, 0, orb.x, orb.y, orb.r * 2.6 * pulse);
+      grad.addColorStop(0, '#ffffff');
+      grad.addColorStop(0.25, '#e879f9');
+      grad.addColorStop(0.6, '#7c3aed');
+      grad.addColorStop(0.85, '#fbbf24');
+      grad.addColorStop(1, 'rgba(124,58,237,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(orb.x, orb.y, orb.r * 2.6 * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      // Outer ring
+      ctx.strokeStyle = 'rgba(232,121,249,0.85)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(orb.x, orb.y, orb.r * pulse, 0, Math.PI * 2);
+      ctx.stroke();
+      // Nova starburst glyph — 8 spokes
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+      ctx.lineWidth = 1.5;
+      ctx.lineCap = 'round';
+      for (let s = 0; s < 8; s++) {
+        const angle = (s * Math.PI) / 4 + (_t / 900);
+        ctx.beginPath();
+        ctx.moveTo(orb.x + Math.cos(angle) * 2, orb.y + Math.sin(angle) * 2);
+        ctx.lineTo(orb.x + Math.cos(angle) * 6.5, orb.y + Math.sin(angle) * 6.5);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // Draw Void Nova rings (expanding shockwave)
+    for (const ring of novaRings) {
+      const elapsed = performance.now() - ring.created;
+      const progress = Math.min(1, elapsed / ring.duration);
+      const alpha = (1 - progress) * 0.75;
+      ctx.save();
+      // Outer ring — purple
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = '#a855f7';
+      ctx.lineWidth = 4 + (1 - progress) * 6;
+      ctx.shadowColor = '#e879f9';
+      ctx.shadowBlur = 18;
+      ctx.beginPath();
+      ctx.arc(ring.x, ring.y, ring.r, 0, Math.PI * 2);
+      ctx.stroke();
+      // Inner ring — gold, slightly behind
+      ctx.globalAlpha = alpha * 0.55;
+      ctx.strokeStyle = '#fbbf24';
+      ctx.lineWidth = 2;
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(ring.x, ring.y, Math.max(0, ring.r - 10), 0, Math.PI * 2);
+      ctx.stroke();
       ctx.restore();
     }
 
