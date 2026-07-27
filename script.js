@@ -932,6 +932,7 @@
   // Equipment interaction system - Enhanced secondary weapons dock
   let lastTapTime = 0;
   let tapCount = 0;
+  let lastTapSlot = null;
   let currentEquipmentSlot = 0; // 0=primary, 1=slot2, 2=slot3, 3=slot4
   const TAP_TIMEOUT = 500; // ms between taps
   const LONG_PRESS_THRESHOLD = 300; // ms for long-press to open radial menu
@@ -12958,13 +12959,28 @@ PowerUps.reset();
     setTimeout(() => {
       // Hide pause menu
       hidePauseMenu();
-      
+
       // Restart from level 1
       resetRuntimeState();
       runStartTime = performance.now();
       initShipSelection();
-      startLevel(1, true);
-      
+
+      const beginLevel = () => startLevel(1, true);
+
+      // A Daily Challenge run must replay the exact same seeded sequence
+      // every time. Deactivating first restores the true Math.random
+      // before re-seeding, so the reset isn't corrupted by whatever the
+      // already-consumed seeded stream left behind.
+      if (window.DAILY_CHALLENGE_ACTIVE) {
+        import('./daily-challenge.js').then(({ deactivateDailyChallenge, activateDailyChallenge }) => {
+          deactivateDailyChallenge();
+          activateDailyChallenge();
+          beginLevel();
+        });
+      } else {
+        beginLevel();
+      }
+
       isRestarting = false;
     }, 500);
   };
@@ -13947,7 +13963,11 @@ PowerUps.reset();
       // Load saved mission state if available
       try {
         const savedMissions = JSON.parse(localStorage.getItem('voidrift_missions') || 'null');
-        if (savedMissions) window.missionSystem.load(savedMissions);
+        // load() expects its own getSaveData() shape wrapped under `missions`
+        // (mirrors the TechFragmentSystem load/save convention below) — passing
+        // the raw object silently no-ops the restore and every claim/progress
+        // reset on reload.
+        if (savedMissions) window.missionSystem.load({ missions: savedMissions });
         else window.missionSystem.checkDailyRefresh();
       } catch(e) {
         window.missionSystem.checkDailyRefresh();
@@ -14331,15 +14351,20 @@ PowerUps.reset();
         addLogEntry(`Primary weapon active`, '#fde047');
         break;
         
-      case 'boost':
+      case 'boost': {
+        const tfs = window.techFragmentSystem;
+        const unlocks = window.TECH_UNLOCKS || {};
+        const quantumDriveDurationMult = (tfs && tfs.hasFragment('quantum_core') && unlocks.quantum_drive)
+          ? unlocks.quantum_drive.stats.boostDuration : 1;
         input.isBoosting = true;
-        setTimeout(() => (input.isBoosting = false), 300);
+        setTimeout(() => (input.isBoosting = false), 300 * quantumDriveDurationMult);
         addLogEntry(`BOOST activated!`, '#4ade80');
         // Play boost sound
         if (typeof AudioManager !== 'undefined') {
           AudioManager.playBoost();
         }
         break;
+      }
         
       case 'secondary':
         input.altFireHeld = true;
@@ -14649,20 +14674,36 @@ PowerUps.reset();
       return;
     }
     
-    // Single tap - show preview and select
+    // Single tap - show preview and select; a second tap on the same slot
+    // within 300ms equips it immediately. This has to live here rather than
+    // in a 'click' listener: handleEquipSlotPointerDown cancels pointerdown,
+    // which suppresses the browser's synthesized click for the interaction.
     if (state.pointerStartPos && !state.isLongPressing) {
       const slotIndex = parseInt(e.currentTarget?.dataset?.slot ?? state.dragStartSlot);
-      
-      // Show preview
-      showWeaponPreview(slotIndex);
-      
-      // Visual highlight
-      document.querySelectorAll('.equip-slot').forEach((slot, index) => {
-        slot.classList.toggle('preview', index === slotIndex && index !== currentEquipmentSlot);
-      });
-      
-      triggerHapticFeedback('select');
-      markInteraction();
+      const now = performance.now();
+
+      if (slotIndex === lastTapSlot && now - lastTapTime < 300 && tapCount >= 1) {
+        switchEquipmentSlot(slotIndex);
+        triggerHapticFeedback('equip');
+        tapCount = 0;
+        lastTapSlot = null;
+        markInteraction();
+      } else {
+        // Show preview
+        showWeaponPreview(slotIndex);
+
+        // Visual highlight
+        document.querySelectorAll('.equip-slot').forEach((slot, index) => {
+          slot.classList.toggle('preview', index === slotIndex && index !== currentEquipmentSlot);
+        });
+
+        triggerHapticFeedback('select');
+        markInteraction();
+
+        lastTapTime = now;
+        lastTapSlot = slotIndex;
+        tapCount = 1;
+      }
     }
     
     state.isLongPressing = false;
@@ -14690,35 +14731,6 @@ PowerUps.reset();
     state.isLongPressing = false;
     state.pointerStartPos = null;
     state.activePointerId = null;
-  };
-  
-  // Equipment slot click handler (for single tap equip action)
-  const handleEquipSlotClick = (e, slotIndex) => {
-    if (!canInteract()) return;
-    if (equipmentInteractionState.isDragging || equipmentInteractionState.isLongPressing) return;
-    
-    // Double-click to equip immediately
-    const now = performance.now();
-    if (now - lastTapTime < 300 && tapCount >= 1) {
-      // Double tap - equip immediately
-      switchEquipmentSlot(slotIndex);
-      triggerHapticFeedback('equip');
-      tapCount = 0;
-      markInteraction();
-      return;
-    }
-    
-    lastTapTime = now;
-    tapCount++;
-    
-    // Clear tap count after timeout
-    setTimeout(() => {
-      if (performance.now() - lastTapTime >= 300) {
-        tapCount = 0;
-      }
-    }, 300);
-    
-    markInteraction();
   };
   
   // Keyboard navigation for equipment slots
@@ -14787,8 +14799,7 @@ PowerUps.reset();
     slots.forEach((slot, index) => {
       // Pointer events for unified touch/mouse handling
       slot.addEventListener('pointerdown', (e) => handleEquipSlotPointerDown(e, index));
-      slot.addEventListener('click', (e) => handleEquipSlotClick(e, index));
-      
+
       // Focus handling for keyboard navigation
       slot.addEventListener('focus', () => {
         equipmentInteractionState.keyboardFocusIndex = index;

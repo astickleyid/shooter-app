@@ -2249,6 +2249,14 @@ function renderSettingsView() {
       dailyBtn.textContent = 'Launching…';
       import('./daily-challenge.js').then(({ activateDailyChallenge }) => {
         activateDailyChallenge();
+        // Lock difficulty to normal for a level playing field — startGame()
+        // reads Save.data.difficulty, so it must be set here directly.
+        if (window.Save && window.Save.data) {
+          window.Save.data.difficulty = 'normal';
+          window.Save.save();
+        }
+        const diffSelect = document.getElementById('difficultySelect');
+        if (diffSelect) diffSelect.value = 'normal';
         // Close the Hangar overlay, then trigger game start
         closeHangar();
         setTimeout(() => {
@@ -2708,6 +2716,14 @@ function renderMissionsView() {
       const reward = ms.claimMissionReward(missionId);
       if (!reward) return;
 
+      // Persist the claimed flag immediately — the only other writers of this
+      // key are in-run hooks in script.js, so without this a reload before the
+      // next run/kill reloads the pre-claim state and the reward can be
+      // claimed again.
+      try {
+        localStorage.setItem('voidrift_missions', JSON.stringify(ms.getSaveData()));
+      } catch (e) { /* storage unavailable */ }
+
       // Attempt to add credits via the external handler (bridges into the main
       // game's Save balance) or fall back to the hangar's own internal pool.
       if (typeof _options.addCredits === 'function') {
@@ -2735,6 +2751,9 @@ function renderMissionsView() {
         const fragment = tfs.rollDrop(true, false) || (window.TECH_FRAGMENTS || [])[0];
         if (fragment) {
           tfs.collect(fragment.id);
+          try {
+            localStorage.setItem('voidrift_techfragments', JSON.stringify(tfs.getSaveData()));
+          } catch (e) { /* storage unavailable */ }
           if (window.missionSystem) window.missionSystem.trackFragments(1);
           const style = RARITY_STYLES[fragment.rarity] || {};
           showAchievementToast({ icon: style.emoji || '💎', name: fragment.name, desc: 'Mission reward fragment collected!' });
