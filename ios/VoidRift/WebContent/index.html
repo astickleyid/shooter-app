@@ -200,10 +200,17 @@
       </div>
     </div>
 
-    <!-- MISSION TRACKER HUD -->
-    <div id="missionHud" style="display:none; position:fixed; top:12px; right:12px; z-index:150; pointer-events:none; min-width:180px; max-width:220px;">
-      <div style="background:rgba(8,8,16,0.82); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:10px 12px; backdrop-filter:blur(8px);">
-        <div style="font-family:monospace; font-size:9px; letter-spacing:0.15em; color:rgba(255,255,255,0.35); text-transform:uppercase; margin-bottom:8px;">Daily Missions</div>
+    <!-- MISSION TRACKER HUD — collapsed chip by default (won't cover menu) -->
+    <div id="missionHud" class="mission-hud" style="display:none;" aria-live="polite">
+      <button type="button" id="missionHudToggle" class="mission-hud-toggle" aria-expanded="false" aria-controls="missionHudPanel">
+        <span class="mission-hud-toggle-label">Missions</span>
+        <span id="missionHudSummary" class="mission-hud-summary">0/3</span>
+      </button>
+      <div id="missionHudPanel" class="mission-hud-panel" hidden>
+        <div class="mission-hud-panel-head">
+          <span>Daily Missions</span>
+          <button type="button" id="missionHudClose" class="mission-hud-close" aria-label="Collapse missions">✕</button>
+        </div>
         <div id="missionHudSlots"></div>
       </div>
     </div>
@@ -665,7 +672,7 @@
       <div class="wave-upgrade-header">
         <div class="wave-upgrade-subtitle">WAVE COMPLETE</div>
         <h2 id="waveUpgradeTitle" class="wave-upgrade-title">CHOOSE AN UPGRADE</h2>
-        <div class="wave-upgrade-hint">Select one perk to carry into the next wave</div>
+        <div class="wave-upgrade-hint">Tap a perk · scroll if needed</div>
       </div>
       <div class="wave-upgrade-cards" id="waveUpgradeCards">
         <!-- Cards injected by showWaveUpgradeScreen() -->

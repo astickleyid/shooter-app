@@ -1246,19 +1246,23 @@
     if (!modal || !container) { onChosen && onChosen(); return; }
 
     waveUpgradeActive = true;
-    titleEl && (titleEl.textContent = `CHOOSE AN UPGRADE — WAVE ${readyUpLevel}`);
+    titleEl && (titleEl.textContent = `WAVE ${readyUpLevel} — PICK ONE`);
 
     const picks = _pickRandomPerks(3);
     container.innerHTML = '';
+    // Reset scroll so first card isn't half off-screen
+    container.scrollTop = 0;
 
     picks.forEach(perk => {
-      const card = document.createElement('div');
+      const card = document.createElement('button');
+      card.type = 'button';
       card.className = `wave-card wave-card--${perk.rarity || 'common'}`;
       card.innerHTML = `
-        <div class="wave-card-rarity wave-card-rarity--${perk.rarity || 'common'}">${(perk.rarity || 'common').toUpperCase()}</div>
-        <div class="wave-card-icon">${perk.icon}</div>
+        <div class="wave-card-top">
+          <span class="wave-card-icon">${perk.icon}</span>
+          <span class="wave-card-rarity wave-card-rarity--${perk.rarity || 'common'}">${(perk.rarity || 'common').toUpperCase()}</span>
+        </div>
         <div class="wave-card-name">${perk.name}</div>
-        <div class="wave-card-flavor">${perk.flavor}</div>
         <div class="wave-card-stat">${perk.stat}</div>
       `;
       const _pick = () => {
@@ -1268,11 +1272,29 @@
         modal.classList.remove('active');
         onChosen && onChosen();
       };
-      card.addEventListener('click', _pick);
+
+      // Distinguish scroll from tap — previous touchstart+preventDefault
+      // selected a card the moment you tried to scroll the list.
+      let touchStartY = 0;
+      let touchMoved = false;
       card.addEventListener('touchstart', (e) => {
+        touchStartY = e.touches[0]?.clientY ?? 0;
+        touchMoved = false;
+      }, { passive: true });
+      card.addEventListener('touchmove', (e) => {
+        const y = e.touches[0]?.clientY ?? touchStartY;
+        if (Math.abs(y - touchStartY) > 12) touchMoved = true;
+      }, { passive: true });
+      card.addEventListener('touchend', (e) => {
+        if (touchMoved) return;
         e.preventDefault();
         _pick();
       }, { passive: false });
+      card.addEventListener('click', (e) => {
+        // Avoid double-fire after touchend
+        if (e.detail === 0 && e.pointerType === 'touch') return;
+        _pick();
+      });
       container.appendChild(card);
     });
 
@@ -12853,6 +12875,9 @@ PowerUps.reset();
   let isLoading = false;
   
   const showPauseMenu = () => {
+    // Don't leave mission panel open over pause/menu controls
+    try { setMissionHudExpanded(false); } catch (_) {}
+
     if (dom.pauseMenuModal) {
       dom.pauseMenuModal.style.display = 'flex';
       if (dom.pauseMenuMessage) dom.pauseMenuMessage.textContent = '';
@@ -13355,7 +13380,10 @@ PowerUps.reset();
   }
   window.applyHighContrast = applyHighContrast;
 
-  // ── Mission HUD ─────────────────────────────────────────────────────────
+  // ── Mission HUD (collapsed chip — never covers the menu) ────────────────
+  let missionHudExpanded = false;
+  let missionHudCollapseTimer = null;
+
   function getHudAccent() {
     const THEME_COLORS = {
       cyan:   '#38bdf8',
@@ -13368,35 +13396,92 @@ PowerUps.reset();
     return THEME_COLORS[saved] || '#38bdf8';
   }
 
+  function setMissionHudExpanded(open) {
+    missionHudExpanded = !!open;
+    const hud = document.getElementById('missionHud');
+    const panel = document.getElementById('missionHudPanel');
+    const toggle = document.getElementById('missionHudToggle');
+    if (!hud || !panel || !toggle) return;
+    hud.classList.toggle('mission-hud--open', missionHudExpanded);
+    if (missionHudExpanded) {
+      panel.hidden = false;
+      toggle.setAttribute('aria-expanded', 'true');
+      if (missionHudCollapseTimer) clearTimeout(missionHudCollapseTimer);
+      // Auto-collapse so it can't sit open over controls
+      missionHudCollapseTimer = setTimeout(() => setMissionHudExpanded(false), 5000);
+    } else {
+      panel.hidden = true;
+      toggle.setAttribute('aria-expanded', 'false');
+      if (missionHudCollapseTimer) {
+        clearTimeout(missionHudCollapseTimer);
+        missionHudCollapseTimer = null;
+      }
+    }
+  }
+
+  function wireMissionHudOnce() {
+    if (window._missionHudWired) return;
+    window._missionHudWired = true;
+    const toggle = document.getElementById('missionHudToggle');
+    const closeBtn = document.getElementById('missionHudClose');
+    toggle?.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setMissionHudExpanded(!missionHudExpanded);
+    });
+    closeBtn?.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setMissionHudExpanded(false);
+    });
+  }
+
   function updateMissionHUD() {
     if (!window.missionSystem) return;
+    wireMissionHudOnce();
     const hud = document.getElementById('missionHud');
     const slots = document.getElementById('missionHudSlots');
+    const summary = document.getElementById('missionHudSummary');
     if (!hud || !slots) return;
 
+    // Only show during an active run — never on menus
+    if (!gameRunning) {
+      hud.style.display = 'none';
+      setMissionHudExpanded(false);
+      return;
+    }
+
     const missions = window.missionSystem.dailyMissions;
-    if (!missions || missions.length === 0) { hud.style.display = 'none'; return; }
+    if (!missions || missions.length === 0) {
+      hud.style.display = 'none';
+      return;
+    }
+
+    const doneCount = missions.filter(m => m.completed || m.claimed).length;
+    if (summary) summary.textContent = `${doneCount}/${missions.length}`;
 
     const hudAccent = getHudAccent();
-    hud.style.display = 'block';
-    slots.innerHTML = missions.map((m, idx) => {
+    hud.style.display = 'flex';
+    // Stay collapsed unless user opened it — never force open
+    if (!missionHudExpanded) setMissionHudExpanded(false);
+
+    slots.innerHTML = missions.map((m) => {
       const progress = m.progress || 0;
       const pct = Math.min(100, Math.round((progress / m.target) * 100));
       const done = m.completed || m.claimed;
       const desc = m.desc.replace('{target}', m.target);
       const barColor = done ? '#4ade80' : pct > 50 ? '#facc15' : hudAccent;
-      return `<div style="margin-bottom:${idx < missions.length - 1 ? '8px' : '0'}">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px;">
-          <span style="font-family:monospace; font-size:10px; color:${done ? '#4ade80' : 'rgba(255,255,255,0.7)'}; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${done ? '✓ ' : ''}${desc}</span>
-          <span style="font-family:monospace; font-size:9px; color:rgba(255,255,255,0.35); margin-left:4px; flex-shrink:0;">${Math.min(progress, m.target)}/${m.target}</span>
+      return `<div class="mission-hud-item">
+        <div class="mission-hud-item-row">
+          <span class="mission-hud-item-desc${done ? ' is-done' : ''}">${done ? '✓ ' : ''}${desc}</span>
+          <span class="mission-hud-item-count">${Math.min(progress, m.target)}/${m.target}</span>
         </div>
-        <div style="height:3px; background:rgba(255,255,255,0.08); border-radius:2px; overflow:hidden;">
-          <div style="height:100%; width:${pct}%; background:${barColor}; border-radius:2px; transition:width 0.3s ease;"></div>
+        <div class="mission-hud-item-track">
+          <div class="mission-hud-item-fill" style="width:${pct}%;background:${barColor}"></div>
         </div>
       </div>`;
     }).join('');
 
-    // Persist mission state
     try {
       localStorage.setItem('voidrift_missions', JSON.stringify(window.missionSystem.getSaveData()));
     } catch(e) {}

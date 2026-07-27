@@ -23,15 +23,10 @@ class GameViewController: UIViewController {
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        
-        // Show tutorial on first launch (with longer delay to ensure game fully loads)
+        // Tutorial disabled — it blocked gameplay and added no value.
+        // Mark complete so legacy installs never re-show it.
         if !hasShownTutorial {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) { [weak self] in
-                print("🎓 Attempting to show tutorial...")
-                self?.showTutorial()
-            }
-        } else {
-            print("ℹ️ Tutorial already completed")
+            hasShownTutorial = true
         }
     }
     
