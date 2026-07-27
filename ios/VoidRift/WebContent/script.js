@@ -13400,9 +13400,10 @@ PowerUps.reset();
   }
   window.applyHighContrast = applyHighContrast;
 
-  // ── Mission HUD (collapsed chip — never covers the menu) ────────────────
-  let missionHudExpanded = false;
-  let missionHudCollapseTimer = null;
+  // ── Mission tracking (NO on-screen overlay during combat) ───────────────
+  // Daily missions still progress in the background. Full list lives in Hangar.
+  // A brief toast fires when a mission completes — never a persistent HUD panel.
+  let _missionPrevCompleted = new Set();
 
   function getHudAccent() {
     const THEME_COLORS = {
@@ -13416,91 +13417,42 @@ PowerUps.reset();
     return THEME_COLORS[saved] || '#38bdf8';
   }
 
-  function setMissionHudExpanded(open) {
-    missionHudExpanded = !!open;
+  function setMissionHudExpanded(_open) {
+    // no-op: in-game mission panel removed
     const hud = document.getElementById('missionHud');
-    const panel = document.getElementById('missionHudPanel');
-    const toggle = document.getElementById('missionHudToggle');
-    if (!hud || !panel || !toggle) return;
-    hud.classList.toggle('mission-hud--open', missionHudExpanded);
-    if (missionHudExpanded) {
-      panel.hidden = false;
-      toggle.setAttribute('aria-expanded', 'true');
-      if (missionHudCollapseTimer) clearTimeout(missionHudCollapseTimer);
-      // Auto-collapse so it can't sit open over controls
-      missionHudCollapseTimer = setTimeout(() => setMissionHudExpanded(false), 5000);
-    } else {
-      panel.hidden = true;
-      toggle.setAttribute('aria-expanded', 'false');
-      if (missionHudCollapseTimer) {
-        clearTimeout(missionHudCollapseTimer);
-        missionHudCollapseTimer = null;
-      }
-    }
+    if (hud) hud.style.display = 'none';
   }
 
-  function wireMissionHudOnce() {
-    if (window._missionHudWired) return;
-    window._missionHudWired = true;
-    const toggle = document.getElementById('missionHudToggle');
-    const closeBtn = document.getElementById('missionHudClose');
-    toggle?.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setMissionHudExpanded(!missionHudExpanded);
-    });
-    closeBtn?.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setMissionHudExpanded(false);
-    });
+  function showMissionCompleteToast(name) {
+    // Reuse action log if present — non-blocking, no layout shift
+    try {
+      if (typeof addLogEntry === 'function') {
+        addLogEntry(`MISSION COMPLETE: ${name}`, '#4ade80');
+        return;
+      }
+    } catch (_) {}
   }
 
   function updateMissionHUD() {
-    if (!window.missionSystem) return;
-    wireMissionHudOnce();
+    // Always keep the overlay hidden during play
     const hud = document.getElementById('missionHud');
-    const slots = document.getElementById('missionHudSlots');
-    const summary = document.getElementById('missionHudSummary');
-    if (!hud || !slots) return;
-
-    // Only show during an active run — never on menus
-    if (!gameRunning) {
+    if (hud) {
       hud.style.display = 'none';
-      setMissionHudExpanded(false);
-      return;
+      hud.setAttribute('aria-hidden', 'true');
     }
+    if (!window.missionSystem) return;
 
-    const missions = window.missionSystem.dailyMissions;
-    if (!missions || missions.length === 0) {
-      hud.style.display = 'none';
-      return;
-    }
-
-    const doneCount = missions.filter(m => m.completed || m.claimed).length;
-    if (summary) summary.textContent = `${doneCount}/${missions.length}`;
-
-    const hudAccent = getHudAccent();
-    hud.style.display = 'flex';
-    // Stay collapsed unless user opened it — never force open
-    if (!missionHudExpanded) setMissionHudExpanded(false);
-
-    slots.innerHTML = missions.map((m) => {
-      const progress = m.progress || 0;
-      const pct = Math.min(100, Math.round((progress / m.target) * 100));
-      const done = m.completed || m.claimed;
-      const desc = m.desc.replace('{target}', m.target);
-      const barColor = done ? '#4ade80' : pct > 50 ? '#facc15' : hudAccent;
-      return `<div class="mission-hud-item">
-        <div class="mission-hud-item-row">
-          <span class="mission-hud-item-desc${done ? ' is-done' : ''}">${done ? '✓ ' : ''}${desc}</span>
-          <span class="mission-hud-item-count">${Math.min(progress, m.target)}/${m.target}</span>
-        </div>
-        <div class="mission-hud-item-track">
-          <div class="mission-hud-item-fill" style="width:${pct}%;background:${barColor}"></div>
-        </div>
-      </div>`;
-    }).join('');
+    const missions = window.missionSystem.dailyMissions || [];
+    // Detect newly completed missions → short toast only
+    missions.forEach((m) => {
+      const id = m.id || m.name;
+      const done = !!(m.completed || m.claimed);
+      if (done && !_missionPrevCompleted.has(id)) {
+        _missionPrevCompleted.add(id);
+        showMissionCompleteToast(m.name || 'Daily mission');
+      }
+      if (!done) _missionPrevCompleted.delete(id);
+    });
 
     try {
       localStorage.setItem('voidrift_missions', JSON.stringify(window.missionSystem.getSaveData()));

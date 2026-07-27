@@ -213,19 +213,10 @@
       </div>
     </div>
 
-    <!-- MISSION TRACKER HUD — collapsed chip by default (won't cover menu) -->
-    <div id="missionHud" class="mission-hud" style="display:none;" aria-live="polite">
-      <button type="button" id="missionHudToggle" class="mission-hud-toggle" aria-expanded="false" aria-controls="missionHudPanel">
-        <span class="mission-hud-toggle-label">Missions</span>
-        <span id="missionHudSummary" class="mission-hud-summary">0/3</span>
-      </button>
-      <div id="missionHudPanel" class="mission-hud-panel" hidden>
-        <div class="mission-hud-panel-head">
-          <span>Daily Missions</span>
-          <button type="button" id="missionHudClose" class="mission-hud-close" aria-label="Collapse missions">✕</button>
-        </div>
-        <div id="missionHudSlots"></div>
-      </div>
+    <!-- Mission HUD removed from combat UI — progress is silent + Hangar only.
+         Keep a hidden shell so legacy script refs don't throw. -->
+    <div id="missionHud" class="mission-hud" style="display:none !important;" hidden aria-hidden="true">
+      <div id="missionHudSlots"></div>
     </div>
 
     <!-- ABILITY HUD (Q key special ability) -->

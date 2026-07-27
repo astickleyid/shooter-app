@@ -904,135 +904,18 @@ html, body {
   flex-shrink: 0;
 }
 
-/* Compact mission tracker — chip under HUD, never covers ☰ */
-.mission-hud {
-  position: fixed;
-  top: auto;
-  bottom: max(12px, env(safe-area-inset-bottom, 0px) + 8px);
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 120;
-  display: none;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  max-width: min(280px, calc(100vw - 24px));
-  pointer-events: none;
-}
-
-.mission-hud-toggle {
-  pointer-events: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(74, 222, 128, 0.35);
-  background: rgba(8, 12, 18, 0.82);
-  color: #a7f3d0;
-  font-family: ui-monospace, monospace;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  cursor: pointer;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.45);
-}
-
-.mission-hud-toggle:active {
-  transform: scale(0.97);
-}
-
-.mission-hud-summary {
-  color: #4ade80;
-  min-width: 2.2em;
-  text-align: right;
-}
-
-.mission-hud-panel {
-  pointer-events: auto;
-  width: min(280px, calc(100vw - 24px));
-  background: rgba(8, 10, 18, 0.92);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 12px;
-  padding: 10px 12px;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 8px 28px rgba(0,0,0,0.55);
-}
-
-.mission-hud-panel-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-family: ui-monospace, monospace;
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgba(255,255,255,0.4);
-  margin-bottom: 8px;
-}
-
-.mission-hud-close {
-  border: none;
-  background: transparent;
-  color: rgba(255,255,255,0.45);
-  font-size: 14px;
-  line-height: 1;
-  padding: 2px 4px;
-  cursor: pointer;
-}
-
-.mission-hud-item { margin-bottom: 8px; }
-.mission-hud-item:last-child { margin-bottom: 0; }
-
-.mission-hud-item-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 3px;
-}
-
-.mission-hud-item-desc {
-  font-family: ui-monospace, monospace;
-  font-size: 10px;
-  color: rgba(255,255,255,0.75);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-
-.mission-hud-item-desc.is-done { color: #4ade80; }
-
-.mission-hud-item-count {
-  font-family: ui-monospace, monospace;
-  font-size: 9px;
-  color: rgba(255,255,255,0.35);
-  flex-shrink: 0;
-}
-
-.mission-hud-item-track {
-  height: 3px;
-  background: rgba(255,255,255,0.08);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.mission-hud-item-fill {
-  height: 100%;
-  border-radius: 2px;
-  transition: width 0.3s ease;
-}
-
-/* Keep chip clear of joysticks in portrait */
-@media (orientation: portrait) {
-  .mission-hud {
-    bottom: max(88px, env(safe-area-inset-bottom, 0px) + 72px);
-  }
+/* Mission overlay fully disabled during combat — no on-screen tracker */
+.mission-hud,
+#missionHud {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  position: absolute !important;
+  left: -9999px !important;
 }
 
 .ui-bar-fill {
