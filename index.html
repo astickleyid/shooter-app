@@ -850,7 +850,14 @@
 
       btn.addEventListener('click', () => {
         activateDailyChallenge();
-        // Lock difficulty to normal for a level playing field
+        // Lock difficulty to normal for a level playing field. Game start
+        // reads Save.data.difficulty, not the <select> element, so the
+        // select's value must be assigned via the saved data (setting
+        // .value alone doesn't fire 'change' and never reaches Save.data).
+        if (window.Save && window.Save.data) {
+          window.Save.data.difficulty = 'normal';
+          window.Save.save();
+        }
         const diffSelect = document.getElementById('difficultySelect');
         if (diffSelect) diffSelect.value = 'normal';
         document.getElementById('startButton').click();
