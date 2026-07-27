@@ -2802,8 +2802,8 @@ PowerUps.reset();
   };
 
   const drawParticles = (ctx, dt) => {
-    // Phase A.4: Cap particles for performance (reduced for mobile optimization)
-    const particleCap = 500;
+    // Mobile gets a lower particle budget for stable frame times
+    const particleCap = isMobilePlay() ? 220 : 500;
     if (particles.length > particleCap) {
       particles.splice(0, particles.length - particleCap);
     }
@@ -13209,18 +13209,38 @@ PowerUps.reset();
     }
   };
 
+  const getPlayViewport = () => {
+    // Prefer visualViewport on mobile browsers / WKWebView (keyboard, URL bars, etc.)
+    const vv = window.visualViewport;
+    const w = Math.max(1, Math.floor(vv?.width || window.innerWidth || 1));
+    const h = Math.max(1, Math.floor(vv?.height || window.innerHeight || 1));
+    return { w, h };
+  };
+
+  const isMobilePlay = () => {
+    if (typeof window.__VOID_RIFT_MOBILE__ === 'boolean') return window.__VOID_RIFT_MOBILE__;
+    try {
+      if (window.matchMedia('(pointer: coarse)').matches) return true;
+    } catch (_) {}
+    return ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) ||
+      /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent || '');
+  };
+
   const resizeCanvas = () => {
-    const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-    dom.canvas.width = Math.floor(window.innerWidth * dpr);
-    dom.canvas.height = Math.floor(window.innerHeight * dpr);
-    dom.canvas.style.width = '100%';
-    dom.canvas.style.height = '100%';
+    // Cap DPR on phones — 3x is expensive and barely visible in this art style
+    const maxDpr = isMobilePlay() ? 2 : 2.5;
+    const dpr = Math.max(1, Math.min(maxDpr, window.devicePixelRatio || 1));
+    const { w, h } = getPlayViewport();
+    dom.canvas.width = Math.floor(w * dpr);
+    dom.canvas.height = Math.floor(h * dpr);
+    dom.canvas.style.width = w + 'px';
+    dom.canvas.style.height = h + 'px';
     if (dom.ctx) {
       dom.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
     if (player) {
-      camera.x = player.x - dom.canvas.width / 2;
-      camera.y = player.y - dom.canvas.height / 2;
+      camera.x = player.x - w / 2;
+      camera.y = player.y - h / 2;
     }
     
     drawStartGraphic();
@@ -14018,12 +14038,21 @@ PowerUps.reset();
   }
 
   window.addEventListener('resize', resizeCanvas);
+  // iOS Safari / WKWebView address bar changes
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', resizeCanvas);
+    window.visualViewport.addEventListener('scroll', resizeCanvas);
+  }
   
   // Listen for fullscreen changes
   document.addEventListener('fullscreenchange', () => {
     isFullscreen = !!document.fullscreenElement;
     resizeCanvas();
   });
+
+  // Block multi-touch gestures that zoom/pan the page mid-fight
+  document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
+  document.addEventListener('gesturechange', (e) => e.preventDefault(), { passive: false });
   
   // Handle visibility changes to pause game when tab is hidden
   document.addEventListener('visibilitychange', () => {
@@ -14061,18 +14090,22 @@ PowerUps.reset();
   /* ====== CONTROL SETTINGS ====== */
   const CONTROL_SETTINGS_KEY = 'void_rift_controls_v1';
   
-  const defaultControlSettings = () => ({
-    opacity: 50, // Default to 50% opacity
-    buttonSize: 100,
-    joystickSize: 100,
-    moveSensitivity: 100,
-    aimSensitivity: 100,
-    deadzone: 12,
-    floatingJoysticks: false, // Default to non-floating so both are always visible
-    hapticFeedback: true,
-    gyroscopeAim: false,
-    activeAbility: 'boost' // boost, secondary, or ultimate
-  });
+  const defaultControlSettings = () => {
+    const mobile = isMobilePlay();
+    return {
+      opacity: mobile ? 58 : 45,
+      buttonSize: 100,
+      // Larger sticks by default on phones — thumbs need room
+      joystickSize: mobile ? 118 : 100,
+      moveSensitivity: 100,
+      aimSensitivity: mobile ? 108 : 100,
+      deadzone: mobile ? 10 : 12,
+      floatingJoysticks: false, // fixed sticks = consistent muscle memory
+      hapticFeedback: true,
+      gyroscopeAim: false,
+      activeAbility: 'boost'
+    };
+  };
 
   let controlSettings = defaultControlSettings();
 
@@ -14101,6 +14134,10 @@ PowerUps.reset();
     const mobileControls = document.getElementById('mobileControls');
     if (!mobileControls) return;
 
+    // Always expose touch controls on mobile / coarse pointers
+    mobileControls.style.display = 'block';
+    mobileControls.style.visibility = 'visible';
+
     // Apply opacity to both joysticks independently
     if (dom.joystickMoveBase) {
       dom.joystickMoveBase.style.opacity = controlSettings.opacity / 100;
@@ -14109,17 +14146,18 @@ PowerUps.reset();
       dom.joystickShootBase.style.opacity = controlSettings.opacity / 100;
     }
 
-    // Apply joystick sizing
+    // Base diameter matches CSS mobile default (128px)
+    const baseDiameter = isMobilePlay() ? 128 : 110;
     const bases = [dom.joystickMoveBase, dom.joystickShootBase];
     bases.forEach(base => {
       if (base) {
-        const newSize = (110 * controlSettings.joystickSize) / 100;
+        const newSize = (baseDiameter * controlSettings.joystickSize) / 100;
         base.style.width = `${newSize}px`;
         base.style.height = `${newSize}px`;
         const stick = base.querySelector('.joystickStick');
         if (stick) {
-          stick.style.width = `${newSize * 0.5}px`;
-          stick.style.height = `${newSize * 0.5}px`;
+          stick.style.width = `${newSize * 0.48}px`;
+          stick.style.height = `${newSize * 0.48}px`;
         }
       }
     });
@@ -15822,7 +15860,8 @@ PowerUps.reset();
     
     let currentLogIndex = 0;
     const startTime = Date.now();
-    const duration = 10000; // 10 seconds
+    // Mobile players should get into the game fast — keep the boot cinematic short
+    const duration = (window.__VOID_RIFT_MOBILE__ || ('ontouchstart' in window)) ? 3200 : 10000;
     
     // Title streaming effect
     const titleText = 'VOID RIFT';
