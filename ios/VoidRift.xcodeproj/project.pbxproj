@@ -36,6 +36,7 @@
 		BB0011 /* GameCenterManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCenterManager.swift; sourceTree = "<group>"; };
 		BB0012 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		BB0013 /* AdMobManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdMobManager.swift; sourceTree = "<group>"; };
+		BB0014 /* VoidRift.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = VoidRift.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -60,6 +61,7 @@
 		DD0002 /* VoidRift */ = {
 			isa = PBXGroup;
 			children = (
+				BB0014 /* VoidRift.entitlements */,
 				DD0004 /* Native */,
 				BB0009 /* WebContent */,
 				BB0008 /* Assets.xcassets */,
@@ -141,6 +143,11 @@
 				TargetAttributes = {
 					EE0001 = {
 						CreatedOnToolsVersion = 15.0;
+						SystemCapabilities = {
+							com.apple.GameCenter.iOS = {
+								enabled = 1;
+							};
+						};
 					};
 				};
 			};
