@@ -106,7 +106,7 @@ jobs:
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '15.2'
+          xcode-version: '16.2'
 
       - name: Show Xcode version
         run: xcodebuild -version
@@ -129,14 +129,25 @@ jobs:
             echo "No Podfile found, skipping pod install"
           fi
 
+      - name: Cache Swift Package dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ios/.spm-cache
+            ~/Library/Caches/org.swift.swiftpm
+          key: ${{ runner.os }}-spm-${{ hashFiles('ios/VoidRift.xcodeproj/project.pbxproj') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
       - name: Build iOS app (Debug)
         working-directory: ios
         run: |
           xcodebuild \
             -project VoidRift.xcodeproj \
             -scheme VoidRift \
-            -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' \
+            -destination 'generic/platform=iOS Simulator' \
             -configuration Debug \
+            -clonedSourcePackagesDirPath .spm-cache \
             clean build \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
@@ -176,7 +187,17 @@ jobs:
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '15.2'
+          xcode-version: '16.2'
+
+      - name: Cache Swift Package dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ios/.spm-cache
+            ~/Library/Caches/org.swift.swiftpm
+          key: ${{ runner.os }}-spm-${{ hashFiles('ios/VoidRift.xcodeproj/project.pbxproj') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
 
       - name: Import Code-Signing Certificates (if available)
         run: |
@@ -254,6 +275,7 @@ jobs:
               -scheme VoidRift \
               -configuration Release \
               -archivePath $RUNNER_TEMP/VoidRift.xcarchive \
+              -clonedSourcePackagesDirPath .spm-cache \
               -allowProvisioningUpdates ${ASC_AUTH_ARGS:-} \
               archive
           else
@@ -262,6 +284,7 @@ jobs:
               -scheme VoidRift \
               -configuration Release \
               -archivePath $RUNNER_TEMP/VoidRift.xcarchive \
+              -clonedSourcePackagesDirPath .spm-cache \
               archive \
               CODE_SIGN_IDENTITY="" \
               CODE_SIGNING_REQUIRED=NO \

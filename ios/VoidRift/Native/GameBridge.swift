@@ -35,6 +35,10 @@ class GameBridge: NSObject {
         webView.configuration.userContentController.add(self, name: "adPreloadRewarded")
         webView.configuration.userContentController.add(self, name: "adShowRewarded")
 
+        // In-App Purchase message handlers
+        webView.configuration.userContentController.add(self, name: "iapPurchase")
+        webView.configuration.userContentController.add(self, name: "iapRestore")
+
         // Inject bridge script
         injectBridgeScript()
     }
@@ -188,6 +192,11 @@ extension GameBridge: WKScriptMessageHandler {
             AdMobManager.shared.preloadRewarded()
         case "adShowRewarded":
             handleAdShowRewarded()
+        // In-App Purchase handlers
+        case "iapPurchase":
+            handleIAPPurchase(message.body)
+        case "iapRestore":
+            handleIAPRestore()
         default:
             break
         }
@@ -274,6 +283,50 @@ extension GameBridge: WKScriptMessageHandler {
                 self?.webView?.evaluateJavaScript(js, completionHandler: nil)
             }
         }
+    }
+
+    // MARK: - In-App Purchase Handlers
+
+    private func handleIAPPurchase(_ body: Any) {
+        let data = body as? [String: Any]
+        let productId = (data?["productId"] as? String) ?? IAPManager.removeAdsProductID
+
+        Task { [weak self] in
+            let result = await IAPManager.shared.purchase(productId: productId)
+            let js: String
+            switch result {
+            case .success:
+                js = "window.dispatchEvent(new CustomEvent('iapPurchased', {detail:{productId:'\(GameBridge.jsEscape(productId))'}}));"
+            case .cancelled:
+                js = "window.dispatchEvent(new CustomEvent('iapFailed', {detail:{productId:'\(GameBridge.jsEscape(productId))', reason:'cancelled'}}));"
+            case .failed(let reason):
+                js = "window.dispatchEvent(new CustomEvent('iapFailed', {detail:{productId:'\(GameBridge.jsEscape(productId))', reason:'\(GameBridge.jsEscape(reason))'}}));"
+            }
+            DispatchQueue.main.async {
+                self?.webView?.evaluateJavaScript(js, completionHandler: nil)
+            }
+        }
+    }
+
+    private func handleIAPRestore() {
+        Task { [weak self] in
+            let result = await IAPManager.shared.restore()
+            let js: String
+            switch result {
+            case .success(let ids):
+                let idsJson = (try? JSONSerialization.data(withJSONObject: ids)).flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
+                js = "window.dispatchEvent(new CustomEvent('iapRestored', {detail:{productIds: \(idsJson)}}));"
+            case .failed:
+                js = "window.dispatchEvent(new CustomEvent('iapRestoreFailed'));"
+            }
+            DispatchQueue.main.async {
+                self?.webView?.evaluateJavaScript(js, completionHandler: nil)
+            }
+        }
+    }
+
+    private static func jsEscape(_ s: String) -> String {
+        s.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "'", with: "\\'")
     }
 
     // MARK: - Game Center Handlers

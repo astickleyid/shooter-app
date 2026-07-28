@@ -9696,8 +9696,10 @@ PowerUps.reset();
     if (wasBoss) charge *= 5;
     if (player) player.addUltimateCharge(charge);
     
-    // Check if all enemies eliminated (only for non-boss waves)
-    if (enemiesKilled >= enemiesToKill && currentWaveType !== 'boss') {
+    // Check if all enemies eliminated (only for non-boss waves, and never
+    // while a tracked boss entity — incl. the VOID SURGE Herald of Void,
+    // which is tagged 'elite' rather than 'boss' — is still alive)
+    if (enemiesKilled >= enemiesToKill && currentWaveType !== 'boss' && !bossActive) {
       addLogEntry('All enemies eliminated!', '#4ade80');
     }
   };
@@ -10999,8 +11001,9 @@ PowerUps.reset();
 
     // Check wave completion (handles boss waves, survival waves, etc.)
     if (!checkWaveCompletion()) {
-      // Normal level advancement for standard/elite/swarm waves
-      if (enemiesKilled >= enemiesToKill && currentWaveType !== 'boss') {
+      // Normal level advancement for standard/elite/swarm waves — but never
+      // while a boss entity (incl. the VOID SURGE Herald of Void) is alive
+      if (enemiesKilled >= enemiesToKill && currentWaveType !== 'boss' && !bossActive) {
         advanceLevel();
       }
     }
@@ -11360,10 +11363,16 @@ PowerUps.reset();
       }
     }
     
-    if (currentWaveType === 'boss') {
-      // Boss wave ends when boss is dead (removed from enemies array)
+    // Boss waves — generic boss, Leviathan, and the VOID SURGE Herald of Void
+    // (which is tagged currentWaveType 'elite', not 'boss') — all end only
+    // when the tracked boss entity dies, never from the ordinary enemy-kill
+    // quota below. Gating on `bossActive` (rather than currentWaveType)
+    // covers the Herald case: without it, grinding the escort swarm to
+    // enemiesToKill let advanceLevel() delete a still-alive Herald with zero
+    // warning, denying its rewards and the Void Breaker achievement.
+    if (bossActive) {
       // bossEntity is set to null when the boss dies in handleEnemyDeath
-      if (bossActive && !bossEntity) {
+      if (!bossEntity) {
         addLogEntry('🎉 BOSS DEFEATED!', '#4ade80');
         bossActive = false;
         // Give bonus rewards — tracked for post-wave overlay
@@ -11375,10 +11384,10 @@ PowerUps.reset();
         waveCreditsEarned += _bossBonus; // add boss bonus after advanceLevel resets counter
         return true;
       }
-      // Don't advance from normal kills in boss wave
+      // Don't advance from normal kills while the boss is still alive
       return false;
     }
-    
+
     return false;
   };
 
@@ -12903,19 +12912,22 @@ PowerUps.reset();
     if (paused) {
       cancelAnimationFrame(animationFrame);
       showPauseMenu();
+      if (typeof AudioManager !== 'undefined') AudioManager.stopMusic();
     } else {
       hidePauseMenu();
       lastTime = performance.now();
       animationFrame = requestAnimationFrame(loop);
+      if (typeof AudioManager !== 'undefined') AudioManager.startMusic();
     }
   };
-  
+
   const resumeGame = () => {
     if (!gameRunning || !paused) return;
     paused = false;
     hidePauseMenu();
     lastTime = performance.now();
     animationFrame = requestAnimationFrame(loop);
+    if (typeof AudioManager !== 'undefined') AudioManager.startMusic();
   };
   
   const exitToMainMenu = () => {
@@ -12964,7 +12976,8 @@ PowerUps.reset();
       runStartTime = performance.now();
       initShipSelection();
       startLevel(1, true);
-      
+      if (typeof AudioManager !== 'undefined') AudioManager.startMusic();
+
       isRestarting = false;
     }, 500);
   };
@@ -13726,6 +13739,8 @@ PowerUps.reset();
   };
 
   const returnToMainMenu = () => {
+    if (typeof AudioManager !== 'undefined') AudioManager.stopMusic();
+
     // Close any open modals
     closeGameOverScreen();
     hidePauseMenu();
@@ -14012,6 +14027,7 @@ PowerUps.reset();
       // Auto-pause when tab loses focus
       paused = true;
       cancelAnimationFrame(animationFrame);
+      if (typeof AudioManager !== 'undefined') AudioManager.stopMusic();
     }
   });
 

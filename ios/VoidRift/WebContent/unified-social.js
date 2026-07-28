@@ -4,7 +4,7 @@
  * Provides seamless social experience across platforms
  * 
  * @global SocialAPI - Web social API (from social-api.js)
- * @global SocialHub - Web social hub UI (from social-hub.js)
+ * @global SocialUI - Web social/auth UI, the one actually wired up in index.html (from social-ui.js)
  * @global GlobalLeaderboard - Global leaderboard system (from backend-api.js)
  * @global submitSocialScore - Score submission function (from social-integration.js)
  * @global socialGameOver - Game over handler (from social-integration.js)
@@ -12,7 +12,7 @@
  * @global module - Node.js module object
  */
 
-/* global SocialAPI, SocialHub, GlobalLeaderboard, submitSocialScore, socialGameOver, updateSocialUI, module */
+/* global SocialAPI, SocialUI, GlobalLeaderboard, submitSocialScore, socialGameOver, updateSocialUI, module */
 
 const UnifiedSocial = {
   // Platform detection
@@ -178,9 +178,9 @@ const UnifiedSocial = {
     if (this.isGameCenterAuthenticated) {
       // Show native Game Center achievements
       window.iOSBridge.gameCenter.showAchievements();
-    } else if (typeof SocialHub !== 'undefined') {
+    } else if (typeof SocialUI !== 'undefined') {
       // Show web profile with achievements
-      SocialHub.showProfile();
+      SocialUI.showProfileModal();
     }
   },
 
@@ -280,8 +280,8 @@ const UnifiedSocial = {
     } else if (loginBtn) {
       loginBtn.textContent = 'Login';
       loginBtn.onclick = () => {
-        if (typeof SocialHub !== 'undefined') {
-          SocialHub.showAuthModal('login');
+        if (typeof SocialUI !== 'undefined') {
+          SocialUI.showAuthModal('login');
         }
       };
       loginBtn.classList.add('footer-btn-text');
@@ -299,9 +299,9 @@ const UnifiedSocial = {
     if (this.isGameCenterAuthenticated) {
       // Show Game Center profile
       this.showAchievements();
-    } else if (typeof SocialHub !== 'undefined') {
+    } else if (typeof SocialUI !== 'undefined') {
       // Show web profile
-      SocialHub.showProfile();
+      SocialUI.showProfileModal();
     }
   },
 
