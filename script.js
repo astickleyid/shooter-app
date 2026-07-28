@@ -904,6 +904,7 @@
   let tookDamageThisLevel = false;
   let lastCloseCallAt = 0;
   let gameOverHandled = false;
+  let missionsCompletedThisRun = 0;
   let continueUsed = false;
   let runShotsFired = 0;
   let runShotsHit = 0;
@@ -2350,6 +2351,7 @@ PowerUps.reset();
     tookDamageThisLevel = false;
     lastCloseCallAt = 0;
     gameOverHandled = false;
+    missionsCompletedThisRun = 0;
     continueUsed = false;
     // Consume the one-run XP boost granted by a claimed mission reward, if any
     try {
@@ -9972,15 +9974,19 @@ PowerUps.reset();
     dom.messageText.innerHTML = html;
     dom.messageButton.textContent = button;
     dom.messageBox.style.display = 'block';
+    // Click only — touchstart+click double-fires on iOS WKWebView and can
+    // start two handlers (e.g. startGame twice → freeze).
     const once = (e) => {
-      e.preventDefault();
+      if (e && typeof e.preventDefault === 'function') e.preventDefault();
       dom.messageBox.style.display = 'none';
       dom.messageButton.removeEventListener('click', once);
-      dom.messageButton.removeEventListener('touchstart', once);
-      handler && handler();
+      try {
+        handler && handler();
+      } catch (err) {
+        console.error('[_showMessage] handler failed', err);
+      }
     };
     dom.messageButton.addEventListener('click', once);
-    dom.messageButton.addEventListener('touchstart', once, { passive: false });
   };
 
   /* ====== SHOP ====== */
@@ -10023,13 +10029,21 @@ PowerUps.reset();
   };
 
   const openShop = () => {
-    renderShop();
-    dom.shopModal.style.display = 'flex';
-    syncCredits();
+    try {
+      if (!dom.shopModal || !dom.shopGrid) {
+        console.warn('[openShop] shop modal missing from DOM');
+        return;
+      }
+      renderShop();
+      dom.shopModal.style.display = 'flex';
+      syncCredits();
+    } catch (err) {
+      console.error('[openShop] failed', err);
+    }
   };
 
   const closeShop = () => {
-    dom.shopModal.style.display = 'none';
+    if (dom.shopModal) dom.shopModal.style.display = 'none';
   };
 
   /* ====== HANGAR ====== */
@@ -10279,12 +10293,20 @@ PowerUps.reset();
   };
 
   const openHangar = () => {
-    renderHangar();
-    dom.hangarModal.style.display = 'flex';
+    try {
+      if (!dom.hangarModal) {
+        console.warn('[openHangar] hangar modal missing from DOM');
+        return;
+      }
+      renderHangar();
+      dom.hangarModal.style.display = 'flex';
+    } catch (err) {
+      console.error('[openHangar] failed', err);
+    }
   };
 
   const closeHangar = () => {
-    dom.hangarModal.style.display = 'none';
+    if (dom.hangarModal) dom.hangarModal.style.display = 'none';
   };
 
   // Open the full-featured Hangar overlay (Upgrades/Skins/Missions/Achievements/
@@ -10293,27 +10315,39 @@ PowerUps.reset();
   // simple ship-browser modal) so in-game entry points reach the real overlay
   // instead of being silently shadowed by the local function of the same name.
   const openPersistentHangar = () => {
-    if (typeof window.openHangar !== 'function') return;
-    window.openHangar({
-      getCredits: () => Save.data.credits,
-      spendCredits: (amount) => Save.spendCredits(amount),
-      // Mission-reward credit claims must land in the real Save balance,
-      // not the hangar's own disconnected internal credit pool.
-      addCredits: (amount) => Save.addCredits(amount),
-      getSelectedShip: () => Save.data.selectedShip || 'vanguard',
-      // Loadout tab reads/writes the same equipment class the in-game
-      // pause menu configures, so changes made here carry into the next run.
-      getLoadout: () => Save.data.armory.equipmentClass || defaultArmory().equipmentClass,
-      setLoadout: (equipClass) => {
-        Save.data.armory.equipmentClass = equipClass;
-        Save.save();
-        updateEquipmentIndicator();
-      },
-      onSkinEquip: () => {
-        initShipSelection();
-        if (player) player.reconfigureLoadout(true);
+    try {
+      if (typeof window.openHangar !== 'function') {
+        // Module not ready yet — open ship hangar so the button never feels dead
+        console.warn('[Base Mods] hangar-ui not loaded yet; opening ship hangar');
+        openHangar();
+        return;
       }
-    });
+      window.openHangar({
+        getCredits: () => Save.data.credits,
+        spendCredits: (amount) => Save.spendCredits(amount),
+        // Mission-reward credit claims must land in the real Save balance,
+        // not the hangar's own disconnected internal credit pool.
+        addCredits: (amount) => Save.addCredits(amount),
+        getSelectedShip: () => Save.data.selectedShip || 'vanguard',
+        // Loadout tab reads/writes the same equipment class the in-game
+        // pause menu configures, so changes made here carry into the next run.
+        getLoadout: () => (Save.data.armory && Save.data.armory.equipmentClass) || defaultArmory().equipmentClass,
+        setLoadout: (equipClass) => {
+          if (!Save.data.armory) Save.data.armory = defaultArmory();
+          Save.data.armory.equipmentClass = equipClass;
+          Save.save();
+          updateEquipmentIndicator();
+        },
+        onSkinEquip: () => {
+          initShipSelection();
+          if (player) player.reconfigureLoadout(true);
+        }
+      });
+    } catch (err) {
+      console.error('[openPersistentHangar] failed', err);
+      // Last resort so the menu never freezes on a dead click
+      try { openHangar(); } catch (_) {}
+    }
   };
   // ─── POWER-UP DROPS ─────────────────────────────────────────────────────────
   const PowerUps = (() => {
@@ -12818,52 +12852,84 @@ PowerUps.reset();
     ctx.restore();
   };
 
+  // Prevent double-tap / touchstart+click from starting two runs (freezes iOS WebView)
+  let isStartingGame = false;
+
   const startGame = () => {
-    resetRuntimeState();
-    runStartTime = performance.now();
-    currentDifficulty = Save.data.difficulty || 'normal';  // Load saved difficulty
-    
-    // Always use space mode (planetary mode removed)
-    currentGameMode = 'space';
-    currentPlanet = null;
-
-    // Persist selectedShip from hangar into Save before init
-    if (selectedShip && selectedShip !== Save.data.selectedShip) {
-      Save.data.selectedShip = selectedShip;
-      Save.save();
+    if (isStartingGame) {
+      console.warn('[startGame] ignored — already starting');
+      return;
     }
-    console.log('[Hangar] Starting game with ship:', selectedShip || Save.data.selectedShip);
+    isStartingGame = true;
 
-    initShipSelection();
-    
-    // Add smooth transition effect
-    dom.startScreen.style.transition = 'opacity 0.6s ease-out, transform 0.6s ease-out';
-    dom.startScreen.style.opacity = '0';
-    dom.startScreen.style.transform = 'scale(0.95)';
-    
-    setTimeout(() => {
-      dom.startScreen.style.display = 'none';
-      dom.gameContainer.style.display = 'block';
-      dom.messageBox.style.display = 'none';
+    try {
+      resetRuntimeState();
+      runStartTime = performance.now();
+      currentDifficulty = Save.data.difficulty || 'normal';  // Load saved difficulty
       
-      // Reset transition for next time
+      // Always use space mode (planetary mode removed)
+      currentGameMode = 'space';
+      currentPlanet = null;
+
+      // Persist selectedShip from hangar into Save before init
+      if (selectedShip && selectedShip !== Save.data.selectedShip) {
+        Save.data.selectedShip = selectedShip;
+        Save.save();
+      }
+      console.log('[Hangar] Starting game with ship:', selectedShip || Save.data.selectedShip);
+
+      initShipSelection();
+      
+      // Add smooth transition effect
+      if (dom.startScreen) {
+        dom.startScreen.style.transition = 'opacity 0.6s ease-out, transform 0.6s ease-out';
+        dom.startScreen.style.opacity = '0';
+        dom.startScreen.style.transform = 'scale(0.95)';
+      }
+      
       setTimeout(() => {
-        dom.startScreen.style.transition = '';
-        dom.startScreen.style.opacity = '';
-        dom.startScreen.style.transform = '';
-      }, 50);
-    }, 600);
-    
-    // Initialize audio system on user interaction (required for Chrome autoplay policy)
-    if (typeof AudioManager !== 'undefined') {
-      AudioManager.init();
-      AudioManager.startMusic();
+        if (dom.startScreen) dom.startScreen.style.display = 'none';
+        if (dom.gameContainer) dom.gameContainer.style.display = 'block';
+        if (dom.messageBox) dom.messageBox.style.display = 'none';
+        
+        // Reset transition for next time
+        setTimeout(() => {
+          if (dom.startScreen) {
+            dom.startScreen.style.transition = '';
+            dom.startScreen.style.opacity = '';
+            dom.startScreen.style.transform = '';
+          }
+        }, 50);
+      }, 600);
+      
+      // Initialize audio system on user interaction (required for Chrome autoplay policy)
+      if (typeof AudioManager !== 'undefined') {
+        try {
+          AudioManager.init();
+          AudioManager.startMusic();
+        } catch (audioErr) {
+          console.warn('[startGame] audio init failed', audioErr);
+        }
+      }
+      
+      // Start level after transition begins
+      setTimeout(() => {
+        try {
+          startLevel(1, true);
+        } catch (levelErr) {
+          console.error('[startGame] startLevel failed', levelErr);
+          isStartingGame = false;
+        }
+      }, 100);
+
+      // Safety: unlock the guard after the transition window even if startLevel is slow
+      setTimeout(() => {
+        isStartingGame = false;
+      }, 900);
+    } catch (err) {
+      console.error('[startGame] failed', err);
+      isStartingGame = false;
     }
-    
-    // Start level after transition begins
-    setTimeout(() => {
-      startLevel(1, true);
-    }, 100);
   };
 
   /* ====== PAUSE MENU & GAME STATE MANAGEMENT ====== */
@@ -13474,6 +13540,7 @@ PowerUps.reset();
       const done = !!(m.completed || m.claimed);
       if (done && !_missionPrevCompleted.has(id)) {
         _missionPrevCompleted.add(id);
+        missionsCompletedThisRun++;
         showMissionCompleteToast(m.name || 'Daily mission');
       }
       if (!done) _missionPrevCompleted.delete(id);
@@ -13560,6 +13627,8 @@ PowerUps.reset();
         timeEl.textContent = mm > 0 ? `${mm}m ${ss}s` : `${runTimeSec}s`;
       }
       if (accuracyEl) accuracyEl.textContent = `${runAccuracyPct}%`;
+      const missionsEl = document.getElementById('gameOverMissions');
+      if (missionsEl) missionsEl.textContent = String(missionsCompletedThisRun);
 
       // Perk loadout
       const perksSection = document.getElementById('gameOverPerks');
@@ -13940,17 +14009,27 @@ PowerUps.reset();
   };
 
   const openLeaderboardModal = () => {
-    // Use new SocialUI if available
-    if (typeof SocialUI !== 'undefined' && SocialUI.showLeaderboardModal) {
-      SocialUI.showLeaderboardModal(currentLeaderboardFilter || currentDifficulty);
-      return;
+    try {
+      // Use new SocialUI if available (async fetch must not block / throw out)
+      if (typeof SocialUI !== 'undefined' && SocialUI.showLeaderboardModal) {
+        Promise.resolve(SocialUI.showLeaderboardModal(currentLeaderboardFilter || currentDifficulty)).catch((err) => {
+          console.warn('[openLeaderboardModal] SocialUI failed', err);
+          if (dom.leaderboardModal) {
+            dom.leaderboardModal.style.display = 'flex';
+          }
+        });
+        return;
+      }
+
+      // Fallback to old modal (if still present)
+      if (!dom.leaderboardModal) return;
+      dom.leaderboardModal.style.display = 'flex';
+      Leaderboard.setStatus(Leaderboard.statusMessage, Leaderboard.statusTone);
+      setLeaderboardFilter(currentLeaderboardFilter || currentDifficulty);
+    } catch (err) {
+      console.error('[openLeaderboardModal] failed', err);
+      if (dom.leaderboardModal) dom.leaderboardModal.style.display = 'flex';
     }
-    
-    // Fallback to old modal (if still present)
-    if (!dom.leaderboardModal) return;
-    dom.leaderboardModal.style.display = 'flex';
-    Leaderboard.setStatus(Leaderboard.statusMessage, Leaderboard.statusTone);
-    setLeaderboardFilter(currentLeaderboardFilter || currentDifficulty);
   };
 
   const closeLeaderboardModal = () => {
@@ -14046,6 +14125,8 @@ PowerUps.reset();
     togglePause,
     openShop,
     openHangar,
+    openPersistentHangar,
+    openLeaderboardModal,
     toggleFullscreen,
     toggleFPS,
     // The Hangar overlay's onSkinEquip bridge (index.html) calls this after a
@@ -14933,34 +15014,77 @@ PowerUps.reset();
       });
     }
     
-    if (dom.startButton) {
-      dom.startButton.addEventListener('click', () => {
-        if (typeof AudioManager !== 'undefined') {
-          AudioManager.playClick();
+    // Debounced menu click helper.
+    // Do NOT also bind touchstart+preventDefault — that double-fires with the
+    // synthetic click on iOS WKWebView and was freezing startGame / modals.
+    // Buttons use CSS touch-action: manipulation so clicks stay snappy.
+    const bindMenuAction = (el, action, { once = false } = {}) => {
+      if (!el || typeof action !== 'function') return;
+      let lastFire = 0;
+      const DEBOUNCE_MS = 400;
+      const run = (e) => {
+        const now = performance.now();
+        if (now - lastFire < DEBOUNCE_MS) {
+          if (e && typeof e.preventDefault === 'function') e.preventDefault();
+          if (e && typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+          return;
         }
-        startGame();
-      });
-      dom.startButton.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        if (typeof AudioManager !== 'undefined') {
-          AudioManager.playClick();
+        lastFire = now;
+        try {
+          if (typeof AudioManager !== 'undefined' && AudioManager.playClick) {
+            AudioManager.playClick();
+          }
+        } catch (_) {}
+        try {
+          action(e);
+        } catch (err) {
+          console.error('[Menu action]', el.id || el.className, err);
         }
-        startGame();
-      }, { passive: false });
-    }
-    if (dom.messageButton) {
-      const handler = (e) => {
-        e.preventDefault();
-        startGame();
-        dom.messageButton.removeEventListener('click', handler);
-        dom.messageButton.removeEventListener('touchstart', handler);
+        if (once) el.removeEventListener('click', run);
       };
-      dom.messageButton.addEventListener('click', handler);
-      dom.messageButton.addEventListener('touchstart', handler, { passive: false });
+      el.addEventListener('click', run);
+    };
+
+    bindMenuAction(dom.startButton, () => startGame());
+    if (dom.messageButton) {
+      bindMenuAction(dom.messageButton, () => startGame(), { once: true });
     }
-    dom.openShopFromStart?.addEventListener('click', openShop);
-    dom.settingsButton?.addEventListener('click', openHangar);
-    dom.leaderboardButton?.addEventListener('click', openLeaderboardModal);
+    bindMenuAction(dom.openShopFromStart, () => openShop());
+    // "Hangar" = ship select; "Base Mods" = permanent hangar-ui overlay
+    bindMenuAction(dom.settingsButton, () => openHangar());
+    bindMenuAction(document.getElementById('openPermanentHangar'), () => openPersistentHangar());
+    bindMenuAction(document.getElementById('dailyChallengeButton'), () => {
+      // Prefer module helper when loaded; otherwise start a normal run
+      try {
+        if (typeof window.activateDailyChallenge === 'function') {
+          window.activateDailyChallenge();
+        }
+      } catch (err) {
+        console.warn('[Daily] activate failed', err);
+      }
+      const diffSelect = document.getElementById('difficultySelect');
+      if (diffSelect) diffSelect.value = 'normal';
+      Save.data.difficulty = 'normal';
+      startGame();
+    });
+    bindMenuAction(dom.leaderboardButton, () => {
+      // gc-only-mode may assign onclick — honor native path first
+      if (window.VOID_RIFT_GC_ONLY || window.iOSBridge?.gameCenter) {
+        try {
+          if (typeof window.UnifiedSocial !== 'undefined' && window.UnifiedSocial.showLeaderboard) {
+            window.UnifiedSocial.showLeaderboard('highScore');
+            return;
+          }
+          if (window.iOSBridge?.gameCenter?.showLeaderboard) {
+            window.iOSBridge.gameCenter.showLeaderboard('com.voidrift.highscore');
+            return;
+          }
+        } catch (err) {
+          console.warn('[Rankings] GC path failed', err);
+        }
+      }
+      openLeaderboardModal();
+    });
     
     // Pause menu handlers
     dom.resumeGameBtn?.addEventListener('click', resumeGame);
@@ -15199,16 +15323,23 @@ PowerUps.reset();
     };
     setupAudioControls();
     
-    // Unified menu button (replaces old settings and ability buttons)
+    // Unified menu button (replaces old settings and ability buttons).
+    // Click only — touchstart+click double-opens the modal on iOS.
     const unifiedMenuBtn = document.getElementById('unifiedMenuButton');
     if (unifiedMenuBtn) {
-      const handler = (e) => {
+      let lastOpen = 0;
+      unifiedMenuBtn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        openUnifiedMenu();
-      };
-      unifiedMenuBtn.addEventListener('click', handler);
-      unifiedMenuBtn.addEventListener('touchstart', handler, { passive: false });
+        const now = performance.now();
+        if (now - lastOpen < 400) return;
+        lastOpen = now;
+        try {
+          openUnifiedMenu();
+        } catch (err) {
+          console.error('[unifiedMenu] open failed', err);
+        }
+      });
     }
     
     // Tab navigation for unified menu
@@ -15963,9 +16094,15 @@ PowerUps.reset();
       if (progress < 1) {
         animationFrame = requestAnimationFrame(animate);
       } else {
-        // Mark as loaded after 10 seconds
+        // Mark as loaded after the progress bar finishes, then fully detach so
+        // residual overlay never intercepts start-screen taps on iOS.
         setTimeout(() => {
           loadingOverlay.classList.add('loaded');
+          setTimeout(() => {
+            loadingOverlay.style.display = 'none';
+            loadingOverlay.style.pointerEvents = 'none';
+            loadingOverlay.setAttribute('aria-hidden', 'true');
+          }, 900);
         }, 300);
       }
     };

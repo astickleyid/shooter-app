@@ -394,6 +394,10 @@
             <span class="run-stat-label">ACCURACY</span>
             <span id="gameOverAccuracy" class="run-stat-value">0%</span>
           </div>
+          <div class="run-stat-item" id="gameOverMissionsContainer">
+            <span class="run-stat-label">MISSIONS</span>
+            <span id="gameOverMissions" class="run-stat-value">0</span>
+          </div>
         </div>
         <div class="game-over-perks" id="gameOverPerks" style="display:none;">
           <div class="game-over-perks__label">RUN LOADOUT</div>
@@ -746,6 +750,8 @@
   <script src="leaderboard-system.js"></script>
   <script src="social-api.js"></script>
   <script src="social-ui.js"></script>
+  <!-- SocialHub auth/profile UI (Login button). Must load before unified-social. -->
+  <script src="social-hub.js"></script>
 
   <!-- Firebase Adapter - Makes existing code work with Firebase -->
   <script src="firebase-adapter.js"></script>
@@ -760,104 +766,78 @@
   <!-- Game Center-first mode for the native iOS build (no-op on web) -->
   <script src="gc-only-mode.js"></script>
 
-  <!-- Persistent Upgrade Hangar (Base Mods) -->
+  <!-- Persistent Upgrade Hangar (Base Mods) + Daily Challenge bridges.
+       Button click handlers live in script.js setupInput (single source of truth)
+       so we never double-bind and freeze the game. Modules only expose APIs. -->
   <script type="module">
     import { openHangar, closeHangar } from './hangar-ui.js';
     import { loadHangar, applyHangarToConfig } from './src/systems/HangarSystem.js';
+    import { activateDailyChallenge, deactivateDailyChallenge, getTodayBest } from './daily-challenge.js';
 
-    // Bridge HangarSystem's purchase-application helper to the classic-script
-    // game loop in script.js, which cannot use ES module imports directly.
-    // script.js calls this at the start of every run so purchased Base Mods
-    // upgrades (max HP, damage, speed, fire rate, credit bonus, piercing)
-    // actually affect gameplay instead of just being stored.
+    // Bridge HangarSystem for classic script.js (Base Mods apply at run start)
     window.HangarSystem = { loadHangar, applyHangarToConfig };
+    window.closeHangar = closeHangar;
 
-    // Wire up the Base Mods nav button on the start screen.
-    // We delay until DOMContentLoaded so the button element is guaranteed
-    // to exist, and pass credit callbacks that bridge into the main game's
-    // Save object when it has been initialised by script.js.
-    document.addEventListener('DOMContentLoaded', () => {
-      const btn = document.getElementById('openPermanentHangar');
-      if (!btn) return;
-
-      btn.addEventListener('click', () => {
-        openHangar({
-          // Read credits from the main game Save if available, otherwise
-          // fall back to the hangar's own internal credit pool.
-          getCredits: () => {
-            if (window.Save && typeof window.Save.data?.credits === 'number') {
-              return window.Save.data.credits;
-            }
-            return undefined; // signals HangarSystem to use internal pool
-          },
-          spendCredits: (amount) => {
-            if (window.Save && typeof window.Save.spendCredits === 'function') {
-              return window.Save.spendCredits(amount);
-            }
-            return false; // fall back — internal pool handles it
-          },
-          // Grants (e.g. mission reward claims) go to the main Save balance
-          // when available, instead of the hangar's disconnected internal pool.
-          addCredits: (amount) => {
-            if (window.Save && typeof window.Save.addCredits === 'function') {
-              window.Save.addCredits(amount);
-            }
-          },
-          // Provide the currently selected ship so the Skins tab defaults to it
-          getSelectedShip: () => {
-            return (window.Save && window.Save.data && window.Save.data.selectedShip) || 'vanguard';
-          },
-          // Loadout tab reads/writes the same equipment class the in-game
-          // pause menu configures, so changes made here carry into the next run.
-          getLoadout: () => {
-            return (window.Save && window.Save.data && window.Save.data.armory && window.Save.data.armory.equipmentClass) || null;
-          },
-          setLoadout: (equipClass) => {
-            if (!window.Save || !window.Save.data) return;
-            if (!window.Save.data.armory) window.Save.data.armory = {};
-            window.Save.data.armory.equipmentClass = equipClass;
-            window.Save.save();
-          },
-          // When a skin is equipped, re-init ship selection so colors update immediately
-          onSkinEquip: (shipId, skinId, skin) => {
-            if (window.__VOID_RIFT__ && typeof window.__VOID_RIFT__.initShipSelection === 'function') {
-              window.__VOID_RIFT__.initShipSelection();
-            }
-          },
-          onClose: () => {
-            // Refresh any on-screen credits display after the shop closes
-            const creditsEl = document.getElementById('creditsText');
-            if (creditsEl && window.Save) {
-              creditsEl.textContent = window.Save.data.credits;
-            }
+    // Canonical openHangar with credit/loadout bridges into main Save
+    window.openHangar = function openHangarBridged(opts = {}) {
+      return openHangar({
+        getCredits: () => {
+          if (window.Save && typeof window.Save.data?.credits === 'number') {
+            return window.Save.data.credits;
           }
-        });
+          return undefined;
+        },
+        spendCredits: (amount) => {
+          if (window.Save && typeof window.Save.spendCredits === 'function') {
+            return window.Save.spendCredits(amount);
+          }
+          return false;
+        },
+        addCredits: (amount) => {
+          if (window.Save && typeof window.Save.addCredits === 'function') {
+            window.Save.addCredits(amount);
+          }
+        },
+        getSelectedShip: () => {
+          return (window.Save && window.Save.data && window.Save.data.selectedShip) || 'vanguard';
+        },
+        getLoadout: () => {
+          return (window.Save && window.Save.data && window.Save.data.armory && window.Save.data.armory.equipmentClass) || null;
+        },
+        setLoadout: (equipClass) => {
+          if (!window.Save || !window.Save.data) return;
+          if (!window.Save.data.armory) window.Save.data.armory = {};
+          window.Save.data.armory.equipmentClass = equipClass;
+          window.Save.save();
+        },
+        onSkinEquip: () => {
+          if (window.__VOID_RIFT__ && typeof window.__VOID_RIFT__.initShipSelection === 'function') {
+            window.__VOID_RIFT__.initShipSelection();
+          }
+        },
+        onClose: () => {
+          const creditsEl = document.getElementById('creditsText');
+          if (creditsEl && window.Save) {
+            creditsEl.textContent = window.Save.data.credits;
+          }
+        },
+        ...opts
       });
-    });
-  </script>
+    };
 
-  <!-- Daily Challenge wiring -->
-  <script type="module">
-    import { activateDailyChallenge, getTodayBest, todayStr } from './daily-challenge.js';
+    // Daily challenge helpers for script.js menu wiring
+    window.activateDailyChallenge = activateDailyChallenge;
+    window.deactivateDailyChallenge = deactivateDailyChallenge;
+    window.getTodayBest = getTodayBest;
 
+    // Show today's best on the Daily button (display only — no click handler here)
     document.addEventListener('DOMContentLoaded', () => {
-      const btn = document.getElementById('dailyChallengeButton');
       const bestDisplay = document.getElementById('dailyBestDisplay');
-      if (!btn) return;
-
-      // Show today's best score if one exists
-      const best = getTodayBest();
-      if (best > 0) {
-        bestDisplay.textContent = `Best: ${best.toLocaleString()}`;
-      }
-
-      btn.addEventListener('click', () => {
-        activateDailyChallenge();
-        // Lock difficulty to normal for a level playing field
-        const diffSelect = document.getElementById('difficultySelect');
-        if (diffSelect) diffSelect.value = 'normal';
-        document.getElementById('startButton').click();
-      });
+      if (!bestDisplay) return;
+      try {
+        const best = getTodayBest();
+        if (best > 0) bestDisplay.textContent = `Best: ${best.toLocaleString()}`;
+      } catch (_) {}
     });
   </script>
 
