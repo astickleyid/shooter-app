@@ -13423,14 +13423,39 @@ PowerUps.reset();
     if (hud) hud.style.display = 'none';
   }
 
+  let _missionToastTimeout = null;
   function showMissionCompleteToast(name) {
-    // Reuse action log if present — non-blocking, no layout shift
-    try {
-      if (typeof addLogEntry === 'function') {
-        addLogEntry(`MISSION COMPLETE: ${name}`, '#4ade80');
-        return;
-      }
-    } catch (_) {}
+    const el = document.getElementById('mission-complete-toast');
+    if (!el) {
+      // Fallback to action log if DOM element not found
+      try {
+        if (typeof addLogEntry === 'function') {
+          addLogEntry(`MISSION COMPLETE: ${name}`, '#4ade80');
+        }
+      } catch (_) {}
+      return;
+    }
+
+    // Clear any pending auto-hide so rapid completions don't stack
+    if (_missionToastTimeout !== null) {
+      clearTimeout(_missionToastTimeout);
+      _missionToastTimeout = null;
+    }
+
+    el.innerHTML =
+      `<div class="mission-complete-toast__header">&#10003; Mission Complete</div>` +
+      `<div class="mission-complete-toast__name">${name}</div>`;
+    el.style.display = 'block';
+    // Force reflow so the transition plays from the start state
+    void el.offsetWidth;
+    el.classList.add('mission-complete-toast--visible');
+
+    _missionToastTimeout = setTimeout(() => {
+      el.classList.remove('mission-complete-toast--visible');
+      // Hide after the CSS transition finishes (300 ms)
+      setTimeout(() => { el.style.display = 'none'; }, 320);
+      _missionToastTimeout = null;
+    }, 2500);
   }
 
   function updateMissionHUD() {

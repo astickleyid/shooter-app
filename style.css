@@ -4920,3 +4920,47 @@ html, body {
 #waveClearedCard {
   animation: waveClearedFadeIn 0.25s ease-out forwards;
 }
+
+/* ── Mission Complete Toast ───────────────────────────────────────────────── */
+@keyframes missionToastIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+.mission-complete-toast {
+  position: fixed;
+  top: 20%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-20px);
+  min-width: 240px;
+  max-width: 360px;
+  padding: 14px 24px;
+  background: rgba(0, 0, 0, 0.82);
+  border: 1.5px solid #4ade80;
+  border-radius: 10px;
+  box-shadow: 0 0 24px rgba(74, 222, 128, 0.25);
+  text-align: center;
+  font-family: monospace;
+  z-index: 9000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.mission-complete-toast--visible {
+  animation: missionToastIn 0.3s ease-out forwards;
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.mission-complete-toast__header {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: #4ade80;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.mission-complete-toast__name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #ffffff;
+  letter-spacing: 0.05em;
+}
