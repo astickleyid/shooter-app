@@ -1,41 +1,101 @@
 import UIKit
+import GoogleMobileAds
 
 /**
  * AdMobManager — VOID RIFT iOS
  *
- * Stub implementation for App Store builds until a real AdMob App ID +
- * Google Mobile Ads SPM package are configured.
+ * Manages rewarded ads via Google Mobile Ads SDK.
  *
- * When ads are ready for production:
- * 1. Add package: https://github.com/googleads/swift-package-manager-google-mobile-ads.git
- * 2. Set GADApplicationIdentifier in Info.plist
- * 3. Restore GoogleMobileAds import + GADRewardedAd loading with production unit IDs
+ * SETUP REQUIRED before App Store submission:
+ * 1. GoogleMobileAds is already wired up as a Swift Package dependency
+ *    (see project.pbxproj) and GADApplicationIdentifier is set in Info.plist.
+ * 2. Replace the test GADApplicationIdentifier in Info.plist with your real
+ *    AdMob App ID from https://admob.google.com/.
+ * 3. Replace the ad unit ID below with your real rewarded ad unit ID.
  *
- * JS bridge still works: preload/show call through, rewards are denied (no free credit).
+ * Test IDs (use during development — REPLACE before App Store submission):
+ *   App ID:  ca-app-pub-3940256099942544~1458002511
+ *   Ad Unit: ca-app-pub-3940256099942544/1712485313
  */
 
 class AdMobManager: NSObject {
 
     static let shared = AdMobManager()
 
-    private var isReady = false
+    // MARK: - Configuration
+    // Replace with your real rewarded ad unit ID from https://admob.google.com/
+    private let rewardedAdUnitID = "ca-app-pub-3940256099942544/1712485313" // TEST ID
 
+    // MARK: - State
+    private var rewardedAd: RewardedAd?
+    private var rewardCallback: ((Bool) -> Void)?
+
+    // MARK: - Init
     private override init() {
         super.init()
-        print("[AdMob] Stub manager active — ads disabled until production SDK is wired")
+        // Initialize the Mobile Ads SDK
+        MobileAds.shared.start(completionHandler: nil)
     }
 
+    // MARK: - Preload
     func preloadRewarded() {
-        isReady = false
-        print("[AdMob] preloadRewarded (stub) — no ad loaded")
+        guard rewardedAd == nil else { return } // Already loaded
+
+        let request = Request()
+        RewardedAd.load(with: rewardedAdUnitID, request: request) { [weak self] ad, error in
+            if let error = error {
+                print("[AdMob] Failed to load rewarded ad: \(error.localizedDescription)")
+                return
+            }
+            self?.rewardedAd = ad
+            self?.rewardedAd?.fullScreenContentDelegate = self
+            print("[AdMob] Rewarded ad loaded ✅")
+
+            // Notify JS that ad is ready
+            NotificationCenter.default.post(name: .adLoaded, object: nil)
+        }
     }
 
+    // MARK: - Show
     func showRewarded(from viewController: UIViewController?, completion: @escaping (Bool) -> Void) {
-        print("[AdMob] showRewarded (stub) — no ad available")
-        completion(false)
+        guard let ad = rewardedAd, let vc = viewController else {
+            print("[AdMob] Ad not ready or no view controller")
+            completion(false)
+            return
+        }
+
+        self.rewardCallback = completion
+
+        ad.present(from: vc) {
+            print("[AdMob] Reward earned ✅")
+            completion(true)
+        }
+
+        // Clear the ad reference after presenting — a new one will be preloaded on dismiss
+        self.rewardedAd = nil
     }
 }
 
+// MARK: - FullScreenContentDelegate
+extension AdMobManager: FullScreenContentDelegate {
+
+    func adDidDismissFullScreenContent(_ ad: FullScreenPresentingAd) {
+        print("[AdMob] Ad dismissed")
+        // Preload next ad
+        rewardedAd = nil
+        preloadRewarded()
+    }
+
+    func ad(_ ad: FullScreenPresentingAd, didFailToPresentFullScreenContentWithError error: Error) {
+        print("[AdMob] Ad failed to present: \(error.localizedDescription)")
+        rewardCallback?(false)
+        rewardCallback = nil
+        rewardedAd = nil
+        preloadRewarded()
+    }
+}
+
+// MARK: - Notification Names
 extension Notification.Name {
     static let adLoaded = Notification.Name("AdMobAdLoaded")
 }

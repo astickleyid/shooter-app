@@ -19,6 +19,8 @@
 		AA0010 /* GameCenterManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0011 /* GameCenterManager.swift */; };
 		AA0011 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = BB0012 /* PrivacyInfo.xcprivacy */; };
 		AA0012 /* AdMobManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0013 /* AdMobManager.swift */; };
+		AA0013 /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; productRef = KK0001 /* GoogleMobileAds */; };
+		AA0014 /* IAPManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0015 /* IAPManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -37,6 +39,7 @@
 		BB0012 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		BB0013 /* AdMobManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdMobManager.swift; sourceTree = "<group>"; };
 		BB0014 /* VoidRift.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = VoidRift.entitlements; sourceTree = "<group>"; };
+		BB0015 /* IAPManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IAPManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -44,6 +47,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA0013 /* GoogleMobileAds in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -89,6 +93,7 @@
 				BB0006 /* OrientationManager.swift */,
 				BB0011 /* GameCenterManager.swift */,
 				BB0013 /* AdMobManager.swift */,
+				BB0015 /* IAPManager.swift */,
 			);
 			path = Native;
 			sourceTree = "<group>";
@@ -127,6 +132,9 @@
 			dependencies = (
 			);
 			name = VoidRift;
+			packageProductDependencies = (
+				KK0001 /* GoogleMobileAds */,
+			);
 			productName = VoidRift;
 			productReference = AAAAAA /* VoidRift.app */;
 			productType = "com.apple.product-type.application";
@@ -160,6 +168,9 @@
 				Base,
 			);
 			mainGroup = DD0001;
+			packageReferences = (
+				JJ0001 /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */,
+			);
 			productRefGroup = DD0003 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -196,6 +207,7 @@
 				AA0006 /* OrientationManager.swift in Sources */,
 				AA0010 /* GameCenterManager.swift in Sources */,
 				AA0012 /* AdMobManager.swift in Sources */,
+				AA0014 /* IAPManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -405,6 +417,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		JJ0001 /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/googleads/swift-package-manager-google-mobile-ads";
+			requirement = {
+				kind = exactVersion;
+				version = 13.3.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		KK0001 /* GoogleMobileAds */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = JJ0001 /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */;
+			productName = GoogleMobileAds;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = GG0001 /* Project object */;
 }

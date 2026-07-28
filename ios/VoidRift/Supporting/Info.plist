@@ -24,6 +24,12 @@
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<!-- Google Mobile Ads SDK requires this key or it crashes on launch.
+	     This is Google's public test App ID (pairs with the test ad unit ID
+	     in AdMobManager.swift) — replace both with your real AdMob values
+	     from https://admob.google.com/ before App Store submission. -->
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-3940256099942544~1458002511</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
