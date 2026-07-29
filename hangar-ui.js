@@ -2728,6 +2728,14 @@ function renderMissionsView() {
         } catch (e) { /* storage unavailable — boost skipped */ }
       }
 
+      // Grant the mission's promised XP boost for the player's next run — previously
+      // reward.xpBoost was computed but never stored or applied anywhere.
+      if (reward.xpBoost && reward.xpBoost > 1) {
+        try {
+          localStorage.setItem('voidrift_pending_xp_boost', String(reward.xpBoost));
+        } catch (e) { /* storage unavailable — boost skipped */ }
+      }
+
       // Grant the mission's promised bonus tech fragment, if any — previously
       // reward.techFragment was computed but never actually collected.
       if (reward.techFragment && window.techFragmentSystem) {
