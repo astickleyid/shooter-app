@@ -185,8 +185,18 @@ const SocialUI = {
     const statusDiv = document.getElementById('backendStatus');
     if (!statusDiv) return;
     
-    // Auto-detect API URL
-    const apiBase = window.location.hostname === 'localhost' 
+    // Auto-detect API URL (127.0.0.1 / Capacitor / file need absolute prod host)
+    const host = window.location.hostname || '';
+    const protocol = window.location.protocol || '';
+    const needsRemote =
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host === '' ||
+      protocol === 'file:' ||
+      protocol === 'capacitor:' ||
+      protocol === 'ionic:' ||
+      protocol.indexOf('capacitor') === 0;
+    const apiBase = needsRemote
       ? 'https://shooter-app-one.vercel.app/api'
       : '/api';
     

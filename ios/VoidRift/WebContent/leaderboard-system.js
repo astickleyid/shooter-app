@@ -5,12 +5,32 @@
  */
 
 const LEADERBOARD_CONFIG = {
-  // Auto-detect API URL based on environment
+  // Auto-detect API URL based on environment.
+  // Absolute URLs are required for file://, Capacitor, and any host that does
+  // not serve /api (relative paths also break `new URL('/api/...')` without a base).
   API_URL: (function() {
-    if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-      return 'https://shooter-app-one.vercel.app/api/leaderboard';
+    const PROD = 'https://shooter-app-one.vercel.app/api/leaderboard';
+    if (typeof window === 'undefined') return PROD;
+    const host = window.location.hostname || '';
+    const protocol = window.location.protocol || '';
+    // Local static servers, WKWebView bundles, Capacitor/Ionic schemes
+    if (
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host === '' ||
+      protocol === 'file:' ||
+      protocol === 'capacitor:' ||
+      protocol === 'ionic:' ||
+      protocol.indexOf('capacitor') === 0
+    ) {
+      return PROD;
     }
-    return '/api/leaderboard';
+    // Same-origin deploy (Vercel / custom domain with /api routes)
+    try {
+      return new URL('/api/leaderboard', window.location.origin).href;
+    } catch (_) {
+      return PROD;
+    }
   })(),
   TIMEOUT_MS: 10000, // Increased for reliability
   RETRY_ATTEMPTS: 3,
@@ -193,7 +213,11 @@ const LeaderboardSystem = {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), LEADERBOARD_CONFIG.TIMEOUT_MS);
         
-        const url = new URL(LEADERBOARD_CONFIG.API_URL);
+        // Always pass a base so relative API paths never throw Invalid URL
+        const base = (typeof window !== 'undefined' && window.location && window.location.origin)
+          ? window.location.origin
+          : 'https://shooter-app-one.vercel.app';
+        const url = new URL(LEADERBOARD_CONFIG.API_URL, base);
         url.searchParams.set('difficulty', difficulty);
         url.searchParams.set('limit', Math.min(limit, 100));
         

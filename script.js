@@ -1613,6 +1613,9 @@
       credits: 0,
       bestScore: 0,
       highestLevel: 1,
+      bestKills: 0,
+      bestTimeSec: 0,
+      bestAccuracyPct: 0,
       upgrades: {},
       pilotLevel: 1,
       pilotXp: 0,
@@ -1640,6 +1643,9 @@
           credits: 0,
           bestScore: 0,
           highestLevel: 1,
+          bestKills: 0,
+          bestTimeSec: 0,
+          bestAccuracyPct: 0,
           upgrades: {},
           pilotLevel: 1,
           pilotXp: 0,
@@ -1698,6 +1704,18 @@
       if (s > this.data.bestScore) this.data.bestScore = s;
       if (lvl > this.data.highestLevel) this.data.highestLevel = lvl;
       this.save();
+    },
+    setRunBests(kills, timeSec, accuracyPct) {
+      let changed = false;
+      if (kills > (this.data.bestKills || 0)) { this.data.bestKills = kills; changed = true; }
+      if (timeSec > (this.data.bestTimeSec || 0)) { this.data.bestTimeSec = timeSec; changed = true; }
+      if (accuracyPct > (this.data.bestAccuracyPct || 0)) { this.data.bestAccuracyPct = accuracyPct; changed = true; }
+      if (changed) this.save();
+      return {
+        newBestKills: kills > 0 && kills >= (this.data.bestKills || 0),
+        newBestTime: timeSec > 0 && timeSec >= (this.data.bestTimeSec || 0),
+        newBestAccuracy: accuracyPct > 0 && accuracyPct >= (this.data.bestAccuracyPct || 0)
+      };
     },
     getUpgradeLevel(id) {
       return this.data.upgrades[id] || 0;
@@ -13428,6 +13446,7 @@ PowerUps.reset();
     const runKillCount = totalKillsThisRun;
     const runTimeSec = runStartTime > 0 ? Math.floor((performance.now() - runStartTime) / 1000) : 0;
     const runAccuracyPct = runShotsFired > 0 ? Math.round((runShotsHit / runShotsFired) * 100) : 0;
+    const runPBs = Save.setRunBests(runKillCount, runTimeSec, runAccuracyPct);
 
     if (Auth.isLoggedIn()) {
       const username = Auth.getCurrentUsername();
@@ -13446,14 +13465,14 @@ PowerUps.reset();
       // Submit to leaderboard
       Leaderboard.addEntry(username, finalScore, finalLevel, currentDifficulty)
         .then(rank => {
-          showGameOverScreen(finalScore, finalLevel, rank, isNewBest, runKillCount, runTimeSec, runAccuracyPct);
+          showGameOverScreen(finalScore, finalLevel, rank, isNewBest, runKillCount, runTimeSec, runAccuracyPct, runPBs);
         })
         .catch(err => {
           console.warn('Failed to submit leaderboard entry:', err);
-          showGameOverScreen(finalScore, finalLevel, null, isNewBest, runKillCount, runTimeSec, runAccuracyPct);
+          showGameOverScreen(finalScore, finalLevel, null, isNewBest, runKillCount, runTimeSec, runAccuracyPct, runPBs);
         });
     } else {
-      showGameOverScreen(finalScore, finalLevel, null, isNewBest, runKillCount, runTimeSec, runAccuracyPct);
+      showGameOverScreen(finalScore, finalLevel, null, isNewBest, runKillCount, runTimeSec, runAccuracyPct, runPBs);
     }
   };
 
@@ -13597,7 +13616,7 @@ PowerUps.reset();
     }, 3000);
   };
 
-  const showGameOverScreen = (finalScore, finalLevel, rank, isNewBest, runKillCount = 0, runTimeSec = 0, runAccuracyPct = 0) => {
+  const showGameOverScreen = (finalScore, finalLevel, rank, isNewBest, runKillCount = 0, runTimeSec = 0, runAccuracyPct = 0, runPBs = {}) => {
     if (window.missionSystem) updateMissionHUD();
     // Note: Don't hide gameContainer - the gameOverModal is a child element
     // inside gameContainer, so hiding the container would also hide the modal.
@@ -13627,6 +13646,13 @@ PowerUps.reset();
         timeEl.textContent = mm > 0 ? `${mm}m ${ss}s` : `${runTimeSec}s`;
       }
       if (accuracyEl) accuracyEl.textContent = `${runAccuracyPct}%`;
+      // PB indicators
+      const killsPbEl = document.getElementById('gameOverKillsPB');
+      const timePbEl = document.getElementById('gameOverTimePB');
+      const accuracyPbEl = document.getElementById('gameOverAccuracyPB');
+      if (killsPbEl) killsPbEl.style.display = runPBs.newBestKills ? 'inline' : 'none';
+      if (timePbEl) timePbEl.style.display = runPBs.newBestTime ? 'inline' : 'none';
+      if (accuracyPbEl) accuracyPbEl.style.display = runPBs.newBestAccuracy ? 'inline' : 'none';
       const missionsEl = document.getElementById('gameOverMissions');
       if (missionsEl) missionsEl.textContent = String(missionsCompletedThisRun);
 

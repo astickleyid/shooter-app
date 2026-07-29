@@ -104,14 +104,8 @@
       }
     }
 
-    // Leaderboard nav button → native GC
-    var lbBtn = document.getElementById('leaderboardButton');
-    if (lbBtn) {
-      lbBtn.onclick = function (e) {
-        e.preventDefault();
-        openGameCenterLeaderboard('com.voidrift.highscore');
-      };
-    }
+    // Leaderboard nav is wired in script.js setupInput (VOID_RIFT_GC_ONLY path).
+    // Do not also set onclick here — double-firing freezes / stacks GC sheets.
 
     // Hide auth prompts that imply custom accounts
     var loginPrompt = document.getElementById('gameOverLoginPrompt');

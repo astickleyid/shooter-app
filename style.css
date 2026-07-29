@@ -27,9 +27,71 @@ html, body {
 
 /* Allow scrolling only inside modals / panels */
 .modal, .modal-content, .wave-upgrade-panel, .wave-upgrade-cards,
-.hangar-modal, .shopGrid, .leaderboard-list, .terminal-logs {
+.hangar-modal, .shopGrid, .leaderboard-list, .terminal-logs,
+#hangarOverlay #hangarContent, #shopCard,
+.social-modal, .social-modal-content {
   touch-action: pan-y;
   overscroll-behavior: contain;
+}
+
+/* Interactive UI must stay tappable under body { touch-action: none }.
+   manipulation = allow taps, disable double-tap zoom delay. */
+button,
+a,
+select,
+input,
+textarea,
+label,
+.nav-btn,
+.startButton-primary,
+.footer-btn,
+.closeBtn,
+.btnBuy,
+.secondaryBtn,
+.pause-menu-btn,
+.filter-btn,
+.ship-select-btn,
+.hangar-tab-btn,
+.hangar-close-btn,
+#unifiedMenuButton,
+#abilityQBtn {
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: pointer;
+}
+
+/* Start screen must stay tappable above residual loading/canvas layers.
+   Later #startScreen rules also set layout — keep z-index high enough that
+   gameContainer (z:10) and leftover overlays never steal taps. */
+#startScreen {
+  z-index: 40 !important;
+  pointer-events: auto;
+}
+
+#startScreen .start-main,
+#startScreen .start-nav,
+#startScreen .start-footer {
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
+}
+
+#startScreen .nav-btn,
+#startScreen .startButton-primary,
+#startScreen .footer-btn,
+#startScreen select {
+  pointer-events: auto;
+  position: relative;
+  z-index: 2;
+}
+
+/* Icons/labels inside nav buttons must not steal the hit target */
+#startScreen .nav-btn img,
+#startScreen .nav-btn .nav-icon,
+#startScreen .nav-btn .nav-label,
+#startScreen .nav-btn span {
+  pointer-events: none;
 }
 
 /* ==========================================
@@ -3072,6 +3134,24 @@ html, body {
   color: #e2e8f0;
   text-shadow: 0 0 10px rgba(134,239,172,0.35);
   line-height: 1;
+}
+
+.run-stat-pb {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: #fbbf24;
+  background: rgba(251,191,36,0.15);
+  border: 1px solid rgba(251,191,36,0.4);
+  border-radius: 4px;
+  padding: 1px 5px;
+  text-transform: uppercase;
+  animation: pb-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pb-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
 }
 
 .login-prompt {

@@ -56,9 +56,16 @@ export function getTodayBest() {
 
 /** Activate daily challenge: seeds Math.random, sets global flag */
 export function activateDailyChallenge() {
+  // Idempotent — re-activating must not replace _originalMathRandom with the seed fn
+  if (window.DAILY_CHALLENGE_ACTIVE && window._originalMathRandom) {
+    console.log('[DailyChallenge] Already active for', window.DAILY_CHALLENGE_DATE);
+    return;
+  }
   const seed = dateSeed(todayStr());
   const seededRandom = mulberry32(seed);
-  window._originalMathRandom = Math.random;
+  if (!window._originalMathRandom) {
+    window._originalMathRandom = Math.random.bind(Math);
+  }
   Math.random = seededRandom;
   window.DAILY_CHALLENGE_ACTIVE = true;
   window.DAILY_CHALLENGE_DATE = todayStr();

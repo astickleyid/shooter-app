@@ -8,13 +8,26 @@ const BACKEND_CONFIG = {
   // Auto-detect API URL based on environment
   // Uses relative URL for deployed version, can be overridden for development
   API_URL: (function() {
-    // Check if running on localhost for development
-    if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-      // For local development, you may need to point to deployed backend
-      return 'https://shooter-app-one.vercel.app/api/leaderboard';
+    const PROD = 'https://shooter-app-one.vercel.app/api/leaderboard';
+    if (typeof window === 'undefined') return PROD;
+    const host = window.location.hostname || '';
+    const protocol = window.location.protocol || '';
+    if (
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host === '' ||
+      protocol === 'file:' ||
+      protocol === 'capacitor:' ||
+      protocol === 'ionic:' ||
+      protocol.indexOf('capacitor') === 0
+    ) {
+      return PROD;
     }
-    // For production/deployed version, use relative URL
-    return '/api/leaderboard';
+    try {
+      return new URL('/api/leaderboard', window.location.origin).href;
+    } catch (_) {
+      return PROD;
+    }
   })(),
   USE_GLOBAL: true,
   TIMEOUT_MS: 8000, // Increased timeout for KV operations
@@ -115,7 +128,10 @@ const GlobalLeaderboard = {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), BACKEND_CONFIG.TIMEOUT_MS);
 
-        const url = new URL(BACKEND_CONFIG.API_URL);
+        const base = (typeof window !== 'undefined' && window.location && window.location.origin)
+          ? window.location.origin
+          : 'https://shooter-app-one.vercel.app';
+        const url = new URL(BACKEND_CONFIG.API_URL, base);
         url.searchParams.set('difficulty', difficulty);
         url.searchParams.set('limit', Math.min(limit, 100));
 

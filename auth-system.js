@@ -8,10 +8,26 @@
 const AUTH_CONFIG = {
   // Auto-detect API URL based on environment
   API_BASE: (function() {
-    if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-      return 'https://shooter-app-one.vercel.app/api';
+    const PROD = 'https://shooter-app-one.vercel.app/api';
+    if (typeof window === 'undefined') return PROD;
+    const host = window.location.hostname || '';
+    const protocol = window.location.protocol || '';
+    if (
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host === '' ||
+      protocol === 'file:' ||
+      protocol === 'capacitor:' ||
+      protocol === 'ionic:' ||
+      protocol.indexOf('capacitor') === 0
+    ) {
+      return PROD;
     }
-    return '/api';
+    try {
+      return new URL('/api', window.location.origin).href.replace(/\/$/, '');
+    } catch (_) {
+      return PROD;
+    }
   })(),
   STORAGE_KEY: 'voidrift_session',
   SESSION_TIMEOUT: 24 * 60 * 60 * 1000, // 24 hours

@@ -279,9 +279,28 @@ const UnifiedSocial = {
       }
     } else if (loginBtn) {
       loginBtn.textContent = 'Login';
-      loginBtn.onclick = () => {
-        if (typeof SocialHub !== 'undefined') {
-          SocialHub.showAuthModal('login');
+      loginBtn.onclick = (e) => {
+        if (e && typeof e.preventDefault === 'function') e.preventDefault();
+        // Prefer SocialHub when present; fall back so Login never goes dead
+        // (social-hub.js was previously omitted from index.html, which made
+        // this handler a silent no-op and looked like a frozen menu button).
+        try {
+          if (typeof SocialHub !== 'undefined' && typeof SocialHub.showAuthModal === 'function') {
+            SocialHub.showAuthModal('login');
+            return;
+          }
+          if (typeof SocialUI !== 'undefined' && typeof SocialUI.showAuthModal === 'function') {
+            SocialUI.showAuthModal('login');
+            return;
+          }
+          const auth = document.getElementById('authModal');
+          if (auth) {
+            auth.style.display = 'flex';
+            return;
+          }
+          console.warn('[UnifiedSocial] No auth UI available for Login button');
+        } catch (err) {
+          console.error('[UnifiedSocial] Login open failed', err);
         }
       };
       loginBtn.classList.add('footer-btn-text');
@@ -296,12 +315,20 @@ const UnifiedSocial = {
 
   // Show profile (unified)
   showProfile() {
-    if (this.isGameCenterAuthenticated) {
-      // Show Game Center profile
-      this.showAchievements();
-    } else if (typeof SocialHub !== 'undefined') {
-      // Show web profile
-      SocialHub.showProfile();
+    try {
+      if (this.isGameCenterAuthenticated) {
+        this.showAchievements();
+        return;
+      }
+      if (typeof SocialHub !== 'undefined' && typeof SocialHub.showProfile === 'function') {
+        SocialHub.showProfile();
+        return;
+      }
+      if (typeof SocialUI !== 'undefined' && typeof SocialUI.showProfileModal === 'function') {
+        SocialUI.showProfileModal();
+      }
+    } catch (err) {
+      console.error('[UnifiedSocial] showProfile failed', err);
     }
   },
 
