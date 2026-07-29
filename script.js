@@ -902,6 +902,7 @@
   let pilotLevel = 1;
   let pilotXP = 0;
   let tookDamageThisLevel = false;
+  let hadFlawlessLevelThisRun = false; // set when ANY level this run was cleared without damage
   let lastCloseCallAt = 0;
   let gameOverHandled = false;
   let missionsCompletedThisRun = 0;
@@ -2302,6 +2303,14 @@
   const currentUltimateSystem = () => ARMORY_MAP.ultimate[Save.data.armory.loadout.ultimate] || ARMORY.ultimate[0];
 
   const resetRuntimeState = () => {
+    // A stale ready-up/countdown phase left over from the previous run (e.g.
+    // starting a new game while paused mid-"ready up") would otherwise leave
+    // the main loop stuck forever skipping updateGame() for the new run.
+    readyUpPhase = false;
+    readyUpLevel = 0;
+    countdownActive = false;
+    countdownEnd = 0;
+    countdownCompletedLevel = 0;
     enemies = [];
     bullets = [];
     coins = [];
@@ -2349,6 +2358,7 @@ PowerUps.reset();
     pilotLevel = Save.data.pilotLevel;
     pilotXP = Save.data.pilotXp;
     tookDamageThisLevel = false;
+    hadFlawlessLevelThisRun = false;
     lastCloseCallAt = 0;
     gameOverHandled = false;
     missionsCompletedThisRun = 0;
@@ -10131,6 +10141,14 @@ PowerUps.reset();
       btn.addEventListener('click', () => {
         Save.data.selectedShip = ship.id;
         Save.save();
+        // Ship Collector achievement reads Auth.playerProfile.unlockedShips,
+        // but only prestige rewards ever pushed to it — equipping a ship here
+        // never did, so the achievement was unreachable through normal play.
+        if (!Auth.playerProfile.unlockedShips.includes(ship.id)) {
+          Auth.playerProfile.unlockedShips.push(ship.id);
+          Auth.saveProfile();
+          Auth.checkAchievements();
+        }
         initShipSelection();
         if (player) player.reconfigureLoadout(true);
         drawStartGraphic();
@@ -10256,6 +10274,12 @@ PowerUps.reset();
       selectedShip = shipDef.id;
       Save.data.selectedShip = shipDef.id;
       Save.save();
+      // See createShipCard's Equip handler — same Ship Collector wiring fix.
+      if (!Auth.playerProfile.unlockedShips.includes(shipDef.id)) {
+        Auth.playerProfile.unlockedShips.push(shipDef.id);
+        Auth.saveProfile();
+        Auth.checkAchievements();
+      }
       if (player) player.reconfigureLoadout(true);
       renderHangar();
     });
@@ -10531,7 +10555,12 @@ PowerUps.reset();
     if (window.techFragmentSystem) {
       const tfs = window.techFragmentSystem;
       tfs.update(dt);
-      const collectedPickup = tfs.checkCollection(player.x, player.y, player.size);
+      // checkCollection's 3rd arg is the full magnet range (see TechFragmentSystem
+      // docs) — was passed raw player.size, so fragments never benefited from the
+      // Magnet Range shop upgrade or the MAGNET power-up the way coins/supplies do.
+      const fragmentMagnetBonus = Save.getUpgradeLevel('magnet') * 14 * getAdaptiveScaling().powerEffectiveness;
+      const fragmentMagnetRange = (player.size + fragmentMagnetBonus) * (PowerUps.isMagnetActive(now) ? 3 : 1);
+      const collectedPickup = tfs.checkCollection(player.x, player.y, fragmentMagnetRange);
       if (collectedPickup) {
         if (window.missionSystem) window.missionSystem.trackFragments(1);
         if (typeof AudioManager !== 'undefined') AudioManager.playCoinPickup();
@@ -11054,6 +11083,7 @@ PowerUps.reset();
       window.missionSystem.trackLevelComplete(!tookDamageThisLevel);
     }
     if (!tookDamageThisLevel) {
+      hadFlawlessLevelThisRun = true;
       addXP(110 + level * 18);
       // Perfect Wave bonus — extra credits + announcement
       const perfectBonus = Math.floor(40 + level * 10);
@@ -13027,6 +13057,15 @@ PowerUps.reset();
       
       // Restart from level 1
       resetRuntimeState();
+
+      // Restarting a Daily Challenge run without dying skips handleGameOver(),
+      // which is the only other place Math.random's seeded override gets
+      // restored — leaving it seeded for every subsequent run otherwise (see
+      // the same fix in exitToMainMenu()).
+      if (window.DAILY_CHALLENGE_ACTIVE) {
+        import('./daily-challenge.js').then(({ deactivateDailyChallenge }) => deactivateDailyChallenge());
+      }
+
       runStartTime = performance.now();
       initShipSelection();
       startLevel(1, true);
@@ -13336,7 +13375,11 @@ PowerUps.reset();
       eliteKills: eliteKillsThisRun,
       voidSurgeKills: voidSurgeKilledThisRun,
       playTime: performance.now() - (waveStartTime || performance.now()),
-      flawlessLevel: !tookDamageThisLevel
+      // Was `!tookDamageThisLevel`, evaluated at the moment of death — the
+      // fatal hit itself sets tookDamageThisLevel, so that almost always read
+      // false-flawless even after clearing earlier levels without damage.
+      // hadFlawlessLevelThisRun tracks the whole run, set in advanceLevel().
+      flawlessLevel: hadFlawlessLevelThisRun
     });
 
     // Feed the AchievementSystem lifetime totals so the Hangar's Achievements
