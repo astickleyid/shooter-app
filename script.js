@@ -1706,16 +1706,14 @@
       this.save();
     },
     setRunBests(kills, timeSec, accuracyPct) {
-      let changed = false;
-      if (kills > (this.data.bestKills || 0)) { this.data.bestKills = kills; changed = true; }
-      if (timeSec > (this.data.bestTimeSec || 0)) { this.data.bestTimeSec = timeSec; changed = true; }
-      if (accuracyPct > (this.data.bestAccuracyPct || 0)) { this.data.bestAccuracyPct = accuracyPct; changed = true; }
-      if (changed) this.save();
-      return {
-        newBestKills: kills > 0 && kills >= (this.data.bestKills || 0),
-        newBestTime: timeSec > 0 && timeSec >= (this.data.bestTimeSec || 0),
-        newBestAccuracy: accuracyPct > 0 && accuracyPct >= (this.data.bestAccuracyPct || 0)
-      };
+      const newBestKills = kills > 0 && kills > (this.data.bestKills || 0);
+      const newBestTime = timeSec > 0 && timeSec > (this.data.bestTimeSec || 0);
+      const newBestAccuracy = accuracyPct > 0 && accuracyPct > (this.data.bestAccuracyPct || 0);
+      if (newBestKills) this.data.bestKills = kills;
+      if (newBestTime) this.data.bestTimeSec = timeSec;
+      if (newBestAccuracy) this.data.bestAccuracyPct = accuracyPct;
+      if (newBestKills || newBestTime || newBestAccuracy) this.save();
+      return { newBestKills, newBestTime, newBestAccuracy };
     },
     getUpgradeLevel(id) {
       return this.data.upgrades[id] || 0;
@@ -14463,16 +14461,21 @@ PowerUps.reset();
         addLogEntry(`Primary weapon active`, '#fde047');
         break;
         
-      case 'boost':
+      case 'boost': {
         input.isBoosting = true;
-        setTimeout(() => (input.isBoosting = false), 300);
+        const tfs = window.techFragmentSystem;
+        const unlocks = window.TECH_UNLOCKS || {};
+        const boostDurationMult = (tfs && tfs.hasFragment('quantum_core') && unlocks.quantum_drive)
+          ? (unlocks.quantum_drive.stats.boostDuration || 1) : 1;
+        setTimeout(() => (input.isBoosting = false), 300 * boostDurationMult);
         addLogEntry(`BOOST activated!`, '#4ade80');
         // Play boost sound
         if (typeof AudioManager !== 'undefined') {
           AudioManager.playBoost();
         }
         break;
-        
+      }
+
       case 'secondary':
         input.altFireHeld = true;
         setTimeout(() => (input.altFireHeld = false), 150);
