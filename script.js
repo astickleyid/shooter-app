@@ -13689,6 +13689,18 @@ PowerUps.reset();
         bestBanner.style.display = isNewBest ? 'flex' : 'none';
       }
 
+      // Populate per-stat PB labels
+      const _pbParts = [];
+      if (isNewBest) _pbParts.push('High Score');
+      const _killsPBEl = document.getElementById('gameOverKillsPB');
+      const _timePBEl = document.getElementById('gameOverTimePB');
+      const _accuracyPBEl = document.getElementById('gameOverAccuracyPB');
+      if (_killsPBEl && _killsPBEl.style.display !== 'none') _pbParts.push('Kills');
+      if (_timePBEl && _timePBEl.style.display !== 'none') _pbParts.push('Time');
+      if (_accuracyPBEl && _accuracyPBEl.style.display !== 'none') _pbParts.push('Accuracy');
+      const _pbStatsEl = document.getElementById('personalBestStats');
+      if (_pbStatsEl) _pbStatsEl.textContent = _pbParts.join(' · ');
+
       const localScores = LocalLeaderboard.get();
       const tbody = document.getElementById('localLeaderboardBody');
       if (tbody) {
