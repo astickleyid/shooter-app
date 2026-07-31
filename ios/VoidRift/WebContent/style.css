@@ -3120,6 +3120,52 @@ label,
   border-color: rgba(134,239,172,0.45);
 }
 
+.game-over-pilot-xp {
+  padding: 0 24px 16px;
+  background: rgba(0,0,0,0.8);
+}
+
+.game-over-pilot-xp-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.game-over-pilot-level {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #4ade80;
+  text-transform: uppercase;
+}
+
+.game-over-xp-earned {
+  font-size: 12px;
+  font-weight: 600;
+  color: #fbbf24;
+}
+
+.game-over-xp-progress {
+  font-size: 11px;
+  color: rgba(148,163,184,0.7);
+  margin-left: auto;
+}
+
+.game-over-xp-track {
+  height: 6px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.game-over-xp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #22c55e, #4ade80);
+  border-radius: 3px;
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 .run-stat-label {
   font-size: 11px;
   font-weight: 700;

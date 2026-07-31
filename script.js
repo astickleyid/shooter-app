@@ -905,6 +905,7 @@
   let lastCloseCallAt = 0;
   let gameOverHandled = false;
   let missionsCompletedThisRun = 0;
+  let xpEarnedThisRun = 0;
   let continueUsed = false;
   let runShotsFired = 0;
   let runShotsHit = 0;
@@ -2370,6 +2371,7 @@ PowerUps.reset();
     lastCloseCallAt = 0;
     gameOverHandled = false;
     missionsCompletedThisRun = 0;
+    xpEarnedThisRun = 0;
     continueUsed = false;
     // Consume the one-run XP boost granted by a claimed mission reward, if any
     try {
@@ -2492,6 +2494,7 @@ PowerUps.reset();
       amount = Math.floor(amount * xpBoostMultiplier);
     }
 
+    xpEarnedThisRun += amount;
     pilotXP += amount;
     let leveled = false;
     let needed = XP_PER_LEVEL(pilotLevel);
@@ -13655,6 +13658,20 @@ PowerUps.reset();
       if (accuracyPbEl) accuracyPbEl.style.display = runPBs.newBestAccuracy ? 'inline' : 'none';
       const missionsEl = document.getElementById('gameOverMissions');
       if (missionsEl) missionsEl.textContent = String(missionsCompletedThisRun);
+
+      // Pilot XP progress bar
+      const xpBarFill = document.getElementById('gameOverXPFill');
+      const xpEarnedEl = document.getElementById('gameOverXPEarned');
+      const xpLevelEl = document.getElementById('gameOverXPLevel');
+      const xpProgressEl = document.getElementById('gameOverXPProgress');
+      if (xpBarFill && xpEarnedEl && xpLevelEl && xpProgressEl) {
+        const xpNeeded = XP_PER_LEVEL(pilotLevel);
+        const pct = Math.min(100, Math.round((pilotXP / xpNeeded) * 100));
+        xpBarFill.style.width = `${pct}%`;
+        xpEarnedEl.textContent = `+${xpEarnedThisRun} XP`;
+        xpLevelEl.textContent = `LVL ${pilotLevel}`;
+        xpProgressEl.textContent = `${pilotXP} / ${xpNeeded} XP`;
+      }
 
       // Perk loadout
       const perksSection = document.getElementById('gameOverPerks');
