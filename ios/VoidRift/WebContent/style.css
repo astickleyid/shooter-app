@@ -5099,3 +5099,16 @@ label,
   color: #ffffff;
   letter-spacing: 0.05em;
 }
+
+/* ── Reduced motion ────────────────────────────────────────────────────────
+   Respect the OS-level accessibility setting: collapse looping/pulsing
+   animations (HUD glows, wave-card pulses, title/button pulses, toasts)
+   and instant-finish transitions, without removing the underlying layout. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
