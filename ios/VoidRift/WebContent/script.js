@@ -906,6 +906,7 @@
   let gameOverHandled = false;
   let missionsCompletedThisRun = 0;
   let xpEarnedThisRun = 0;
+  let levelsGainedThisRun = 0;
   let continueUsed = false;
   let runShotsFired = 0;
   let runShotsHit = 0;
@@ -2372,6 +2373,7 @@ PowerUps.reset();
     gameOverHandled = false;
     missionsCompletedThisRun = 0;
     xpEarnedThisRun = 0;
+    levelsGainedThisRun = 0;
     continueUsed = false;
     // Consume the one-run XP boost granted by a claimed mission reward, if any
     try {
@@ -2502,6 +2504,7 @@ PowerUps.reset();
       pilotXP -= needed;
       pilotLevel += 1;
       leveled = true;
+      levelsGainedThisRun += 1;
       needed = XP_PER_LEVEL(pilotLevel);
       
       // Phase 1: Trigger level-up celebration
@@ -13671,6 +13674,19 @@ PowerUps.reset();
         xpEarnedEl.textContent = `+${xpEarnedThisRun} XP`;
         xpLevelEl.textContent = `LVL ${pilotLevel}`;
         xpProgressEl.textContent = `${pilotXP} / ${xpNeeded} XP`;
+      }
+
+      // Level-up badge
+      const lvlUpBadge = document.getElementById('gameOverLevelUpBadge');
+      if (lvlUpBadge) {
+        if (levelsGainedThisRun > 0) {
+          lvlUpBadge.textContent = levelsGainedThisRun > 1
+            ? `🎉 +${levelsGainedThisRun} LEVELS → LVL ${pilotLevel}`
+            : `🎉 LEVEL UP → LVL ${pilotLevel}`;
+          lvlUpBadge.style.display = 'block';
+        } else {
+          lvlUpBadge.style.display = 'none';
+        }
       }
 
       // Perk loadout
