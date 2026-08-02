@@ -10362,6 +10362,7 @@ PowerUps.reset();
           Save.save();
           updateEquipmentIndicator();
         },
+        addXP: addXP,
         onSkinEquip: () => {
           initShipSelection();
           if (player) player.reconfigureLoadout(true);

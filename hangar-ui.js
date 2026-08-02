@@ -2741,6 +2741,24 @@ function renderMissionsView() {
         }
       }
 
+      // Award direct XP for mission completion
+      const xpAmount = Math.floor((reward.credits || 0) * 0.5);
+      if (xpAmount > 0) {
+        if (typeof _options.addXP === 'function') {
+          _options.addXP(xpAmount);
+        } else {
+          // Update save data directly when game isn't running
+          try {
+            const raw = localStorage.getItem('void_rift_v11');
+            const data = raw ? JSON.parse(raw) : {};
+            // Simple XP add — level-up will be recalculated on next game start
+            data.pilotXp = (data.pilotXp || 0) + xpAmount;
+            localStorage.setItem('void_rift_v11', JSON.stringify(data));
+          } catch (e) { /* storage unavailable */ }
+        }
+        showAchievementToast({ icon: '⭐', name: `+${xpAmount} XP`, desc: 'Mission complete bonus!' });
+      }
+
       // Re-render to show claimed state
       renderMissionsView();
       updateMissionsNavBadge();
