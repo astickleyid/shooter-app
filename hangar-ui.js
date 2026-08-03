@@ -200,6 +200,65 @@ const HANGAR_UI_CSS = `
     gap: 10px;
   }
 
+  /* ── Pilot XP badge ────────────────────────────────────────── */
+  .hangar-pilot-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    padding: 7px 14px;
+    background: rgba(139, 92, 246, 0.08);
+    border: 1px solid rgba(139, 92, 246, 0.35);
+    border-radius: 8px;
+    min-width: 110px;
+  }
+
+  .hangar-pilot-badge__top {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .hangar-pilot-badge__icon {
+    font-size: 13px;
+    line-height: 1;
+    filter: drop-shadow(0 0 5px rgba(139, 92, 246, 0.8));
+  }
+
+  .hangar-pilot-badge__lvl {
+    font-size: 11px;
+    font-weight: 700;
+    color: rgba(167, 139, 250, 0.55);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .hangar-pilot-badge__num {
+    font-size: 18px;
+    font-weight: 800;
+    color: #a78bfa;
+    letter-spacing: 0.04em;
+    text-shadow: 0 0 12px rgba(139, 92, 246, 0.6);
+    margin-left: auto;
+  }
+
+  .hangar-pilot-xp-bar {
+    width: 100%;
+    height: 3px;
+    background: rgba(139, 92, 246, 0.15);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .hangar-pilot-xp-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #7c3aed, #a78bfa);
+    border-radius: 2px;
+    box-shadow: 0 0 6px rgba(139, 92, 246, 0.7);
+    transition: width 0.4s ease;
+  }
+
   /* ── Scrollable content area ───────────────────────────────── */
   #hangarContent {
     flex: 1 1 0;
@@ -1578,6 +1637,43 @@ function injectStyles() {
 }
 
 /**
+ * XP required to reach the next level from a given level.
+ * Mirrors the formula in script.js: Math.floor(160 + Math.pow(lvl, 1.65) * 55)
+ */
+function xpForLevel(lvl) {
+  return Math.floor(160 + Math.pow(lvl, 1.65) * 55);
+}
+
+/**
+ * Retrieve the pilot's current level.
+ * Reads from Save.data if available, else falls back to getPilotLevel option.
+ */
+function getLivePilotLevel() {
+  if (typeof window !== 'undefined' && window.Save && window.Save.data) {
+    return Math.max(1, Math.floor(window.Save.data.pilotLevel || 1));
+  }
+  if (typeof _options.getPilotLevel === 'function') {
+    const val = _options.getPilotLevel();
+    if (typeof val === 'number' && !isNaN(val)) return Math.max(1, val);
+  }
+  return 1;
+}
+
+/**
+ * Retrieve the pilot's current XP within the current level.
+ */
+function getLivePilotXP() {
+  if (typeof window !== 'undefined' && window.Save && window.Save.data) {
+    return Math.max(0, Math.floor(window.Save.data.pilotXp || 0));
+  }
+  if (typeof _options.getPilotXP === 'function') {
+    const val = _options.getPilotXP();
+    if (typeof val === 'number' && !isNaN(val)) return Math.max(0, val);
+  }
+  return 0;
+}
+
+/**
  * Retrieve the live credits value.
  * Prefers an external getCredits() callback (to sync with main save),
  * otherwise falls back to the hangar's own credit pool.
@@ -1683,6 +1779,24 @@ function renderCard(item) {
  * Rebuild the entire upgrade grid without tearing down the full overlay.
  * No-ops when the achievements tab is active.
  */
+/**
+ * Update the pilot level badge and XP progress bar in the header.
+ * Safe to call at any time — no-ops if the elements aren't in the DOM.
+ */
+function refreshPilotBadge() {
+  const lvlEl = document.getElementById('hangar-pilot-level');
+  const fillEl = document.getElementById('hangar-pilot-xp-fill');
+  if (!lvlEl || !fillEl) return;
+
+  const lvl = getLivePilotLevel();
+  const xp  = getLivePilotXP();
+  const needed = xpForLevel(lvl);
+  const pct = Math.min(100, Math.round((xp / needed) * 100));
+
+  lvlEl.textContent = lvl;
+  fillEl.style.width = `${pct}%`;
+}
+
 function refreshGrid() {
   if (_activeTab !== 'upgrades') return;
 
@@ -1698,6 +1812,7 @@ function refreshGrid() {
   if (badge) {
     badge.textContent = getLiveCredits().toLocaleString();
   }
+  refreshPilotBadge();
 }
 
 /**
@@ -2489,6 +2604,7 @@ function switchTab(tab) {
   }
 
   updateMissionsNavBadge();
+  refreshPilotBadge();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2757,6 +2873,8 @@ function renderMissionsView() {
           } catch (e) { /* storage unavailable */ }
         }
         showAchievementToast({ icon: '⭐', name: `+${xpAmount} XP`, desc: 'Mission complete bonus!' });
+        // Refresh the header pilot badge so the XP bar updates immediately
+        refreshPilotBadge();
       }
 
       // Re-render to show claimed state
@@ -3333,6 +3451,23 @@ export function openHangar(opts = {}) {
           <p class="hangar-subtitle">Permanent Upgrades</p>
         </div>
         <div class="hangar-header-right">
+          ${(() => {
+            const lvl = getLivePilotLevel();
+            const xp  = getLivePilotXP();
+            const needed = xpForLevel(lvl);
+            const pct = Math.min(100, Math.round((xp / needed) * 100));
+            return `
+          <div class="hangar-pilot-badge" id="hangar-pilot-badge">
+            <div class="hangar-pilot-badge__top">
+              <span class="hangar-pilot-badge__icon">✦</span>
+              <span class="hangar-pilot-badge__lvl">PILOT</span>
+              <span class="hangar-pilot-badge__num" id="hangar-pilot-level">${lvl}</span>
+            </div>
+            <div class="hangar-pilot-xp-bar">
+              <div class="hangar-pilot-xp-fill" id="hangar-pilot-xp-fill" style="width:${pct}%"></div>
+            </div>
+          </div>`;
+          })()}
           <div class="hangar-credits-badge">
             <span class="cr-icon">⚡</span>
             <span class="cr-label">CR</span>
