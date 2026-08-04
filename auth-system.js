@@ -34,8 +34,19 @@ const AUTH_CONFIG = {
   TIMEOUT_MS: 10000, // Increased to 10s for reliability
   RETRY_ATTEMPTS: 3, // Retry failed requests
   RETRY_DELAY: 1000, // 1 second between retries
-  DEBUG: true // Enable detailed logging
+  // Only enable verbose logging on localhost/dev builds — never in production
+  DEBUG: (function() {
+    if (typeof window === 'undefined') return false;
+    const host = window.location.hostname || '';
+    return host === 'localhost' || host === '127.0.0.1' || host === '';
+  })()
 };
+
+// Strips sensitive fields before a response object is ever passed to console.log
+function redactSessionToken(response) {
+  if (!response || typeof response !== 'object') return response;
+  return { ...response, sessionToken: response.sessionToken ? '[REDACTED]' : response.sessionToken };
+}
 
 // Log configuration on load
 console.log('🔧 Auth Config:', {
@@ -118,7 +129,7 @@ const AuthSystem = {
         body: JSON.stringify({ username: cleanUsername, password })
       });
       
-      if (AUTH_CONFIG.DEBUG) console.log('✅ Registration response:', response);
+      if (AUTH_CONFIG.DEBUG) console.log('✅ Registration response:', redactSessionToken(response));
       
       if (response.success) {
         // Create session from backend response
@@ -190,7 +201,7 @@ const AuthSystem = {
         body: JSON.stringify({ username: cleanUsername, password })
       });
       
-      if (AUTH_CONFIG.DEBUG) console.log('✅ Login response:', response);
+      if (AUTH_CONFIG.DEBUG) console.log('✅ Login response:', redactSessionToken(response));
       
       if (response.success) {
         // Create session from backend response

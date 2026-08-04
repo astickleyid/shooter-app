@@ -12,26 +12,26 @@ unchecked day's 5 items, implement them, check them off (`[x]`), and commit with
 
 ## Day 1 — Mon Aug 4 — Crash Fixes & Security-Critical (ship-blocking)
 
-- [ ] 1. **[Gameplay/Bug]** Fix `canvas is not defined` crash — `update()` in `script.js`
+- [x] 1. **[Gameplay/Bug]** Fix `canvas is not defined` crash — `update()` in `script.js`
       (~line 10929) reads `canvas.width`/`canvas.height` in the Void Nova Orb pickup
       handler, but `canvas` is never declared in that function's scope. Every player
       who picks up a Nova Orb crashes the game loop. Use `dom.canvas` instead.
-- [ ] 2. **[Gameplay/Bug]** Fix `selectedShip` used before declaration — `script.js:10221`
+- [x] 2. **[Gameplay/Bug]** Fix `selectedShip` used before declaration — `script.js:10221`
       reads a bare `selectedShip` global that is never `let/var/const`-declared and is
       first assigned at `script.js:14129` (hangar init). If the featured-ship hangar
       renders before that init runs, it throws `ReferenceError` and the ship-select
       screen breaks for new installs. Declare it up front with a safe default.
-- [ ] 3. **[Gameplay/Bug]** Fix ready-up/countdown state leak — `readyUpPhase` /
+- [x] 3. **[Gameplay/Bug]** Fix ready-up/countdown state leak — `readyUpPhase` /
       `countdownActive` / `countdownEnd` (`script.js:914-918`) are never reset by
       `resetRuntimeState()` or `startLevel()`. Pausing during the between-wave shop
       and hitting Restart/Exit leaves the shop overlay stuck on screen over a live
       run. Reset these flags wherever runtime state is reset.
-- [ ] 4. **[Social/Security]** Add auth verification to `api/friends.js` and
+- [x] 4. **[Social/Security]** Add auth verification to `api/friends.js` and
       `api/activity.js` — every action (request/accept/decline/remove/post) currently
       trusts a raw `userId`/`friendId` from the request body with **no token check**,
       unlike `api/leaderboard.js`/`api/users.js` which validate `Authorization: Bearer`.
       Anyone can modify anyone's friend list or post fake activity today.
-- [ ] 5. **[Social/Security]** Stop leaking session tokens to console — `auth-system.js:37`
+- [x] 5. **[Social/Security]** Stop leaking session tokens to console — `auth-system.js:37`
       hardcodes `DEBUG: true`, and `register()`/`login()` log the full backend response
       (including the raw `sessionToken`) to the browser console in production. Gate
       debug logging behind an environment check and redact tokens from any log output.

@@ -18,6 +18,48 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization'
 };
 
+function normalizeSession(session) {
+  if (!session) return null;
+  if (typeof session === 'string') {
+    try {
+      return JSON.parse(session);
+    } catch (err) {
+      return null;
+    }
+  }
+  return session;
+}
+
+async function getSessionFromToken(token) {
+  if (!token || !kv) return null;
+  try {
+    const session = normalizeSession(await kv.get(`session:${token}`));
+    if (session?.expiresAt && session.expiresAt < Date.now()) return null;
+    return session;
+  } catch (err) {
+    console.error('Session lookup failed:', err.message);
+    return null;
+  }
+}
+
+// Verifies the request carries a valid session for `actingUserId` (the user
+// performing the mutation). Returns the session, or writes a 401/403 and
+// returns null.
+async function requireSessionFor(req, res, actingUserId) {
+  const authHeader = req.headers.authorization || '';
+  const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  const session = await getSessionFromToken(bearer);
+  if (!session) {
+    res.status(401).json({ success: false, error: 'Authentication required' });
+    return null;
+  }
+  if (actingUserId && session.userId !== actingUserId) {
+    res.status(403).json({ success: false, error: 'User mismatch for session' });
+    return null;
+  }
+  return session;
+}
+
 module.exports = async (req, res) => {
   Object.entries(CORS_HEADERS).forEach(([key, value]) => {
     res.setHeader(key, value);
@@ -52,6 +94,8 @@ module.exports = async (req, res) => {
     // Send friend request
     if (action === 'request' && req.method === 'POST') {
       const { fromUserId, toUserId } = req.body;
+
+      if (!(await requireSessionFor(req, res, fromUserId))) return;
 
       const fromUser = await kv.get(`user:${fromUserId}`);
       const toUser = await kv.get(`user:${toUserId}`);
@@ -96,6 +140,8 @@ module.exports = async (req, res) => {
     if (action === 'accept' && req.method === 'POST') {
       const { userId, friendId } = req.body;
 
+      if (!(await requireSessionFor(req, res, userId))) return;
+
       const user = await kv.get(`user:${userId}`);
       const friend = await kv.get(`user:${friendId}`);
 
@@ -137,6 +183,8 @@ module.exports = async (req, res) => {
     if (action === 'decline' && req.method === 'POST') {
       const { userId, friendId } = req.body;
 
+      if (!(await requireSessionFor(req, res, userId))) return;
+
       const user = await kv.get(`user:${userId}`);
       const friend = await kv.get(`user:${friendId}`);
 
@@ -156,6 +204,8 @@ module.exports = async (req, res) => {
     // Remove friend
     if (action === 'remove' && req.method === 'DELETE') {
       const { userId, friendId } = req.body;
+
+      if (!(await requireSessionFor(req, res, userId))) return;
 
       const user = await kv.get(`user:${userId}`);
       const friend = await kv.get(`user:${friendId}`);

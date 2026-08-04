@@ -917,6 +917,7 @@
   let countdownCompletedLevel = 0;
   let readyUpPhase = false; // NEW: Phase where player can shop before countdown
   let readyUpLevel = 0; // Level displayed during ready-up
+  let selectedShip = 'vanguard'; // currently highlighted ship in hangar UI; synced from Save.data.selectedShip at init
   const camera = { x: 0, y: 0 };
 
   // Difficulty system
@@ -2362,6 +2363,11 @@ PowerUps.reset();
     lastTime = 0;
     gameRunning = false;
     paused = false;
+    countdownActive = false;
+    countdownEnd = 0;
+    countdownCompletedLevel = 0;
+    readyUpPhase = false;
+    readyUpLevel = 0;
     lastAmmoRegen = 0;
     lastShotTime = 0;
     shakeUntil = 0;
@@ -10930,7 +10936,7 @@ PowerUps.reset();
       if (dist < player.size + orb.r) {
         novaOrbs.splice(i, 1);
         // Launch expanding ring from player position
-        const maxR = Math.max(canvas.width, canvas.height) * 0.85;
+        const maxR = Math.max(dom.canvas.width, dom.canvas.height) * 0.85;
         novaRings.push({ x: player.x, y: player.y, r: 0, maxR, created: now, duration: 700 });
         // Destroy all live enemies caught by the nova — deal 999 damage (instakill standard, heavy on boss)
         for (let j = enemies.length - 1; j >= 0; j--) {
@@ -12625,6 +12631,9 @@ PowerUps.reset();
   const startLevel = (lvl, resetScore) => {
     level = lvl;
     if (resetScore) score = 0;
+    countdownActive = false;
+    countdownEnd = 0;
+    readyUpPhase = false;
     enemiesKilled = 0;
     waveKillCount = 0;
     waveCreditsEarned = 0;
