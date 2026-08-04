@@ -259,6 +259,49 @@ const HANGAR_UI_CSS = `
     transition: width 0.4s ease;
   }
 
+  /* ── Pilot rank tier themes ────────────────────────────────── */
+  /* RECRUIT — muted slate/blue */
+  [data-rank="recruit"] { background: rgba(100,116,139,0.08); border-color: rgba(100,116,139,0.35); }
+  [data-rank="recruit"] .hangar-pilot-badge__icon  { filter: drop-shadow(0 0 5px rgba(100,116,139,0.8)); }
+  [data-rank="recruit"] .hangar-pilot-badge__lvl   { color: rgba(148,163,184,0.7); }
+  [data-rank="recruit"] .hangar-pilot-badge__num   { color: #94a3b8; text-shadow: 0 0 10px rgba(100,116,139,0.5); }
+  [data-rank="recruit"] .hangar-pilot-xp-fill      { background: linear-gradient(90deg,#475569,#94a3b8); box-shadow: 0 0 4px rgba(100,116,139,0.6); }
+
+  /* PILOT — purple (original, already styled via base rules — just reinforce) */
+  [data-rank="pilot"] { background: rgba(139,92,246,0.08); border-color: rgba(139,92,246,0.35); }
+  [data-rank="pilot"] .hangar-pilot-badge__icon  { filter: drop-shadow(0 0 5px rgba(139,92,246,0.8)); }
+  [data-rank="pilot"] .hangar-pilot-badge__lvl   { color: rgba(167,139,250,0.55); }
+  [data-rank="pilot"] .hangar-pilot-badge__num   { color: #a78bfa; text-shadow: 0 0 12px rgba(139,92,246,0.6); }
+  [data-rank="pilot"] .hangar-pilot-xp-fill      { background: linear-gradient(90deg,#7c3aed,#a78bfa); box-shadow: 0 0 6px rgba(139,92,246,0.7); }
+
+  /* ACE — cyan */
+  [data-rank="ace"] { background: rgba(6,182,212,0.08); border-color: rgba(6,182,212,0.35); }
+  [data-rank="ace"] .hangar-pilot-badge__icon  { filter: drop-shadow(0 0 5px rgba(6,182,212,0.9)); }
+  [data-rank="ace"] .hangar-pilot-badge__lvl   { color: rgba(34,211,238,0.65); }
+  [data-rank="ace"] .hangar-pilot-badge__num   { color: #22d3ee; text-shadow: 0 0 12px rgba(6,182,212,0.7); }
+  [data-rank="ace"] .hangar-pilot-xp-fill      { background: linear-gradient(90deg,#0e7490,#22d3ee); box-shadow: 0 0 6px rgba(6,182,212,0.7); }
+
+  /* VETERAN — green */
+  [data-rank="veteran"] { background: rgba(22,163,74,0.08); border-color: rgba(22,163,74,0.35); }
+  [data-rank="veteran"] .hangar-pilot-badge__icon  { filter: drop-shadow(0 0 5px rgba(22,163,74,0.9)); }
+  [data-rank="veteran"] .hangar-pilot-badge__lvl   { color: rgba(74,222,128,0.65); }
+  [data-rank="veteran"] .hangar-pilot-badge__num   { color: #4ade80; text-shadow: 0 0 12px rgba(22,163,74,0.7); }
+  [data-rank="veteran"] .hangar-pilot-xp-fill      { background: linear-gradient(90deg,#15803d,#4ade80); box-shadow: 0 0 6px rgba(22,163,74,0.7); }
+
+  /* ELITE — gold */
+  [data-rank="elite"] { background: rgba(234,179,8,0.08); border-color: rgba(234,179,8,0.4); }
+  [data-rank="elite"] .hangar-pilot-badge__icon  { filter: drop-shadow(0 0 5px rgba(234,179,8,0.9)); }
+  [data-rank="elite"] .hangar-pilot-badge__lvl   { color: rgba(250,204,21,0.7); }
+  [data-rank="elite"] .hangar-pilot-badge__num   { color: #facc15; text-shadow: 0 0 14px rgba(234,179,8,0.8); }
+  [data-rank="elite"] .hangar-pilot-xp-fill      { background: linear-gradient(90deg,#a16207,#facc15); box-shadow: 0 0 8px rgba(234,179,8,0.7); }
+
+  /* LEGEND — crimson */
+  [data-rank="legend"] { background: rgba(220,38,38,0.1); border-color: rgba(220,38,38,0.45); }
+  [data-rank="legend"] .hangar-pilot-badge__icon  { filter: drop-shadow(0 0 6px rgba(220,38,38,1)); }
+  [data-rank="legend"] .hangar-pilot-badge__lvl   { color: rgba(248,113,113,0.8); }
+  [data-rank="legend"] .hangar-pilot-badge__num   { color: #f87171; text-shadow: 0 0 16px rgba(220,38,38,0.9); }
+  [data-rank="legend"] .hangar-pilot-xp-fill      { background: linear-gradient(90deg,#991b1b,#f87171); box-shadow: 0 0 10px rgba(220,38,38,0.8); }
+
   /* ── Scrollable content area ───────────────────────────────── */
   #hangarContent {
     flex: 1 1 0;
@@ -1645,6 +1688,26 @@ function xpForLevel(lvl) {
 }
 
 /**
+ * Map a pilot level to a named rank tier.
+ * Returns { label, dataRank } for display and CSS theming.
+ *
+ *  1–4    RECRUIT   — grey/blue starter
+ *  5–9    PILOT     — purple (default badge color)
+ *  10–19  ACE       — cyan
+ *  20–34  VETERAN   — green
+ *  35–49  ELITE     — gold
+ *  50+    LEGEND    — crimson
+ */
+function getPilotRank(level) {
+  if (level >= 50) return { label: 'LEGEND',  dataRank: 'legend'  };
+  if (level >= 35) return { label: 'ELITE',   dataRank: 'elite'   };
+  if (level >= 20) return { label: 'VETERAN', dataRank: 'veteran' };
+  if (level >= 10) return { label: 'ACE',     dataRank: 'ace'     };
+  if (level >= 5)  return { label: 'PILOT',   dataRank: 'pilot'   };
+  return             { label: 'RECRUIT', dataRank: 'recruit' };
+}
+
+/**
  * Retrieve the pilot's current level.
  * Reads from Save.data if available, else falls back to getPilotLevel option.
  */
@@ -1784,17 +1847,24 @@ function renderCard(item) {
  * Safe to call at any time — no-ops if the elements aren't in the DOM.
  */
 function refreshPilotBadge() {
-  const lvlEl = document.getElementById('hangar-pilot-level');
+  const lvlEl  = document.getElementById('hangar-pilot-level');
   const fillEl = document.getElementById('hangar-pilot-xp-fill');
   if (!lvlEl || !fillEl) return;
 
-  const lvl = getLivePilotLevel();
-  const xp  = getLivePilotXP();
+  const lvl    = getLivePilotLevel();
+  const xp     = getLivePilotXP();
   const needed = xpForLevel(lvl);
-  const pct = Math.min(100, Math.round((xp / needed) * 100));
+  const pct    = Math.min(100, Math.round((xp / needed) * 100));
 
   lvlEl.textContent = lvl;
   fillEl.style.width = `${pct}%`;
+
+  // Update rank label and badge color tier
+  const rank    = getPilotRank(lvl);
+  const rankEl  = document.getElementById('hangar-pilot-rank');
+  const badgeEl = document.getElementById('hangar-pilot-badge');
+  if (rankEl)  rankEl.textContent = rank.label;
+  if (badgeEl) badgeEl.dataset.rank = rank.dataRank;
 }
 
 function refreshGrid() {
@@ -3457,10 +3527,10 @@ export function openHangar(opts = {}) {
             const needed = xpForLevel(lvl);
             const pct = Math.min(100, Math.round((xp / needed) * 100));
             return `
-          <div class="hangar-pilot-badge" id="hangar-pilot-badge">
+          <div class="hangar-pilot-badge" id="hangar-pilot-badge" data-rank="${getPilotRank(lvl).dataRank}">
             <div class="hangar-pilot-badge__top">
               <span class="hangar-pilot-badge__icon">✦</span>
-              <span class="hangar-pilot-badge__lvl">PILOT</span>
+              <span class="hangar-pilot-badge__lvl" id="hangar-pilot-rank">${getPilotRank(lvl).label}</span>
               <span class="hangar-pilot-badge__num" id="hangar-pilot-level">${lvl}</span>
             </div>
             <div class="hangar-pilot-xp-bar">
