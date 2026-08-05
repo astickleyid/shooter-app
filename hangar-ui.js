@@ -30,7 +30,8 @@ import {
   loadHangar,
   saveHangar,
   getUpgradeCost,
-  purchaseUpgrade
+  purchaseUpgrade,
+  prestigePilot
 } from './src/systems/HangarSystem.js';
 
 import {
@@ -1865,6 +1866,25 @@ function refreshPilotBadge() {
   const badgeEl = document.getElementById('hangar-pilot-badge');
   if (rankEl)  rankEl.textContent = rank.label;
   if (badgeEl) badgeEl.dataset.rank = rank.dataRank;
+
+  // Update prestige badge
+  const prestigeLevel = _hangarState ? (_hangarState.prestige || 0) : 0;
+  const prestigeBadgeEl = document.getElementById('hangarPrestigeBadge');
+  if (prestigeBadgeEl) {
+    if (prestigeLevel > 0) {
+      prestigeBadgeEl.textContent = `★ P${prestigeLevel}`;
+      prestigeBadgeEl.style.display = '';
+    } else {
+      prestigeBadgeEl.style.display = 'none';
+    }
+  }
+
+  // Show/hide prestige button based on current level and prestige count
+  const prestigeBtnEl = document.getElementById('hangarPrestigeBtn');
+  if (prestigeBtnEl) {
+    const canPrestige = lvl >= 50 && prestigeLevel < 10;
+    prestigeBtnEl.style.display = canPrestige ? 'block' : 'none';
+  }
 }
 
 function refreshGrid() {
@@ -3481,6 +3501,46 @@ function renderStatsView() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * Handle a prestige request — confirm, reset pilot level/XP, increment prestige,
+ * then re-open the hangar so the UI reflects the new state.
+ */
+function handlePrestige() {
+  if (!_hangarState) return;
+  const currentPrestige = _hangarState.prestige || 0;
+  const nextPrestige = currentPrestige + 1;
+  if (nextPrestige > 10) return;
+
+  const confirmed = window.confirm(
+    `PRESTIGE ${nextPrestige}?\n\nYour pilot level resets to 1. You keep all Hangar upgrades.\n\nReward: +${nextPrestige * 10}% permanent credit bonus\n\nThis cannot be undone.`
+  );
+  if (!confirmed) return;
+
+  // Reset pilot XP/level in the main save
+  try {
+    const PRESTIGE_SAVE_KEY = 'void_rift_v11';
+    const saveData = JSON.parse(localStorage.getItem(PRESTIGE_SAVE_KEY) || '{}');
+    saveData.pilotLevel = 1;
+    saveData.pilotXp = 0;
+    localStorage.setItem(PRESTIGE_SAVE_KEY, JSON.stringify(saveData));
+    // Sync the live window.Save object if the game is running
+    if (typeof window !== 'undefined' && window.Save && window.Save.data) {
+      window.Save.data.pilotLevel = 1;
+      window.Save.data.pilotXp = 0;
+    }
+  } catch (e) {
+    console.warn('[Prestige] Could not reset pilot save:', e);
+  }
+
+  // Increment prestige (also saves hangar)
+  prestigePilot(_hangarState);
+
+  // Re-open with same options so the updated badge is visible
+  const savedOptions = Object.assign({}, _options);
+  closeHangar();
+  setTimeout(() => openHangar(savedOptions), 300);
+}
+
+/**
  * Open the Hangar overlay.
  *
  * @param {Object} [opts]
@@ -3526,16 +3586,20 @@ export function openHangar(opts = {}) {
             const xp  = getLivePilotXP();
             const needed = xpForLevel(lvl);
             const pct = Math.min(100, Math.round((xp / needed) * 100));
+            const prestigeLevel = _hangarState.prestige || 0;
+            const canPrestige = lvl >= 50 && prestigeLevel < 10;
             return `
           <div class="hangar-pilot-badge" id="hangar-pilot-badge" data-rank="${getPilotRank(lvl).dataRank}">
             <div class="hangar-pilot-badge__top">
               <span class="hangar-pilot-badge__icon">✦</span>
               <span class="hangar-pilot-badge__lvl" id="hangar-pilot-rank">${getPilotRank(lvl).label}</span>
               <span class="hangar-pilot-badge__num" id="hangar-pilot-level">${lvl}</span>
+              <span id="hangarPrestigeBadge" style="${prestigeLevel > 0 ? '' : 'display:none;'}background:linear-gradient(135deg,#78350f,#92400e);border:1px solid #ca8a04;color:#fef08a;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;letter-spacing:0.08em;margin-left:6px;">★ P${prestigeLevel}</span>
             </div>
             <div class="hangar-pilot-xp-bar">
               <div class="hangar-pilot-xp-fill" id="hangar-pilot-xp-fill" style="width:${pct}%"></div>
             </div>
+            <button id="hangarPrestigeBtn" style="${canPrestige ? '' : 'display:none;'}border:2px solid #ca8a04;color:#fef08a;background:rgba(120,53,15,0.3);padding:4px 12px;border-radius:4px;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:0.06em;margin-top:8px;width:100%;">⬆ PRESTIGE</button>
           </div>`;
           })()}
           <div class="hangar-credits-badge">
@@ -3580,6 +3644,14 @@ export function openHangar(opts = {}) {
   // ── Event listeners ──────────────────────────────────────────
 
   document.getElementById('hangarCloseBtn').addEventListener('click', closeHangar);
+
+  // Prestige button
+  const _prestigeBtn = document.getElementById('hangarPrestigeBtn');
+  if (_prestigeBtn) {
+    _prestigeBtn.addEventListener('click', handlePrestige);
+    _prestigeBtn.addEventListener('mouseenter', () => { _prestigeBtn.style.background = 'rgba(120,53,15,0.5)'; });
+    _prestigeBtn.addEventListener('mouseleave', () => { _prestigeBtn.style.background = 'rgba(120,53,15,0.3)'; });
+  }
 
   // Tab switching
   document.querySelectorAll('.hangar-tab-btn').forEach(btn => {

@@ -110,7 +110,7 @@ export const HANGAR_CATALOG = [
  * @returns {{ credits: number, upgrades: Object.<string, number> }}
  */
 function defaultState() {
-  return { credits: 0, upgrades: {} };
+  return { credits: 0, upgrades: {}, prestige: 0 };
 }
 
 /**
@@ -128,7 +128,8 @@ export function loadHangar() {
           credits: Math.max(0, Math.floor(parsed.credits || 0)),
           upgrades: (parsed.upgrades && typeof parsed.upgrades === 'object')
             ? parsed.upgrades
-            : {}
+            : {},
+          prestige: Math.max(0, Math.floor(parsed.prestige || 0))
         };
       }
     }
@@ -202,6 +203,24 @@ export function purchaseUpgrade(state, upgradeId) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Prestige
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Increment the prestige counter (max 10) and persist.
+ * The caller is responsible for resetting pilotLevel/pilotXp in the main save.
+ *
+ * @param {{ credits: number, upgrades: Object, prestige: number }} hangarData
+ * @returns {boolean} true if prestige was applied, false if already at max
+ */
+export function prestigePilot(hangarData) {
+  if ((hangarData.prestige || 0) >= 10) return false;
+  hangarData.prestige = (hangarData.prestige || 0) + 1;
+  saveHangar(hangarData);
+  return true;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Apply upgrades to a game multipliers config object
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -223,6 +242,12 @@ export function applyHangarToConfig(hangarState, multipliers) {
     if (level > 0) {
       item.apply(multipliers, level);
     }
+  }
+
+  // Apply prestige credit bonus: +10% per prestige tier
+  const prestige = hangarState.prestige || 0;
+  if (prestige > 0) {
+    multipliers.coinBonus = (multipliers.coinBonus || 1) * (1 + prestige * 0.10);
   }
 
   return multipliers;
