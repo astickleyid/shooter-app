@@ -69,6 +69,10 @@ const LeaderboardSystem = {
     };
     
     // Submit to backend - REQUIRED
+    // One submissionId per logical submission, reused across internal retries,
+    // so a lost response after a successful write can't create a duplicate entry.
+    scoreEntry.submissionId = `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+
     try {
       const result = await this._submitToBackend(scoreEntry, token);
       if (result.success) {

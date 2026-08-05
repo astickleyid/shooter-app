@@ -31,11 +31,23 @@ const SOCIAL_CONFIG = {
 };
 
 const SocialAPI = {
+  // AuthSystem (voidrift_session) is the single source of truth for
+  // username/password sessions; this only holds state directly when the
+  // Firebase path is active, which AuthSystem doesn't cover.
   currentUser: null,
 
   // Helper: Check if Firebase is ready
   _isFirebaseReady() {
     return typeof FirebaseBackend !== 'undefined' && FirebaseBackend.initialized;
+  },
+
+  // Mirror AuthSystem's session into currentUser so every SocialAPI call
+  // (friends/activity/profile) sees the same logged-in user as the rest of
+  // the game, regardless of which login form was used.
+  _syncFromAuthSystem() {
+    if (typeof AuthSystem === 'undefined') return;
+    const user = AuthSystem.getCurrentUser();
+    this.currentUser = user ? { ...user, sessionToken: AuthSystem.getToken() } : null;
   },
 
   // Helper: Make API request
@@ -81,27 +93,28 @@ const SocialAPI = {
   },
 
   // USER AUTHENTICATION
+  // Delegates to AuthSystem (the game's single username/password auth source)
+  // instead of maintaining an independent 'social_user' session — two parallel
+  // login systems meant a user logged in via one modal could look logged-out
+  // to the other.
   async register(username, password, email = null) {
     if (this._isFirebaseReady()) {
       const data = await FirebaseBackend.register(username, password, email);
       if (data.success) {
         this.currentUser = { ...data.user, sessionToken: null };
-        localStorage.setItem('social_user', JSON.stringify(this.currentUser));
       }
       return data;
     }
 
-    const data = await this.request('/users?action=register', {
-      method: 'POST',
-      body: JSON.stringify({ username, password, email })
-    });
-
-    if (data.success) {
-      this.currentUser = { ...data.user, sessionToken: data.sessionToken || null };
-      localStorage.setItem('social_user', JSON.stringify(this.currentUser));
+    if (typeof AuthSystem === 'undefined') {
+      throw new Error('Auth system unavailable');
     }
-
-    return data;
+    const result = await AuthSystem.register(username, password);
+    if (!result.success) {
+      throw new Error(result.error || 'Registration failed');
+    }
+    this._syncFromAuthSystem();
+    return { success: true, user: this.currentUser, sessionToken: this.currentUser?.sessionToken || null };
   },
 
   async login(username, password) {
@@ -109,30 +122,29 @@ const SocialAPI = {
       const data = await FirebaseBackend.login(username, password);
       if (data.success) {
         this.currentUser = { ...data.user, sessionToken: null };
-        localStorage.setItem('social_user', JSON.stringify(this.currentUser));
       }
       return data;
     }
 
-    const data = await this.request('/users?action=login', {
-      method: 'POST',
-      body: JSON.stringify({ username, password })
-    });
-
-    if (data.success) {
-      this.currentUser = { ...data.user, sessionToken: data.sessionToken || null };
-      localStorage.setItem('social_user', JSON.stringify(this.currentUser));
+    if (typeof AuthSystem === 'undefined') {
+      throw new Error('Auth system unavailable');
     }
-
-    return data;
+    const result = await AuthSystem.login(username, password);
+    if (!result.success) {
+      throw new Error(result.error || 'Invalid credentials');
+    }
+    this._syncFromAuthSystem();
+    return { success: true, user: this.currentUser, sessionToken: this.currentUser?.sessionToken || null };
   },
 
   async logout() {
     if (this._isFirebaseReady()) {
       await FirebaseBackend.logout();
     }
+    if (typeof AuthSystem !== 'undefined') {
+      AuthSystem.logout();
+    }
     this.currentUser = null;
-    localStorage.removeItem('social_user');
   },
 
   loadSession() {
@@ -145,22 +157,20 @@ const SocialAPI = {
           email: firebaseUser.email,
           sessionToken: null
         };
-        localStorage.setItem('social_user', JSON.stringify(this.currentUser));
         return this.currentUser;
       }
     }
 
-    const stored = localStorage.getItem('social_user');
-    if (stored) {
-      this.currentUser = JSON.parse(stored);
-      return this.currentUser;
-    }
-    return null;
+    this._syncFromAuthSystem();
+    return this.currentUser;
   },
 
   isLoggedIn() {
     if (this._isFirebaseReady()) {
       return !!FirebaseBackend.getCurrentUser();
+    }
+    if (typeof AuthSystem !== 'undefined') {
+      return AuthSystem.isAuthenticated();
     }
     return this.currentUser !== null;
   },
@@ -185,12 +195,17 @@ const SocialAPI = {
         updates
       })
     });
-    
+
     if (data.success) {
-      this.currentUser.profile = data.user;
-      localStorage.setItem('social_user', JSON.stringify(this.currentUser));
+      if (this._isFirebaseReady()) {
+        this.currentUser.profile = data.user;
+      } else if (typeof AuthSystem !== 'undefined' && AuthSystem.isAuthenticated()) {
+        AuthSystem.session.user.profile = data.user;
+        AuthSystem.saveSession();
+        this._syncFromAuthSystem();
+      }
     }
-    
+
     return data;
   },
 
@@ -204,13 +219,19 @@ const SocialAPI = {
         ...gameData
       })
     });
-    
+
     if (data.success) {
-      this.currentUser.profile = data.profile;
-      this.currentUser.stats = data.stats;
-      localStorage.setItem('social_user', JSON.stringify(this.currentUser));
+      if (this._isFirebaseReady()) {
+        this.currentUser.profile = data.profile;
+        this.currentUser.stats = data.stats;
+      } else if (typeof AuthSystem !== 'undefined' && AuthSystem.isAuthenticated()) {
+        AuthSystem.session.user.profile = data.profile;
+        AuthSystem.session.user.stats = data.stats;
+        AuthSystem.saveSession();
+        this._syncFromAuthSystem();
+      }
     }
-    
+
     return data;
   },
 

@@ -83,15 +83,18 @@ const SocialHub = {
     successEl.textContent = '';
 
     try {
-      // Use SocialAPI for authentication
-      let result;
-      if (mode === 'register') {
-        result = await SocialAPI.register(username, password);
-        successEl.textContent = '✅ Account created! Welcome to Void Rift!';
-      } else {
-        result = await SocialAPI.login(username, password);
-        successEl.textContent = '✅ Welcome back!';
+      // AuthSystem is the single source of truth for login; SocialAPI mirrors
+      // its session for friends/activity calls once this succeeds.
+      const result = mode === 'register'
+        ? await AuthSystem.register(username, password)
+        : await AuthSystem.login(username, password);
+
+      if (!result.success) {
+        errorEl.textContent = result.error || 'Authentication failed';
+        return;
       }
+
+      successEl.textContent = mode === 'register' ? '✅ Account created! Welcome to Void Rift!' : '✅ Welcome back!';
 
       setTimeout(() => {
         this.closeModal('socialAuthModal');
@@ -102,8 +105,8 @@ const SocialHub = {
         }
         // Refresh login button
         const loginBtn = document.getElementById('loginButton');
-        if (loginBtn && SocialAPI.isLoggedIn()) {
-          loginBtn.textContent = SocialAPI.currentUser.username;
+        if (loginBtn && AuthSystem.isAuthenticated()) {
+          loginBtn.textContent = AuthSystem.getCurrentUser().username;
           loginBtn.onclick = () => SocialHub.showProfile();
         }
       }, 1500);
@@ -126,23 +129,10 @@ const SocialHub = {
            error.name === 'AbortError';
   },
 
-  // Check if user is logged in (checks both SocialAPI and local Auth)
+  // Check if user is logged in — AuthSystem is the source of truth;
+  // SocialAPI still covers the separate Firebase-backed login path.
   isLoggedIn() {
-    // Check SocialAPI first
-    if (SocialAPI.isLoggedIn()) {
-      return true;
-    }
-    // Check local Auth storage
-    try {
-      const authKey = 'void_rift_auth';
-      const authData = JSON.parse(localStorage.getItem(authKey) || '{}');
-      if (authData.currentUser && authData.users?.[authData.currentUser]) {
-        return true;
-      }
-    } catch (err) {
-      // Ignore errors
-    }
-    return false;
+    return (typeof AuthSystem !== 'undefined' && AuthSystem.isAuthenticated()) || SocialAPI.isLoggedIn();
   },
 
   // Show player profile modal with achievements, prestige, and all unified data
@@ -306,17 +296,16 @@ const SocialHub = {
     try {
       const saveKey = 'void_rift_v11';
       const authKey = 'void_rift_auth';
-      
+
       const saveData = JSON.parse(localStorage.getItem(saveKey) || '{}');
-      const authData = JSON.parse(localStorage.getItem(authKey) || '{}');
-      
-      // Get profile for current user
-      const currentUser = authData.currentUser;
-      const profileKey = `${authKey}_profile_${currentUser || 'guest'}`;
+
+      // Get profile for current user (AuthSystem is the source of truth for identity)
+      const authedUser = typeof AuthSystem !== 'undefined' ? AuthSystem.getCurrentUser() : null;
+      const profileKey = `${authKey}_profile_${authedUser?.id || 'guest'}`;
       const profileData = JSON.parse(localStorage.getItem(profileKey) || '{}');
-      
+
       return {
-        username: currentUser ? authData.users?.[currentUser]?.username : 'Guest',
+        username: authedUser ? authedUser.username : 'Guest',
         pilotLevel: saveData.pilotLevel || 1,
         pilotXp: saveData.pilotXp || 0,
         credits: saveData.credits || 0,
@@ -530,17 +519,8 @@ const SocialHub = {
 
   // Logout function
   logout() {
-    SocialAPI.logout();
-    // Also clear local auth
-    try {
-      const authKey = 'void_rift_auth';
-      const authData = JSON.parse(localStorage.getItem(authKey) || '{}');
-      authData.currentUser = null;
-      localStorage.setItem(authKey, JSON.stringify(authData));
-    } catch (err) {
-      console.error('Failed to clear local auth:', err);
-    }
-    
+    SocialAPI.logout(); // clears the AuthSystem session (single source of truth)
+
     this.closeModal('profileModal');
     this.updateUI();
     

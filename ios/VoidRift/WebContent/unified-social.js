@@ -141,8 +141,8 @@ const UnifiedSocial = {
     // Store locally for web
     try {
       const authKey = 'void_rift_auth';
-      const currentUser = JSON.parse(localStorage.getItem(authKey) || '{}').currentUser;
-      const profileKey = `${authKey}_profile_${currentUser || 'guest'}`;
+      const authedUser = typeof AuthSystem !== 'undefined' ? AuthSystem.getCurrentUser() : null;
+      const profileKey = `${authKey}_profile_${authedUser?.id || 'guest'}`;
       const profile = JSON.parse(localStorage.getItem(profileKey) || '{}');
       
       if (!profile.unlockedAchievements) {
@@ -236,22 +236,15 @@ const UnifiedSocial = {
       return window.iOSBridge.gameCenter.playerInfo.alias;
     }
     
-    // Try web social API
+    // Try web social API (mirrors AuthSystem, the single source of truth for
+    // username/password sessions)
     if (typeof SocialAPI !== 'undefined' && SocialAPI.currentUser) {
       return SocialAPI.currentUser.username;
     }
-    
-    // Try local auth
-    try {
-      const authKey = 'void_rift_auth';
-      const authData = JSON.parse(localStorage.getItem(authKey) || '{}');
-      if (authData.currentUser && authData.users?.[authData.currentUser]) {
-        return authData.users[authData.currentUser].username;
-      }
-    } catch (err) {
-      // Ignore
+    if (typeof AuthSystem !== 'undefined' && AuthSystem.isAuthenticated()) {
+      return AuthSystem.getCurrentUser().username;
     }
-    
+
     return 'Guest';
   },
 
