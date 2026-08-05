@@ -37,9 +37,17 @@ const LEADERBOARD_CONFIG = {
   RETRY_DELAY: 1000
 };
 
+// Cryptographically strong id for the leaderboard idempotency key — this value
+// is used server-side as part of a dedup cache key, so it must not be
+// predictable the way Math.random() output is.
+function generateSubmissionId() {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+}
+
 const LeaderboardSystem = {
   lastError: null,
-  
+
   /**
    * Submit score to leaderboard - REQUIRES BACKEND
    * @param {Object} entry - Score entry {score, level, difficulty}
@@ -71,7 +79,7 @@ const LeaderboardSystem = {
     // Submit to backend - REQUIRED
     // One submissionId per logical submission, reused across internal retries,
     // so a lost response after a successful write can't create a duplicate entry.
-    scoreEntry.submissionId = `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+    scoreEntry.submissionId = generateSubmissionId();
 
     try {
       const result = await this._submitToBackend(scoreEntry, token);

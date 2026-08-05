@@ -6,6 +6,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 // Import Vercel KV for persistent storage
 let kv;
@@ -279,7 +280,7 @@ module.exports = async (req, res) => {
       }
 
       // Generate unique ID
-      const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+      const uniqueId = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}`;
 
       const entry = {
         id: uniqueId,
