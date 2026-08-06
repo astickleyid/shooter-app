@@ -1709,6 +1709,27 @@ function getPilotRank(level) {
 }
 
 /**
+ * Map a prestige level (1–10) to a cosmetic pilot callsign title.
+ * Returns null for prestige 0 (no title shown).
+ */
+function getPrestigeTitle(prestige) {
+  const TITLES = [
+    null,              // 0 — no prestige
+    'VOID KNIGHT',     // P1
+    'VOID HUNTER',     // P2
+    'VOID STALKER',    // P3
+    'VOID WARDEN',     // P4
+    'VOID BREAKER',    // P5
+    'VOID REAPER',     // P6
+    'VOID SOVEREIGN',  // P7
+    'VOID PHANTOM',    // P8
+    'VOID IMMORTAL',   // P9
+    'VOID ASCENDANT',  // P10 (max)
+  ];
+  return TITLES[Math.min(prestige, 10)] ?? null;
+}
+
+/**
  * Retrieve the pilot's current level.
  * Reads from Save.data if available, else falls back to getPilotLevel option.
  */
@@ -1867,7 +1888,7 @@ function refreshPilotBadge() {
   if (rankEl)  rankEl.textContent = rank.label;
   if (badgeEl) badgeEl.dataset.rank = rank.dataRank;
 
-  // Update prestige badge
+  // Update prestige badge + title
   const prestigeLevel = _hangarState ? (_hangarState.prestige || 0) : 0;
   const prestigeBadgeEl = document.getElementById('hangarPrestigeBadge');
   if (prestigeBadgeEl) {
@@ -1876,6 +1897,18 @@ function refreshPilotBadge() {
       prestigeBadgeEl.style.display = '';
     } else {
       prestigeBadgeEl.style.display = 'none';
+    }
+  }
+
+  // Update prestige title callsign
+  const prestigeTitleEl = document.getElementById('hangarPrestigeTitle');
+  if (prestigeTitleEl) {
+    const title = getPrestigeTitle(prestigeLevel);
+    if (title) {
+      prestigeTitleEl.textContent = title;
+      prestigeTitleEl.style.display = '';
+    } else {
+      prestigeTitleEl.style.display = 'none';
     }
   }
 
@@ -3595,6 +3628,7 @@ export function openHangar(opts = {}) {
               <span class="hangar-pilot-badge__lvl" id="hangar-pilot-rank">${getPilotRank(lvl).label}</span>
               <span class="hangar-pilot-badge__num" id="hangar-pilot-level">${lvl}</span>
               <span id="hangarPrestigeBadge" style="${prestigeLevel > 0 ? '' : 'display:none;'}background:linear-gradient(135deg,#78350f,#92400e);border:1px solid #ca8a04;color:#fef08a;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;letter-spacing:0.08em;margin-left:6px;">★ P${prestigeLevel}</span>
+              <span id="hangarPrestigeTitle" style="${prestigeLevel > 0 ? '' : 'display:none;'}font-size:9px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#c084fc;margin-left:6px;opacity:0.85;">${getPrestigeTitle(prestigeLevel) || ''}</span>
             </div>
             <div class="hangar-pilot-xp-bar">
               <div class="hangar-pilot-xp-fill" id="hangar-pilot-xp-fill" style="width:${pct}%"></div>
