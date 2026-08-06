@@ -3567,6 +3567,16 @@ function handlePrestige() {
   // Increment prestige (also saves hangar)
   prestigePilot(_hangarState);
 
+  // Also advance the Auth-based prestige counter so the prestige_1/5/10
+  // achievements and Game Center reporting (which key off
+  // Auth.playerProfile.prestige, not this hangar's own counter) actually
+  // unlock — this button previously left that counter untouched entirely.
+  if (typeof window !== 'undefined' && window.Auth && window.Auth.playerProfile) {
+    window.Auth.playerProfile.prestige = (window.Auth.playerProfile.prestige || 0) + 1;
+    window.Auth.saveProfile();
+    window.Auth.checkAchievements();
+  }
+
   // Re-open with same options so the updated badge is visible
   const savedOptions = Object.assign({}, _options);
   closeHangar();
