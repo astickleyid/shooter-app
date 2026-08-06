@@ -383,6 +383,11 @@ const SocialHub = {
   confirmPrestige() {
     this.closeModal('prestigeConfirmModal');
     this.closeModal('profileModal');
+    // Actually perform the prestige — this previously only showed a success
+    // toast without ever resetting the pilot level or granting any reward.
+    if (typeof window.Auth !== 'undefined' && typeof window.Auth.doPrestige === 'function') {
+      window.Auth.doPrestige();
+    }
     // Show success notification
     const toast = document.createElement('div');
     toast.className = 'achievement-toast';

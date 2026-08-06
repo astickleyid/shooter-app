@@ -1708,16 +1708,18 @@
       this.save();
     },
     setRunBests(kills, timeSec, accuracyPct) {
-      let changed = false;
-      if (kills > (this.data.bestKills || 0)) { this.data.bestKills = kills; changed = true; }
-      if (timeSec > (this.data.bestTimeSec || 0)) { this.data.bestTimeSec = timeSec; changed = true; }
-      if (accuracyPct > (this.data.bestAccuracyPct || 0)) { this.data.bestAccuracyPct = accuracyPct; changed = true; }
-      if (changed) this.save();
-      return {
-        newBestKills: kills > 0 && kills >= (this.data.bestKills || 0),
-        newBestTime: timeSec > 0 && timeSec >= (this.data.bestTimeSec || 0),
-        newBestAccuracy: accuracyPct > 0 && accuracyPct >= (this.data.bestAccuracyPct || 0)
-      };
+      // Compute the "new best" flags before mutating the stored bests — doing
+      // it after (as before) compared each stat against its own just-updated
+      // value, so merely tying a previous best (not beating it) still read
+      // as a new best.
+      const newBestKills = kills > 0 && kills > (this.data.bestKills || 0);
+      const newBestTime = timeSec > 0 && timeSec > (this.data.bestTimeSec || 0);
+      const newBestAccuracy = accuracyPct > 0 && accuracyPct > (this.data.bestAccuracyPct || 0);
+      if (newBestKills) this.data.bestKills = kills;
+      if (newBestTime) this.data.bestTimeSec = timeSec;
+      if (newBestAccuracy) this.data.bestAccuracyPct = accuracyPct;
+      if (newBestKills || newBestTime || newBestAccuracy) this.save();
+      return { newBestKills, newBestTime, newBestAccuracy };
     },
     getUpgradeLevel(id) {
       return this.data.upgrades[id] || 0;
@@ -9419,11 +9421,10 @@ PowerUps.reset();
       dropSupply(enemy.x + rand(-40, 40), enemy.y + rand(-40, 40));
       Save.addCredits(250);
       if (window.missionSystem) window.missionSystem.trackCredits(250);
+      // LEVIATHAN SLAYER achievement is unlocked via Auth.updateGameStats() at
+      // game over (which adds leviathanKilledThisRun) — incrementing
+      // Auth.playerProfile.leviathanKills here too double-counted every kill.
       leviathanKilledThisRun++;
-      // Unlock LEVIATHAN SLAYER achievement
-      Auth.playerProfile.leviathanKills = (Auth.playerProfile.leviathanKills || 0) + 1;
-      Auth.saveProfile();
-      Auth.checkAchievements();
     } else if (wasElite) {
       dropCoin(enemy.x + rand(-20, 20), enemy.y + rand(-20, 20));
       dropCoin(enemy.x + rand(-20, 20), enemy.y + rand(-20, 20));
@@ -10701,7 +10702,11 @@ PowerUps.reset();
         const rawCoinCredits = killComboMultiplier > 1 ? killComboMultiplier : 1;
         // Fortune Module shop upgrade ('luck'): was purchasable but its level
         // was never read anywhere — 5% more credits per level, up to 30% at max level 6.
-        const coinCredits = Math.round(rawCoinCredits * (1 + Save.getUpgradeLevel('luck') * 0.05));
+        // perkMultipliers.coinBonus (Scavenger perk, Salvage Network hangar upgrade,
+        // Prestige bonus) advertise "+X% credits from kills" but were only ever
+        // consumed as a bonus-coin-drop chance below — never applied to the actual
+        // credit value awarded here.
+        const coinCredits = Math.round(rawCoinCredits * (1 + Save.getUpgradeLevel('luck') * 0.05) * perkMultipliers.coinBonus);
         Save.addCredits(coinCredits);
         if (window.missionSystem) window.missionSystem.trackCredits(coinCredits);
         addXP(6);
