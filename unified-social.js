@@ -6,9 +6,12 @@
  * @global SocialAPI - Web social API (from social-api.js)
  * @global SocialHub - Web social hub UI (from social-hub.js)
  * @global GlobalLeaderboard - Global leaderboard system (from backend-api.js)
- * @global submitSocialScore - Score submission function (from social-integration.js)
- * @global socialGameOver - Game over handler (from social-integration.js)
- * @global updateSocialUI - UI update function (from social-integration.js)
+ * @global submitSocialScore - Optional legacy score-submission hook, guarded
+ *   with typeof checks below since nothing currently defines it (the
+ *   social-integration.js module that used to provide it was dead code —
+ *   never loaded by index.html — and has been removed).
+ * @global socialGameOver - Optional legacy game-over hook, same as above.
+ * @global updateSocialUI - Optional legacy UI-update hook, same as above.
  * @global module - Node.js module object
  */
 
