@@ -7433,7 +7433,8 @@ PowerUps.reset();
         healthPct,
         isBoosting,
         isDefenseActive: this.isDefenseActive(now),
-        time: now
+        time: now,
+        colors: currentShip?.colors
       });
       
       // Phase A: Shield bubble effect and charge glow
@@ -8026,7 +8027,11 @@ PowerUps.reset();
 
   const drawShip = (ctx, shipId, size, state = {}) => {
     const template = getShipTemplate(shipId) || SHIP_TEMPLATES[0];
-    const colors = template.colors || {};
+    // state.colors lets callers override the template's stock palette with the
+    // player's equipped Hangar skin (see initShipSelection, which already merges
+    // skin colors into currentShip.colors) — without this, purchased skins never
+    // appeared anywhere drawShip is used to render the actual ship.
+    const colors = state.colors || template.colors || {};
     const primary = colors.primary || '#0ea5e9';
     const trim = colors.trim || '#ffffff';
     const accent = colors.accent || trim;
@@ -9988,26 +9993,6 @@ PowerUps.reset();
     g.rotate(-0.5);
     drawShip(g, Save.data.selectedShip, 18);
     g.restore();
-  };
-
-  const _showMessage = (title, html, button = 'Continue', handler) => {
-    dom.messageTitle.textContent = title;
-    dom.messageText.innerHTML = html;
-    dom.messageButton.textContent = button;
-    dom.messageBox.style.display = 'block';
-    // Click only — touchstart+click double-fires on iOS WKWebView and can
-    // start two handlers (e.g. startGame twice → freeze).
-    const once = (e) => {
-      if (e && typeof e.preventDefault === 'function') e.preventDefault();
-      dom.messageBox.style.display = 'none';
-      dom.messageButton.removeEventListener('click', once);
-      try {
-        handler && handler();
-      } catch (err) {
-        console.error('[_showMessage] handler failed', err);
-      }
-    };
-    dom.messageButton.addEventListener('click', once);
   };
 
   /* ====== SHOP ====== */
