@@ -413,8 +413,10 @@ const SocialHub = {
 
   // Get total achievements count
   getTotalAchievements() {
-    // Standard achievement count
-    return 24;
+    // Standard achievement count — must match the length of the catalog
+    // in renderAchievements() below (26 entries, including leviathan_slayer
+    // and void_breaker).
+    return 26;
   },
 
   // Render achievements grid
@@ -424,7 +426,9 @@ const SocialHub = {
       { id: 'centurion', name: 'Centurion', icon: '⚔️' },
       { id: 'slayer', name: 'Slayer', icon: '💀' },
       { id: 'boss_hunter', name: 'Boss Hunter', icon: '👹' },
+      { id: 'leviathan_slayer', name: 'Leviathan Slayer', icon: '🐋' },
       { id: 'elite_destroyer', name: 'Elite Destroyer', icon: '💎' },
+      { id: 'void_breaker', name: 'Void Breaker', icon: '🌀' },
       { id: 'survivor', name: 'Survivor', icon: '🛡️' },
       { id: 'veteran', name: 'Veteran', icon: '⭐' },
       { id: 'champion', name: 'Champion', icon: '🏆' },

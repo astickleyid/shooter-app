@@ -40,6 +40,30 @@ async function createSession(userId, username) {
   return session;
 }
 
+// Resolve the acting user's session from the Authorization header, mirroring
+// api/leaderboard.js's getSessionFromToken. 'update' and 'stats' below used
+// to trust whatever userId was in the request body with no verification —
+// unlike leaderboard/friends/activity, which all require a matching session
+// token — so anyone who knew (or guessed) a userId could overwrite that
+// player's profile, settings, or stats.
+async function getSessionFromToken(token) {
+  if (!token || !kv) return null;
+  try {
+    const session = await kv.get(`session:${token}`);
+    if (!session) return null;
+    if (session.expiresAt && session.expiresAt < Date.now()) return null;
+    return session;
+  } catch (err) {
+    console.error('Session lookup failed:', err.message);
+    return null;
+  }
+}
+
+function getBearerToken(req) {
+  const authHeader = req.headers.authorization || '';
+  return authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+}
+
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -215,6 +239,11 @@ module.exports = async (req, res) => {
     if (action === 'update' && req.method === 'PUT') {
       const { userId, updates } = req.body;
 
+      const session = await getSessionFromToken(getBearerToken(req));
+      if (!session || session.userId !== userId) {
+        return res.status(401).json({ error: 'Authentication required to update this profile' });
+      }
+
       const user = await kv.get(`user:${userId}`);
       if (!user) {
         return res.status(404).json({ error: 'User not found' });
@@ -236,6 +265,11 @@ module.exports = async (req, res) => {
     // Update stats
     if (action === 'stats' && req.method === 'POST') {
       const { userId, score, level, kills, deaths, accuracy, duration } = req.body;
+
+      const session = await getSessionFromToken(getBearerToken(req));
+      if (!session || session.userId !== userId) {
+        return res.status(401).json({ error: 'Authentication required to update stats' });
+      }
 
       const user = await kv.get(`user:${userId}`);
       if (!user) {
