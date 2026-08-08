@@ -1689,6 +1689,9 @@
       }
     },
     addCredits(amount) {
+      if (amount > 0 && typeof Auth !== 'undefined' && Auth.getPrestigeBonusMultiplier) {
+        amount = Math.floor(amount * Auth.getPrestigeBonusMultiplier());
+      }
       this.data.credits = Math.max(0, Math.floor(this.data.credits + amount));
       syncCredits();
       this.save();
@@ -1973,7 +1976,14 @@
     canPrestige() {
       return Save.data.pilotLevel >= PRESTIGE_LEVELS_PER_TIER && this.playerProfile.prestige < MAX_PRESTIGE;
     },
-    
+
+    // Small permanent per-tier payoff for prestiging: +1.5% credits/XP per tier
+    // (e.g. Prestige 5 = +7.5%), so resetting pilot level keeps paying off afterward
+    // instead of only granting a one-time cosmetic unlock.
+    getPrestigeBonusMultiplier() {
+      return 1 + (this.playerProfile.prestige || 0) * 0.015;
+    },
+
     doPrestige() {
       if (!this.canPrestige()) return false;
       
@@ -2495,6 +2505,10 @@ PowerUps.reset();
     if (xpBoostMultiplier > 1) {
       amount = Math.floor(amount * xpBoostMultiplier);
     }
+    // Small permanent per-prestige-tier XP bonus
+    if (typeof Auth !== 'undefined' && Auth.getPrestigeBonusMultiplier) {
+      amount = Math.floor(amount * Auth.getPrestigeBonusMultiplier());
+    }
 
     xpEarnedThisRun += amount;
     pilotXP += amount;
@@ -2542,7 +2556,15 @@ PowerUps.reset();
   };
 
   const getShakeIntensity = () => {
-    const stored = parseInt(localStorage.getItem('voidrift_screen_shake'), 10);
+    const raw = localStorage.getItem('voidrift_screen_shake');
+    // No explicit slider preference yet — default to the OS reduced-motion setting
+    // instead of always assuming full-intensity shake.
+    if (raw === null) {
+      const prefersReduced = typeof window.matchMedia === 'function' &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      return prefersReduced ? 0 : 1;
+    }
+    const stored = parseInt(raw, 10);
     return (Number.isFinite(stored) ? stored : 100) / 100;
   };
 
@@ -6914,8 +6936,12 @@ PowerUps.reset();
     performSpecialAttack(now) {
       if (!player) return;
       this.lastSpecialAttack = now;
+      // The two generic (non-named) boss shapes get their own attack identity
+      // instead of sharing one interchangeable radial/charge/summon rotation.
+      if (this.kind === 'heavy') { this.performHeavyBossAttack(); return; }
+      if (this.kind === 'chaser') { this.performChaserBossAttack(); return; }
       this.attackPhase = (this.attackPhase + 1) % 3;
-      
+
       switch (this.attackPhase) {
         case 0: // Radial burst - fires in all directions
           for (let i = 0; i < 12; i++) {
@@ -6954,7 +6980,73 @@ PowerUps.reset();
           break;
       }
     }
-    
+
+    // Heavy-shape boss: slow, armor-plated juggernaut. Alternates a wide artillery
+    // spread with a ground-slam shockwave that punishes players who stay close.
+    performHeavyBossAttack() {
+      if (!player) return;
+      this.attackPhase = (this.attackPhase + 1) % 2;
+
+      if (this.attackPhase === 0) {
+        const dx = player.x - this.x;
+        const dy = player.y - this.y;
+        const baseAngle = Math.atan2(dy, dx);
+        const damage = this.baseDamage * 0.9;
+        const spread = 5;
+        for (let i = 0; i < spread; i++) {
+          const ang = baseAngle - 0.3 + (i / (spread - 1)) * 0.6;
+          const vel = { x: Math.cos(ang), y: Math.sin(ang) };
+          bullets.push(new Bullet(this.x, this.y, vel, damage, '#f97316', BASE.BULLET_SPEED * 0.55, BASE.BULLET_SIZE * 1.6, 0, true));
+        }
+        addParticles('muzzle', this.x, this.y, baseAngle, 10);
+        shakeScreen(6, 200);
+        addLogEntry('⚠️ Heavy artillery barrage!', '#f97316');
+      } else {
+        const slamRadius = this.size * 3.2;
+        const dist = Math.hypot(player.x - this.x, player.y - this.y);
+        if (dist < slamRadius) {
+          player.takeDamage(this.baseDamage * 1.8, this);
+        }
+        addParticles('ring', this.x, this.y, 0, 24, '#ea580c');
+        shakeScreen(11, 350);
+        addLogEntry('⚠️ Boss ground-slam shockwave!', '#ea580c');
+      }
+    }
+
+    // Chaser-shape boss: fast, relentless void reaper. Blinks toward the player
+    // then unleashes a converging burst — punishes standing still, not proximity.
+    performChaserBossAttack() {
+      if (!player) return;
+      this.attackPhase = (this.attackPhase + 1) % 2;
+
+      if (this.attackPhase === 0) {
+        const dx = player.x - this.x;
+        const dy = player.y - this.y;
+        const dist = Math.hypot(dx, dy) || 1;
+        const blinkDist = Math.min(dist - this.size * 1.5, 260);
+        if (blinkDist > 0) {
+          this.x += (dx / dist) * blinkDist;
+          this.y += (dy / dist) * blinkDist;
+        }
+        addParticles('sparks', this.x, this.y, 0, 18, '#e879f9');
+        shakeScreen(7, 180);
+        addLogEntry('⚠️ Boss blinks in close!', '#e879f9');
+      } else {
+        const dx = player.x - this.x;
+        const dy = player.y - this.y;
+        const baseAngle = Math.atan2(dy, dx);
+        const damage = this.baseDamage * 0.6;
+        const converge = 8;
+        for (let i = 0; i < converge; i++) {
+          const ang = (i / converge) * Math.PI * 2;
+          const vel = { x: Math.cos(ang), y: Math.sin(ang) };
+          bullets.push(new Bullet(this.x, this.y, vel, damage, '#a78bfa', BASE.BULLET_SPEED * 0.85, BASE.BULLET_SIZE * 1.1, 0, true));
+        }
+        addParticles('nova', this.x, this.y, 0, 16);
+        addLogEntry('⚠️ Boss unleashes a converging burst!', '#a78bfa');
+      }
+    }
+
     leviathanFirePhase(phase) {
       if (!player) return;
       const dx = player.x - this.x;
@@ -13428,7 +13520,7 @@ PowerUps.reset();
 
     // Save daily challenge best and restore Math.random
     if (window.DAILY_CHALLENGE_ACTIVE) {
-      import('./daily-challenge.js').then(({ saveDailyBest, getTodayBest, deactivateDailyChallenge, getDailyStreak, getTotalDailyChallengesCompleted }) => {
+      import('./daily-challenge.js').then(({ saveDailyBest, getTodayBest, deactivateDailyChallenge, getDailyStreak, getTotalDailyChallengesCompleted, claimStreakReward }) => {
         // saveDailyBest() only overwrites the stored best when finalScore is
         // actually higher — but its return value was previously discarded,
         // so the display below unconditionally showed *this run's* score
@@ -13438,15 +13530,27 @@ PowerUps.reset();
         const bestEl = document.getElementById('dailyBestDisplay');
         if (bestEl) bestEl.textContent = `Best: ${getTodayBest().toLocaleString()}`;
 
+        const streak = getDailyStreak();
+
         // Update achievement stats for daily challenge completion
         try {
           const completedCount = getTotalDailyChallengesCompleted();
-          const streak = getDailyStreak();
           if (typeof window.updateAchievementStats === 'function') {
             window.updateAchievementStats({ dailyChallengesCompleted: completedCount, dailyStreak: streak });
           }
         } catch (e) {
           console.warn('[DailyChallenge] Achievement stats error:', e);
+        }
+
+        // Streak reward payoff — the streak was tracked but had zero payoff before
+        try {
+          const streakBonus = claimStreakReward();
+          if (streakBonus > 0) {
+            Save.addCredits(streakBonus);
+            showStreakBonusToast(streak, streakBonus);
+          }
+        } catch (e) {
+          console.warn('[DailyChallenge] Streak reward error:', e);
         }
       }).catch(err => console.warn('[DailyChallenge] Save failed:', err));
     }
@@ -13484,10 +13588,21 @@ PowerUps.reset();
   };
 
   // ── Accessibility ────────────────────────────────────────────────────────
+  const COLORBLIND_FILTER_IDS = {
+    deuteranopia: 'cbFilterDeuteranopia',
+    protanopia: 'cbFilterProtanopia',
+    tritanopia: 'cbFilterTritanopia',
+  };
+
   function applyHighContrast() {
     const enabled = localStorage.getItem('voidrift_high_contrast') === '1';
+    const cbMode = localStorage.getItem('voidrift_colorblind_mode') || 'off';
     if (dom.canvas) {
-      dom.canvas.style.filter = enabled ? 'contrast(1.35) saturate(1.5) brightness(1.05)' : '';
+      const filters = [];
+      const cbId = COLORBLIND_FILTER_IDS[cbMode];
+      if (cbId) filters.push(`url(#${cbId})`);
+      if (enabled) filters.push('contrast(1.35) saturate(1.5) brightness(1.05)');
+      dom.canvas.style.filter = filters.join(' ');
     }
   }
   window.applyHighContrast = applyHighContrast;
@@ -13548,6 +13663,36 @@ PowerUps.reset();
       setTimeout(() => { el.style.display = 'none'; }, 320);
       _missionToastTimeout = null;
     }, 2500);
+  }
+
+  let _streakToastTimeout = null;
+  function showStreakBonusToast(streak, credits) {
+    const el = document.getElementById('mission-complete-toast');
+    if (!el) {
+      try {
+        if (typeof addLogEntry === 'function') {
+          addLogEntry(`🔥 ${streak}-Day Streak: +${credits} credits!`, '#fbbf24');
+        }
+      } catch (_) {}
+      return;
+    }
+    // Share the mission-complete toast element/timers so a reward that fires
+    // right at game-over doesn't fight a still-visible mission toast.
+    if (_missionToastTimeout !== null) { clearTimeout(_missionToastTimeout); _missionToastTimeout = null; }
+    if (_streakToastTimeout !== null) { clearTimeout(_streakToastTimeout); _streakToastTimeout = null; }
+
+    el.innerHTML =
+      `<div class="mission-complete-toast__header">🔥 ${streak}-Day Streak</div>` +
+      `<div class="mission-complete-toast__name">+${credits} bonus credits</div>`;
+    el.style.display = 'block';
+    void el.offsetWidth;
+    el.classList.add('mission-complete-toast--visible');
+
+    _streakToastTimeout = setTimeout(() => {
+      el.classList.remove('mission-complete-toast--visible');
+      setTimeout(() => { el.style.display = 'none'; }, 320);
+      _streakToastTimeout = null;
+    }, 3000);
   }
 
   function updateMissionHUD() {

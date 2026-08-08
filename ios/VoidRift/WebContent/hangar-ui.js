@@ -1300,6 +1300,8 @@ const HANGAR_UI_CSS = `
   .hangar-mute-btn { padding: 8px 18px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.7); font-size: 13px; cursor: pointer; transition: background 0.2s; }
   .hangar-mute-btn:hover { background: rgba(255,255,255,0.12); }
   .hangar-mute-btn.muted { border-color: #ef4444; color: #ef4444; }
+  .hangar-select { flex: 1; padding: 7px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.85); font-size: 13px; cursor: pointer; }
+  .hangar-select:focus { outline: 1px solid rgba(74,222,128,0.5); }
 
   /* ── Remove Ads IAP section ──────────────────────────────────── */
   .hangar-iap-section { margin-top: 8px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.08); }
@@ -2276,6 +2278,18 @@ function renderSettingsView() {
           </label>
         </div>
         <div class="hangar-theme-hint">Boosts contrast and saturation to make enemies, bullets, and pickups easier to distinguish.</div>
+        <div class="hangar-settings-row">
+          <span>Colorblind Mode</span>
+          <select id="settings-colorblind-mode" class="hangar-select">
+            ${[
+              { id: 'off', label: 'Off' },
+              { id: 'deuteranopia', label: 'Deuteranopia' },
+              { id: 'protanopia', label: 'Protanopia' },
+              { id: 'tritanopia', label: 'Tritanopia' },
+            ].map(o => `<option value="${o.id}"${(localStorage.getItem('voidrift_colorblind_mode') || 'off') === o.id ? ' selected' : ''}>${o.label}</option>`).join('')}
+          </select>
+        </div>
+        <div class="hangar-theme-hint">Shifts red/green enemy and pickup tints toward blue/orange for red-green color-vision deficiency.</div>
       </div>
     </div>
   `;
@@ -2384,6 +2398,15 @@ function renderSettingsView() {
   if (highContrastToggle) {
     highContrastToggle.addEventListener('change', () => {
       localStorage.setItem('voidrift_high_contrast', highContrastToggle.checked ? '1' : '0');
+      if (typeof window.applyHighContrast === 'function') window.applyHighContrast();
+    });
+  }
+
+  // Wire up Colorblind Mode select
+  const colorblindSelect = document.getElementById('settings-colorblind-mode');
+  if (colorblindSelect) {
+    colorblindSelect.addEventListener('change', () => {
+      localStorage.setItem('voidrift_colorblind_mode', colorblindSelect.value);
       if (typeof window.applyHighContrast === 'function') window.applyHighContrast();
     });
   }
@@ -3376,16 +3399,18 @@ function renderStatsView() {
     const prestigeBox = document.createElement('div');
     prestigeBox.style.cssText = 'margin-top:16px; background:rgba(192,132,252,0.06); border:1px solid rgba(192,132,252,0.25); border-radius:10px; padding:14px 16px;';
 
+    const bonusPct = Math.round(((typeof auth.getPrestigeBonusMultiplier === 'function' ? auth.getPrestigeBonusMultiplier() : 1) - 1) * 100);
     if (auth.canPrestige()) {
+      const nextBonusPct = Math.round((((profile.prestige || 0) + 1) * 1.5));
       prestigeBox.innerHTML = `
         <div style="font-size:11px;color:#c084fc;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;">&#11088; Prestige Available</div>
-        <div style="font-size:12px;color:rgba(255,255,255,0.6);margin-bottom:10px;">Reset your Pilot Level to 1 for a permanent title and reward. Credits and upgrades are kept.</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.6);margin-bottom:10px;">Reset your Pilot Level to 1 for a permanent title, reward, and a lasting +${nextBonusPct}% credits/XP bonus. Credits and upgrades are kept.</div>
         <button id="hangar-prestige-btn" style="padding:8px 16px; border-radius:8px; border:1px solid rgba(192,132,252,0.4); background:rgba(192,132,252,0.15); color:#e9d5ff; font-weight:700; cursor:pointer;">Prestige Now (${(profile.prestige || 0) + 1}/10)</button>
       `;
     } else {
       const current = profile.prestige || 0;
       prestigeBox.innerHTML = `
-        <div style="font-size:11px;color:rgba(255,255,255,0.3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px;">&#11088; Prestige ${current}/10${profile.title ? ` — ${profile.title}` : ''}</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px;">&#11088; Prestige ${current}/10${profile.title ? ` — ${profile.title}` : ''}${current > 0 ? ` (+${bonusPct}% credits/XP)` : ''}</div>
         <div style="font-size:11px;color:rgba(255,255,255,0.28);">Reach Pilot Level 50 to prestige again.</div>
       `;
     }

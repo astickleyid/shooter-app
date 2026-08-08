@@ -106,3 +106,22 @@ export function getTotalDailyChallengesCompleted() {
   const stored = loadDailyChallenge();
   return Object.keys(stored).length;
 }
+
+const STREAK_REWARD_KEY = 'voidrift_daily_streak_reward_claimed';
+export const STREAK_REWARD_INTERVAL = 3;
+export const STREAK_REWARD_CREDITS = 150;
+
+/**
+ * Grants a bonus-credit payout every STREAK_REWARD_INTERVAL-day streak
+ * (e.g. day 3, 6, 9, ...). Idempotent per calendar day — replaying today's
+ * challenge again won't re-grant the same milestone's reward.
+ * Returns the credit amount to award, or 0 if nothing is due.
+ */
+export function claimStreakReward() {
+  const streak = getDailyStreak();
+  if (streak <= 0 || streak % STREAK_REWARD_INTERVAL !== 0) return 0;
+  const today = todayStr();
+  if (localStorage.getItem(STREAK_REWARD_KEY) === today) return 0;
+  localStorage.setItem(STREAK_REWARD_KEY, today);
+  return STREAK_REWARD_CREDITS;
+}
