@@ -1122,6 +1122,15 @@
       stat: '+0.5× Score Multiplier',
       apply(m) { m.scoreMultBonus += 0.5; }
     },
+    {
+      id: 'quantum_thrusters',
+      name: 'Quantum Thrusters',
+      rarity: 'rare',
+      icon: '⏱️',
+      flavor: 'Phase capacitors recharge in a fraction of the time.',
+      stat: 'Dash/Boost Ability Cooldown -25%',
+      apply(m) { m.dashCooldown = Math.max(0.4, m.dashCooldown * 0.75); }
+    },
     // ── EPIC ─────────────────────────────────────────────────────────────────
     {
       id: 'fragmentation',
@@ -2392,15 +2401,14 @@ PowerUps.reset();
     specialQKeyLatch = false;
     // Set cooldown max per selected ship
     const _sid = Save.data.selectedShip;
-    specialCooldownMax = _sid === 'bulwark' ? 10000 : _sid === 'titan' ? 8000 : 6000;
-    // Show/hide ability HUD
+    specialCooldownMax = _sid === 'bulwark' ? 10000 : _sid === 'titan' ? 8000 : _sid === 'vanguard' ? 7000 : _sid === 'emberwing' ? 6500 : _sid === 'phantom' ? 5000 : 6000;
+    // Show/hide ability HUD — all 6 ships now have a Q special ability
     const _abilityHud = document.getElementById('abilityHud');
     if (_abilityHud) {
-      const _isSpecial = (_sid === 'spectre' || _sid === 'bulwark' || _sid === 'titan');
-      _abilityHud.style.display = _isSpecial ? 'flex' : 'none';
+      _abilityHud.style.display = 'flex';
       const _abilityNameEl = document.getElementById('abilityName');
       if (_abilityNameEl) {
-        _abilityNameEl.textContent = _sid === 'bulwark' ? 'Shield Wall' : _sid === 'titan' ? 'Orbital Strike' : 'Phase Dash';
+        _abilityNameEl.textContent = _sid === 'bulwark' ? 'Shield Wall' : _sid === 'titan' ? 'Orbital Strike' : _sid === 'spectre' ? 'Phase Dash' : _sid === 'vanguard' ? 'Overcharge Volley' : _sid === 'phantom' ? 'Afterburner Surge' : 'Flame Barrage';
       }
     }
 
@@ -2585,7 +2593,7 @@ PowerUps.reset();
         });
       }
       addLogEntry('Phase Dash!', '#22d3ee');
-      specialCooldown = specialCooldownMax * perkMultipliers.specialCooldownMult;
+      specialCooldown = specialCooldownMax * perkMultipliers.specialCooldownMult * (perkMultipliers.dashCooldown || 1);
 
     } else if (sid === 'bulwark') {
       // Shield Wall — arc absorbs up to 3 bullets for 3s
@@ -2613,6 +2621,73 @@ PowerUps.reset();
       }
       shakeScreen(4, 8 * 16); // ~8 frames at 60fps
       addLogEntry('Orbital Strike!', '#fbbf24');
+      specialCooldown = specialCooldownMax * perkMultipliers.specialCooldownMult;
+
+    } else if (sid === 'vanguard') {
+      // Overcharge Volley — 5-shot piercing spread straight ahead
+      const dmg = Math.round(16 * (currentShip?.stats?.damage || 1));
+      const spreadCount = 5;
+      const spread = 0.35; // total radians across the spread
+      for (let i = 0; i < spreadCount; i++) {
+        const ang = player.lookAngle + (i - (spreadCount - 1) / 2) * (spread / (spreadCount - 1));
+        const vel = { x: Math.cos(ang), y: Math.sin(ang) };
+        bullets.push(new Bullet(
+          player.x + Math.cos(ang) * player.size,
+          player.y + Math.sin(ang) * player.size,
+          vel, dmg, '#38bdf8', BASE.BULLET_SPEED * 1.3, BASE.BULLET_SIZE * 1.1, 2
+        ));
+      }
+      for (let i = 0; i < 10; i++) {
+        particles.push({ x: player.x, y: player.y, vx: (Math.random() - 0.5) * 2, vy: (Math.random() - 0.5) * 2, life: 300, c: '#38bdf8', s: 4, type: 'fade' });
+      }
+      addLogEntry('Overcharge Volley!', '#38bdf8');
+      specialCooldown = specialCooldownMax * perkMultipliers.specialCooldownMult;
+
+    } else if (sid === 'phantom') {
+      // Afterburner Surge — brief massive speed burst with a flash of invulnerability,
+      // reusing the same charge-speed plumbing the Ramming Charge secondary weapon drives.
+      const now = performance.now();
+      player.chargeActiveUntil = now + 1200;
+      player.chargeSpeedMult = 2.2;
+      player.invEnd = Math.max(player.invEnd, now + 300);
+      for (let i = 0; i < 6; i++) {
+        particles.push({
+          x: player.x - Math.cos(player.lookAngle) * player.size,
+          y: player.y - Math.sin(player.lookAngle) * player.size,
+          vx: -Math.cos(player.lookAngle) * (2 + Math.random()),
+          vy: -Math.sin(player.lookAngle) * (2 + Math.random()),
+          life: 300, c: '#22d3ee', s: 4, type: 'fade'
+        });
+      }
+      addLogEntry('Afterburner Surge!', '#22d3ee');
+      specialCooldown = specialCooldownMax * perkMultipliers.specialCooldownMult * (perkMultipliers.dashCooldown || 1);
+
+    } else if (sid === 'emberwing') {
+      // Flame Barrage — forward cone of volatile fire bolts with a recoil kick
+      const dmg = Math.round(14 * (currentShip?.stats?.damage || 1));
+      const coneCount = 6;
+      const cone = 1.0; // total radians across the cone
+      const cx = window.innerWidth;
+      const cy = window.innerHeight;
+      for (let i = 0; i < coneCount; i++) {
+        const ang = player.lookAngle + (i - (coneCount - 1) / 2) * (cone / (coneCount - 1));
+        const vel = { x: Math.cos(ang), y: Math.sin(ang) };
+        bullets.push(new Bullet(
+          player.x + Math.cos(ang) * player.size,
+          player.y + Math.sin(ang) * player.size,
+          vel, dmg, '#fb7185', BASE.BULLET_SPEED * 1.15, BASE.BULLET_SIZE, 0
+        ));
+      }
+      // Recoil kick backward — "rides the flame"
+      player.x = Math.max(player.size, Math.min(cx - player.size, player.x - Math.cos(player.lookAngle) * 18));
+      player.y = Math.max(player.size, Math.min(cy - player.size, player.y - Math.sin(player.lookAngle) * 18));
+      for (let i = 0; i < 14; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const sp = 1.5 + Math.random() * 2.5;
+        particles.push({ x: player.x, y: player.y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, life: 300, c: '#f97316', s: 5, type: 'fade' });
+      }
+      shakeScreen(2, 4 * 16);
+      addLogEntry('Flame Barrage!', '#f97316');
       specialCooldown = specialCooldownMax * perkMultipliers.specialCooldownMult;
     }
   };
@@ -7739,6 +7814,7 @@ PowerUps.reset();
       const stats = this.secondary.stats || {};
       this.secondaryAmmo--;
       this.secondaryReadyAt = now + (this.secondaryCooldownMs || 9000);
+      if (window.missionSystem) window.missionSystem.trackWeaponUse();
       const originX = this.x + Math.cos(this.lookAngle) * (this.size * 1.4);
       const originY = this.y + Math.sin(this.lookAngle) * (this.size * 1.4);
       

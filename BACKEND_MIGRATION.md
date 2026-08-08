@@ -1,5 +1,11 @@
 # Backend Migration: Vercel KV → Firebase
 
+> **Note:** This migration never actually completed — `api/*.js` (Vercel) remained the
+> app's real, sole production backend the whole time, and the Firebase path described
+> below never initialized in any shipped build (`firebase-config.js` always shipped with
+> placeholder credentials). The Firebase files described here have since been removed
+> from the codebase as dead code. This doc is kept for historical reference only.
+
 ## What Changed
 
 The backend has been **replaced with Firebase** - a much simpler solution that requires **no server infrastructure**.

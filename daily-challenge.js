@@ -6,9 +6,17 @@
 
 export const DAILY_CHALLENGE_KEY = 'voidrift_daily_challenge';
 
-/** Returns today's date string YYYY-MM-DD */
+/** Formats a Date using its *local* calendar day as YYYY-MM-DD (not UTC) */
+function localDateStr(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** Returns today's date string YYYY-MM-DD in the player's local timezone */
 export function todayStr() {
-  return new Date().toISOString().split('T')[0];
+  return localDateStr(new Date());
 }
 
 /** Mulberry32 seeded PRNG — returns a function that replaces Math.random() */
@@ -90,7 +98,7 @@ export function getDailyStreak() {
   let streak = 0;
   const d = new Date();
   while (true) {
-    const dateStr = d.toISOString().split('T')[0];
+    const dateStr = localDateStr(d);
     if (!stored[dateStr]) break;
     streak++;
     d.setDate(d.getDate() - 1);
