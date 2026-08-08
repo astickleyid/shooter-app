@@ -3325,6 +3325,14 @@ function renderStatsView() {
     { label: 'CREDITS BANKED', value: (saveData.credits || 0).toLocaleString(),               icon: '💰' },
     { label: 'MISSIONS DONE',  value: window.missionSystem ? window.missionSystem.getTotalMissionsCompleted() : 0, icon: '📋' },
     { label: 'BOUNTIES CLAIMED', value: window.missionSystem ? window.missionSystem.getTotalBountiesCompleted() : 0, icon: '⚠️' },
+    { label: 'BEST KILL RUN',  value: (saveData.bestKills || 0).toLocaleString(),              icon: '💀' },
+    { label: 'BEST SURVIVAL',  value: (() => {
+        const s = saveData.bestTimeSec || 0;
+        const mm = Math.floor(s / 60);
+        const ss = String(s % 60).padStart(2, '0');
+        return mm > 0 ? `${mm}m ${ss}s` : `${s}s`;
+      })(), icon: '⏱️' },
+    { label: 'BEST ACCURACY',  value: `${saveData.bestAccuracyPct || 0}%`,                     icon: '🎯' },
   ];
 
   const wrapper = document.createElement('div');

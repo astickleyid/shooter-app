@@ -13,7 +13,6 @@ const MISSION_TYPES = {
   REACH_LEVEL: 'reach_level',
   COLLECT_CREDITS: 'collect_credits',
   COLLECT_FRAGMENTS: 'collect_fragments',
-  USE_WEAPON: 'use_weapon',
   NO_DAMAGE_LEVEL: 'no_damage_level',
   KILL_BOSSES: 'kill_bosses',
   KILL_ELITES: 'kill_elites',
