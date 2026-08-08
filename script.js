@@ -1709,14 +1709,20 @@
     },
     setRunBests(kills, timeSec, accuracyPct) {
       let changed = false;
-      if (kills > (this.data.bestKills || 0)) { this.data.bestKills = kills; changed = true; }
-      if (timeSec > (this.data.bestTimeSec || 0)) { this.data.bestTimeSec = timeSec; changed = true; }
-      if (accuracyPct > (this.data.bestAccuracyPct || 0)) { this.data.bestAccuracyPct = accuracyPct; changed = true; }
+      // Capture strict-improvement flags before overwriting so a tied score
+      // doesn't get reported as a new PB (kills >= bestKills is true on a tie
+      // once bestKills has already been updated to match).
+      const isNewKills = kills > 0 && kills > (this.data.bestKills || 0);
+      const isNewTime = timeSec > 0 && timeSec > (this.data.bestTimeSec || 0);
+      const isNewAccuracy = accuracyPct > 0 && accuracyPct > (this.data.bestAccuracyPct || 0);
+      if (isNewKills) { this.data.bestKills = kills; changed = true; }
+      if (isNewTime) { this.data.bestTimeSec = timeSec; changed = true; }
+      if (isNewAccuracy) { this.data.bestAccuracyPct = accuracyPct; changed = true; }
       if (changed) this.save();
       return {
-        newBestKills: kills > 0 && kills >= (this.data.bestKills || 0),
-        newBestTime: timeSec > 0 && timeSec >= (this.data.bestTimeSec || 0),
-        newBestAccuracy: accuracyPct > 0 && accuracyPct >= (this.data.bestAccuracyPct || 0)
+        newBestKills: isNewKills,
+        newBestTime: isNewTime,
+        newBestAccuracy: isNewAccuracy
       };
     },
     getUpgradeLevel(id) {
@@ -9538,6 +9544,8 @@ PowerUps.reset();
       addParticles('levelup', enemy.x, enemy.y, 0, 40);
       shakeScreen(20, 800);
       addLogEntry('☠️ LEVIATHAN DESTROYED!', '#FF2020');
+      // Leviathan is a boss for stats/achievements even though it doesn't use the generic isBoss flag
+      bossKilledThisRun++;
       // Nullify bossEntity so checkWaveCompletion fires
       if (bossEntity === enemy) bossEntity = null;
     } else if (wasBoss) {
@@ -10628,8 +10636,13 @@ PowerUps.reset();
             }
           }
           enemy.health -= hitDamage;
-          runShotsHit++;
-          waveShotsHit++;
+          // Count each bullet as at most one "hit" for accuracy stats, even when
+          // piercing lets it strike multiple enemies — otherwise accuracy can exceed 100%.
+          if (!bullet.countedHit) {
+            bullet.countedHit = true;
+            runShotsHit++;
+            waveShotsHit++;
+          }
 
           // Phase 1: Show damage number
           spawnDamageNumber(enemy.x, enemy.y, hitDamage, isCrit);
@@ -13515,14 +13528,23 @@ PowerUps.reset();
     if (hud) hud.style.display = 'none';
   }
 
+  function hudAccentToRgba(hex, alpha) {
+    const h = hex.replace('#', '');
+    const r = parseInt(h.substring(0, 2), 16);
+    const g = parseInt(h.substring(2, 4), 16);
+    const b = parseInt(h.substring(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
   let _missionToastTimeout = null;
   function showMissionCompleteToast(name) {
     const el = document.getElementById('mission-complete-toast');
+    const accent = getHudAccent();
     if (!el) {
       // Fallback to action log if DOM element not found
       try {
         if (typeof addLogEntry === 'function') {
-          addLogEntry(`MISSION COMPLETE: ${name}`, '#4ade80');
+          addLogEntry(`MISSION COMPLETE: ${name}`, accent);
         }
       } catch (_) {}
       return;
@@ -13534,8 +13556,11 @@ PowerUps.reset();
       _missionToastTimeout = null;
     }
 
+    // Apply the player's chosen HUD theme (Settings > HUD Theme) to the toast accent
+    el.style.borderColor = accent;
+    el.style.boxShadow = `0 0 24px ${hudAccentToRgba(accent, 0.25)}`;
     el.innerHTML =
-      `<div class="mission-complete-toast__header">&#10003; Mission Complete</div>` +
+      `<div class="mission-complete-toast__header" style="color:${accent}">&#10003; Mission Complete</div>` +
       `<div class="mission-complete-toast__name">${name}</div>`;
     el.style.display = 'block';
     // Force reflow so the transition plays from the start state
@@ -14128,6 +14153,11 @@ PowerUps.reset();
       } catch(e) {
         window.missionSystem.checkDailyRefresh();
       }
+      // Seed the "already seen" set with missions completed before this page load
+      // so the completion toast/counter only fires for missions finished just now.
+      (window.missionSystem.dailyMissions || []).forEach((m) => {
+        if (m.completed || m.claimed) _missionPrevCompleted.add(m.id || m.name);
+      });
       updateMissionHUD();
     }
     // Initialize TechFragmentSystem
