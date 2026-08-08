@@ -124,9 +124,12 @@ const UnifiedSocial = {
     }
   },
 
-  // Report achievement to both systems
+  // Report achievement to Game Center. Local/web achievement tracking and
+  // toasts are owned exclusively by Auth.checkAchievements() (script.js) —
+  // this used to also write to an orphaned `void_rift_auth_profile_*` key
+  // and fire its own '.achievement-toast', which meant every unlock showed
+  // two stacked "Achievement Unlocked" toasts for the same milestone.
   async reportAchievement(achievementKey, percentComplete = 100) {
-    // Report to Game Center (iOS only)
     if (this.isGameCenterAuthenticated) {
       const gcID = this.achievementIDs[achievementKey];
       if (gcID) {
@@ -136,28 +139,6 @@ const UnifiedSocial = {
           // Silently ignore Game Center errors
         }
       }
-    }
-    
-    // Store locally for web
-    try {
-      const authKey = 'void_rift_auth';
-      const currentUser = JSON.parse(localStorage.getItem(authKey) || '{}').currentUser;
-      const profileKey = `${authKey}_profile_${currentUser || 'guest'}`;
-      const profile = JSON.parse(localStorage.getItem(profileKey) || '{}');
-      
-      if (!profile.unlockedAchievements) {
-        profile.unlockedAchievements = [];
-      }
-      
-      if (!profile.unlockedAchievements.includes(achievementKey)) {
-        profile.unlockedAchievements.push(achievementKey);
-        localStorage.setItem(profileKey, JSON.stringify(profile));
-        
-        // Show achievement notification
-        this.showAchievementNotification(achievementKey);
-      }
-    } catch (error) {
-      // Silently ignore local achievement errors
     }
   },
 
@@ -330,61 +311,6 @@ const UnifiedSocial = {
     } catch (err) {
       console.error('[UnifiedSocial] showProfile failed', err);
     }
-  },
-
-  // Show achievement notification
-  showAchievementNotification(achievementKey) {
-    const achievementNames = {
-      firstBlood: 'First Blood',
-      centurion: 'Centurion',
-      slayer: 'Slayer',
-      bossHunter: 'Boss Hunter',
-      survivor: 'Survivor',
-      veteran: 'Veteran',
-      champion: 'Champion',
-      flawless: 'Flawless Victory',
-      prestige1: 'Prestige I',
-      prestige5: 'Prestige V',
-      prestige10: 'Prestige X'
-    };
-    
-    const achievementIcons = {
-      firstBlood: '🎯',
-      centurion: '⚔️',
-      slayer: '💀',
-      bossHunter: '👹',
-      survivor: '🛡️',
-      veteran: '⭐',
-      champion: '🏆',
-      flawless: '✨',
-      prestige1: '🌟',
-      prestige5: '💫',
-      prestige10: '🔱'
-    };
-    
-    const name = achievementNames[achievementKey] || achievementKey;
-    const icon = achievementIcons[achievementKey] || '🏅';
-    
-    // Create toast notification
-    const toast = document.createElement('div');
-    toast.className = 'achievement-toast';
-    toast.innerHTML = `
-      <div class="achievement-toast-icon">${icon}</div>
-      <div class="achievement-toast-content">
-        <div class="achievement-toast-title">ACHIEVEMENT UNLOCKED!</div>
-        <div class="achievement-toast-name">${name}</div>
-      </div>
-    `;
-    
-    document.body.appendChild(toast);
-    setTimeout(() => toast.classList.add('show'), 100);
-    
-    setTimeout(() => {
-      toast.classList.remove('show');
-      setTimeout(() => {
-        if (toast.parentNode) toast.remove();
-      }, 300);
-    }, 4000);
   },
 
   // Handle game over with unified social features

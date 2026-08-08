@@ -568,7 +568,8 @@
     // Progressive enemy stat scaling per level (after early game)
     HEALTH_PER_LEVEL: 0.12,      // +12% health per level after early game
     DAMAGE_PER_LEVEL: 0.08,      // +8% damage per level after early game
-    SPEED_PER_LEVEL: 0.03        // +3% speed per level after early game
+    SPEED_PER_LEVEL: 0.03,       // +3% speed per level after early game
+    MAX_PROGRESSIVE_DAMAGE_BONUS: 6  // cap so endless-mode damage scaling stays "hard but fair" instead of compounding unbounded
   };
 
   // Cached power calculations (invalidated when upgrades change)
@@ -639,7 +640,10 @@
     // Calculate progressive enemy stat bonuses (kicks in after early game)
     const levelsAfterEasy = Math.max(0, level - ADAPTIVE_CONSTANTS.EASY_LEVELS);
     const progressiveHealthBonus = 1 + levelsAfterEasy * ADAPTIVE_CONSTANTS.HEALTH_PER_LEVEL;
-    const progressiveDamageBonus = 1 + levelsAfterEasy * ADAPTIVE_CONSTANTS.DAMAGE_PER_LEVEL;
+    const progressiveDamageBonus = Math.min(
+      ADAPTIVE_CONSTANTS.MAX_PROGRESSIVE_DAMAGE_BONUS,
+      1 + levelsAfterEasy * ADAPTIVE_CONSTANTS.DAMAGE_PER_LEVEL
+    );
     const progressiveSpeedBonus = 1 + levelsAfterEasy * ADAPTIVE_CONSTANTS.SPEED_PER_LEVEL;
     
     return {
@@ -1223,6 +1227,18 @@
   const _applyPerk = (perkId) => {
     const perk = PERK_CATALOG.find(p => p.id === perkId);
     if (!perk) return;
+
+    // Once every perk in the catalog is owned, _pickRandomPerks() falls back
+    // to offering already-owned cards so the picker never runs dry — but
+    // re-running perk.apply() would silently re-stack that perk's multiplier
+    // past its intended one-time value. Convert a repeat pick into a flat
+    // credit payout instead of a no-op so the card still feels worth taking.
+    if (activePerks.includes(perkId)) {
+      Save.addCredits(30);
+      addLogEntry(`PERK MAXED: ${perk.name} (+30 credits)`, '#a5b4fc');
+      return;
+    }
+
     activePerks.push(perkId);
     perk.apply(perkMultipliers);
 
@@ -2879,14 +2895,18 @@ PowerUps.reset();
         p.y += p.vy * step;
       }
       
+      if (p.maxLife === undefined) p.maxLife = p.life;
       p.life -= dt;
       if (p.life <= 0 || (p.type === 'ring' && p.r >= p.maxR)) {
         particles.splice(i, 1);
         continue;
       }
-      
-      // Phase A.4: Enhanced rendering based on type
-      const alpha = Math.max(0, p.life / 320);
+
+      // Phase A.4: Enhanced rendering based on type — normalize against each
+      // particle's own spawn lifespan (life values range 180-500 by kind),
+      // not a fixed divisor, so short-lived particles reach full opacity and
+      // long-lived ones don't clip alpha above 1.
+      const alpha = Math.max(0, p.life / (p.maxLife || 320));
       ctx.globalAlpha = alpha;
       
       if (p.type === 'ring') {
@@ -13496,18 +13516,6 @@ PowerUps.reset();
   // Daily missions still progress in the background. Full list lives in Hangar.
   // A brief toast fires when a mission completes — never a persistent HUD panel.
   let _missionPrevCompleted = new Set();
-
-  function getHudAccent() {
-    const THEME_COLORS = {
-      cyan:   '#38bdf8',
-      green:  '#4ade80',
-      red:    '#f87171',
-      purple: '#a855f7',
-      gold:   '#fbbf24',
-    };
-    const saved = localStorage.getItem('voidrift_hud_theme') || 'cyan';
-    return THEME_COLORS[saved] || '#38bdf8';
-  }
 
   function setMissionHudExpanded(_open) {
     // no-op: in-game mission panel removed
