@@ -975,7 +975,6 @@
     hp:                  0,   // immediate HP given once on pickup
     fireRate:            1,   // multiplier on fire cooldown (< 1 = faster)
     twinShot:            0,   // probability 0-1 of firing second bullet
-    dashCooldown:        1,   // multiplier on dash/boost cooldown
     coinBonus:           1,   // multiplier on coin/credit drops
     lifestealPerKill:    0,   // HP healed per enemy kill
     damageTakenMult:     1,   // < 1 = less damage received (Reinforced Hull)
@@ -1708,16 +1707,17 @@
       this.save();
     },
     setRunBests(kills, timeSec, accuracyPct) {
-      let changed = false;
-      if (kills > (this.data.bestKills || 0)) { this.data.bestKills = kills; changed = true; }
-      if (timeSec > (this.data.bestTimeSec || 0)) { this.data.bestTimeSec = timeSec; changed = true; }
-      if (accuracyPct > (this.data.bestAccuracyPct || 0)) { this.data.bestAccuracyPct = accuracyPct; changed = true; }
-      if (changed) this.save();
-      return {
-        newBestKills: kills > 0 && kills >= (this.data.bestKills || 0),
-        newBestTime: timeSec > 0 && timeSec >= (this.data.bestTimeSec || 0),
-        newBestAccuracy: accuracyPct > 0 && accuracyPct >= (this.data.bestAccuracyPct || 0)
-      };
+      // Compute the "new best" flags BEFORE mutating the stored bests — comparing
+      // against the already-mutated value with >= reported a tied run (kills ==
+      // stored best, very common for rounded accuracy %) as a new personal best.
+      const newBestKills = kills > 0 && kills > (this.data.bestKills || 0);
+      const newBestTime = timeSec > 0 && timeSec > (this.data.bestTimeSec || 0);
+      const newBestAccuracy = accuracyPct > 0 && accuracyPct > (this.data.bestAccuracyPct || 0);
+      if (newBestKills) this.data.bestKills = kills;
+      if (newBestTime) this.data.bestTimeSec = timeSec;
+      if (newBestAccuracy) this.data.bestAccuracyPct = accuracyPct;
+      if (newBestKills || newBestTime || newBestAccuracy) this.save();
+      return { newBestKills, newBestTime, newBestAccuracy };
     },
     getUpgradeLevel(id) {
       return this.data.upgrades[id] || 0;
@@ -2457,7 +2457,6 @@ PowerUps.reset();
       hp:                  0,
       fireRate:            1,
       twinShot:            0,
-      dashCooldown:        1,
       coinBonus:           1,
       lifestealPerKill:    0,
       damageTakenMult:     1,
@@ -10218,11 +10217,28 @@ PowerUps.reset();
     }
   ];
 
+  // Ships awarded by PRESTIGE_REWARDS (e.g. Spectre-9 @ Prestige 2, Titan @
+  // Prestige 4) were shown as freely selectable in the featured carousel —
+  // the SELECT button never checked Auth.playerProfile.unlockedShips, so the
+  // prestige gate had no actual effect. Returns the prestige tier still
+  // required to unlock `shipId`, or null if it's already available.
+  const getRequiredPrestigeForShip = (shipId) => {
+    for (const tier of Object.keys(PRESTIGE_REWARDS)) {
+      if (PRESTIGE_REWARDS[tier].ship === shipId) {
+        const unlocked = Auth.playerProfile?.unlockedShips?.includes(shipId);
+        return unlocked ? null : Number(tier);
+      }
+    }
+    return null;
+  };
+
   const createFeaturedShipCard = (shipDef) => {
     const card = document.createElement('div');
     card.className = 'ship-card';
     const isActive = selectedShip === shipDef.id || Save.data.selectedShip === shipDef.id;
     if (isActive) card.classList.add('active');
+    const requiredPrestige = getRequiredPrestigeForShip(shipDef.id);
+    if (requiredPrestige) card.classList.add('locked');
 
     // Ship canvas preview
     const canvas = document.createElement('canvas');
@@ -10274,15 +10290,21 @@ PowerUps.reset();
 
     // SELECT button
     const btn = document.createElement('button');
-    btn.className = 'ship-select-btn' + (isActive ? ' selected-btn' : '');
-    btn.textContent = isActive ? 'SELECTED' : 'SELECT';
-    btn.addEventListener('click', () => {
-      selectedShip = shipDef.id;
-      Save.data.selectedShip = shipDef.id;
-      Save.save();
-      if (player) player.reconfigureLoadout(true);
-      renderHangar();
-    });
+    if (requiredPrestige) {
+      btn.className = 'ship-select-btn locked-btn';
+      btn.textContent = `PRESTIGE ${requiredPrestige} REQUIRED`;
+      btn.disabled = true;
+    } else {
+      btn.className = 'ship-select-btn' + (isActive ? ' selected-btn' : '');
+      btn.textContent = isActive ? 'SELECTED' : 'SELECT';
+      btn.addEventListener('click', () => {
+        selectedShip = shipDef.id;
+        Save.data.selectedShip = shipDef.id;
+        Save.save();
+        if (player) player.reconfigureLoadout(true);
+        renderHangar();
+      });
+    }
     card.appendChild(btn);
 
     // Draw ship preview
@@ -14140,12 +14162,14 @@ PowerUps.reset();
     }
     pilotLevel = Save.data.pilotLevel;
     pilotXP = Save.data.pilotXp;
-    // Sync selectedShip from saved data (default to 'spectre-9' if not one of the 3 featured)
-    const FEATURED_IDS = ['spectre', 'bulwark', 'titan'];
-    if (FEATURED_IDS.includes(Save.data.selectedShip)) {
+    // Sync selectedShip from saved data. Previously this only recognized the 3
+    // "featured" hangar-carousel ids and silently reassigned everyone else —
+    // including new players, whose real default save value is 'vanguard' — to
+    // 'spectre', switching their starting ship without consent.
+    if (SHIP_TEMPLATES.some((s) => s.id === Save.data.selectedShip)) {
       selectedShip = Save.data.selectedShip;
     } else {
-      selectedShip = 'spectre';
+      selectedShip = 'vanguard';
     }
     initShipSelection();
     syncCredits();
@@ -14498,17 +14522,38 @@ PowerUps.reset();
     }
   };
 
+  // Hot-swap the player's equipped weapon/system for `weaponType` to `id` if
+  // it isn't already active. Returns false (without swapping) if `id` hasn't
+  // been unlocked, so quick-slots can't be used to fire un-owned equipment.
+  const swapLoadoutForSlot = (weaponType, id) => {
+    if (Save.data.armory.loadout[weaponType] === id) return true;
+    const weaponDef = ARMORY_MAP[weaponType] && ARMORY_MAP[weaponType][id];
+    const isFree = weaponDef && weaponDef.unlock === 0;
+    if (!isFree && !Save.isUnlocked(weaponType, id)) return false;
+    Save.setLoadout(weaponType, id);
+    player.reconfigureLoadout(true);
+    return true;
+  };
+
   const activateEquipmentSlot = (slotData) => {
     if (!slotData || !player) return;
-    
+
     const { type, id } = slotData;
-    
+
+    // Activating a slot previously never actually equipped the weapon chosen
+    // for it in the Loadout tab/pause menu — it only set input flags and
+    // logged the configured weapon's name, while real firing always used
+    // whichever weapon was equipped from the single Armory-tab loadout. Now
+    // each slot swaps in its configured (and unlocked) weapon before firing.
     switch (type) {
       case 'primary':
-        // Primary is always active, no need to do anything
-        addLogEntry(`Primary weapon active`, '#fde047');
+        if (!swapLoadoutForSlot('primary', id)) {
+          addLogEntry(`${id.toUpperCase()} not unlocked`, '#ef4444');
+          break;
+        }
+        addLogEntry(`${(player.primary && player.primary.name) || 'Primary weapon'} active`, '#fde047');
         break;
-        
+
       case 'boost':
         input.isBoosting = true;
         setTimeout(() => (input.isBoosting = false), 300);
@@ -14518,23 +14563,35 @@ PowerUps.reset();
           AudioManager.playBoost();
         }
         break;
-        
+
       case 'secondary':
+        if (!swapLoadoutForSlot('secondary', id)) {
+          addLogEntry(`${id.toUpperCase()} not unlocked`, '#ef4444');
+          break;
+        }
         input.altFireHeld = true;
         setTimeout(() => (input.altFireHeld = false), 150);
-        addLogEntry(`${id.toUpperCase()} launched!`, '#f97316');
+        addLogEntry(`${(player.secondary && player.secondary.name) || id.toUpperCase()} launched!`, '#f97316');
         break;
-        
+
       case 'defense':
+        if (!swapLoadoutForSlot('defense', id)) {
+          addLogEntry(`${id.toUpperCase()} not unlocked`, '#ef4444');
+          break;
+        }
         input.defenseHeld = true;
         setTimeout(() => (input.defenseHeld = false), 150);
-        addLogEntry(`${id.toUpperCase()} shield deployed!`, '#38bdf8');
+        addLogEntry(`${(player.defense && player.defense.name) || id.toUpperCase()} shield deployed!`, '#38bdf8');
         break;
-        
+
       case 'ultimate':
+        if (!swapLoadoutForSlot('ultimate', id)) {
+          addLogEntry(`${id.toUpperCase()} not unlocked`, '#ef4444');
+          break;
+        }
         input.ultimateQueued = true;
         setTimeout(() => (input.ultimateQueued = false), 200);
-        addLogEntry(`ULTIMATE: ${id.toUpperCase()}!`, '#a855f7');
+        addLogEntry(`ULTIMATE: ${(player.ultimate && player.ultimate.name) || id.toUpperCase()}!`, '#a855f7');
         break;
     }
   };

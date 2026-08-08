@@ -2689,6 +2689,26 @@ label,
   box-shadow: none;
 }
 
+.ship-card.locked {
+  border-color: rgba(148, 163, 184, 0.3);
+  filter: grayscale(0.6);
+}
+
+.ship-select-btn.locked-btn {
+  background: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+  border: 2px solid rgba(148, 163, 184, 0.3);
+  cursor: not-allowed;
+  box-shadow: none;
+  font-size: 11px;
+}
+
+.ship-select-btn.locked-btn:hover {
+  background: rgba(148, 163, 184, 0.15);
+  transform: none;
+  box-shadow: none;
+}
+
 /* Legacy hangar (armory) — keep working inside game pause menu */
 .hangarSectionHeader {
   grid-column: 1 / -1;
