@@ -18,6 +18,31 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization'
 };
 
+const LOCK_TTL_SECONDS = 5;
+const LOCK_RETRIES = 8;
+const LOCK_RETRY_DELAY_MS = 100;
+
+// Acquire a short-lived per-user-pair lock before a read-modify-write on the
+// friends KV store, so two concurrent requests (e.g. accept + remove firing
+// at once) can't interleave and corrupt either user's friends array.
+async function withUserPairLock(userA, userB, fn) {
+  const lockKey = `lock:friends:${[userA, userB].sort().join(':')}`;
+
+  for (let attempt = 0; attempt <= LOCK_RETRIES; attempt++) {
+    const acquired = await kv.set(lockKey, '1', { nx: true, ex: LOCK_TTL_SECONDS });
+    if (acquired) {
+      try {
+        return await fn();
+      } finally {
+        await kv.del(lockKey).catch(() => {});
+      }
+    }
+    await new Promise(resolve => setTimeout(resolve, LOCK_RETRY_DELAY_MS));
+  }
+
+  throw new Error('Friends service is busy, please try again');
+}
+
 module.exports = async (req, res) => {
   Object.entries(CORS_HEADERS).forEach(([key, value]) => {
     res.setHeader(key, value);
@@ -53,124 +78,148 @@ module.exports = async (req, res) => {
     if (action === 'request' && req.method === 'POST') {
       const { fromUserId, toUserId } = req.body;
 
-      const fromUser = await kv.get(`user:${fromUserId}`);
-      const toUser = await kv.get(`user:${toUserId}`);
-
-      if (!fromUser || !toUser) {
-        return res.status(404).json({ error: 'User not found' });
+      if (fromUserId === toUserId) {
+        return res.status(400).json({ error: 'Cannot send a friend request to yourself' });
       }
 
-      // Check if already friends
-      if (fromUser.friends.includes(toUserId)) {
-        return res.status(400).json({ error: 'Already friends' });
-      }
+      return await withUserPairLock(fromUserId, toUserId, async () => {
+        const fromUser = await kv.get(`user:${fromUserId}`);
+        const toUser = await kv.get(`user:${toUserId}`);
 
-      // Check if request already sent
-      if (fromUser.friendRequests.sent.includes(toUserId)) {
-        return res.status(400).json({ error: 'Request already sent' });
-      }
+        if (!fromUser || !toUser) {
+          return res.status(404).json({ error: 'User not found' });
+        }
 
-      // Add request
-      fromUser.friendRequests.sent.push(toUserId);
-      toUser.friendRequests.received.push(fromUserId);
+        // Check if already friends
+        if (fromUser.friends.includes(toUserId)) {
+          return res.status(400).json({ error: 'Already friends' });
+        }
 
-      await kv.set(`user:${fromUserId}`, fromUser);
-      await kv.set(`user:${toUserId}`, toUser);
+        // Check if request already sent
+        if (fromUser.friendRequests.sent.includes(toUserId)) {
+          return res.status(400).json({ error: 'Request already sent' });
+        }
 
-      // Create notification
-      const notification = {
-        id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-        type: 'friend_request',
-        fromUserId,
-        fromUsername: fromUser.username,
-        timestamp: Date.now(),
-        read: false
-      };
-      await kv.lpush(`notifications:${toUserId}`, JSON.stringify(notification));
-      await kv.ltrim(`notifications:${toUserId}`, 0, 99); // Keep last 100
+        // Add request
+        fromUser.friendRequests.sent.push(toUserId);
+        toUser.friendRequests.received.push(fromUserId);
 
-      return res.status(200).json({ success: true, message: 'Friend request sent' });
+        await kv.set(`user:${fromUserId}`, fromUser);
+        await kv.set(`user:${toUserId}`, toUser);
+
+        // Create notification
+        const notification = {
+          id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+          type: 'friend_request',
+          fromUserId,
+          fromUsername: fromUser.username,
+          timestamp: Date.now(),
+          read: false
+        };
+        await kv.lpush(`notifications:${toUserId}`, JSON.stringify(notification));
+        await kv.ltrim(`notifications:${toUserId}`, 0, 99); // Keep last 100
+
+        return res.status(200).json({ success: true, message: 'Friend request sent' });
+      });
     }
 
     // Accept friend request
     if (action === 'accept' && req.method === 'POST') {
       const { userId, friendId } = req.body;
 
-      const user = await kv.get(`user:${userId}`);
-      const friend = await kv.get(`user:${friendId}`);
-
-      if (!user || !friend) {
-        return res.status(404).json({ error: 'User not found' });
+      if (userId === friendId) {
+        return res.status(400).json({ error: 'Invalid friend request' });
       }
 
-      // Remove from requests
-      user.friendRequests.received = user.friendRequests.received.filter(id => id !== friendId);
-      friend.friendRequests.sent = friend.friendRequests.sent.filter(id => id !== userId);
+      return await withUserPairLock(userId, friendId, async () => {
+        const user = await kv.get(`user:${userId}`);
+        const friend = await kv.get(`user:${friendId}`);
 
-      // Add as friends
-      if (!user.friends.includes(friendId)) {
-        user.friends.push(friendId);
-      }
-      if (!friend.friends.includes(userId)) {
-        friend.friends.push(userId);
-      }
+        if (!user || !friend) {
+          return res.status(404).json({ error: 'User not found' });
+        }
 
-      await kv.set(`user:${userId}`, user);
-      await kv.set(`user:${friendId}`, friend);
+        // Remove from requests
+        user.friendRequests.received = user.friendRequests.received.filter(id => id !== friendId);
+        friend.friendRequests.sent = friend.friendRequests.sent.filter(id => id !== userId);
 
-      // Notification
-      const notification = {
-        id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-        type: 'friend_accepted',
-        fromUserId: userId,
-        fromUsername: user.username,
-        timestamp: Date.now(),
-        read: false
-      };
-      await kv.lpush(`notifications:${friendId}`, JSON.stringify(notification));
-      await kv.ltrim(`notifications:${friendId}`, 0, 99);
+        // Add as friends
+        if (!user.friends.includes(friendId)) {
+          user.friends.push(friendId);
+        }
+        if (!friend.friends.includes(userId)) {
+          friend.friends.push(userId);
+        }
 
-      return res.status(200).json({ success: true, message: 'Friend request accepted' });
+        await kv.set(`user:${userId}`, user);
+        await kv.set(`user:${friendId}`, friend);
+
+        // Notification
+        const notification = {
+          id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+          type: 'friend_accepted',
+          fromUserId: userId,
+          fromUsername: user.username,
+          timestamp: Date.now(),
+          read: false
+        };
+        await kv.lpush(`notifications:${friendId}`, JSON.stringify(notification));
+        await kv.ltrim(`notifications:${friendId}`, 0, 99);
+
+        return res.status(200).json({ success: true, message: 'Friend request accepted' });
+      });
     }
 
     // Decline friend request
     if (action === 'decline' && req.method === 'POST') {
       const { userId, friendId } = req.body;
 
-      const user = await kv.get(`user:${userId}`);
-      const friend = await kv.get(`user:${friendId}`);
-
-      if (!user || !friend) {
-        return res.status(404).json({ error: 'User not found' });
+      if (userId === friendId) {
+        return res.status(400).json({ error: 'Invalid friend request' });
       }
 
-      user.friendRequests.received = user.friendRequests.received.filter(id => id !== friendId);
-      friend.friendRequests.sent = friend.friendRequests.sent.filter(id => id !== userId);
+      return await withUserPairLock(userId, friendId, async () => {
+        const user = await kv.get(`user:${userId}`);
+        const friend = await kv.get(`user:${friendId}`);
 
-      await kv.set(`user:${userId}`, user);
-      await kv.set(`user:${friendId}`, friend);
+        if (!user || !friend) {
+          return res.status(404).json({ error: 'User not found' });
+        }
 
-      return res.status(200).json({ success: true, message: 'Request declined' });
+        user.friendRequests.received = user.friendRequests.received.filter(id => id !== friendId);
+        friend.friendRequests.sent = friend.friendRequests.sent.filter(id => id !== userId);
+
+        await kv.set(`user:${userId}`, user);
+        await kv.set(`user:${friendId}`, friend);
+
+        return res.status(200).json({ success: true, message: 'Request declined' });
+      });
     }
 
     // Remove friend
     if (action === 'remove' && req.method === 'DELETE') {
       const { userId, friendId } = req.body;
 
-      const user = await kv.get(`user:${userId}`);
-      const friend = await kv.get(`user:${friendId}`);
-
-      if (!user || !friend) {
-        return res.status(404).json({ error: 'User not found' });
+      if (userId === friendId) {
+        return res.status(400).json({ error: 'Invalid friend' });
       }
 
-      user.friends = user.friends.filter(id => id !== friendId);
-      friend.friends = friend.friends.filter(id => id !== userId);
+      return await withUserPairLock(userId, friendId, async () => {
+        const user = await kv.get(`user:${userId}`);
+        const friend = await kv.get(`user:${friendId}`);
 
-      await kv.set(`user:${userId}`, user);
-      await kv.set(`user:${friendId}`, friend);
+        if (!user || !friend) {
+          return res.status(404).json({ error: 'User not found' });
+        }
 
-      return res.status(200).json({ success: true, message: 'Friend removed' });
+        user.friends = user.friends.filter(id => id !== friendId);
+        friend.friends = friend.friends.filter(id => id !== userId);
+
+        await kv.set(`user:${userId}`, user);
+        await kv.set(`user:${friendId}`, friend);
+
+        return res.status(200).json({ success: true, message: 'Friend removed' });
+      });
     }
 
     // Get friends list with profiles
@@ -266,12 +315,26 @@ module.exports = async (req, res) => {
       return res.status(200).json({ success: true, notifications: parsed });
     }
 
-    // Mark notifications as read
+    // Mark notifications as read (flags entries in place; does not discard history)
     if (action === 'mark-read' && req.method === 'POST') {
-      const { userId } = req.body;
+      const { userId, notificationIds } = req.body;
 
-      // Just clear for simplicity (or implement read tracking)
-      await kv.del(`notifications:${userId}`);
+      const key = `notifications:${userId}`;
+      const raw = await kv.lrange(key, 0, -1);
+      const notifications = raw.map(n => typeof n === 'string' ? JSON.parse(n) : n);
+
+      const updated = notifications.map(n => {
+        if (!notificationIds || notificationIds.includes(n.id)) {
+          return { ...n, read: true };
+        }
+        return n;
+      });
+
+      if (updated.length > 0) {
+        // lrange returns newest-first (lpush prepends); rpush preserves that order
+        await kv.del(key);
+        await kv.rpush(key, ...updated.map(n => JSON.stringify(n)));
+      }
 
       return res.status(200).json({ success: true });
     }

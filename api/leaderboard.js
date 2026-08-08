@@ -6,6 +6,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 // Import Vercel KV for persistent storage
 let kv;
@@ -133,6 +134,7 @@ function validateScorePayload(score, level, timestamp) {
 
 // Key for storing all entries in a sorted set
 const ALL_ENTRIES_KEY = 'leaderboard:all_entries';
+const IDEMPOTENCY_TTL_SECONDS = 60 * 60; // 1h is plenty to cover client retry windows
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -211,7 +213,7 @@ module.exports = async (req, res) => {
     }
     
     if (req.method === 'POST') {
-      const { username, score, level, difficulty, timestamp, userId, authToken } = req.body;
+      const { username, score, level, difficulty, timestamp, userId, authToken, submissionId } = req.body;
 
       const authHeader = req.headers.authorization || '';
       const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
@@ -258,12 +260,27 @@ module.exports = async (req, res) => {
       if (validationError) {
         return res.status(400).json({ success: false, error: validationError });
       }
-      
-      // Generate unique ID
-      const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 
       const safeUsername = (session?.username || username || 'pilot').toString().slice(0, 30).trim();
-      const resolvedUserId = session?.userId || userId || `anon-${uniqueId}`;
+      const resolvedUserId = session.userId;
+
+      // Idempotency: client retries (up to 3x) reuse the same submissionId, so a
+      // lost response after a successful write can't create a duplicate entry.
+      const idemKey = submissionId ? `leaderboard:idem:${resolvedUserId}:${submissionId}` : null;
+      if (kv && idemKey) {
+        try {
+          const cached = await kv.get(idemKey);
+          if (cached) {
+            const cachedResult = typeof cached === 'string' ? JSON.parse(cached) : cached;
+            return res.status(201).json({ ...cachedResult, deduped: true });
+          }
+        } catch (kvError) {
+          console.error('KV idempotency lookup error:', kvError);
+        }
+      }
+
+      // Generate unique ID
+      const uniqueId = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}`;
 
       const entry = {
         id: uniqueId,
@@ -274,30 +291,48 @@ module.exports = async (req, res) => {
         timestamp: timestamp || Date.now(),
         userId: resolvedUserId
       };
-      
+
       let rank = 1;
       let storageType = 'file';
-      
+
       if (kv) {
         // Use Vercel KV for persistent storage
         try {
-          const entryJson = JSON.stringify(entry);
-          
-          await kv.zadd(ALL_ENTRIES_KEY, { score: entry.score, member: entryJson });
-          
-          const higherScores = await kv.zcount(ALL_ENTRIES_KEY, entry.score + 1, '+inf');
-          rank = higherScores + 1;
-          
-          const count = await kv.zcard(ALL_ENTRIES_KEY);
-          if (count > 1000) {
-            await kv.zremrangebyrank(ALL_ENTRIES_KEY, 0, count - 1001);
+          // Enforce a single best entry per user per difficulty — replace their
+          // previous entry instead of letting every submission occupy a slot.
+          const bestKey = `leaderboard:best:${resolvedUserId}:${difficulty}`;
+          const existingRaw = await kv.get(bestKey);
+          const existing = existingRaw ? (typeof existingRaw === 'string' ? JSON.parse(existingRaw) : existingRaw) : null;
+
+          if (existing && existing.score >= entry.score) {
+            // Not a new best for this user/difficulty — report their existing rank
+            // without adding a duplicate slot to the leaderboard.
+            const higherScores = await kv.zcount(ALL_ENTRIES_KEY, existing.score + 1, '+inf');
+            rank = higherScores + 1;
+            storageType = 'kv';
+          } else {
+            const entryJson = JSON.stringify(entry);
+
+            if (existing) {
+              await kv.zrem(ALL_ENTRIES_KEY, JSON.stringify(existing));
+            }
+            await kv.zadd(ALL_ENTRIES_KEY, { score: entry.score, member: entryJson });
+            await kv.set(bestKey, entryJson);
+
+            const higherScores = await kv.zcount(ALL_ENTRIES_KEY, entry.score + 1, '+inf');
+            rank = higherScores + 1;
+
+            const count = await kv.zcard(ALL_ENTRIES_KEY);
+            if (count > 1000) {
+              await kv.zremrangebyrank(ALL_ENTRIES_KEY, 0, count - 1001);
+            }
+            storageType = 'kv';
           }
-          storageType = 'kv';
         } catch (kvError) {
           console.error('KV write error:', kvError);
         }
       }
-      
+
       // Always also save to file-based storage as backup
       const allData = getMemoryData();
       allData.push(entry);
@@ -306,14 +341,14 @@ module.exports = async (req, res) => {
         allData.splice(1000);
       }
       setMemoryData(allData);
-      
+
       if (storageType === 'file') {
         rank = allData.findIndex(e => e.id === entry.id) + 1;
       }
-      
-      return res.status(201).json({ 
-        success: true, 
-        entry, 
+
+      const result = {
+        success: true,
+        entry,
         rank,
         storage: storageType,
         debug: {
@@ -324,7 +359,17 @@ module.exports = async (req, res) => {
             windowSeconds: RATE_LIMIT_WINDOW_SECONDS
           }
         }
-      });
+      };
+
+      if (kv && idemKey) {
+        try {
+          await kv.set(idemKey, JSON.stringify(result), { ex: IDEMPOTENCY_TTL_SECONDS });
+        } catch (kvError) {
+          console.error('KV idempotency write error:', kvError);
+        }
+      }
+
+      return res.status(201).json(result);
     }
     
     return res.status(405).json({ success: false, error: 'Method not allowed' });
