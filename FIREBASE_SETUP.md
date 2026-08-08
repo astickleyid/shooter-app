@@ -1,5 +1,11 @@
 # Firebase Backend Setup Guide
 
+> **Note:** This Firebase integration was never wired into a live build (`firebase-config.js`
+> always shipped with placeholder credentials, so it never actually initialized) and has
+> since been removed from the codebase — `firebase-backend.js`/`firebase-adapter.js`/
+> `firebase-config.js` no longer exist. Vercel (`api/*.js`) is the app's real, sole
+> production backend. This guide is kept for historical reference only.
+
 ## Why Firebase?
 
 Firebase is a simple, easy-to-use backend solution that requires **no server infrastructure**. Perfect for browser games!

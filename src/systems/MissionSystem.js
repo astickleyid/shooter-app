@@ -53,7 +53,11 @@ const MISSION_TEMPLATES = [
   
   // Score missions
   { type: MISSION_TYPES.EARN_SCORE, target: 5000, reward: 150, xpBoost: 1.2, name: 'High Scorer', desc: 'Earn {target} points' },
-  { type: MISSION_TYPES.EARN_SCORE, target: 10000, reward: 350, xpBoost: 1.35, name: 'Point Master', desc: 'Earn {target} points' }
+  { type: MISSION_TYPES.EARN_SCORE, target: 10000, reward: 350, xpBoost: 1.35, name: 'Point Master', desc: 'Earn {target} points' },
+
+  // Weapon missions
+  { type: MISSION_TYPES.USE_WEAPON, target: 10, reward: 150, xpBoost: 1.15, name: 'Ordnance Specialist', desc: 'Fire your secondary weapon {target} times' },
+  { type: MISSION_TYPES.USE_WEAPON, target: 25, reward: 300, xpBoost: 1.3, name: 'Arsenal Master', desc: 'Fire your secondary weapon {target} times' }
 ];
 
 /**
@@ -148,7 +152,8 @@ class MissionSystem {
       levelReached: 0,
       timeElapsed: 0,
       damageTakenThisLevel: 0,
-      levelsCompletedFlawless: 0
+      levelsCompletedFlawless: 0,
+      weaponsUsed: 0
     };
   }
 
@@ -321,6 +326,14 @@ class MissionSystem {
   }
 
   /**
+   * Track a secondary weapon use
+   */
+  trackWeaponUse() {
+    this.runStats.weaponsUsed++;
+    this.updateMissionProgress(MISSION_TYPES.USE_WEAPON, 1);
+  }
+
+  /**
    * Track damage taken this level
    * @param {number} damage - Damage amount
    */
@@ -365,7 +378,8 @@ class MissionSystem {
           MISSION_TYPES.KILL_BOSSES,
           MISSION_TYPES.KILL_ELITES,
           MISSION_TYPES.COLLECT_CREDITS,
-          MISSION_TYPES.COLLECT_FRAGMENTS
+          MISSION_TYPES.COLLECT_FRAGMENTS,
+          MISSION_TYPES.USE_WEAPON
         ];
         
         if (cumulativeMissions.includes(missionType)) {

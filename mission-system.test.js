@@ -207,6 +207,13 @@ describe('MissionSystem', () => {
 
       expect(system.runStats.timeElapsed).toBe(120);
     });
+
+    test('should track weapon uses', () => {
+      system.trackWeaponUse();
+      system.trackWeaponUse();
+
+      expect(system.runStats.weaponsUsed).toBe(2);
+    });
   });
 
   describe('Mission Progress', () => {
@@ -243,13 +250,28 @@ describe('MissionSystem', () => {
       
       if (killMission) {
         const target = killMission.target;
-        
+
         for (let i = 0; i < target + 10; i++) {
           system.trackKill(false, false);
         }
 
         expect(killMission.progress).toBeGreaterThanOrEqual(target);
       }
+    });
+
+    test('should update and complete a USE_WEAPON mission via trackWeaponUse', () => {
+      system.dailyMissions = [
+        { id: 'test_weapon', type: MISSION_TYPES.USE_WEAPON, target: 3, progress: 0, completed: false, claimed: false }
+      ];
+
+      system.trackWeaponUse();
+      system.trackWeaponUse();
+      expect(system.dailyMissions[0].progress).toBe(2);
+      expect(system.dailyMissions[0].completed).toBe(false);
+
+      system.trackWeaponUse();
+      expect(system.dailyMissions[0].progress).toBe(3);
+      expect(system.dailyMissions[0].completed).toBe(true);
     });
   });
 

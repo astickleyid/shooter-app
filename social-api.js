@@ -33,11 +33,6 @@ const SOCIAL_CONFIG = {
 const SocialAPI = {
   currentUser: null,
 
-  // Helper: Check if Firebase is ready
-  _isFirebaseReady() {
-    return typeof FirebaseBackend !== 'undefined' && FirebaseBackend.initialized;
-  },
-
   // Helper: Make API request
   async request(endpoint, options = {}) {
     try {
@@ -82,15 +77,6 @@ const SocialAPI = {
 
   // USER AUTHENTICATION
   async register(username, password, email = null) {
-    if (this._isFirebaseReady()) {
-      const data = await FirebaseBackend.register(username, password, email);
-      if (data.success) {
-        this.currentUser = { ...data.user, sessionToken: null };
-        localStorage.setItem('social_user', JSON.stringify(this.currentUser));
-      }
-      return data;
-    }
-
     const data = await this.request('/users?action=register', {
       method: 'POST',
       body: JSON.stringify({ username, password, email })
@@ -105,15 +91,6 @@ const SocialAPI = {
   },
 
   async login(username, password) {
-    if (this._isFirebaseReady()) {
-      const data = await FirebaseBackend.login(username, password);
-      if (data.success) {
-        this.currentUser = { ...data.user, sessionToken: null };
-        localStorage.setItem('social_user', JSON.stringify(this.currentUser));
-      }
-      return data;
-    }
-
     const data = await this.request('/users?action=login', {
       method: 'POST',
       body: JSON.stringify({ username, password })
@@ -128,28 +105,11 @@ const SocialAPI = {
   },
 
   async logout() {
-    if (this._isFirebaseReady()) {
-      await FirebaseBackend.logout();
-    }
     this.currentUser = null;
     localStorage.removeItem('social_user');
   },
 
   loadSession() {
-    if (this._isFirebaseReady()) {
-      const firebaseUser = FirebaseBackend.getCurrentUser();
-      if (firebaseUser) {
-        this.currentUser = {
-          id: firebaseUser.uid,
-          username: firebaseUser.displayName || firebaseUser.email.split('@')[0],
-          email: firebaseUser.email,
-          sessionToken: null
-        };
-        localStorage.setItem('social_user', JSON.stringify(this.currentUser));
-        return this.currentUser;
-      }
-    }
-
     const stored = localStorage.getItem('social_user');
     if (stored) {
       this.currentUser = JSON.parse(stored);
@@ -159,9 +119,6 @@ const SocialAPI = {
   },
 
   isLoggedIn() {
-    if (this._isFirebaseReady()) {
-      return !!FirebaseBackend.getCurrentUser();
-    }
     return this.currentUser !== null;
   },
 
@@ -225,12 +182,6 @@ const SocialAPI = {
   async sendFriendRequest(toUserId, toUsername = null) {
     if (!this.currentUser) throw new Error('Not logged in');
 
-    if (this._isFirebaseReady() && toUsername) {
-      const firebaseUser = FirebaseBackend.getCurrentUser();
-      const fromUserId = firebaseUser ? firebaseUser.uid : this.currentUser.id;
-      return await FirebaseBackend.sendFriendRequestByUsername(fromUserId, toUsername);
-    }
-
     return await this.request('/friends?action=request', {
       method: 'POST',
       body: JSON.stringify({
@@ -278,13 +229,6 @@ const SocialAPI = {
 
   async getFriendsList() {
     if (!this.currentUser) return [];
-
-    if (this._isFirebaseReady()) {
-      const firebaseUser = FirebaseBackend.getCurrentUser();
-      const userId = firebaseUser ? firebaseUser.uid : this.currentUser.id;
-      const result = await FirebaseBackend.getFriends(userId);
-      if (result.success) return result.friends;
-    }
 
     const params = new URLSearchParams({
       action: 'list',
@@ -342,13 +286,6 @@ const SocialAPI = {
 
   async getActivityFeed(limit = 50) {
     if (!this.currentUser) return [];
-
-    if (this._isFirebaseReady()) {
-      const firebaseUser = FirebaseBackend.getCurrentUser();
-      const userId = firebaseUser ? firebaseUser.uid : this.currentUser.id;
-      const result = await FirebaseBackend.getActivityFeed(userId, limit);
-      if (result.success) return result.feed;
-    }
 
     const params = new URLSearchParams({
       action: 'feed',
