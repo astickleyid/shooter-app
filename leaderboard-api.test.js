@@ -24,7 +24,7 @@ jest.mock('@vercel/kv', () => {
   // Expose store for tests
   kv.__store = store;
   return { kv };
-});
+}, { virtual: true });
 
 const handler = require('./api/leaderboard');
 const { kv } = require('@vercel/kv');
