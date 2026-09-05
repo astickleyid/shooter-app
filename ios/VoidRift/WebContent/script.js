@@ -11848,7 +11848,7 @@
       const watchAdBtn = document.getElementById('gameOverWatchAdBtn');
       if (watchAdBtn) {
         // Show only if AdMob is available and player hasn't already used a continue this run
-        const canContinue = typeof AdMobManager !== 'undefined' && !continueUsed;
+        const canContinue = typeof AdMobManager !== 'undefined' && AdMobManager.enabled && !continueUsed;
         watchAdBtn.style.display = canContinue ? 'flex' : 'none';
 
         watchAdBtn.onclick = () => {

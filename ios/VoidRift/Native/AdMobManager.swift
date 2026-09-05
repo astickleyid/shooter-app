@@ -21,6 +21,8 @@ import GoogleMobileAds
 
 class AdMobManager: NSObject {
 
+    // Ads are disabled for this release until production AdMob is configured.
+    static let isEnabled = false
     static let shared = AdMobManager()
 
     // MARK: - Configuration
@@ -34,12 +36,14 @@ class AdMobManager: NSObject {
     // MARK: - Init
     private override init() {
         super.init()
+        guard Self.isEnabled else { return }
         // Initialize the Mobile Ads SDK
         GADMobileAds.sharedInstance().start(completionHandler: nil)
     }
 
     // MARK: - Preload
     func preloadRewarded() {
+        guard Self.isEnabled else { return }
         guard rewardedAd == nil else { return } // Already loaded
 
         let request = GADRequest()
@@ -59,6 +63,7 @@ class AdMobManager: NSObject {
 
     // MARK: - Show
     func showRewarded(from viewController: UIViewController?, completion: @escaping (Bool) -> Void) {
+        guard Self.isEnabled else { completion(false); return }
         guard let ad = rewardedAd, let vc = viewController else {
             print("[AdMob] Ad not ready or no view controller")
             completion(false)

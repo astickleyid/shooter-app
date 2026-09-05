@@ -67,6 +67,7 @@ class GameBridge: NSObject {
             },
             // AdMob ads integration
             ads: {
+                enabled: \(AdMobManager.isEnabled),
                 preloadRewarded: function() {
                     window.webkit.messageHandlers.adPreloadRewarded.postMessage({});
                 },

@@ -36,8 +36,13 @@ const AdMobManager = {
     return 'web';
   },
 
+  get enabled() {
+    return window.iOSBridge?.ads?.enabled !== false;
+  },
+
   // ── Init ───────────────────────────────────────────────────────────────────
   initialize() {
+    if (!this.enabled) return;
     // Listen for native ad callbacks
     window.addEventListener('adRewarded', (e) => this._onRewarded(e.detail));
     window.addEventListener('adClosed', ()  => this._onClosed());
@@ -53,6 +58,7 @@ const AdMobManager = {
 
   // ── Pre-load ad (called after each ad is dismissed) ────────────────────────
   _preload() {
+    if (!this.enabled) return;
     if (this.isLoading || this.isReady) return;
     this.isLoading = true;
     const unitId = this.AD_UNITS[this.platform]?.rewarded;
@@ -71,6 +77,10 @@ const AdMobManager = {
    * @param {Function} onCancelled - called when player skips/closes without reward
    */
   showRewarded(onRewarded, onCancelled) {
+    if (!this.enabled) {
+      if (onCancelled) onCancelled('disabled');
+      return;
+    }
     this._rewardCallback = onRewarded;
     this._cancelCallback = onCancelled;
 
@@ -242,6 +252,7 @@ const AdMobManager = {
 
   // ── Util ───────────────────────────────────────────────────────────────────
   get canShow() {
+    if (!this.enabled) return false;
     return this.platform !== 'web' ? this.isReady : true;
   }
 };

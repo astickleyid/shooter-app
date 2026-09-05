@@ -12347,7 +12347,7 @@
           };
         } else {
           // Show only if AdMob is available and player hasn't already used a continue this run
-          const canContinue = typeof AdMobManager !== 'undefined' && !continueUsed && !adsRemoved;
+          const canContinue = typeof AdMobManager !== 'undefined' && AdMobManager.enabled && !continueUsed && !adsRemoved;
           watchAdBtn.style.display = canContinue ? 'flex' : 'none';
 
           watchAdBtn.onclick = () => {
