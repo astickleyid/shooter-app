@@ -10,10 +10,10 @@
     "test:coverage": "jest --coverage",
     "lint": "eslint script.js",
     "lint:fix": "eslint script.js --fix",
-    "cap:sync": "npx cap sync",
+    "cap:sync": "./sync-ios-content.sh && npx cap sync",
     "cap:android": "npx cap open android",
-    "cap:build:android": "npx cap sync android && cd android && ./gradlew bundleRelease",
-    "cap:add:android": "npx cap add android"
+    "cap:build:android": "./sync-ios-content.sh && (test -d android || npx cap add android) && npx cap sync android && cd android && ./gradlew bundleRelease",
+    "cap:add:android": "./sync-ios-content.sh && npx cap add android"
   },
   "repository": {
     "type": "git",

@@ -2,7 +2,7 @@
 const config = {
   appId: 'com.voidrift.game',
   appName: 'VOID RIFT',
-  webDir: '.',
+  webDir: 'ios/VoidRift/WebContent',
 
   plugins: {
     AdMob: {
