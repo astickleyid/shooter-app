@@ -46,7 +46,7 @@ class GameViewController: UIViewController {
         webView = WKWebView(frame: view.bounds, configuration: config)
         webView.scrollView.isScrollEnabled = false
         webView.scrollView.bounces = false
-        webView.isOpaque = false
+        webView.isOpaque = true
         webView.backgroundColor = .black
         webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         

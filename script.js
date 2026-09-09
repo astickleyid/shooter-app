@@ -11340,6 +11340,13 @@
 
   /* ====== MAIN LOOP ====== */
   let animationFrame = null;
+  let lastHUDTime = -Infinity;
+  const updateFrameHUD = (timestamp) => {
+    if (timestamp - lastHUDTime >= 1000 / 30) {
+      updateHUD();
+      lastHUDTime = timestamp;
+    }
+  };
 
   const loop = (timestamp) => {
     // Calculate FPS
@@ -11358,7 +11365,7 @@
     // Always draw during countdown or ready-up, but don't update game logic
     if (countdownActive || readyUpPhase) {
       drawGame();
-      updateHUD();
+      updateFrameHUD(timestamp);
       drawReadyUpOverlay(); // Draw ready-up AFTER HUD so it's on top of everything
       lastTime = timestamp; // Update lastTime during countdown to prevent huge dt when resuming
       consumeTimedEffects(timestamp); // Process timed effects to allow countdown to complete
@@ -11382,7 +11389,7 @@
       return;
     }
     drawGame();
-    updateHUD();
+    updateFrameHUD(timestamp);
     animationFrame = requestAnimationFrame(loop);
   };
 
@@ -11440,8 +11447,8 @@
       player = new PlayerEntity(dom.canvas.width / 2, dom.canvas.height / 2);
     }
     
-    camera.x = player.x - dom.canvas.width / 2;
-    camera.y = player.y - dom.canvas.height / 2;
+    camera.x = player.x - window.innerWidth / 2;
+    camera.y = player.y - window.innerHeight / 2;
     
     // Only spawn obstacles and hazards in space mode
     if (currentGameMode !== 'planetary') {
@@ -12048,8 +12055,8 @@
       dom.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
     if (player) {
-      camera.x = player.x - dom.canvas.width / 2;
-      camera.y = player.y - dom.canvas.height / 2;
+      camera.x = player.x - window.innerWidth / 2;
+      camera.y = player.y - window.innerHeight / 2;
     }
     
     drawStartGraphic();
@@ -14188,7 +14195,7 @@
       const rawMag = Math.hypot(rawX, rawY);
       const deadZone = getDeadzone();
       
-      if (rawMag < deadZone) {
+      if (rawMag === 0 || rawMag < deadZone) {
         rawX = 0;
         rawY = 0;
       } else {
@@ -14235,19 +14242,11 @@
         dom.joystickMoveBase.style.opacity = controlSettings.opacity / 100;
       }
       
-      const returnInterval = setInterval(() => {
-        smoothMoveX *= 0.7;
-        smoothMoveY *= 0.7;
-        input.moveX = smoothMoveX;
-        input.moveY = smoothMoveY;
-        if (Math.abs(smoothMoveX) < 0.01 && Math.abs(smoothMoveY) < 0.01) {
-          input.moveX = 0;
-          input.moveY = 0;
-          smoothMoveX = 0;
-          smoothMoveY = 0;
-          clearInterval(returnInterval);
-        }
-      }, 16);
+      // Release immediately: old return timers must never overwrite a new touch.
+      smoothMoveX = 0;
+      smoothMoveY = 0;
+      input.moveX = 0;
+      input.moveY = 0;
       moveHapticTriggered = false;
     };
     
@@ -14290,7 +14289,7 @@
       const rawMag = Math.hypot(rawX, rawY);
       const aimDeadzone = getDeadzone() * 0.8;
       
-      if (rawMag < aimDeadzone) {
+      if (rawMag === 0 || rawMag < aimDeadzone) {
         rawX = 0;
         rawY = 0;
         input.isAiming = false;
@@ -14337,21 +14336,13 @@
         dom.joystickShootBase.style.opacity = controlSettings.opacity / 100;
       }
       
-      const returnInterval = setInterval(() => {
-        smoothAimX *= 0.55;
-        smoothAimY *= 0.55;
-        input.aimX = smoothAimX;
-        input.aimY = smoothAimY;
-        if (Math.abs(smoothAimX) < 0.01 && Math.abs(smoothAimY) < 0.01) {
-          input.aimX = 0;
-          input.aimY = 0;
-          smoothAimX = 0;
-          smoothAimY = 0;
-          input.isAiming = false;
-          input.fireHeld = false;
-          clearInterval(returnInterval);
-        }
-      }, 16);
+      // Release immediately: old return timers must never overwrite a new touch.
+      smoothAimX = 0;
+      smoothAimY = 0;
+      input.aimX = 0;
+      input.aimY = 0;
+      input.isAiming = false;
+      input.fireHeld = false;
       shootHapticTriggered = false;
     };
     
