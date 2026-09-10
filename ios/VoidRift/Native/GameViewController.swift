@@ -21,20 +21,6 @@ class GameViewController: UIViewController {
         loadGame()
     }
     
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
-        
-        // Show tutorial on first launch (with longer delay to ensure game fully loads)
-        if !hasShownTutorial {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) { [weak self] in
-                print("🎓 Attempting to show tutorial...")
-                self?.showTutorial()
-            }
-        } else {
-            print("ℹ️ Tutorial already completed")
-        }
-    }
-    
     private func setupWebView() {
         let config = WKWebViewConfiguration()
         config.allowsInlineMediaPlayback = true

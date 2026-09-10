@@ -1290,7 +1290,9 @@
    * Called just before startCountdownFromReadyUp().
    * @param {Function} onChosen  callback invoked after a card is picked
    */
+  const shouldOfferWaveUpgrade = (completedWave) => completedWave > 0 && completedWave % 3 === 0;
   const showWaveUpgradeScreen = (onChosen) => {
+    if (!shouldOfferWaveUpgrade(readyUpLevel)) { onChosen && onChosen(); return; }
     const modal = document.getElementById('waveUpgradeModal');
     const container = document.getElementById('waveUpgradeCards');
     const titleEl = document.getElementById('waveUpgradeTitle');
@@ -1299,7 +1301,7 @@
     waveUpgradeActive = true;
     titleEl && (titleEl.textContent = `CHOOSE AN UPGRADE — WAVE ${readyUpLevel}`);
 
-    const picks = _pickRandomPerks(3);
+    const picks = _pickRandomPerks(2);
     container.innerHTML = '';
 
     picks.forEach(perk => {
@@ -10835,8 +10837,8 @@
 
       if (alpha > 0) {
         ctx.save();
-        const cx = canvas.width / 2;
-        const cy = 54;
+        const cx = window.innerWidth / 2;
+        const cy = Math.min(window.innerHeight * 0.25, 110);
 
         // Scale-up appear animation (first 200ms after each new kill)
         const scaleT = Math.min(1, timeSinceKill / 200);
@@ -10853,9 +10855,9 @@
         ctx.font = `bold ${Math.round(32 * scale)}px Arial, sans-serif`;
         ctx.strokeStyle = 'rgba(0,0,0,0.85)';
         ctx.lineWidth = 4;
-        ctx.strokeText(`COMBO x${killComboMultiplier}`, cx, cy);
+        ctx.strokeText(`COMBO x${killComboMultiplier}`, cx, cy, Math.max(1, window.innerWidth - 64));
         ctx.fillStyle = '#FFD700';
-        ctx.fillText(`COMBO x${killComboMultiplier}`, cx, cy);
+        ctx.fillText(`COMBO x${killComboMultiplier}`, cx, cy, Math.max(1, window.innerWidth - 64));
 
         ctx.shadowBlur = 0;
         ctx.restore();
@@ -10878,9 +10880,9 @@
           ctx.font = `bold ${Math.round(48 * flashScale)}px Arial, sans-serif`;
           ctx.strokeStyle = 'rgba(0,0,0,0.9)';
           ctx.lineWidth = 5;
-          ctx.strokeText('COMBO ESCALATED!', canvas.width / 2, canvas.height / 2 - 80);
+          ctx.strokeText('COMBO ESCALATED!', window.innerWidth / 2, Math.max(110, window.innerHeight * 0.3), Math.max(1, window.innerWidth - 64));
           ctx.fillStyle = '#FFD700';
-          ctx.fillText('COMBO ESCALATED!', canvas.width / 2, canvas.height / 2 - 80);
+          ctx.fillText('COMBO ESCALATED!', window.innerWidth / 2, Math.max(110, window.innerHeight * 0.3), Math.max(1, window.innerWidth - 64));
           ctx.shadowBlur = 0;
           ctx.restore();
         } else {
@@ -10956,8 +10958,8 @@
       ctx.shadowBlur = 8;
       ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
       ctx.lineWidth = 2;
-      ctx.strokeText(`${comboCount}x COMBO`, x, y);
-      ctx.fillText(`${comboCount}x COMBO`, x, y);
+      ctx.strokeText(`${comboCount}x COMBO`, x, y, Math.max(1, window.innerWidth - 64));
+      ctx.fillText(`${comboCount}x COMBO`, x, y, Math.max(1, window.innerWidth - 64));
       
       ctx.shadowBlur = 0;
       ctx.restore();
