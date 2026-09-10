@@ -1433,6 +1433,7 @@
   let totalKillsThisRun = 0;
 
   // Kill Combo Multiplier System
+  let killComboChain = 0;
   let killComboMultiplier = 1;       // Current score multiplier (1–5)
   let killComboTimerEnd = 0;         // Timestamp when combo window closes
   const KILL_COMBO_WINDOW = 2000;    // ms - consecutive kill window
@@ -2360,6 +2361,7 @@
     levelUpAnimationActive = false;
 
     // Kill combo multiplier reset
+    killComboChain = 0;
     killComboMultiplier = 1;
     killComboTimerEnd = 0;
     killComboSplashStart = 0;
@@ -2561,7 +2563,7 @@
     
     // Check for kill streak milestones
     for (const milestone of KILL_STREAK_MILESTONES) {
-      if (totalKillsThisRun === milestone && lastKillStreakNotification < milestone) {
+      if (milestone >= 25 && totalKillsThisRun === milestone && lastKillStreakNotification < milestone) {
         lastKillStreakNotification = milestone;
         const messages = {
           5: 'Kill Streak!',
@@ -2599,6 +2601,7 @@
 
     // Kill combo multiplier: reset when window expires
     if (killComboMultiplier > 1 && now > killComboTimerEnd) {
+      killComboChain = 0;
       killComboMultiplier = 1;
       killComboTimerEnd = 0;
     }
@@ -9178,28 +9181,16 @@
       updateMissionHUD();
     }
 
-    // Kill Combo Multiplier: advance/extend on each kill
+    // A score combo starts at five chained kills, not the first enemy.
     const _kcNow = performance.now();
-    const _prevMultiplier = killComboMultiplier;
-    if (_kcNow < killComboTimerEnd || killComboMultiplier > 1) {
-      // Already in a combo — escalate up to max
-      if (killComboMultiplier < KILL_COMBO_MAX) {
-        killComboMultiplier++;
-        killComboEscalated = true;
-        killComboEscalatedStart = _kcNow;
-      }
-    } else {
-      // First kill starting a new combo
-      killComboMultiplier = 2;
-      killComboEscalated = true;
-      killComboEscalatedStart = _kcNow;
-    }
+    const _prevMultiplier = _kcNow < killComboTimerEnd ? killComboMultiplier : 1;
+    killComboChain = _kcNow < killComboTimerEnd ? killComboChain + 1 : 1;
+    killComboMultiplier = Math.min(KILL_COMBO_MAX, 1 + Math.floor(killComboChain / 5));
     killComboTimerEnd = _kcNow + KILL_COMBO_WINDOW;
     killComboSplashStart = _kcNow;
-    if (_prevMultiplier === killComboMultiplier) {
-      // At max — escalated flag not needed
-      killComboEscalated = false;
-    }
+    // Reserve the large flash for reaching x3 or above.
+    killComboEscalated = killComboMultiplier >= 3 && killComboMultiplier > _prevMultiplier;
+    if (killComboEscalated) killComboEscalatedStart = _kcNow;
 
     // Score calculation with elite/boss bonuses
     let scoreGain = 15 + (comboCount > 1 ? comboCount * 2 : 0);
@@ -10925,7 +10916,7 @@
     }
 
     // SUBTLE: Draw combo counter - SMALLER, positioned in TOP RIGHT corner, out of gameplay area
-    if (comboCount > 1 && now < comboTimer) {
+    if (comboCount >= 5 && now < comboTimer) {
       ctx.save();
       const comboAge = now - (comboTimer - COMBO_TIMEOUT);
       const appearScale = Math.min(1, comboAge / 150);
