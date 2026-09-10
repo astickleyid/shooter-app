@@ -19,6 +19,7 @@
   <!-- INITIAL LOADING OVERLAY -->
   <div id="loadingOverlay" class="loading-overlay">
     <div class="loading-content">
+      <div class="console-eyebrow">FLIGHT SYSTEMS <span>BOOT / 01</span></div>
       <h1 id="loadingTitle" class="loading-title-main"></h1>
       <div class="terminal-logs" id="terminalLogs"></div>
       <div class="loading-bar-container">
@@ -33,20 +34,21 @@
   <!-- START SCREEN -->
   <div id="startScreen">
     <div class="start-header">
+      <div class="console-eyebrow">DEEP SPACE OPERATIONS</div>
       <div id="gameTitle"><span class="title-accent">VOID</span><span class="title-accent">RIFT</span></div>
-      <div class="title-tagline">CREATED BY AUSTIN STICKLEY</div>
+      <div class="title-tagline">A TWIN-STICK SPACE SURVIVAL GAME</div>
       <div class="gameplay-hint" id="gameplayHint">
-        <span class="hint-icon">💫</span>
-        <span class="hint-text">Twin-stick action awaits</span>
+        <span class="hint-icon">⌖</span>
+        <span class="hint-text">Choose your ship. Hold the line.</span>
       </div>
     </div>
     
     <div class="start-main">
       <button id="startButton" class="startButton-primary">
-        <span class="btn-icon">▶</span> START GAME
+        <span class="btn-icon">▶</span> DEPLOY
       </button>
       
-      <div class="difficulty-inline">
+      <div class="difficulty-inline"><label class="difficulty-label" for="difficultySelect">MISSION DIFFICULTY</label>
         <select id="difficultySelect" class="difficultyDropdown">
           <option value="easy">Easy</option>
           <option value="normal" selected>Normal</option>

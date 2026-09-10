@@ -4793,3 +4793,69 @@ html, body {
 #waveClearedCard {
   animation: waveClearedFadeIn 0.25s ease-out forwards;
 }
+
+/* Flight console: shared boot and deployment visual language. */
+.console-eyebrow { font: 600 10px/1.5 ui-monospace, monospace; letter-spacing: .22em; color: #89a6ab; }
+.console-eyebrow span { float: right; color: #5ce0c2; }
+.loading-overlay { background: radial-gradient(ellipse at 50% 10%, #123037 0%, #070e17 55%, #04080d 100%); }
+.loading-content { width: min(90%, 620px); padding: 26px; gap: 20px; border: 1px solid #29434b; border-radius: 4px; background: #09131bea; box-shadow: 0 32px 90px #0008; }
+.loading-content > .console-eyebrow { width: 100%; }
+.loading-title-main { font-size: clamp(32px, 7vw, 64px); letter-spacing: .13em; margin: 4px 0; color: #e9f4f3; text-shadow: none; font-weight: 700; }
+.terminal-logs { min-height: 200px; height: 220px; max-height: 32vh; padding: 16px 0; border: 0; border-top: 1px solid #20333b; border-radius: 0; box-shadow: none; background: transparent; backdrop-filter: none; font-size: 11px; line-height: 1.8; text-shadow: none; scrollbar-width: thin; }
+.terminal-line { display: flex; align-items: baseline; gap: 7px; margin-bottom: 8px; }
+.terminal-line .timestamp { font-size: 10px; color: #67848d; margin: 0; flex-shrink: 0; }
+.terminal-line .prompt { margin: 0; color: #4ac5a8; }
+.terminal-line .status-highlight { color: #e6f5f2; text-shadow: none; overflow-wrap: anywhere; }
+.terminal-line .status-ok { color: #70b8a6; }
+.loading-bar-container { width: 100%; margin: 0; }
+.loading-bar { height: 3px; border: 0; background: #23343c; border-radius: 0; box-shadow: none; overflow: visible; }
+.loading-bar-fill { background: #65dec1; box-shadow: 0 0 12px #65dec144; border-radius: 0; }
+.loading-ship-canvas { opacity: .85; }
+#startScreen { background: radial-gradient(ellipse at 50% 28%, #183642 0%, #0b1722 40%, #050a11 85%); gap: 30px; padding: max(24px, env(safe-area-inset-top)) max(22px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(22px, env(safe-area-inset-left)); overflow-y: auto; }
+#startScreen::before { content: ''; position: absolute; inset: 0; pointer-events: none; background-image: radial-gradient(#8cb3ba66 .7px, transparent .7px); background-size: 47px 53px; opacity: .3; }
+.start-header { margin: 0; animation: titleReveal .7s ease both; }
+.start-header .console-eyebrow { margin-bottom: 24px; }
+#gameTitle { display: flex; gap: .17em; justify-content: center; font-size: clamp(46px, 9vw, 94px); line-height: 1; font-weight: 800; letter-spacing: -.035em; animation: none; text-shadow: none; }
+#gameTitle .title-accent { color: #e9f3f3; text-shadow: none; background: none; -webkit-text-fill-color: #e9f3f3; }
+#gameTitle .title-accent:last-child { color: #72dcc5; -webkit-text-fill-color: #72dcc5; }
+.title-tagline { font-size: 9px; letter-spacing: .19em; color: #8cabb4; margin-top: 16px; }
+.gameplay-hint { margin-top: 24px; font-size: 13px; color: #a6b9c2; background: transparent; border: 0; box-shadow: none; }
+.hint-icon { color: #72dcc5; }
+.start-main { width: min(100%, 380px); gap: 14px; z-index: 1; }
+#startButton { width: 100%; min-height: 58px; background: #77e3c9; color: #08251f; border: 1px solid #b1f5e5; border-radius: 4px; font-size: 14px; font-weight: 800; letter-spacing: .18em; box-shadow: 0 8px 30px #0004; animation: none; text-shadow: none; }
+#startButton:active { transform: scale(.98); }
+.difficulty-inline { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 16px; }
+.difficulty-label { font: 10px ui-monospace, monospace; letter-spacing: .08em; color: #829ca9; }
+#difficultySelect { min-height: 44px; background: #101e29; border: 1px solid #304652; border-radius: 4px; font-size: 13px; color: #e5efef; }
+.start-nav { display: grid; grid-template-columns: repeat(5,1fr); gap: 8px; width: min(100%, 560px); z-index: 1; }
+.start-nav .nav-btn { min-width: 0; min-height: 72px; padding: 12px 4px; border: 1px solid #29404b; border-radius: 4px; background: #10202ba8; box-shadow: none; color: #bdcdd2; }
+.start-nav .nav-label { font-size: 10px; }
+.start-nav .nav-btn:hover { background: #18303c; border-color: #5a9a9e; }
+.start-footer { z-index: 1; opacity: .7; }
+.hangar-modal { background: #09131d; border: 1px solid #304852; }
+.hangar-grid .ship-card { border-radius: 6px; border: 1px solid #29434e; background: #10202a; box-shadow: none; }
+.hangar-grid .ship-card.active { border-color: #77e3c9; box-shadow: inset 0 0 0 1px #77e3c9; }
+.ship-select-btn { min-height: 44px; }
+@media (max-height: 500px) and (orientation: landscape) {
+  #startScreen { display: grid; grid-template-columns: 1fr 1fr; align-content: center; gap: 14px 28px; }
+  .start-header { grid-row: span 2; }
+  #gameTitle { font-size: 52px; }
+  .start-header .console-eyebrow { margin-bottom: 12px; }
+  .start-nav { grid-column: 2; }
+  .start-nav .nav-btn { min-height: 58px; padding: 6px 2px; }
+  .start-footer { grid-column: 1 / -1; }
+  .loading-content { gap: 8px; padding: 16px 24px; }
+  .terminal-logs { min-height: 120px; height: 120px; padding: 8px 0; }
+  .loading-title-main { font-size: 28px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loading-overlay.loaded { animation-duration: .01s; }
+  .loading-title-main, .start-header, .terminal-line { animation: none; opacity: 1; transform: none; }
+}
+
+#startScreen .start-footer { display: flex; justify-content: center; width: 100%; gap: 14px; border: 0; padding: 0; }
+#startScreen .footer-btn { width: auto; min-width: 70px; min-height: 36px; padding: 6px 10px; font-size: 10px; white-space: nowrap; border: 0; background: transparent; color: #8da6b0; box-shadow: none; }
+#startScreen .footer-divider { display: none; }
+.hangar-modal .modal-header h2 { font-size: 18px; color: #dceeea; text-shadow: none; }
+.hangar-modal .ship-select-btn { background: #77e3c9; border-radius: 4px; box-shadow: none; color: #0b2822; }
+.hangar-modal .ship-select-btn.selected-btn { background: #122e2a; color: #77e3c9; }

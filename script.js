@@ -215,7 +215,82 @@
         pickup: 0.8,
         ammoRegen: 0.75
       }
-    }
+    },
+{
+      "id": "aurora",
+      "name": "Aurora Courier",
+      "shape": "crescent",
+      "desc": "Fast recovery craft. Wide pickup range and rapid ammunition recovery, with a lighter hull.",
+      "scale": 1,
+      "engineOffset": 1.1,
+      "colors": {
+            "primary": "#67e8f9",
+            "trim": "#e2e8f0",
+            "canopy": "#f8fafc",
+            "accent": "#67e8f9",
+            "thruster": "#67e8f9"
+      },
+      "stats": {
+            "hp": 0.85,
+            "speed": 1.15,
+            "boost": 1.15,
+            "ammo": 1,
+            "damage": 0.9,
+            "fireRate": 1,
+            "pickup": 1.4,
+            "ammoRegen": 0.75
+      }
+},
+{
+      "id": "kestrel",
+      "name": "Kestrel Vector",
+      "shape": "fork",
+      "desc": "Twin-boom strike fighter. Quick bursts and sharp handling trade magazine capacity for speed.",
+      "scale": 1,
+      "engineOffset": 1.1,
+      "colors": {
+            "primary": "#fbbf24",
+            "trim": "#e2e8f0",
+            "canopy": "#f8fafc",
+            "accent": "#fbbf24",
+            "thruster": "#fbbf24"
+      },
+      "stats": {
+            "hp": 0.9,
+            "speed": 1.18,
+            "boost": 1.15,
+            "ammo": 0.8,
+            "damage": 1.05,
+            "fireRate": 0.85,
+            "pickup": 1,
+            "ammoRegen": 1
+      }
+},
+{
+      "id": "atlas",
+      "name": "Atlas Sentinel",
+      "shape": "kite",
+      "desc": "Armored escort. A durable hull and generous reserves balanced by slower acceleration.",
+      "scale": 1,
+      "engineOffset": 1.1,
+      "colors": {
+            "primary": "#c4b5fd",
+            "trim": "#e2e8f0",
+            "canopy": "#f8fafc",
+            "accent": "#c4b5fd",
+            "thruster": "#c4b5fd"
+      },
+      "stats": {
+            "hp": 1.4,
+            "speed": 0.8,
+            "boost": 0.85,
+            "ammo": 1.3,
+            "damage": 1.1,
+            "fireRate": 1.15,
+            "pickup": 1,
+            "ammoRegen": 0.95
+      }
+}
   ];
 
   const ARMORY = {
@@ -7588,7 +7663,25 @@
     };
     
     // Ship-specific detailed rendering
-    if (shape === 'spear') {
+    if (['crescent', 'fork', 'kite'].includes(shape)) {
+      ctx.save();
+      const hulls = {
+        crescent: [[1.3,0],[.35,.35],[-.7,1.15],[-.45,.3],[-.8,0],[-.45,-.3],[-.7,-1.15],[.35,-.35]],
+        fork: [[1.5,.55],[-.85,.7],[-.6,.25],[.65,0],[-.6,-.25],[-.85,-.7],[1.5,-.55],[.75,-.25],[1,0],[.75,.25]],
+        kite: [[1.3,0],[.2,.85],[-.85,.65],[-.55,0],[-.85,-.65],[.2,-.85]]
+      };
+      const path = (points) => { ctx.beginPath(); points.forEach(([x,y],i) => i ? ctx.lineTo(x*size,y*size) : ctx.moveTo(x*size,y*size)); ctx.closePath(); };
+      ctx.shadowColor = thruster; ctx.shadowBlur = isBoosting ? 24 : 10;
+      for (const y of [-.38,.38]) { ctx.fillStyle=thruster; ctx.beginPath();
+        ctx.ellipse(-size*.8,size*y,size*(isBoosting?.6:.3),size*.1,0,0,Math.PI*2);ctx.fill(); }
+      ctx.shadowBlur=0;
+      const gradient=ctx.createLinearGradient(0,-size,0,size);
+      gradient.addColorStop(0,trim);gradient.addColorStop(.35,primary);gradient.addColorStop(1,darken(primary,.65));
+      path(hulls[shape]);ctx.fillStyle=gradient;ctx.fill();ctx.strokeStyle=accent;ctx.lineWidth=1.2;ctx.stroke();
+      path([[.9,0],[-.45,.18],[-.65,0],[-.45,-.18]]);ctx.fillStyle=darken(primary,.65);ctx.fill();
+      path([[.65,0],[.05,.13],[-.1,0],[.05,-.13]]);ctx.fillStyle=canopy;ctx.fill();
+      ctx.restore();
+    } else if (shape === 'spear') {
       // VANGUARD MK.I - Classic fighter jet inspired design
       // Twin-engine strike craft with swept wings and central fuselage
       
@@ -9757,29 +9850,15 @@
   };
 
   // Featured ships shown in the start-screen hangar modal
-  const HANGAR_FEATURED_SHIPS = [
-    {
-      id: 'spectre',
-      name: 'SPECTRE-9',
-      shipClass: 'Interceptor',
-      desc: 'Stealth recon craft — fastest in the fleet, built for hit-and-run strikes.',
-      pips: { SPEED: 5, HULL: 2, FIREPOWER: 3 }
-    },
-    {
-      id: 'bulwark',
-      name: 'BULWARK-7',
-      shipClass: 'Heavy Tank',
-      desc: 'Siege-rated assault pod with reinforced plating and extended magazine.',
-      pips: { SPEED: 2, HULL: 5, FIREPOWER: 3 }
-    },
-    {
-      id: 'titan',
-      name: 'TITAN HEAVY',
-      shipClass: 'Capital Ship',
-      desc: 'Capital-class gunship with devastating firepower and armored hull.',
-      pips: { SPEED: 1, HULL: 4, FIREPOWER: 5 }
-    }
-  ];
+  const HANGAR_FEATURED_SHIPS = SHIP_TEMPLATES.map(ship => ({
+    id: ship.id, name: ship.name, desc: ship.desc,
+    shipClass: ({ aurora: 'Recovery', kestrel: 'Strike fighter', atlas: 'Armored escort',
+      vanguard: 'Multirole', phantom: 'Interceptor', bulwark: 'Assault',
+      emberwing: 'Rail platform', spectre: 'Recon', titan: 'Heavy gunship' })[ship.id],
+    pips: { SPEED: Math.max(1, Math.min(5, Math.round(ship.stats.speed * 3))),
+      HULL: Math.max(1, Math.min(5, Math.round(ship.stats.hp * 3))),
+      FIREPOWER: Math.max(1, Math.min(5, Math.round(ship.stats.damage / ship.stats.fireRate * 3))) }
+  }));
 
   const createFeaturedShipCard = (shipDef) => {
     const card = document.createElement('div');
@@ -9843,6 +9922,8 @@
       selectedShip = shipDef.id;
       Save.data.selectedShip = shipDef.id;
       Save.save();
+      initShipSelection();
+      drawStartGraphic();
       if (player) player.reconfigureLoadout(true);
       renderHangar();
     });
@@ -12698,8 +12779,8 @@
     }
     pilotLevel = Save.data.pilotLevel;
     pilotXP = Save.data.pilotXp;
-    // Sync selectedShip from saved data (default to 'spectre-9' if not one of the 3 featured)
-    const FEATURED_IDS = ['spectre', 'bulwark', 'titan'];
+    // Restore any valid fleet hull, including newly added ships.
+    const FEATURED_IDS = SHIP_TEMPLATES.map(ship => ship.id);
     if (FEATURED_IDS.includes(Save.data.selectedShip)) {
       selectedShip = Save.data.selectedShip;
     } else {
@@ -12749,6 +12830,7 @@
     toggleFullscreen,
     toggleFPS,
     getGameState: () => ({
+      selectedShip: currentShip?.id || Save.data.selectedShip,
       gameRunning,
       paused,
       level,
@@ -14462,44 +14544,17 @@
       : 'WEB BUILD';
     // Terminal log messages with real facts
     const logMessages = [
-      { time: 0, msg: '═══════════════════════════════════════', type: 'info' },
-      { time: 100, msg: 'VOID RIFT - COMBAT SYSTEM', type: 'highlight' },
-      { time: 200, msg: '═══════════════════════════════════════', type: 'info' },
-      { time: 500, msg: 'SYSTEM BOOT SEQUENCE INITIATED', type: 'info' },
-      { time: 800, msg: `Date: ${dateStr}`, type: 'info' },
-      { time: 1100, msg: `Time: ${timeStr}`, type: 'info' },
-      { time: 1400, msg: 'Built by Austin Michael Stickley', type: 'highlight' },
-      { time: 1700, msg: `> INSTALLED BUILD: ${buildLabel}`, type: 'highlight' },
-      { time: 2000, msg: '> Initializing weapon systems... OK', type: 'ok' },
-      { time: 2300, msg: '> Loading navigation database... OK', type: 'ok' },
-      { time: 2600, msg: '> Calibrating targeting matrix... OK', type: 'ok' },
-      { time: 2900, msg: '> Establishing tactical uplink... OK', type: 'ok' },
-      { time: 3200, msg: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', type: 'info' },
-      { time: 3500, msg: '> Scanning hostile signatures... CLEAR', type: 'ok' },
-      { time: 3800, msg: '> Shield generators online... OK', type: 'ok' },
-      { time: 4100, msg: '> Life support systems nominal... OK', type: 'ok' },
-      { time: 4400, msg: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', type: 'info' },
-      { time: 4700, msg: '> VANGUARD-CLASS ship detected... OK', type: 'ok' },
-      { time: 5000, msg: '> Thruster systems ready... OK', type: 'ok' },
-      { time: 5300, msg: '> Reactor core stable... OK', type: 'ok' },
-      { time: 5600, msg: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', type: 'info' },
-      { time: 5900, msg: '> Command center uplink established... OK', type: 'ok' },
-      { time: 6200, msg: '> Mission parameters loaded... OK', type: 'ok' },
-      { time: 6500, msg: '> HUD interface initialized... OK', type: 'ok' },
-      { time: 6800, msg: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', type: 'info' },
-      { time: 7100, msg: '> Audio systems online... OK', type: 'ok' },
-      { time: 7400, msg: '> Input systems calibrated... OK', type: 'ok' },
-      { time: 7700, msg: '> Communications array active... OK', type: 'ok' },
-      { time: 8000, msg: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', type: 'info' },
-      { time: 8300, msg: 'Finalizing initialization sequence...', type: 'info' },
-      { time: 8600, msg: 'ALL SYSTEMS NOMINAL', type: 'ok' },
-      { time: 8900, msg: 'PILOT READY FOR DEPLOYMENT', type: 'ok' },
-      { time: 9200, msg: '═══════════════════════════════════════', type: 'info' }
+      { time: 0, msg: 'VOID RIFT / FLIGHT CONSOLE', type: 'highlight' },
+      { time: 450, msg: `INSTALLED: ${buildLabel}`, type: 'highlight' },
+      { time: 1600, msg: 'Flight controls initialized', type: 'ok' },
+      { time: 2150, msg: 'Fleet manifest loaded / 9 hulls', type: 'ok' },
+      { time: 2700, msg: 'Navigation and weapons online', type: 'ok' },
+      { time: 3350, msg: 'PILOT READY FOR DEPLOYMENT', type: 'highlight' }
     ];
     
     let currentLogIndex = 0;
     const startTime = Date.now();
-    const duration = 10000; // 10 seconds
+    const duration = 4600; // Allow the build identity to finish typing before deployment.
     
     // Title streaming effect
     const titleText = 'VOID RIFT';
