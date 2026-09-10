@@ -10852,7 +10852,7 @@
         ctx.shadowColor = '#FFD700';
         ctx.shadowBlur = 18;
 
-        ctx.font = `bold ${Math.round(32 * scale)}px Arial, sans-serif`;
+        ctx.font = `bold ${Math.round(Math.min(32, window.innerWidth / 12) * scale)}px Arial, sans-serif`;
         ctx.strokeStyle = 'rgba(0,0,0,0.85)';
         ctx.lineWidth = 4;
         ctx.strokeText(`COMBO x${killComboMultiplier}`, cx, cy, Math.max(1, window.innerWidth - 64));
@@ -10877,12 +10877,12 @@
           ctx.textBaseline = 'middle';
           ctx.shadowColor = '#FFD700';
           ctx.shadowBlur = 30;
-          ctx.font = `bold ${Math.round(48 * flashScale)}px Arial, sans-serif`;
+          ctx.font = `bold ${Math.round(Math.min(40, window.innerWidth / 14) * flashScale)}px Arial, sans-serif`;
           ctx.strokeStyle = 'rgba(0,0,0,0.9)';
           ctx.lineWidth = 5;
-          ctx.strokeText('COMBO ESCALATED!', window.innerWidth / 2, Math.max(110, window.innerHeight * 0.3), Math.max(1, window.innerWidth - 64));
+          ctx.strokeText('COMBO ESCALATED!', window.innerWidth / 2, Math.max(110, Math.min(145, window.innerHeight * 0.3)), Math.max(1, window.innerWidth - 64));
           ctx.fillStyle = '#FFD700';
-          ctx.fillText('COMBO ESCALATED!', window.innerWidth / 2, Math.max(110, window.innerHeight * 0.3), Math.max(1, window.innerWidth - 64));
+          ctx.fillText('COMBO ESCALATED!', window.innerWidth / 2, Math.max(110, Math.min(145, window.innerHeight * 0.3)), Math.max(1, window.innerWidth - 64));
           ctx.shadowBlur = 0;
           ctx.restore();
         } else {
