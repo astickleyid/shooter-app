@@ -19,7 +19,7 @@
   <!-- INITIAL LOADING OVERLAY -->
   <div id="loadingOverlay" class="loading-overlay">
     <div class="loading-content">
-      <div class="console-eyebrow">FLIGHT SYSTEMS <span>BOOT / 01</span></div>
+      <div class="console-eyebrow">COMBAT SYSTEMS <span>BOOT / 01</span></div>
       <h1 id="loadingTitle" class="loading-title-main"></h1>
       <div class="terminal-logs" id="terminalLogs"></div>
       <div class="loading-bar-container">
@@ -34,15 +34,20 @@
   <!-- START SCREEN -->
   <div id="startScreen">
     <div class="start-header">
-      <div class="console-eyebrow">DEEP SPACE OPERATIONS</div>
+      <div class="console-eyebrow">SURVIVE THE VOID</div>
       <div id="gameTitle"><span class="title-accent">VOID</span><span class="title-accent">RIFT</span></div>
-      <div class="title-tagline">A TWIN-STICK SPACE SURVIVAL GAME</div>
+      <div class="title-tagline">CREATED BY AUSTIN STICKLEY</div>
       <div class="gameplay-hint" id="gameplayHint">
         <span class="hint-icon">⌖</span>
         <span class="hint-text">Choose your ship. Hold the line.</span>
       </div>
     </div>
     
+    <div class="start-ship-stage" aria-label="Selected combat ship">
+      <div class="ship-orbit" aria-hidden="true"></div>
+      <canvas id="startGraphicCanvas" width="640" height="300" aria-label="Selected ship preview"></canvas>
+      <div class="ship-readout"><span>ACTIVE HULL</span><strong id="startShipName">VANGUARD MK.I</strong><span class="ship-ready">● COMBAT READY</span></div>
+    </div>
     <div class="start-main">
       <button id="startButton" class="startButton-primary">
         <span class="btn-icon">▶</span> DEPLOY

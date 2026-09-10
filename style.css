@@ -4859,3 +4859,57 @@ html, body {
 .hangar-modal .modal-header h2 { font-size: 18px; color: #dceeea; text-shadow: none; }
 .hangar-modal .ship-select-btn { background: #77e3c9; border-radius: 4px; box-shadow: none; color: #0b2822; }
 .hangar-modal .ship-select-btn.selected-btn { background: #122e2a; color: #77e3c9; }
+
+/* Void Rift combat identity: black space, green phosphor, actual fleet hull. */
+.loading-overlay { background: #000; }
+.loading-content { background: #030805; border-color: #244c30; border-radius: 2px; box-shadow: 0 0 70px #4ade800b; }
+.loading-content::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(transparent 0 3px, #0002 3px 4px); }
+.console-eyebrow { color: #7b9982; }
+.console-eyebrow span { color: #4ade80; }
+.loading-title-main { color: #4ade80; text-shadow: 0 0 22px #4ade8040; font-family: ui-monospace, monospace; }
+.terminal-logs { border-color: #193521; color: #4ade80; }
+.terminal-line .timestamp { color: #54795d; }
+.terminal-line .prompt, .terminal-line .status-ok { color: #4ade80; }
+.terminal-line .status-highlight { color: #b6facb; }
+.loading-bar { background: #112319; }
+.loading-bar-fill { background: #4ade80; box-shadow: 0 0 14px #4ade8050; }
+#startScreen { background: radial-gradient(ellipse at 50% 43%, #08170d 0%, #020604 42%, #000 75%); gap: 16px; }
+#startScreen::before { background-image: radial-gradient(#dafbe0aa .7px, transparent .7px), radial-gradient(#8bba9466 .6px, transparent .6px); background-size: 71px 89px, 113px 131px; background-position: 0 0, 29px 47px; opacity: .5; }
+.start-header .console-eyebrow { margin-bottom: 12px; color: #7bb28a; letter-spacing: .3em; }
+#gameTitle { font-family: Arial, sans-serif; font-size: clamp(48px, 10vw, 82px); letter-spacing: .035em; font-weight: 900; }
+#gameTitle .title-accent, #gameTitle .title-accent:last-child { color: #4ade80; -webkit-text-fill-color: #4ade80; text-shadow: 0 0 26px #4ade8033; }
+.title-tagline { color: #748d7b; margin-top: 10px; font-size: 8px; }
+.gameplay-hint { display: none; }
+.start-ship-stage { position: relative; width: min(100%, 360px); height: 190px; flex-shrink: 0; z-index: 1; }
+#startGraphicCanvas { position: relative; width: 100%; height: 158px; animation: shipHover 5s ease-in-out infinite; }
+.ship-orbit { position: absolute; width: 148px; height: 148px; border: 1px solid #4ade8026; border-radius: 50%; top: 4px; left: calc(50% - 74px); box-shadow: 0 0 0 18px #4ade8005, 0 0 0 38px #4ade8003; }
+.ship-orbit::before, .ship-orbit::after { content: ''; position: absolute; background: #4ade8033; }
+.ship-orbit::before { width: 190px; height: 1px; left: -22px; top: 74px; }
+.ship-orbit::after { height: 172px; width: 1px; left: 74px; top: -12px; }
+.ship-readout { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px 10px; font: 8px ui-monospace, monospace; letter-spacing: .1em; color: #617b68; }
+.ship-readout strong { color: #d4eedc; font-size: 10px; }
+.ship-readout .ship-ready { color: #4ade80; }
+#startButton { background: linear-gradient(180deg, #53e88a, #28b65e); border: 1px solid #72f29e; color: #031a0b; border-radius: 2px; min-height: 52px; box-shadow: 0 0 28px #4ade8012; }
+#difficultySelect { color: #cae5d2; background: #080f0b; border-color: #284432; }
+.difficulty-label { color: #728d7b; }
+.start-nav .nav-btn { background: #08100bdd; border-color: #203a29; border-radius: 2px; color: #9cbaaa; min-height: 64px; }
+.start-nav .nav-btn:hover { background: #102519; border-color: #4ade80; }
+#startScreen .start-footer { margin-top: 4px; }
+#startScreen .footer-btn { color: #6c8c77; }
+@keyframes shipHover { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+@media (max-height: 740px) and (orientation: portrait) { #startScreen { gap: 10px; padding-top: 14px; padding-bottom: 12px; } .start-ship-stage { height: 144px; } #startGraphicCanvas { height: 116px; } .ship-orbit { transform: scale(.75); top: -14px; } #gameTitle { font-size: 44px; } }
+@media (max-height: 500px) and (orientation: landscape) {
+ #startScreen { grid-template-columns: 1fr 1fr; gap: 10px 30px; }
+ .start-header { grid-row: 1; grid-column: 1; }
+ .start-header .console-eyebrow { margin-bottom: 6px; }
+ #gameTitle { font-size: 44px; }
+ .start-ship-stage { grid-column: 1; grid-row: 2 / span 2; height: 154px; justify-self: center; }
+ #startGraphicCanvas { height: 126px; }
+ .ship-orbit { transform: scale(.8); top: -10px; }
+ .start-main { grid-column: 2; grid-row: 1 / span 2; align-self: end; }
+ .start-nav { grid-column: 2; grid-row: 3; }
+ .start-footer { grid-row: 4; }
+}
+@media (prefers-reduced-motion: reduce) { #startGraphicCanvas { animation: none; } }
+
+#startGraphicCanvas { background: transparent; border: 0; border-radius: 0; box-shadow: none; }

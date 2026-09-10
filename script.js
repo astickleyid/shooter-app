@@ -7769,6 +7769,7 @@
       ctx.fill();
       
       // Main fuselage body - ENHANCED: wider and more substantial with intense glow
+      ctx.save();
       ctx.fillStyle = primary;
       ctx.strokeStyle = trim;
       ctx.lineWidth = Math.max(2, size * 0.1);
@@ -9506,17 +9507,20 @@
     if (!canvas) return;
     const g = canvas.getContext('2d');
     if (!g) return;
-    const width = (canvas.width = canvas.clientWidth);
-    const height = (canvas.height = canvas.clientHeight);
-    g.fillStyle = '#000';
-    g.fillRect(0, 0, width, height);
-    g.fillStyle = '#fff';
-    for (let i = 0; i < 30; i++) g.fillRect(Math.random() * width, Math.random() * height, 1.5, 1.5);
+    const width = canvas.clientWidth;
+    const height = canvas.clientHeight;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, width, height);
     g.save();
-    g.translate(width / 2 - 30, height / 2);
-    g.rotate(-0.5);
-    drawShip(g, Save.data.selectedShip, 18);
+    g.translate(width / 2, height / 2);
+    g.rotate(-Math.PI / 2);
+    drawShip(g, Save.data.selectedShip, Math.min(height * .32, 50));
     g.restore();
+    const label = document.getElementById('startShipName');
+    if (label) label.textContent = (getShipTemplate(Save.data.selectedShip)?.name || 'Vanguard Mk.I').toUpperCase();
   };
 
   const _showMessage = (title, html, button = 'Continue', handler) => {
@@ -14544,9 +14548,9 @@
       : 'WEB BUILD';
     // Terminal log messages with real facts
     const logMessages = [
-      { time: 0, msg: 'VOID RIFT / FLIGHT CONSOLE', type: 'highlight' },
+      { time: 0, msg: 'VOID RIFT / COMBAT SYSTEMS', type: 'highlight' },
       { time: 450, msg: `INSTALLED: ${buildLabel}`, type: 'highlight' },
-      { time: 1600, msg: 'Flight controls initialized', type: 'ok' },
+      { time: 1600, msg: 'Twin-stick targeting calibrated', type: 'ok' },
       { time: 2150, msg: 'Fleet manifest loaded / 9 hulls', type: 'ok' },
       { time: 2700, msg: 'Navigation and weapons online', type: 'ok' },
       { time: 3350, msg: 'PILOT READY FOR DEPLOYMENT', type: 'highlight' }
