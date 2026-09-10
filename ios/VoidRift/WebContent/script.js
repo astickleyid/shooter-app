@@ -13939,23 +13939,16 @@
     const buildLabel = buildIdentity
       ? `iOS ${buildIdentity.version} • BUILD ${buildIdentity.build} • ${buildIdentity.revision.slice(0, 12)}`
       : 'WEB BUILD';
-    // Keep identity visible while the boot messages scroll.
-    const buildLine = document.createElement('div');
-    buildLine.className = 'terminal-line';
-    buildLine.id = 'buildIdentity';
-    buildLine.textContent = buildLabel;
-    terminalLogs.before(buildLine);
-
     // Terminal log messages with real facts
     const logMessages = [
       { time: 0, msg: '═══════════════════════════════════════', type: 'info' },
-      { time: 100, msg: `VOID RIFT - ${buildLabel}`, type: 'highlight' },
+      { time: 100, msg: 'VOID RIFT - COMBAT SYSTEM', type: 'highlight' },
       { time: 200, msg: '═══════════════════════════════════════', type: 'info' },
       { time: 500, msg: 'SYSTEM BOOT SEQUENCE INITIATED', type: 'info' },
       { time: 800, msg: `Date: ${dateStr}`, type: 'info' },
       { time: 1100, msg: `Time: ${timeStr}`, type: 'info' },
       { time: 1400, msg: 'Built by Austin Michael Stickley', type: 'highlight' },
-      { time: 1700, msg: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', type: 'info' },
+      { time: 1700, msg: `> INSTALLED BUILD: ${buildLabel}`, type: 'highlight' },
       { time: 2000, msg: '> Initializing weapon systems... OK', type: 'ok' },
       { time: 2300, msg: '> Loading navigation database... OK', type: 'ok' },
       { time: 2600, msg: '> Calibrating targeting matrix... OK', type: 'ok' },
