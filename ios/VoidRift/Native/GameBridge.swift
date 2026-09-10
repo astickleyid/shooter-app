@@ -47,7 +47,18 @@ class GameBridge: NSObject {
     }
     
     private func injectBridgeScript() {
+        let bundle = Bundle.main
+        let revision = bundle.url(forResource: "build-revision", withExtension: "txt")
+            .flatMap { try? String(contentsOf: $0, encoding: .utf8) } ?? "unknown"
+        let identity: [String: String] = [
+            "version": bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown",
+            "build": bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown",
+            "revision": revision.trimmingCharacters(in: .whitespacesAndNewlines)
+        ]
+        guard let data = try? JSONSerialization.data(withJSONObject: identity),
+              let identityJSON = String(data: data, encoding: .utf8) else { return }
         let bridgeScript = """
+        window.voidRiftBuild = \(identityJSON);
         // iOS Native Bridge
         window.iOSBridge = {
             haptic: function(style) {

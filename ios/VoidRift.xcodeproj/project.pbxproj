@@ -121,6 +121,7 @@
 				FF0001 /* Sources */,
 				CC0001 /* Frameworks */,
 				FF0002 /* Resources */,
+				FF0003 /* Build Identity */,
 			);
 			buildRules = (
 			);
@@ -135,6 +136,20 @@
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
+
+/* Begin PBXShellScriptBuildPhase section */
+        FF0003 /* Build Identity */ = {
+            isa = PBXShellScriptBuildPhase;
+            alwaysOutOfDate = 1;
+            buildActionMask = 2147483647;
+            files = ();
+            inputPaths = ();
+            outputPaths = ("$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/build-revision.txt",);
+            runOnlyForDeploymentPostprocessing = 0;
+            shellPath = /bin/sh;
+            shellScript = "set -eu\nrevision=\"${VOID_RIFT_SOURCE_REVISION:-${CI_COMMIT:-}}\"\nif [ -z \"$revision\" ]; then revision=$(git -C \"$SRCROOT\" rev-parse --short=12 HEAD 2>/dev/null || printf unknown); fi\nprintf \"%s\" \"$revision\" > \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/build-revision.txt\"\n";
+        };
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXProject section */
 		GG0001 /* Project object */ = {
